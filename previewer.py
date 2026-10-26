@@ -4,10 +4,12 @@
 Previewer
 =========
 
-STAND: 2026-10-26b – aktuelle Fassung. Dies ist die EINSTIEGS-Datei der
+STAND: Version 0.1.0 – aktuelle Fassung. Dies ist die EINSTIEGS-Datei der
 vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
 previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
 Ordner liegen und die gleiche Version tragen.
+Projekt-Repository: https://github.com/NBoESFWbVaf/nemo-previewer
+(Versionsverlauf: changelog.md im Repository).
 
 Eine Nemo-Python-Extension namens "Previewer": dockt rechts im Nemofenster
 ein Panel an und zeigt eine gerenderte Vorschau der aktuell selektierten
@@ -125,16 +127,17 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
+PREVIEWER_VERSION = "0.1.0"
 import previewer_util
 import previewer_select
 import previewer_panel
 
 for _mod in (previewer_util, previewer_select, previewer_panel):
     _ver = getattr(_mod, "PREVIEWER_VERSION", None)
-    if _ver != "2026-10-26b":
-        dbg("ACHTUNG: %s.py ist veraltet (gefunden: %r, erwartet: "
-            "'2026-10-26b') – Datei im Extension-Ordner durch die aktuelle "
-            "Fassung aus dem Canvas ersetzen!" % (_mod.__name__, _ver))
+    if _ver != PREVIEWER_VERSION:
+        dbg("ACHTUNG: %s.py hat Version %r, erwartet wird %r – Datei im "
+            "Extension-Ordner durch die aktuelle Fassung ersetzen!"
+            % (_mod.__name__, _ver, PREVIEWER_VERSION))
 
 # ============================== Provider ===================================
 
@@ -616,4 +619,4 @@ def _install_log_filter():
 
 _install_log_filter()
 
-dbg("previewer (Einstieg) 2026-10-26b bereit")
+dbg("previewer (Einstieg) v%s bereit" % PREVIEWER_VERSION)
