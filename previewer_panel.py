@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.2.0 – aktuelle Fassung (neu: EXIF-Ausrichtung,
+STAND: Version 0.2.1 – aktuelle Fassung (neu: EXIF-Ausrichtung,
 Markdown- & EML-Vorschau). Als previewer_panel.py in den
 Nemo-Extension-Ordner kopieren.
 
@@ -211,8 +211,13 @@ def _markdown_to_pango(text):
             out.append("")
             continue
         if re.fullmatch(r"(-{3,}|\*{3,}|_{3,})", stripped):
+            # Wichtig: "+" statt impliziter String-Verkettung –
+            # "a" "b" * 12 ergibt sonst ("ab") * 12 (Rangfolge-Falle):
+            # 12 ungeöffnete <span>-Tags machten das Markup komplett
+            # ungültig, und jede Datei mit einer ----Linie (YAML-
+            # Front-Matter!) blieb ohne Vorschau.
             out.append("<span size='small' foreground='grey'>"
-                        "\u2500" * 12 + "</span>")
+                       + "\u2500" * 12 + "</span>")
             continue
         m = re.match(r"^(#{1,6})\s+(.*)$", stripped)
         if m:
@@ -733,14 +738,22 @@ class PreviewPanel(Gtk.Box):
         view.set_right_margin(10)
         view.set_top_margin(8)
         view.set_bottom_margin(8)
+        markup = _markdown_to_pango(text)
+        valid = True
         try:
-            view.get_buffer().insert_markup(
-                view.get_buffer().get_end_iter(),
-                _markdown_to_pango(text), -1)
+            # Markup VOR dem Einfügen validieren: GTK bricht bei
+            # ungültigem Markup STILL ab (keine Ausnahme!) und die
+            # Vorschau bliebe leer. Jetzt: prüfen und im Zweifel
+            # den Rohtext zeigen statt gar nichts.
+            Pango.parse_markup(markup, -1, "\x00")
         except Exception as exc:
-            dbg("Markdown-Markup fehlgeschlagen (%s) – zeige Rohtext"
-                % exc)
-            view.get_buffer().set_text(text)
+            valid = False
+            dbg("Markdown-Markup ungültig (%s) – zeige Rohtext" % exc)
+        buf = view.get_buffer()
+        if valid:
+            buf.insert_markup(buf.get_end_iter(), markup, -1)
+        else:
+            buf.set_text(text)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.set_shadow_type(Gtk.ShadowType.IN)
@@ -1425,6 +1438,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.2.0"
+PREVIEWER_VERSION = "0.2.1"
 dbg("previewer_panel %s geladen (scrollbare PDFs, Slider-Fix, "
     "Discoverer-Fix)" % PREVIEWER_VERSION)
