@@ -6,6 +6,24 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.2.0\] – 2026-10-26
+
+### Added (Hinzugefügt)
+
+- Markdown-Vorschau (.md) gerendert: Überschriften, Fett-/Kursivschrift,  
+Inline- und Block-Code, Listen, Zitate, Trennlinien und Links als  
+formatierter Text (Pango-Markup, ohne neue Paket-Abhängigkeiten)
+- EML-Vorschau (.eml): Kopfzeilen (Betreff, Von, An, Cc, Datum) als  
+Tabelle plus Textkörper – bevorzugt text/plain, andernfalls wird der  
+HTML-Teil zu lesbarem Text bereinigt (Python-Bordmittel)
+
+### Fixed (Behoben)
+
+- EXIF-Ausrichtung von Bildern wird jetzt immer angewendet: Fotos, die  
+die Drehung nur im Orientation-Tag tragen, wurden zuvor quer bzw. im  
+falschen Format dargestellt; die Pixel-Maße unter der Vorschau  
+zeigen jetzt die tatsächlich angezeigte Orientierung
+
 ## \[0.1.0\] – 2026-10-26
 
 Erste versionierte Fassung der Nemo-Extension „Previewer“.
