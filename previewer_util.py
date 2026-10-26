@@ -4,7 +4,7 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: 2026-10-26b – aktuelle Fassung. Als previewer_util.py in den
+STAND: Version 0.1.0 – aktuelle Fassung. Als previewer_util.py in den
 Nemo-Extension-Ordner kopieren.
 
 Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
@@ -127,5 +127,5 @@ def content_type_description(mime):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "2026-10-26b"
+PREVIEWER_VERSION = "0.1.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
