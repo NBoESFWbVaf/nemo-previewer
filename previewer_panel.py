@@ -4,9 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.2.1 – aktuelle Fassung (neu: EXIF-Ausrichtung,
-Markdown- & EML-Vorschau). Als previewer_panel.py in den
-Nemo-Extension-Ordner kopieren.
+STAND: Version 0.2.2 – aktuelle Fassung (neu: SVG-Vorschau via librsvg,
+Office-Cache über Gerätegrenzen, robuste Bild-Fehlerbehandlung). Als
+previewer_panel.py in den Nemo-Extension-Ordner kopieren.
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, PDF,
@@ -77,6 +77,16 @@ try:
     gi.require_version('Poppler', '0.18')
     from gi.repository import Poppler
     HAVE_POPPLER = True
+except Exception:
+    pass
+
+# librsvg für SVG-Vorschau: GdkPixbuf bringt (seit gdk-pixbuf 2.42)
+# keinen eigenen SVG-Loader mehr mit.
+HAVE_RSVG = False
+try:
+    gi.require_version('Rsvg', '2.0')
+    from gi.repository import Rsvg
+    HAVE_RSVG = True
 except Exception:
     pass
 
@@ -474,6 +484,8 @@ class PreviewPanel(Gtk.Box):
         # --- nach Typ rendern ---
         if is_dir:
             self._render_folder(path)
+        elif mime == "image/svg+xml" or lower.endswith(".svg"):
+            self._render_svg(path)
         elif mime.startswith("image/") or mime == "application/x-xpixmap":
             self._render_image(path)
         elif mime == "application/pdf" or lower.endswith(".pdf"):
@@ -640,6 +652,31 @@ class PreviewPanel(Gtk.Box):
             pass
         return PANEL_WIDTH - 40
 
+    def _render_svg(self, path):
+        """SVG-Vorschau via librsvg: GdkPixbuf kann SVG nicht laden."""
+        if not HAVE_RSVG:
+            self._hint("SVG-Vorschau nicht verfügbar – "
+                       "Paket gir1.2-rsvg installieren.")
+            self._render_generic()
+            return
+        try:
+            handle = Rsvg.Handle.new_from_file(path)
+            pb = handle.get_pixbuf()
+        except Exception as e:
+            self._hint("Konnte SVG nicht lesen: %s" % e)
+            self._render_generic()
+            return
+        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
+        self._content.pack_start(scroll, True, True, 0)
+        try:
+            info = Gtk.Label(label="%d × %d px"
+                             % (pb.get_width(), pb.get_height()))
+            info.get_style_context().add_class("dim-label")
+            info.set_halign(Gtk.Align.START)
+            self._content.pack_start(info, False, False, 0)
+        except Exception:
+            pass
+
     def _render_image(self, path):
         # Quelle in voller Auflösung laden (Riesenbilder werden auf eine
         # sinnvolle Deckelung verkleinert); die ANZEIGE regelt die Live-
@@ -647,8 +684,13 @@ class PreviewPanel(Gtk.Box):
         try:
             pb = GdkPixbuf.Pixbuf.new_from_file(path)
         except Exception:
-            pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                path, 4096, 4096, True)
+            try:
+                pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    path, 4096, 4096, True)
+            except Exception as exc:
+                self._hint("Konnte Bild nicht laden: %s" % exc)
+                self._render_generic()
+                return
         # EXIF-Ausrichtung anwenden: Fotos, die die Drehung nur im
         # Orientation-Tag tragen (typisch bei Smartphone-Kameras),
         # würden sonst quer oder auf dem Kopf liegen.
@@ -1276,7 +1318,10 @@ class PreviewPanel(Gtk.Box):
         try:
             if os.path.exists(out_pdf):
                 try:
-                    os.replace(out_pdf, office_cache_path(path))
+                    # shutil.move statt os.replace: /tmp liegt häufig auf
+                    # einem eigenen Gerät (tmpfs) – rename(2) scheitert dann
+                    # mit EXDEV, move kopiert in dem Fall.
+                    shutil.move(out_pdf, office_cache_path(path))
                 except Exception as exc:
                     dbg("Office-Cache konnte nicht geschrieben werden: %s"
                         % exc)
@@ -1438,6 +1483,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.2.1"
+PREVIEWER_VERSION = "0.2.2"
 dbg("previewer_panel %s geladen (scrollbare PDFs, Slider-Fix, "
     "Discoverer-Fix)" % PREVIEWER_VERSION)
