@@ -4,9 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: 2026-10-26b – aktuelle Fassung (Slider-Fix, scrollbare
-Mehrseiten-PDFs, Discoverer-Fix, Versionsmarker). Als previewer_panel.py
-in den Nemo-Extension-Ordner kopieren.
+STAND: Version 0.1.0 – aktuelle Fassung (Slider-Fix, scrollbare
+Mehrseiten-PDFs, Discoverer-Fix). Als previewer_panel.py in den
+Nemo-Extension-Ordner kopieren.
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder, Text, PDF,
 Audio (mit Player), Video, Ordner und Office-Dokumente.
@@ -1177,6 +1177,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "2026-10-26b"
+PREVIEWER_VERSION = "0.1.0"
 dbg("previewer_panel %s geladen (scrollbare PDFs, Slider-Fix, "
     "Discoverer-Fix)" % PREVIEWER_VERSION)
