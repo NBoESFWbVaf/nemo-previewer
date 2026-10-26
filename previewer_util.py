@@ -4,7 +4,7 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.2.2 – aktuelle Fassung. Als previewer_util.py in den
+STAND: Version 0.3.0 – aktuelle Fassung. Als previewer_util.py in den
 Nemo-Extension-Ordner kopieren.
 
 Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
@@ -35,6 +35,7 @@ POLL_MS = 500              # Timer für Auswahl-Abgleich (Sicherheitsnetz)
 MAX_TEXT_BYTES = 256 * 1024
 MAX_TEXT_LINES = 2000
 MAX_IMAGE_HEIGHT = 1600
+MAX_EBOOK_CHARS = 30000    # Buchtext-Anfang in der E-Book-Vorschau
 TOGGLE_ACCEL_KEY = Gdk.KEY_p
 TOGGLE_ACCEL_MODS = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.MOD1_MASK
 
@@ -127,5 +128,5 @@ def content_type_description(mime):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.2.2"
+PREVIEWER_VERSION = "0.3.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
