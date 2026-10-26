@@ -4,13 +4,14 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.2.2 – aktuelle Fassung (neu: SVG-Vorschau via librsvg,
-Office-Cache über Gerätegrenzen, robuste Bild-Fehlerbehandlung). Als
-previewer_panel.py in den Nemo-Extension-Ordner kopieren.
+STAND: Version 0.3.0 – aktuelle Fassung (neu: E-Book-Vorschau für EPUB,
+FB2 und MOBI/PRC/AZW). Als previewer_panel.py in den
+Nemo-Extension-Ordner kopieren.
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
-EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, PDF,
-Audio (mit Player), Video, Ordner und Office-Dokumente.
+EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
+(EPUB, FictionBook, MOBI), PDF, Audio (mit Player), Video, Ordner und
+Office-Dokumente.
 
 Office (ODT/ODS/ODP, DOCX/XLSX/PPTX) wird, wenn LibreOffice und Poppler
 vorhanden sind, scharf und in voller Panelbreite angezeigt: LibreOffice
@@ -26,10 +27,12 @@ Gehört zur vierteiligen Extension "Previewer" (siehe previewer.py).
 import os
 import re
 import sys
+import base64
 import email
 import hashlib
 import html
 import shutil
+import struct
 import tempfile
 import traceback
 import zipfile
@@ -54,6 +57,7 @@ from previewer_util import (
     dbg,
     PANEL_WIDTH, PANEL_MIN_WIDTH,
     MAX_TEXT_BYTES, MAX_TEXT_LINES, MAX_IMAGE_HEIGHT,
+    MAX_EBOOK_CHARS,
     TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
     query_file_info, human_size, format_seconds,
     content_type_description,
@@ -265,6 +269,301 @@ def _html_to_text(text):
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
+
+# --- E-Books: EPUB, FictionBook, MOBI (nur Python-Bordmittel) ---------------
+
+
+def _xml_local(tag):
+    """XML-Tag ohne Namespace (OPF und FB2 verzichten nicht darauf)."""
+    return tag.rsplit("}", 1)[-1]
+
+
+def _pixbuf_from_bytes(data):
+    """Pixbuf aus Rohbytes (E-Book-Cover); GdkPixbuf riecht das Format."""
+    loader = GdkPixbuf.PixbufLoader()
+    loader.write(data)
+    loader.close()
+    return loader.get_pixbuf()
+
+
+def _palmdoc_decompress(data):
+    """
+    PalmDoc-Entpackung (MOBI-Kompressionsverfahren 1). Bytes 0x80–0xBF
+    sind Rückverweise; byteweise Kopieren behandelt Überlappungen richtig.
+    """
+    out = bytearray()
+    i, n = 0, len(data)
+    while i < n:
+        b = data[i]
+        i += 1
+        if b == 0 or 9 <= b <= 0x7f:
+            out.append(b)
+        elif b <= 8:
+            out.extend(data[i:i + b])
+            i += b
+        elif b <= 0xbf:
+            if i < n:
+                dist = (((b & 0x3f) << 8) | data[i]) + 1
+                i += 1
+                start = len(out) - dist
+                if 0 <= start < len(out):
+                    for _ in range((b >> 6) + 2):
+                        out.append(out[start])
+                        start += 1
+        else:
+            out.append(0x20)              # Leerzeichen + (Byte ^ 0x80)
+            out.append(b ^ 0x80)
+    return bytes(out)
+
+
+def _epub_data(path):
+    """
+    EPUB öffnen: Metadaten (Titel, Autor, Sprache), Cover-Bytes und der
+    Textanfang in Lesereihenfolge (Spine). Rückgabe (rows, cover, text).
+    """
+    with zipfile.ZipFile(path) as zf:
+        names = zf.namelist()
+
+        # OPF-Inhaltsdatei: steht in META-INF/container.xml
+        opf_path = None
+        try:
+            container = zf.read("META-INF/container.xml").decode(
+                "utf-8", "replace")
+            m = re.search(r'full-path="([^"]+)"', container)
+            if m:
+                opf_path = m.group(1)
+        except Exception:
+            pass
+        if not opf_path:
+            for name in names:
+                if name.lower().endswith(".opf"):
+                    opf_path = name
+                    break
+        if not opf_path:
+            raise ValueError("keine OPF-Inhaltsdatei gefunden")
+
+        base = (opf_path.rsplit("/", 1)[0] + "/") if "/" in opf_path else ""
+        root = ElementTree.fromstring(zf.read(opf_path))
+
+        title = author = lang = None
+        manifest = {}          # id -> (href, Medientyp)
+        spine = []             # hrefs in Lesereihenfolge
+        cover_id = None
+        for el in root.iter():
+            tag = _xml_local(el.tag)
+            if tag == "title" and title is None:
+                title = (el.text or "").strip()
+            elif tag == "creator" and author is None:
+                author = (el.text or "").strip()
+            elif tag == "language" and lang is None:
+                lang = (el.text or "").strip()
+            elif tag == "manifest":
+                for item in el:
+                    if _xml_local(item.tag) != "item":
+                        continue
+                    manifest[item.get("id")] = (
+                        item.get("href"), item.get("media-type"))
+                    if "cover-image" in (item.get("properties") or ""):
+                        cover_id = item.get("id")
+            elif tag == "spine":
+                for itemref in el:
+                    if _xml_local(itemref.tag) == "itemref":
+                        spine.append(itemref.get("idref"))
+            elif (tag == "meta" and el.get("name") == "cover"
+                    and cover_id is None):
+                cover_id = el.get("content")
+
+        # Cover-Bilddaten (Manifest, sonst Heuristik: Dateiname enthält
+        # "cover" und sieht nach Bild aus)
+        cover = None
+        if cover_id in manifest:
+            try:
+                cover = zf.read(base + manifest[cover_id][0])
+            except KeyError:
+                cover = None
+        if not cover:
+            for name in names:
+                low = name.rsplit("/", 1)[-1].lower()
+                if "cover" in low and low.endswith(
+                        (".jpg", ".jpeg", ".png", ".gif", ".webp")):
+                    try:
+                        cover = zf.read(name)
+                        break
+                    except KeyError:
+                        pass
+
+        # Textanfang: Spine-Dokumente in Lesereihenfolge zu Text bereinigen
+        parts = []
+        total = 0
+        for idref in spine:
+            if total >= MAX_EBOOK_CHARS:
+                break
+            href, mtype = manifest.get(idref, (None, None))
+            if not href:
+                continue
+            if mtype and "html" not in mtype and "xml" not in mtype:
+                continue
+            try:
+                raw = zf.read(base + href)
+            except KeyError:
+                continue
+            chunk = _html_to_text(raw.decode("utf-8", "replace"))
+            if chunk.strip():
+                parts.append(chunk)
+                total += len(chunk)
+        text = "\n\n".join(parts)[:MAX_EBOOK_CHARS]
+
+    rows = [(k, v) for k, v in (("Titel", title), ("Autor", author),
+                                ("Sprache", lang)) if v]
+    return rows, cover, text
+
+
+def _fb2_data(path):
+    """
+    FictionBook 2 (.fb2): Titel, Autor, Cover (base64-binär) und
+    Textanfang des ersten Körpers (Fußnoten-Körper werden ignoriert).
+    """
+    root = ElementTree.parse(path).getroot()
+
+    title = author = None
+    cover_ref = None
+    body = None
+    for el in root.iter():
+        tag = _xml_local(el.tag)
+        if tag == "book-title" and title is None:
+            title = (el.text or "").strip()
+        elif tag == "author" and author is None:
+            first = last = None
+            for child in el:
+                ct = _xml_local(child.tag)
+                if ct == "first-name":
+                    first = (child.text or "").strip()
+                elif ct == "last-name":
+                    last = (child.text or "").strip()
+            author = " ".join(x for x in (first, last) if x)
+        elif tag == "coverpage" and cover_ref is None:
+            for child in el:
+                if _xml_local(child.tag) == "image":
+                    cover_ref = (child.get("l:href") or
+                                 child.get("href") or "").lstrip("#")
+        elif tag == "body" and body is None:
+            body = el
+
+    lines = []
+    total = 0
+    if body is not None:
+        for el in body.iter():
+            tag = _xml_local(el.tag)
+            if tag in ("p", "v", "subtitle", "text-author"):
+                txt = "".join(el.itertext()).strip()
+                if txt:
+                    lines.append(txt)
+                    total += len(txt) + 1
+            elif tag == "title":
+                lines.append("")
+                txt = "".join(el.itertext()).strip()
+                if txt:
+                    lines.append(txt)
+                    total += len(txt) + 1
+            elif tag == "empty-line":
+                lines.append("")
+            if total >= MAX_EBOOK_CHARS:
+                break
+    text = "\n".join(lines)[:MAX_EBOOK_CHARS]
+
+    # Cover: eingebettete <binary>-Ressource (base64)
+    cover = None
+    if cover_ref:
+        for el in root.iter():
+            if (_xml_local(el.tag) == "binary"
+                    and el.get("id") == cover_ref):
+                b64 = re.sub(r"\s+", "", "".join(el.itertext()))
+                try:
+                    cover = base64.b64decode(b64)
+                except Exception:
+                    cover = None
+                break
+
+    rows = [(k, v) for k, v in (("Titel", title), ("Autor", author)) if v]
+    return rows, cover, text
+
+
+def _mobi_data(path):
+    """
+    MOBI/PRC (Palm-Container): Titel, Autor (EXTH) und Textanfang.
+    Unterstützt Kompressionsverfahren 1 (PalmDoc) und 2 (unkomprimiert);
+    HUFF/CDIC (einige neuere AZW) wird abgelehnt – KF8-Dateien (AZW3)
+    liefern bestenfalls HTML-Reste, sind aber lesbar, wenn PalmDoc
+    komprimiert ist.
+    """
+    with open(path, "rb") as fh:
+        data = fh.read()
+    if len(data) < 88 or data[60:68] not in (b"BOOKMOBI", b"TEXtREAd"):
+        raise ValueError("kein MOBI-Container")
+
+    title = data[0:32].split(b"\x00")[0].decode("utf-8", "replace").strip()
+    num_rec = struct.unpack(">H", data[76:78])[0]
+    # Datensatz-Tabelle ab Offset 78: je 8 Bytes, Offset in den ersten 3
+    rec_offs = []
+    for i in range(num_rec):
+        p = 78 + 8 * i
+        if p + 3 > len(data):
+            break
+        rec_offs.append(int.from_bytes(data[p:p + 3], "big"))
+    if not rec_offs:
+        raise ValueError("keine Datensätze")
+    recs = []
+    for i, off in enumerate(rec_offs):
+        end = rec_offs[i + 1] if i + 1 < len(rec_offs) else len(data)
+        if off < end <= len(data):
+            recs.append(data[off:end])
+
+    compression = 1
+    encoding = "cp1252"
+    first_non_book = len(recs)
+    author = None
+    r0 = recs[0] if recs else b""
+    if len(r0) >= 24 and r0[16:20] == b"MOBI":
+        compression = struct.unpack(">H", r0[0:2])[0]
+        if len(r0) >= 32:
+            encoding = ("utf-8"
+                        if struct.unpack(">I", r0[28:32])[0] == 65001
+                        else "cp1252")
+        if len(r0) >= 84:
+            first_non_book = struct.unpack(">I", r0[80:84])[0]
+        first_non_book = max(1, min(first_non_book, len(recs)))
+        # EXTH-Header: Eintrag Typ 100 = Autor
+        pos = r0.find(b"EXTH", 24)
+        if pos >= 0 and len(r0) >= pos + 12:
+            count = struct.unpack(">I", r0[pos + 8:pos + 12])[0]
+            q = pos + 12
+            for _ in range(count):
+                if q + 8 > len(r0):
+                    break
+                etype, elen = struct.unpack(">II", r0[q:q + 8])
+                if elen < 8 or q + elen > len(r0):
+                    break
+                if etype == 100:
+                    author = r0[q + 8:q + elen].decode(encoding, "replace")
+                q += elen
+
+    if compression not in (1, 2):
+        raise ValueError("Kompressionsverfahren %d nicht unterstützt "
+                         "(HUFF/CDIC)" % compression)
+
+    parts = []
+    total = 0
+    for rec in recs[1:first_non_book]:
+        if compression == 1:
+            rec = _palmdoc_decompress(rec)
+        parts.append(rec.decode(encoding, "replace"))
+        total += len(parts[-1])
+        if total >= MAX_EBOOK_CHARS * 2:
+            break
+    text = _html_to_text(" ".join(parts))[:MAX_EBOOK_CHARS]
+
+    rows = [(k, v) for k, v in (("Titel", title), ("Autor", author)) if v]
+    return rows, None, text
 
 # ================================ Panel ====================================
 
@@ -511,6 +810,15 @@ class PreviewPanel(Gtk.Box):
             self._render_markdown(path)
         elif lower.endswith(".eml") or mime == "message/rfc822":
             self._render_eml(path)
+        elif mime == "application/epub+zip" or lower.endswith(".epub"):
+            self._render_epub(path)
+        elif (mime in ("application/x-fictionbook+xml",
+                       "application/x-fictionbook")
+              or lower.endswith(".fb2")):
+            self._render_fb2(path)
+        elif (mime == "application/x-mobipocket-ebook"
+              or lower.endswith((".mobi", ".prc", ".azw", ".azw3"))):
+            self._render_mobi(path)
         elif mime.startswith("text/") or os.path.splitext(lower)[1] in _TEXT_EXTRAS:
             self._render_text(path)
         elif os.path.splitext(lower)[1] in _OFFICE_EXTS:
@@ -903,6 +1211,84 @@ class PreviewPanel(Gtk.Box):
             except Exception:
                 text = ""
         return text[:MAX_TEXT_BYTES]
+
+    # --- E-Books: EPUB, FictionBook, MOBI -----------------------------------
+
+    def _meta_grid(self, rows):
+        """Schlüssel-Wert-Tabelle (wie beim EML-Kopf) für E-Book-Metadaten."""
+        grid = Gtk.Grid()
+        grid.set_row_spacing(2)
+        grid.set_column_spacing(10)
+        for i, (k, v) in enumerate(rows):
+            kl = Gtk.Label(label=k)
+            kl.set_halign(Gtk.Align.END)
+            kl.get_style_context().add_class("dim-label")
+            vl = Gtk.Label(label=v)
+            vl.set_halign(Gtk.Align.START)
+            vl.set_ellipsize(Pango.EllipsizeMode.END)
+            vl.set_hexpand(True)
+            vl.set_tooltip_text(v)
+            grid.attach(kl, 0, i, 1, 1)
+            grid.attach(vl, 1, i, 1, 1)
+        self._content.pack_start(grid, False, False, 0)
+
+    def _render_ebook(self, path, loader, fmt):
+        """
+        Gemeinsamer E-Book-Ablauf: Metadaten-Kopf, Cover-Bild (lebt mit
+        der Panelbreite) und der Textanfang in einem scrollbaren TextView.
+        Lässt sich das Buch nicht lesen (kaputt oder HUFF-Kompression),
+        erscheint ein Hinweis plus generische Vorschau.
+        """
+        try:
+            rows, cover, text = loader(path)
+        except Exception as e:
+            dbg("E-Book konnte nicht gelesen werden (%s): %s" % (path, e))
+            self._hint("E-Book konnte nicht gelesen werden: %s" % e)
+            self._render_generic()
+            return
+        if not rows:
+            rows = [("Format", fmt)]
+        self._meta_grid(rows)
+        if cover:
+            try:
+                pb = _pixbuf_from_bytes(cover)
+                scroll = self._scaled_image(
+                    pb, MAX_IMAGE_HEIGHT, upscale=True, keep_height=True,
+                    max_upscale=2.0)
+                self._content.pack_start(scroll, False, False, 0)
+            except Exception as exc:
+                dbg("E-Book-Cover nicht darstellbar: %s" % exc)
+        if not text.strip():
+            self._hint("Kein lesbarer Text gefunden – Datei über den "
+                       "Öffnen-Knopf betrachten.")
+            return
+        view = Gtk.TextView()
+        view.set_editable(False)
+        view.set_cursor_visible(False)
+        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        view.override_font(Pango.FontDescription("9"))
+        view.set_left_margin(10)
+        view.set_right_margin(10)
+        view.set_top_margin(8)
+        view.set_bottom_margin(8)
+        view.get_buffer().set_text(text)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_shadow_type(Gtk.ShadowType.IN)
+        scroll.add(view)
+        self._content.pack_start(scroll, True, True, 0)
+
+    def _render_epub(self, path):
+        """EPUB-Vorschau (Titel, Autor, Cover, Textanfang)."""
+        self._render_ebook(path, _epub_data, "EPUB")
+
+    def _render_fb2(self, path):
+        """FictionBook-2-Vorschau (Titel, Autor, Cover, Textanfang)."""
+        self._render_ebook(path, _fb2_data, "FictionBook")
+
+    def _render_mobi(self, path):
+        """MOBI/PRC/AZW-Vorschau (Titel, Autor, Textanfang)."""
+        self._render_ebook(path, _mobi_data, "MOBI")
 
     def _pdf_page_pixbuf(self, page, target_w):
         """Eine PDF-Seite auf target_w Pixel Breite rendern (weiße Unterlage)."""
@@ -1483,6 +1869,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.2.2"
-dbg("previewer_panel %s geladen (scrollbare PDFs, Slider-Fix, "
-    "Discoverer-Fix)" % PREVIEWER_VERSION)
+PREVIEWER_VERSION = "0.3.0"
+dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books (EPUB, FB2, "
+    "MOBI), Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
