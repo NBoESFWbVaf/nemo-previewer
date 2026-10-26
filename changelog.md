@@ -6,6 +6,23 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.3.0\] – 2026-10-26
+
+### Added (Hinzugefügt)
+
+- E-Book-Vorschau (nur Python-Bordmittel, keine neuen Pakete):
+  - EPUB (.epub): Titel, Autor und Sprache aus der OPF-Inhaltsdatei,  
+  eingebettetes Cover (Manifest-Verweis oder Heuristik) und der  
+  Textanfang in Lesereihenfolge (Spine)
+  - FictionBook 2 (.fb2): Titel und Autor, Cover aus der eingebetteten  
+  base64-Ressource, Textanfang des Hauptkörpers
+  - MOBI (.mobi, .prc, .azw, .azw3): Titel, Autor aus dem EXTH-Header  
+  und Textanfang; PalmDoc-Entpackung in reinem Python; Dateien mit  
+  HUFF/CDIC-Kompression werden mit Hinweis abgelehnt
+  - unlesbare/kaputte E-Books zeigen einen Hinweis statt einer leeren  
+  Vorschau
+- Neue Konstante MAX\_EBOOK\_CHARS (30 000 Zeichen Textanfang je Buch)
+
 ## \[0.2.2\] – 2026-10-26
 
 ### Fixed (Behoben)
