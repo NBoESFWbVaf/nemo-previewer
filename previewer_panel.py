@@ -4,11 +4,12 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.1.0 – aktuelle Fassung (Slider-Fix, scrollbare
-Mehrseiten-PDFs, Discoverer-Fix). Als previewer_panel.py in den
+STAND: Version 0.2.0 – aktuelle Fassung (neu: EXIF-Ausrichtung,
+Markdown- & EML-Vorschau). Als previewer_panel.py in den
 Nemo-Extension-Ordner kopieren.
 
-Das angedockte Vorschau-Panel samt allen Renderern: Bilder, Text, PDF,
+Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
+EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, PDF,
 Audio (mit Player), Video, Ordner und Office-Dokumente.
 
 Office (ODT/ODS/ODP, DOCX/XLSX/PPTX) wird, wenn LibreOffice und Poppler
@@ -25,11 +26,14 @@ Gehört zur vierteiligen Extension "Previewer" (siehe previewer.py).
 import os
 import re
 import sys
+import email
 import hashlib
+import html
 import shutil
 import tempfile
 import traceback
 import zipfile
+from email import policy
 import xml.etree.ElementTree as ElementTree
 from datetime import datetime
 
@@ -162,6 +166,90 @@ _TEXT_EXTRAS = {
 
 # PDF: alle Seiten bis zu dieser Obergrenze scrollbar untereinander
 MAX_PDF_PAGES = 20
+
+
+# --- Markdown -> Pango-Markup (Vorschau-Qualität, kein voller Parser) ---
+
+def _pango_escape(s):
+    """Text für Pango-Markup entschärfen (& < >)."""
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _md_inline(t):
+    """Inline-Formatierung: **fett**, *kursiv*, `code`, [Link](url)."""
+    t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t)
+    t = re.sub(r"__(.+?)__", r"<b>\1</b>", t)
+    t = re.sub(r"(?<!\w)\*([^*\n]+?)\*(?!\w)", r"<i>\1</i>", t)
+    t = re.sub(r"(?<!\w)_([^_\n]+?)_(?!\w)", r"<i>\1</i>", t)
+    t = re.sub(r"`([^`]+?)`", r"<tt>\1</tt>", t)
+    t = re.sub(r"!\[([^\]]*)\]\(([^)\s]+)\)",
+               r"<span size='small'>[Bild: \1]</span>", t)
+    t = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)",
+               r"\1 <span size='small' foreground='grey'>\2</span>", t)
+    return t
+
+
+def _markdown_to_pango(text):
+    """
+    Markdown grob in Pango-Markup übersetzen: Überschriften, Fett/
+    Kursiv, Inline- und Block-Code, Listen, Zitate, Trennlinien,
+    Links. Bewusst kein vollständiger Parser – für die Vorschau im
+    Panel reicht das, und es entstehen keine neuen Paket-Abhängigkeiten.
+    """
+    out = []
+    in_code = False
+    for line in text.split("\n"):
+        if line.strip().startswith("```"):
+            in_code = not in_code
+            out.append("")
+            continue
+        if in_code:
+            out.append("<tt>%s</tt>" % _pango_escape(line))
+            continue
+        stripped = line.strip()
+        if not stripped:
+            out.append("")
+            continue
+        if re.fullmatch(r"(-{3,}|\*{3,}|_{3,})", stripped):
+            out.append("<span size='small' foreground='grey'>"
+                        "\u2500" * 12 + "</span>")
+            continue
+        m = re.match(r"^(#{1,6})\s+(.*)$", stripped)
+        if m:
+            depth = len(m.group(1))
+            if depth == 1:
+                tag = ("<span size='x-large' weight='bold'>",
+                       "</span>")
+            elif depth == 2:
+                tag = ("<span size='large' weight='bold'>", "</span>")
+            else:
+                tag = "<span weight='bold'>", "</span>"
+            out.append(tag[0] + _md_inline(_pango_escape(m.group(2)))
+                       + tag[1])
+            continue
+        if stripped.startswith(">"):
+            out.append("<i>%s</i>"
+                       % _md_inline(_pango_escape(
+                           stripped.lstrip("> ").strip())))
+            continue
+        m = re.match(r"^[-*+]\s+(.*)$", stripped)
+        if m:
+            out.append("\u2022 " + _md_inline(_pango_escape(m.group(1))))
+            continue
+        out.append(_md_inline(_pango_escape(line)))
+    return "\n".join(out)
+
+
+def _html_to_text(text):
+    """HTML grob zu lesbarem Text bereinigen (für EML-Textkörper)."""
+    text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", text)
+    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
+    text = re.sub(r"(?i)</p>", "\n\n", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = html.unescape(text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 # ================================ Panel ====================================
 
@@ -402,6 +490,10 @@ class PreviewPanel(Gtk.Box):
                 self._render_video(path, uri)
             else:
                 self._render_generic()
+        elif lower.endswith((".md", ".markdown")):
+            self._render_markdown(path)
+        elif lower.endswith(".eml") or mime == "message/rfc822":
+            self._render_eml(path)
         elif mime.startswith("text/") or os.path.splitext(lower)[1] in _TEXT_EXTRAS:
             self._render_text(path)
         elif os.path.splitext(lower)[1] in _OFFICE_EXTS:
@@ -552,13 +644,22 @@ class PreviewPanel(Gtk.Box):
         except Exception:
             pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
                 path, 4096, 4096, True)
+        # EXIF-Ausrichtung anwenden: Fotos, die die Drehung nur im
+        # Orientation-Tag tragen (typisch bei Smartphone-Kameras),
+        # würden sonst quer oder auf dem Kopf liegen.
+        try:
+            pb = pb.apply_embedded_orientation()
+        except Exception:
+            pass
         if pb.get_width() > 4096 or pb.get_height() > MAX_IMAGE_HEIGHT:
             pb = self._scale_pixbuf(pb, 4096, MAX_IMAGE_HEIGHT)
         scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
         self._content.pack_start(scroll, True, True, 0)
         try:
-            w, h = GdkPixbuf.Pixbuf.get_file_info(path)[1:3]
-            info = Gtk.Label(label="%d × %d px" % (w, h))
+            # Maße des orientierten Bildes (die ANZEIGE ist der Maßstab,
+            # nicht die rohen Pixeldaten der Datei)
+            info = Gtk.Label(label="%d × %d px"
+                             % (pb.get_width(), pb.get_height()))
             info.get_style_context().add_class("dim-label")
             info.set_halign(Gtk.Align.START)
             self._content.pack_start(info, False, False, 0)
@@ -600,6 +701,153 @@ class PreviewPanel(Gtk.Box):
         self._content.pack_start(scroll, True, True, 0)
         if truncated:
             self._hint("Vorschau gekürzt (lange Datei).")
+
+    def _render_markdown(self, path):
+        """
+        Markdown mit sichtbaren Formatierungen: Überschriften, Fett/
+        Kursiv, Code, Listen, Zitate und Links werden über Pango-Markup
+        dargestellt (kein Webview, keine neuen Pakete). Schlägt die
+        Markup-Erzeugung ausnahmsweise fehl, erscheint der Rohtext.
+        """
+        try:
+            with open(path, "rb") as fh:
+                data = fh.read(MAX_TEXT_BYTES)
+            text = data.decode("utf-8", "replace")
+            truncated = False
+            if len(data) == MAX_TEXT_BYTES:
+                truncated = True
+            lines = text.split("\n")
+            if len(lines) > MAX_TEXT_LINES:
+                lines = lines[:MAX_TEXT_LINES]
+                text = "\n".join(lines)
+                truncated = True
+        except Exception as e:
+            self._hint("Konnte Datei nicht lesen: %s" % e)
+            return
+        view = Gtk.TextView()
+        view.set_editable(False)
+        view.set_cursor_visible(False)
+        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        view.override_font(Pango.FontDescription("9"))
+        view.set_left_margin(10)
+        view.set_right_margin(10)
+        view.set_top_margin(8)
+        view.set_bottom_margin(8)
+        try:
+            view.get_buffer().insert_markup(
+                view.get_buffer().get_end_iter(),
+                _markdown_to_pango(text), -1)
+        except Exception as exc:
+            dbg("Markdown-Markup fehlgeschlagen (%s) – zeige Rohtext"
+                % exc)
+            view.get_buffer().set_text(text)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_shadow_type(Gtk.ShadowType.IN)
+        scroll.add(view)
+        self._content.pack_start(scroll, True, True, 0)
+        if truncated:
+            self._hint("Vorschau gekürzt (lange Datei).")
+
+    def _render_eml(self, path):
+        """
+        EML-Dateien (RFC 822): Kopfzeilen (Betreff, Von, An, Cc, Datum)
+        als Tabelle, darunter der Textkörper. Bevorzugt text/plain;
+        fehlt er, wird der HTML-Teil zu lesbarem Text bereinigt. Alles
+        mit Python-Bordmitteln (email-Modul).
+        """
+        try:
+            with open(path, "rb") as fh:
+                msg = email.message_from_binary_file(
+                    fh, policy=policy.default)
+        except Exception as e:
+            self._hint("E-Mail konnte nicht geöffnet werden: %s" % e)
+            return
+
+        rows = []
+        for key, label in (("subject", "Betreff"), ("from", "Von"),
+                           ("to", "An"), ("cc", "Cc"),
+                           ("date", "Datum")):
+            try:
+                val = msg.get(key)
+            except Exception:
+                val = None
+            if val:
+                rows.append((label, str(val)[:160]))
+        grid = Gtk.Grid()
+        grid.set_row_spacing(2)
+        grid.set_column_spacing(10)
+        for i, (k, v) in enumerate(rows):
+            kl = Gtk.Label(label=k)
+            kl.set_halign(Gtk.Align.END)
+            kl.get_style_context().add_class("dim-label")
+            vl = Gtk.Label(label=v)
+            vl.set_halign(Gtk.Align.START)
+            vl.set_ellipsize(Pango.EllipsizeMode.END)
+            vl.set_hexpand(True)
+            vl.set_tooltip_text(v)
+            grid.attach(kl, 0, i, 1, 1)
+            grid.attach(vl, 1, i, 1, 1)
+        self._content.pack_start(grid, False, False, 0)
+
+        body = self._eml_body(msg)
+        if not body.strip():
+            self._hint("Kein lesbarer Textkörper gefunden – Datei "
+                       "über den Öffnen-Knopf betrachten.")
+            return
+        view = Gtk.TextView()
+        view.set_editable(False)
+        view.set_cursor_visible(False)
+        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        view.override_font(Pango.FontDescription("9"))
+        view.set_left_margin(10)
+        view.set_right_margin(10)
+        view.set_top_margin(8)
+        view.set_bottom_margin(8)
+        view.get_buffer().set_text(body)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_shadow_type(Gtk.ShadowType.IN)
+        scroll.add(view)
+        self._content.pack_start(scroll, True, True, 0)
+
+    def _eml_body(self, msg):
+        """Textkörper einer E-Mail: text/plain bevorzugt, sonst HTML."""
+        text = ""
+        part = None
+        try:
+            part = msg.get_body(preferencelist=("plain", "html"))
+        except Exception:
+            part = None
+        if part is not None:
+            try:
+                text = part.get_content()
+            except Exception:
+                try:
+                    raw = part.get_payload(decode=True)
+                    if raw:
+                        text = raw.decode(
+                            part.get_content_charset() or "utf-8",
+                            "replace")
+                except Exception:
+                    text = ""
+            try:
+                if "html" in (part.get_content_type() or "").lower():
+                    text = _html_to_text(text)
+            except Exception:
+                pass
+        if not text.strip():
+            # Fallback: erster text/plain-Teil, falls get_body versagte.
+            try:
+                for p in msg.walk():
+                    if p.get_content_type() == "text/plain":
+                        raw = p.get_payload(decode=True)
+                        if raw:
+                            text = raw.decode("utf-8", "replace")
+                            break
+            except Exception:
+                text = ""
+        return text[:MAX_TEXT_BYTES]
 
     def _pdf_page_pixbuf(self, page, target_w):
         """Eine PDF-Seite auf target_w Pixel Breite rendern (weiße Unterlage)."""
@@ -1177,6 +1425,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.1.0"
+PREVIEWER_VERSION = "0.2.0"
 dbg("previewer_panel %s geladen (scrollbare PDFs, Slider-Fix, "
     "Discoverer-Fix)" % PREVIEWER_VERSION)
