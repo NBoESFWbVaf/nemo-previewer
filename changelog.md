@@ -6,6 +6,16 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.2.1\] – 2026-10-26
+
+### Fixed (Behoben)
+
+- Markdown-Vorschau blieb bei Dateien mit `---`-Linien (YAML-Front-Matter,  
+Trennlinien) leer: ein Operator-Rangfolge-Fehler erzeugte ungültige  
+Pango-Markup-Tags, die GTK beim Einfügen still verwarf. Korrigiert;  
+zusätzlich wird das Markup vor dem Einfügen validiert – im Zweifel  
+erscheint nun der Rohtext statt einer leeren Vorschau.
+
 ## \[0.2.0\] – 2026-10-26
 
 ### Added (Hinzugefügt)
