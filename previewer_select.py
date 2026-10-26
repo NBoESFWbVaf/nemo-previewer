@@ -4,7 +4,7 @@
 Previewer – Auswahl-Modul (previewer_select.py)
 ===============================================
 
-STAND: Version 0.2.1 – aktuelle Fassung. Als previewer_select.py in den
+STAND: Version 0.2.2 – aktuelle Fassung. Als previewer_select.py in den
 Nemo-Extension-Ordner kopieren.
 
 Erkennt die in Nemo markierten Dateien – mehrstufig und defensiv:
@@ -1221,5 +1221,5 @@ class SelectionReader:
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.2.1"
+PREVIEWER_VERSION = "0.2.2"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)
