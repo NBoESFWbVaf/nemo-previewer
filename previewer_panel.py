@@ -4,13 +4,17 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
+STAND: 2026-10-26b – aktuelle Fassung (Slider-Fix, scrollbare
+Mehrseiten-PDFs, Discoverer-Fix, Versionsmarker). Als previewer_panel.py
+in den Nemo-Extension-Ordner kopieren.
+
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder, Text, PDF,
 Audio (mit Player), Video, Ordner und Office-Dokumente.
 
 Office (ODT/ODS/ODP, DOCX/XLSX/PPTX) wird, wenn LibreOffice und Poppler
 vorhanden sind, scharf und in voller Panelbreite angezeigt: LibreOffice
 konvertiert im Hintergrund einmalig nach PDF (Cache in ~/.cache/previewer),
-Poppler rendert die erste Seite. Während der Konvertierung ist die
+Poppler rendert die Seiten (untereinander scrollbar). Während der Konvertierung ist die
 eingebettete Miniaturansicht aus dem Dokument-ZIP mit einem Hinweis zu
 sehen; das scharfe Ergebnis erscheint automatisch. Ohne LibreOffice gilt
 weiterhin die ZIP-Miniaturansicht ohne Zusatzpakete.
@@ -156,6 +160,9 @@ _TEXT_EXTRAS = {
     '.rs', '.c', '.h', '.cpp', '.hpp', '.java', '.sql', '.tex',
 }
 
+# PDF: alle Seiten bis zu dieser Obergrenze scrollbar untereinander
+MAX_PDF_PAGES = 20
+
 # ================================ Panel ====================================
 
 class PreviewPanel(Gtk.Box):
@@ -183,6 +190,10 @@ class PreviewPanel(Gtk.Box):
         # Hintergrund-Konvertierung für Office-Dokumente (LibreOffice → PDF)
         self._office_job = None
         self._office_failed = set()
+        # Mehrseitige PDF-Vorschau: Quell-Pixbufs je Seite + Anzeige-Images
+        self._pdf_src = None
+        self._pdf_imgs = None
+        self._pdf_last_w = 0
 
         # --- Kopfzeile ---
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -279,6 +290,10 @@ class PreviewPanel(Gtk.Box):
         self._scale_img = None
         self._scale_src = None
         self._scale_last_w = 0
+        # ebenso die Quell-Pixbufs der PDF-Seiten
+        self._pdf_src = None
+        self._pdf_imgs = None
+        self._pdf_last_w = 0
 
     def _show_placeholder(self):
         self._name_label.set_text("Keine Datei ausgewählt")
@@ -422,6 +437,7 @@ class PreviewPanel(Gtk.Box):
                 return
             self._render_width = width
             self._apply_scale()
+            self._apply_pdf_scale()
         except Exception:
             pass
 
@@ -585,16 +601,15 @@ class PreviewPanel(Gtk.Box):
         if truncated:
             self._hint("Vorschau gekürzt (lange Datei).")
 
-    def _render_pdf(self, path):
-        doc = Poppler.Document.new_from_file(GLib.filename_to_uri(path), None)
-        if doc.get_n_pages() == 0:
-            self._hint("PDF enthält keine Seiten.")
-            return
-        page = doc.get_page(0)
+    def _pdf_page_pixbuf(self, page, target_w):
+        """Eine PDF-Seite auf target_w Pixel Breite rendern (weiße Unterlage)."""
         pw, ph = page.get_size()
         # Mit doppelter Zielbreite rendern, damit die Live-Skalierung
-        # auch beim Ziehen des Trenners scharf bleibt.
-        scale = min(3.0, max(1.0, self._preview_width() * 2.0 / max(pw, 1)))
+        # auch beim Ziehen des Trenners scharf bleibt; extrem hohe
+        # Seiten werden gedeckelt (Platz und Speicher).
+        scale = min(float(target_w) / max(pw, 1.0),
+                    2.0 * MAX_IMAGE_HEIGHT / max(ph, 1.0))
+        scale = max(0.2, min(3.0, scale))
         w, h = max(1, int(pw * scale)), max(1, int(ph * scale))
         surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
         cr = cairo.Context(surf)
@@ -604,12 +619,74 @@ class PreviewPanel(Gtk.Box):
         cr.paint()
         cr.scale(scale, scale)
         page.render(cr)
-        pb = Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
-        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
+        return Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
+
+    def _render_pdf(self, path):
+        """
+        PDF-Vorschau scrollbar: alle Seiten (bis MAX_PDF_PAGES) werden
+        untereinander in einem scrollbaren Bereich gestapelt. Jede Seite
+        wird in doppelter Panelbreite gerendert und bei Breitenänderung
+        – wie bei der Bild-Vorschau – nur neu skaliert, nicht neu
+        gerendert.
+        """
+        doc = Poppler.Document.new_from_file(GLib.filename_to_uri(path), None)
+        n = doc.get_n_pages()
+        if n == 0:
+            self._hint("PDF enthält keine Seiten.")
+            return
+        count = min(n, MAX_PDF_PAGES)
+        dbg("PDF geöffnet: %d Seite(n), zeige %d untereinander (scrollbar)"
+            % (n, count))
+        src_w = max(300, self._preview_width() * 2)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self._pdf_src = []
+        self._pdf_imgs = []
+        for i in range(count):
+            try:
+                pb = self._pdf_page_pixbuf(doc.get_page(i), src_w)
+            except Exception as exc:
+                dbg("PDF-Seite %d nicht renderbar: %s" % (i + 1, exc))
+                continue
+            img = Gtk.Image()
+            img.set_halign(Gtk.Align.CENTER)
+            img.set_valign(Gtk.Align.START)
+            box.pack_start(img, False, False, 0)
+            self._pdf_src.append(pb)
+            self._pdf_imgs.append(img)
+        if not self._pdf_src:
+            self._hint("PDF konnte nicht gerendert werden.")
+            return
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.add(box)
         self._content.pack_start(scroll, True, True, 0)
-        if doc.get_n_pages() > 1:
-            self._hint("Seite 1 von %d – gesamte Datei über den "
-                       "Öffnen-Knopf betrachten." % doc.get_n_pages())
+        self._apply_pdf_scale()
+        if n > count:
+            self._hint("Erste %d von %d Seiten – ganze Datei über den "
+                       "Öffnen-Knopf betrachten." % (count, n))
+        elif n > 1:
+            self._hint("%d Seiten – Vorschau nach unten scrollen." % n)
+
+    def _apply_pdf_scale(self):
+        """Alle PDF-Seiten an die aktuelle Panelbreite anpassen."""
+        srcs = self._pdf_src
+        imgs = self._pdf_imgs
+        if not srcs or not imgs:
+            return
+        target = self._preview_width()
+        if abs(target - self._pdf_last_w) < 8:
+            return
+        self._pdf_last_w = target
+        try:
+            for src, img in zip(srcs, imgs):
+                sw, sh = src.get_width(), src.get_height()
+                f = min(float(target) / sw, 1.0)   # nicht hochskalieren
+                w = max(1, int(sw * f))
+                h = max(1, int(sh * f))
+                img.set_from_pixbuf(
+                    src.scale_simple(w, h, GdkPixbuf.InterpType.BILINEAR))
+        except Exception:
+            pass
 
     def _render_folder(self, path):
         try:
@@ -627,7 +704,14 @@ class PreviewPanel(Gtk.Box):
         duration = -1
         cover = None
         try:
-            disc = GstPbutils.Discoverer(10 * Gst.SECOND)
+            try:
+                disc = GstPbutils.Discoverer.new(10 * Gst.SECOND)
+            except (AttributeError, TypeError):
+                # Neuere PyGObject-Builds mappen gst_discoverer_new NICHT
+                # als Konstruktor ('GObject.__init__() takes exactly 0
+                # arguments (1 given)') – deshalb explizit .new(), mit
+                # Fallback für ältere Builds.
+                disc = GstPbutils.Discoverer(10 * Gst.SECOND)
             info = disc.discover_uri_sync(uri)
             duration = info.get_duration() // Gst.SECOND
             taglist = info.get_tags()
@@ -694,6 +778,12 @@ class PreviewPanel(Gtk.Box):
         self._seek_scale.set_draw_value(False)
         self._seek_scale.set_hexpand(True)
         self._seek_scale.connect("change-value", self._on_seek)
+        # Während der Nutzer am Slider zieht, darf der Timer den Slider
+        # nicht zurückschieben (sonst springt er unter der Hand weg).
+        self._seek_dragging = False
+        self._seek_scale.connect("button-press-event", self._on_seek_press)
+        self._seek_scale.connect("button-release-event",
+                                 self._on_seek_release)
         player_box.pack_start(self._seek_scale, True, True, 0)
 
         self._pos_label = Gtk.Label(label="0:00")
@@ -726,7 +816,12 @@ class PreviewPanel(Gtk.Box):
         frame = None
         tags = {}
         try:
-            disc = GstPbutils.Discoverer(10 * Gst.SECOND)
+            try:
+                disc = GstPbutils.Discoverer.new(10 * Gst.SECOND)
+            except (AttributeError, TypeError):
+                # Siehe _render_audio: Konstruktor-Mapping je nach
+                # PyGObject-Build unterschiedlich.
+                disc = GstPbutils.Discoverer(10 * Gst.SECOND)
             info = disc.discover_uri_sync(uri)
             duration = info.get_duration() // Gst.SECOND
             taglist = info.get_tags()
@@ -773,8 +868,8 @@ class PreviewPanel(Gtk.Box):
         """
         Office-Dokumente (ODT/ODS/ODP, DOCX/XLSX/PPTX) – scharfe Route:
         Ist ein frisches LibreOffice-Konvertierungs-PDF im Cache, wird
-        dessen erste Seite per Poppler scharf und in voller Panelbreite
-        gerendert (identisch zur PDF-Vorschau, live skalierbar). Sonst
+        dessen Seiten per Poppler scharf und in voller Panelbreite
+        gerendert (identisch zur PDF-Vorschau, scrollbar). Sonst
         erscheint zunächst die eingebettete Miniaturansicht mit
         Hinweis, und die Konvertierung läuft im Hintergrund los – das
         scharfe Ergebnis zeigt sich automatisch, sobald es fertig ist.
@@ -1004,15 +1099,54 @@ class PreviewPanel(Gtk.Box):
         try:
             ok, pos = self._playbin.query_position(Gst.Format.TIME)
             ok2, dur = self._playbin.query_duration(Gst.Format.TIME)
-            if ok and ok2 and dur > 0:
+            if ok and pos >= 0:
                 self._pos_label.set_text(format_seconds(pos // Gst.SECOND))
-                # Signalblockade vermeiden: Skala nur bei Abweichung setzen
-                target = pos / dur * self._seek_scale.get_adjustment().get_upper()
-                if abs(self._seek_scale.get_value() - target) > 1.5:
-                    self._seek_scale.set_value(target)
+                if ok2 and dur > 0:
+                    # Slider-Bereich muss die GESAMTE Länge umfassen. War
+                    # die Dauer beim Anlegen noch unbekannt (z.B. wenn der
+                    # Discoverer versagte), wurde der Slider mit dem
+                    # Bereich 0–1 angelegt – der Timer konnte ihn dann
+                    # nie sichtbar bewegen. Der Bereich wird deshalb hier
+                    # aus der echten Abspiel-Dauer einmalig nachgezogen.
+                    self._ensure_seek_range(dur)
+                    self._update_seek_pos(pos)
         except Exception:
             pass
         return True  # weiterlaufen
+
+    def _ensure_seek_range(self, dur_ns):
+        """Slider-Bereich an die echte Dauer (ns) anpassen, falls nötig."""
+        scale = getattr(self, "_seek_scale", None)
+        if scale is None:
+            return
+        upper = max(1, int(dur_ns // Gst.SECOND))
+        adj = scale.get_adjustment()
+        if abs(adj.get_upper() - upper) > 1:
+            dbg("Slider-Bereich nachgezogen: 0–%d s (war 0–%d s)"
+                % (upper, int(adj.get_upper())))
+            adj.configure(0.0, 0.0, float(upper), 1.0, 10.0, 0.0)
+
+    def _update_seek_pos(self, pos_ns):
+        """Slider auf die aktuelle Position (ns) schieben."""
+        if getattr(self, "_seek_dragging", False):
+            return          # Nutzer zieht gerade – nicht reinschieben
+        scale = getattr(self, "_seek_scale", None)
+        if scale is None:
+            return
+        sec = pos_ns / Gst.SECOND
+        adj = scale.get_adjustment()
+        # Schwellwert klein genug für kurze Stücke, aber groß genug,
+        # dass der Slider nicht bei jedem Tick zittert.
+        if abs(adj.get_value() - sec) > 0.75:
+            scale.set_value(sec)
+
+    def _on_seek_press(self, widget, event):
+        self._seek_dragging = True
+        return False        # GTK soll das Event weiterverarbeiten
+
+    def _on_seek_release(self, widget, event):
+        self._seek_dragging = False
+        return False        # GTK soll das Event weiterverarbeiten
 
     def _stop_playback(self):
         if self._playbin is not None:
@@ -1038,3 +1172,11 @@ class PreviewPanel(Gtk.Box):
         else:
             self.show_all()
         return True
+
+
+# Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
+# diese Version tragen – veraltete Dateien im Extension-Ordner werden
+# so im Terminal-Log sofort sichtbar.
+PREVIEWER_VERSION = "2026-10-26b"
+dbg("previewer_panel %s geladen (scrollbare PDFs, Slider-Fix, "
+    "Discoverer-Fix)" % PREVIEWER_VERSION)

@@ -4,6 +4,9 @@
 Previewer – Auswahl-Modul (previewer_select.py)
 ===============================================
 
+STAND: 2026-10-26b – aktuelle Fassung. Als previewer_select.py in den
+Nemo-Extension-Ordner kopieren.
+
 Erkennt die in Nemo markierten Dateien – mehrstufig und defensiv:
 
 1. NemoView.peek_selection über den Klassen-VTable (primäre API; läuft
@@ -1215,3 +1218,8 @@ class SelectionReader:
                 except Exception:
                     continue
         return None
+
+
+# Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
+PREVIEWER_VERSION = "2026-10-26b"
+dbg("previewer_select %s geladen" % PREVIEWER_VERSION)

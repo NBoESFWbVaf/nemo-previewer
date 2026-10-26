@@ -4,6 +4,11 @@
 Previewer
 =========
 
+STAND: 2026-10-26b – aktuelle Fassung. Dies ist die EINSTIEGS-Datei der
+vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
+previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
+Ordner liegen und die gleiche Version tragen.
+
 Eine Nemo-Python-Extension namens "Previewer": dockt rechts im Nemofenster
 ein Panel an und zeigt eine gerenderte Vorschau der aktuell selektierten
 Datei.
@@ -12,7 +17,7 @@ Unterstützte Vorschauen
 -----------------------
 - Bilder (JPEG, PNG, WebP, GIF, TIFF, ... alles, was Gdk-Pixbuf kennt)
 - Text/Quellcode (read-only, monospace)
-- PDF (erste Seite; benötigt gir1.2-poppler)
+- PDF (alle Seiten scrollbar untereinander; benötigt gir1.2-poppler)
 - Office-Dokumente (ODT/ODS/ODP, DOCX/XLSX/PPTX): scharfe Seitenansicht
   über LibreOffice-Hintergrundkonvertierung nach PDF (Cache in
   ~/.cache/previewer); ohne LibreOffice die eingebettete Miniaturansicht
@@ -43,6 +48,7 @@ Bedienung
 - Panel ein-/ausblenden: Strg+Alt+P (oder den Knopf oben rechts im Panel)
 - Trenner zwischen Dateiansicht und Panel ist verschiebbar (Gtk.Paned)
 - Play/Pause & Seek bei Audio über die Bedienelemente im Panel
+- PDF: alle Seiten untereinander, im Vorschau-Bereich scrollbar
 
 Deinstallation: alle vier Dateien aus dem extensions-Ordner löschen,
 Nemo neu starten. Optional den Cache leeren: rm -rf ~/.cache/previewer
@@ -115,6 +121,20 @@ from previewer_select import (
     _atk_children, _dump_widget_tree,
 )
 from previewer_panel import PreviewPanel
+
+# PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
+# prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
+# Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
+import previewer_util
+import previewer_select
+import previewer_panel
+
+for _mod in (previewer_util, previewer_select, previewer_panel):
+    _ver = getattr(_mod, "PREVIEWER_VERSION", None)
+    if _ver != "2026-10-26b":
+        dbg("ACHTUNG: %s.py ist veraltet (gefunden: %r, erwartet: "
+            "'2026-10-26b') – Datei im Extension-Ordner durch die aktuelle "
+            "Fassung aus dem Canvas ersetzen!" % (_mod.__name__, _ver))
 
 # ============================== Provider ===================================
 
@@ -595,3 +615,5 @@ def _install_log_filter():
 
 
 _install_log_filter()
+
+dbg("previewer (Einstieg) 2026-10-26b bereit")
