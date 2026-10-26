@@ -6,6 +6,23 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.2.2\] – 2026-10-26
+
+### Fixed (Behoben)
+
+- SVG-Dateien wurden nicht angezeigt (GdkPixbuf-Fehler „Format konnte  
+nicht erkannt werden"): GdkPixbuf bringt seit Version 2.42 keinen  
+SVG-Loader mehr mit. SVGs werden jetzt über librsvg gerendert, falls  
+vorhanden (Paket gir1.2-rsvg); andernfalls erscheint ein Hinweis  
+statt einer Fehlermeldung. Auch nicht ladende Rasterbilder zeigen  
+nun einen Hinweis statt einer leeren Vorschau.
+- Der Office-Cache wurde nie geschrieben: os.replace scheitert still  
+mit „Ungültiger Link über Gerätegrenzen hinweg" (EXDEV), wenn /tmp  
+ein tmpfs auf einem eigenen Gerät liegt. Dadurch konvertierte  
+LibreOffice dasselbe Dokument bei jeder Auswahl erneut. Der Cache  
+nutzt jetzt shutil.move, das geräteübergreifend kopiert – jede  
+Konvertierung läuft nur noch einmal pro Dokument-Version.
+
 ## \[0.2.1\] – 2026-10-26
 
 ### Fixed (Behoben)
