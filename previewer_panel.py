@@ -121,6 +121,40 @@ except Exception:
 # Cache für LibreOffice-Konvertierungen: ~/.cache/previewer/<hash>.pdf
 
 
+# Prozess-Zustand für die Medien-Erkundung (Konvention: Modul-Dict statt
+# global): wurde das GI-Warm-up bereits erledigt?
+_MEDIA_STATE = {"warmed": False}
+
+
+def _media_gi_warmup():
+    """
+    R1-Fix: PyGObject erzeugt die Method-Tabellen von GI-Klassen erst
+    beim ERSTEN Attribut-Zugriff – und diese Erst-Erzeugung ist nicht
+    thread-sicher. Fiel sie in den Erkundungs-Worker, scheiterte dort
+    die Attribut-Auflösung („'Discoverer' object has no attribute
+    'discover_uri_sync'“) und alle Medien erschienen ohne Tags, Dauer
+    und Cover. Erstkontakt mit allen am Erkundungsweg beteiligten
+    Klassen deshalb einmalig IM GTK-THREAD (siehe _media_probe_async);
+    der Worker findet danach fertige Tabellen vor.
+    """
+    if _MEDIA_STATE["warmed"]:
+        return
+    _MEDIA_STATE["warmed"] = True
+    try:
+        _ = GstPbutils.Discoverer.discover_uri_sync
+    except Exception:
+        pass
+    try:
+        _ = GstPbutils.DiscovererInfo.get_duration
+        _ = GstPbutils.DiscovererInfo.get_tags
+        _ = Gst.TagList.get_string
+        _ = Gst.TagList.get_sample
+        _ = Gst.Sample.get_buffer
+        _ = Gst.Buffer.extract_dup
+    except Exception:
+        pass
+
+
 def office_cache_dir():
     """Cache-Ordner ~/.cache/previewer (wird bei Bedarf angelegt)."""
     d = os.path.join(GLib.get_user_cache_dir(), "previewer")
@@ -1771,20 +1805,41 @@ class PreviewPanel(Gtk.Box):
         Pixbuf, Gdk-Objekte entstehen erst zurück im GTK-Thread) und
         schwenkt das Ergebnis per GLib.idle_add in den Main-Loop;
         finish ist die Fortsetzung (_finish_audio/_finish_video).
+
+        R1-Fix: PyGObject erzeugt die Method-Tabellen der GI-Klassen
+        LAZY – und die Erst-Erzeugung ist nicht thread-sicher. Löste
+        der Worker das Attribut discover_uri_sync als Erstes auf,
+        mündete das auf Mint 22 in „'Discoverer' object has no
+        attribute 'discover_uri_sync'“ (alle Medien ohne Tags/Dauer/
+        Cover). Deshalb: Warm-up der beteiligten GI-Klassen HIER im
+        GTK-Thread, Discoverer HIER bauen und die Erkundung als
+        fertiges Callable in den Worker reichen.
         """
         self._hint("Lese Medien-Informationen – einen Moment …")
+        _media_gi_warmup()
+        try:
+            try:
+                disc = GstPbutils.Discoverer.new(10 * Gst.SECOND)
+            except (AttributeError, TypeError):
+                # Neuere PyGObject-Builds mappen gst_discoverer_new
+                # NICHT als Konstruktor – deshalb explizit .new(),
+                # mit Fallback für ältere Builds.
+                disc = GstPbutils.Discoverer(10 * Gst.SECOND)
+            # Attribut-Auflösung IM GTK-Thread (siehe R1-Fix oben);
+            # der Worker ruft nur noch das fertige Callable auf.
+            probe = disc.discover_uri_sync
+        except Exception as e:
+            dbg("Discoverer nicht anlegbar: %s" % e)
+            # Ohne Discoverer trotzdem die UI aufbauen (Platzhalter,
+            # Player) – nicht im Hinweis stecken bleiben.
+            GLib.idle_add(self._media_probe_done, path, uri, finish,
+                          {}, -1, None)
+            return
 
         def work():
             tags, duration, image_bytes = {}, -1, None
             try:
-                try:
-                    disc = GstPbutils.Discoverer.new(10 * Gst.SECOND)
-                except (AttributeError, TypeError):
-                    # Neuere PyGObject-Builds mappen gst_discoverer_new
-                    # NICHT als Konstruktor – deshalb explizit .new(),
-                    # mit Fallback für ältere Builds.
-                    disc = GstPbutils.Discoverer(10 * Gst.SECOND)
-                info = disc.discover_uri_sync(uri)
+                info = probe(uri)
                 duration = info.get_duration() // Gst.SECOND
                 taglist = info.get_tags()
                 if taglist:
