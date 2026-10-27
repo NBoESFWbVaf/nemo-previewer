@@ -4,11 +4,11 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.9.1 – aktuelle Fassung (Audit-Paket: Lebenszyklus-
-Fix für die Office-Konvertierung nach Panel-Abbau; redundante
-TextView-, Lese- und Tabellen-Blöcke in gemeinsame Helfer überführt;
-Video weiterhin generische Kachel plus Infos, Wiedergabe zurückgebaut,
-Öffnen-Knopf – PDF-Seitenanzeige wie 0.9.0).
+STAND: Version 0.9.2 – aktuelle Fassung (Härtungs-Paket gegen
+Dekompressions-/Dekodierbomben: bewachter PixbufLoader mit Decode-
+Deckel, PDF-Pixel-Budget, Lese-Deckel für EPUB-OPF, Office-XML/-Miniatur
+und EML, Byte-Deckel für Medien-Cover; sonst wie 0.9.1 – Video-Kachel
+plus Infos mit Öffnen-Knopf, PDF-Seitenanzeige).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -221,7 +221,11 @@ def _extract_office_text(zf, names):
     if not entry:
         return ""
     try:
-        root = ElementTree.fromstring(zf.read(entry))
+        # 0.9.2: Lese-Deckel gegen Dekompressionsbomben – auch der
+        # Textauszug braucht nur den Anfang des Dokuments (die Grenze
+        # _OFFICE_MAX_TEXT_CHARS schneidet ohnehin weit davor).
+        root = ElementTree.fromstring(
+            _zf_read_capped(zf, entry, _OFFICE_XML_CAP))
     except Exception:
         return ""
     parts = []
@@ -250,6 +254,15 @@ _TEXT_EXTRAS = {
 
 # PDF: alle Seiten bis zu dieser Obergrenze scrollbar untereinander
 MAX_PDF_PAGES = 20
+# 0.9.2 (Audit „Pufferüberlauf/OOM“): Deckel gegen Dekompressions- und
+# Dekodierbomben – ein präpariertes Bild/PDF/EPUB/DOCX/EML darf Nemo
+# niemals durch Riesen-Allokationen abschießen.
+_PDF_PIXEL_BUDGET = 4096 * 4096      # Fläche je PDF-Seite (sonst ~1,6 GB)
+_EML_FILE_CAP = 2 * 1024 * 1024      # .eml: Kopfzeilen + Körper-Anfang
+_IMAGE_FILE_CAP = 64 * 1024 * 1024   # Bilddatei: Rohbytes vor Dekodierung
+_MEDIA_IMAGE_CAP = 32 * 1024 * 1024  # eingebettetes Cover aus Medien-Tags
+_OFFICE_THUMB_CAP = 16 * 1024 * 1024  # eingebettete Office-Miniatur
+_OFFICE_XML_CAP = 2 * 1024 * 1024     # content.xml / word/document.xml
 
 
 # --- Markdown -> Pango-Markup (Vorschau-Qualität, kein voller Parser) ---
@@ -348,9 +361,28 @@ def _xml_local(tag):
     return tag.rsplit("}", 1)[-1]
 
 
-def _pixbuf_from_bytes(data):
-    """Pixbuf aus Rohbytes (E-Book-Cover); GdkPixbuf riecht das Format."""
+def _pixbuf_from_bytes(data, max_w=4096, max_h=4096):
+    """
+    Bytes zu einer Pixbuf dekodieren – GdkPixbuf riecht das Format –
+    mit Decode-Deckel (0.9.2): Das size-prepared-Signal feuert, BEVOR
+    die Pixeldaten alloziert werden; set_size() verkleinert dort die
+    Dekodierung. Ein Bild, das nur im Header Riesenmaße deklariert
+    (PNG-Bombe), kostet damit nur die gedeckelte Fläche statt
+    Gigabytes. Bei Dekodierfehlern wird wie bisher geworfen (der
+    jeweilige Aufrufer fängt).
+    """
     loader = GdkPixbuf.PixbufLoader()
+
+    def _on_size(loader, w, h):
+        if w > max_w or h > max_h:
+            f = min(max_w / max(w, 1), max_h / max(h, 1))
+            try:
+                loader.set_size(max(1, int(w * f)),
+                                max(1, int(h * f)))
+            except Exception:
+                pass
+
+    loader.connect("size-prepared", _on_size)
     loader.write(data)
     loader.close()
     return loader.get_pixbuf()
@@ -410,10 +442,15 @@ def _epub_data(path):
     with zipfile.ZipFile(path) as zf:
         names = zf.namelist()
 
-        # OPF-Inhaltsdatei: steht in META-INF/container.xml
+        # OPF-Inhaltsdatei: steht in META-INF/container.xml.
+        # 0.9.2: auch diese kleinen Einträge über den R4-Lese-Deckel –
+        # ein präpariertes EPUB könnte sie als Dekompressionsbombe
+        # packen (Kapitel und Cover waren längst gedeckelt, diese
+        # beiden Lesevorgänge nicht).
         opf_path = None
         try:
-            container = zf.read("META-INF/container.xml").decode(
+            container = _zf_read_capped(
+                zf, "META-INF/container.xml", _EBOOK_CHUNK_CAP).decode(
                 "utf-8", "replace")
             m = re.search(r'full-path="([^"]+)"', container)
             if m:
@@ -429,7 +466,8 @@ def _epub_data(path):
             raise ValueError("keine OPF-Inhaltsdatei gefunden")
 
         base = (opf_path.rsplit("/", 1)[0] + "/") if "/" in opf_path else ""
-        root = ElementTree.fromstring(zf.read(opf_path))
+        root = ElementTree.fromstring(
+            _zf_read_capped(zf, opf_path, _EBOOK_CHUNK_CAP))
 
         title = author = lang = None
         manifest = {}          # id -> (href, Medientyp)
@@ -1272,12 +1310,22 @@ class PreviewPanel(Gtk.Box):
             pass
 
     def _render_image(self, path):
-        # Quelle in voller Auflösung laden (Riesenbilder werden auf eine
-        # sinnvolle Deckelung verkleinert); die ANZEIGE regelt die Live-
-        # Skalierung über die Panelbreite.
+        # Quelle laden (Riesenbilder werden auf eine sinnvolle Deckelung
+        # verkleinert); die ANZEIGE regelt die Live-Skalierung über die
+        # Panelbreite.
+        # 0.9.2: Primärroute ist der BEWACHTE Loader aus _pixbuf_from_
+        # bytes – Pixbuf dekodiert sonst die VOLLE Auflösung, bevor die
+        # Deckelung unten greift, und ein PNG, das nur im Header
+        # 30000×30000 deklariert, alloziert ~3,6 GB (OOM-Absturz von
+        # Nemo). Der size-prepared-Deckel verkleinert zur DEKODIERzeit.
+        # Der Rohdaten-Deckel begrenzt zusätzlich Monstrum-Dateien.
         try:
-            pb = GdkPixbuf.Pixbuf.new_from_file(path)
+            with open(path, "rb") as fh:
+                data = fh.read(_IMAGE_FILE_CAP)
+            pb = _pixbuf_from_bytes(data)
         except Exception:
+            # Fallback: at_scale begrenzt die Dekodierung bereits intern
+            # und ist damit ebenfalls bombensicher.
             try:
                 pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
                     path, 4096, 4096, True)
@@ -1399,8 +1447,11 @@ class PreviewPanel(Gtk.Box):
         """
         try:
             with open(path, "rb") as fh:
-                msg = email.message_from_binary_file(
-                    fh, policy=policy.default)
+                # 0.9.2: Lese-Deckel – die Kopfzeilen stehen ohnehin
+                # oben; ein mehr-GB-.eml würde die sonst ganze Datei
+                # in den Speicher ziehen und Nemo einfrieren.
+                raw = fh.read(_EML_FILE_CAP)
+            msg = email.message_from_bytes(raw, policy=policy.default)
         except Exception as e:
             self._hint("E-Mail konnte nicht geöffnet werden: %s" % e)
             return
@@ -1638,6 +1689,14 @@ class PreviewPanel(Gtk.Box):
                     2.0 * MAX_IMAGE_HEIGHT / max(ph, 1.0))
         scale = max(0.2, min(3.0, scale))
         w, h = max(1, int(pw * scale)), max(1, int(ph * scale))
+        # 0.9.2: Pixel-Budget – die untere Scale-Klammer (0.2) erzwingt
+        # bei pathologisch riesigen PDF-Seiten (z.B. 100000 pt) sonst
+        # 20000×20000 px ≈ 1,6 GB je Seite. Übersteigt das Ergebnis das
+        # Budget, wird es flächentreu zurückgerechnet; normale Seiten
+        # (auch doppelt so breite Panel) bleiben unberührt.
+        if w * h > _PDF_PIXEL_BUDGET:
+            f = (_PDF_PIXEL_BUDGET / float(w * h)) ** 0.5
+            w, h = max(1, int(w * f)), max(1, int(h * f))
         surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
         cr = cairo.Context(surf)
         # Weiße Unterlage: PDF-Seiten dürfen transparente Flächen haben –
@@ -1908,7 +1967,10 @@ class PreviewPanel(Gtk.Box):
                         ok, sample = taglist.get_sample(gst_tag)
                         if ok and sample:
                             buf = sample.get_buffer()
-                            image_bytes = buf.extract_dup(0, buf.get_size())
+                            # 0.9.2: Byte-Deckel – eingebettete Cover
+                            # können sonst beliebig groß sein.
+                            image_bytes = buf.extract_dup(
+                                0, min(buf.get_size(), _MEDIA_IMAGE_CAP))
                             break
             except Exception as e:
                 dbg("Discoverer-Fehler: %s" % e)
@@ -1926,10 +1988,9 @@ class PreviewPanel(Gtk.Box):
         pixbuf = None
         if image_bytes:
             try:
-                loader = GdkPixbuf.PixbufLoader()
-                loader.write(image_bytes)
-                loader.close()
-                pixbuf = loader.get_pixbuf()
+                # 0.9.2: bewachter Loader mit Decode-Deckel (siehe
+                # _pixbuf_from_bytes) statt rohem PixbufLoader.
+                pixbuf = _pixbuf_from_bytes(image_bytes)
             except Exception as exc:
                 dbg("Medien-Bild nicht darstellbar: %s" % exc)
         # Lese-Hinweis entfernen und die eigentliche Vorschau aufbauen.
@@ -2236,7 +2297,11 @@ class PreviewPanel(Gtk.Box):
                 for member in _OFFICE_THUMBS:
                     if member in names:
                         try:
-                            thumb = zf.read(member)
+                            # 0.9.2: Lese-Deckel – ein präpariertes
+                            # DOCX könnte eine Riesen-Miniatur als
+                            # Dekompressionsbombe packen.
+                            thumb = _zf_read_capped(zf, member,
+                                                    _OFFICE_THUMB_CAP)
                         except Exception:
                             thumb = None
                         break
@@ -2247,10 +2312,8 @@ class PreviewPanel(Gtk.Box):
         shown = False
         if thumb:
             try:
-                loader = GdkPixbuf.PixbufLoader()
-                loader.write(thumb)
-                loader.close()
-                pb = loader.get_pixbuf()
+                # 0.9.2: bewachter Loader mit Decode-Deckel.
+                pb = _pixbuf_from_bytes(thumb)
                 if pb is not None:
                     # Upscale: Office-Miniaturansichten sind oft nur
                     # 256 px breit – sie wachsen mit der Panelbreite mit,
@@ -2550,7 +2613,7 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.9.1"
-dbg("previewer_panel %s geladen (Audit-Fixes: Office-Kind-Watch nach "
-    "Panel-Abbau; gemeinsame TextView-, Lese- und Tabellen-Helfer)"
+PREVIEWER_VERSION = "0.9.2"
+dbg("previewer_panel %s geladen (Härtung: bewachter PixbufLoader, "
+    "PDF-Pixel-Budget, Lese-Deckel für EPUB/Office/EML, Medien-Byte-Deckel)"
     % PREVIEWER_VERSION)
