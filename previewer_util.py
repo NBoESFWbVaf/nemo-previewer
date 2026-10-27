@@ -4,7 +4,7 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.3.1 – aktuelle Fassung.
+STAND: Version 0.4.0 – aktuelle Fassung.
 
 Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
 Hilfsfunktionen und die zentralen Konfigurations-Konstanten. Teil der
@@ -122,5 +122,5 @@ def content_type_description(mime):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.3.1"
+PREVIEWER_VERSION = "0.4.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
