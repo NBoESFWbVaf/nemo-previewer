@@ -6,6 +6,21 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.7.1\] – 2026-10-27
+
+### Fixed (Behoben)
+
+- Video-Vorschau: Das Bild der Wiedergabe erschien in einem EIGENEN  
+Fenster statt in der Vorschauspalte, wenn gtksink fehlt (Paket  
+gstreamer1.0-gtk3) – der Playbin fällt in dem Fall auf seinen  
+Standard-Videosink zurück, der eigenständig ein Fenster öffnet. Die  
+Video-Ausgabe ist jetzt dreistufig: gtksink, wenn installiert; sonst  
+eine eigene DrawingArea, die über einen appsink (videoconvert,  
+Roh-Frames in RGBA, ca. 30 Bilder/s) die Frames selbst in die  
+Vorschauspalte zeichnet – ohne Zusatzpaket, auf X11 wie auf Wayland;  
+erst wenn beides nicht möglich ist, läuft die Wiedergabe nur mit  
+Ton (fakesink). Ein separates Fenster öffnet sich nie wieder
+
 ## \[0.7.0\] – 2026-10-27
 
 ### Added (Hinzugefügt)
