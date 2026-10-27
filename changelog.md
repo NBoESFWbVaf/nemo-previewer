@@ -6,6 +6,22 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.8.0\] – 2026-10-27
+
+### Removed (Entfernt)
+
+- Video-Wiedergabe im Panel (0.7.0–0.7.2): vollständig zurückgebaut.  
+Im Testfeld ließ sich das Bild nicht stabil in die Vorschauspalte  
+binden – ohne das Paket gstreamer1.0-gtk3 fehlt gtksink (der Playbin  
+öffnete dann sein eigenes Fenster), und der Appsink-Eigenbau zeigte  
+trotz Fenster- und Neuzeichnen-Fixes (0.7.1, 0.7.2) im Feld kein  
+Bild. Die Video-Vorschau zeigt wie gehabt die generische Kachel  
+(Petrol-Verlauf, Abspiel-Dreieck, Filmperforation) samt Datei-  
+Informationen; abgespielt wird über den Öffnen-Knopf im Medien-  
+programm der Wahl. Die Player-Leiste bleibt exklusiv für Musik,  
+die zentralen Bausteine (\_playbin\_set\_uri/\_player\_bar) bleiben für  
+einen späteren Neuversuch erhalten
+
 ## \[0.7.2\] – 2026-10-27
 
 ### Fixed (Behoben)
