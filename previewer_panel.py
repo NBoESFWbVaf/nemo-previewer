@@ -4,13 +4,13 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.3.1 – aktuelle Fassung (neu: E-Book-Vorschau für EPUB,
-FB2 und MOBI/PRC/AZW).
+STAND: Version 0.4.0 – aktuelle Fassung (neu: Schriftarten-Wasserfall
+für TrueType/OpenType).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
-(EPUB, FictionBook, MOBI), PDF, Audio (mit Player), Video, Ordner und
-Office-Dokumente.
+(EPUB, FictionBook, MOBI), Schriftarten (Wasserfall für TrueType und
+OpenType), PDF, Audio (mit Player), Video, Ordner und Office-Dokumente.
 
 Office (ODT/ODS/ODP, DOCX/XLSX/PPTX) wird, wenn LibreOffice und Poppler
 vorhanden sind, scharf und in voller Panelbreite angezeigt: LibreOffice
@@ -27,6 +27,8 @@ import os
 import re
 import sys
 import base64
+import ctypes
+import ctypes.util
 import email
 import hashlib
 import html
@@ -90,6 +92,16 @@ try:
     gi.require_version('Rsvg', '2.0')
     from gi.repository import Rsvg
     HAVE_RSVG = True
+except Exception:
+    pass
+
+# PangoCairo, um nach dem Laden einer Schrift in Fontconfig zu prüfen,
+# ob Pango die Familie wirklich kennt.
+HAVE_PANGOCAIRO = False
+try:
+    gi.require_version('PangoCairo', '1.0')
+    from gi.repository import PangoCairo
+    HAVE_PANGOCAIRO = True
 except Exception:
     pass
 
@@ -564,6 +576,128 @@ def _mobi_data(path):
     rows = [(k, v) for k, v in (("Titel", title), ("Autor", author)) if v]
     return rows, None, text
 
+# --- Schriftarten: Wasserfall für TrueType/OpenType (Bordmittel) ------------
+
+_FONT_SIZES = (8, 11, 14, 18, 24, 36, 48)
+_FONT_SAMPLE_TEXT = ("Zwölf Boxkämpfer jagen Viktor quer über den "
+                     "großen Sylter Deich")
+# Prozess-Zustand (kein global-Schlüsselwort, siehe Projekt-Konvention):
+# temporärer Ordner für die Fontconfig-Übernahme + bereits übernommene Pfade
+_FONT_STATE = {"tmpdir": None, "added": set()}
+
+
+def _font_info(path):
+    """
+    Familie und Stil aus der Namens-Tabelle einer TrueType-/OpenType-
+    Datei lesen (sfnt-Kopf, name-Tabelle – reine Bytes-Arbeit).
+    Rückgabe (Format-Text, Familie, Stil).
+    """
+    with open(path, "rb") as fh:
+        data = fh.read(4 * 1024 * 1024)
+    if len(data) < 12:
+        raise ValueError("Datei zu klein")
+    tag = data[0:4]
+    offset = 0
+    fmt = "TrueType"
+    if tag == b"ttcf":
+        if len(data) < 16:
+            raise ValueError("Collection ohne Kopf")
+        offset = int.from_bytes(data[12:16], "big")
+        if offset + 12 > len(data):
+            raise ValueError("Collection-Offset kaputt")
+        tag = data[offset:offset + 4]
+        fmt = "TrueType-Collection"
+    if tag == b"OTTO":
+        fmt = ("OpenType (CFF)" if offset == 0
+               else "OpenType-Collection (CFF)")
+    elif tag not in (b"true", b"\x00\x01\x00\x00") and offset == 0:
+        raise ValueError("keine TrueType-/OpenType-Datei")
+
+    num_tables = int.from_bytes(data[offset + 4:offset + 6], "big")
+    name_off = name_len = 0
+    for i in range(num_tables):
+        p = offset + 12 + 16 * i
+        if p + 16 > len(data):
+            break
+        ttag, _cksum, toff, tlen = struct.unpack(">4sIII", data[p:p + 16])
+        if ttag == b"name":
+            name_off, name_len = toff, tlen
+            break
+    if not name_off:
+        raise ValueError("Namens-Tabelle fehlt")
+    end = min(len(data), name_off + name_len)
+    count = int.from_bytes(data[name_off + 2:name_off + 4], "big")
+    stroff = int.from_bytes(data[name_off + 4:name_off + 6], "big")
+    recs = {}
+    for i in range(count):
+        p = name_off + 6 + 12 * i
+        if p + 12 > end:
+            break
+        plat, _enc, _lang, nid, ln, off2 = struct.unpack(
+            ">6H", data[p:p + 12])
+        s = name_off + stroff + off2
+        if s + ln > end:
+            continue
+        raw = data[s:s + ln]
+        try:
+            if plat in (0, 3):            # Unicode bzw. Windows: UTF-16BE
+                text = raw.decode("utf-16-be", "replace")
+            else:                          # Mac & Co.: grob Latin-1
+                text = raw.decode("latin-1", "replace")
+        except Exception:
+            continue
+        text = text.strip("\x00 ").strip()
+        if text:
+            recs.setdefault(nid, text)
+    family = recs.get(1) or recs.get(16) or recs.get(4)
+    style = recs.get(2) or recs.get(17)
+    if not family:
+        raise ValueError("kein Familienname in der Datei")
+    return fmt, family, style or "Regular"
+
+
+def _fc_add_font_file(path):
+    """
+    Schriftdatei für DIESEN Prozess in Fontconfig aufnehmen – ohne sie
+    systemweit zu installieren: Kopie in einen temporären Ordner, dann
+    FcConfigAppFontAddDir (libfontconfig via ctypes). Pango liest die
+    Familie danach ganz normal über Fontconfig.
+    """
+    state = _FONT_STATE
+    if path in state["added"]:
+        return True
+    try:
+        if state["tmpdir"] is None:
+            state["tmpdir"] = tempfile.mkdtemp(prefix="previewer-font-")
+        dest = os.path.join(state["tmpdir"], os.path.basename(path))
+        if not os.path.exists(dest):
+            shutil.copy2(path, dest)
+        lib = ctypes.CDLL(ctypes.util.find_library("fontconfig")
+                          or "libfontconfig.so.1")
+        res = lib.FcConfigAppFontAddDir(
+            None, state["tmpdir"].encode("utf-8"))
+        if res:
+            state["added"].add(path)
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def _font_available(family):
+    """Prüfen, ob Pango die Familie kennt (frischer, unbenutzter FontMap)."""
+    if not HAVE_PANGOCAIRO:
+        return True              # Prüfung unmöglich – nicht blocken
+    try:
+        fm = PangoCairo.FontMap.new()
+        low = family.lower()
+        for fam in fm.list_families():
+            if (fam.get_name() or "").lower() == low:
+                return True
+        return False
+    except Exception:
+        return True
+
 # ================================ Panel ====================================
 
 class PreviewPanel(Gtk.Box):
@@ -818,6 +952,11 @@ class PreviewPanel(Gtk.Box):
         elif (mime == "application/x-mobipocket-ebook"
               or lower.endswith((".mobi", ".prc", ".azw", ".azw3"))):
             self._render_mobi(path)
+        elif (mime in ("font/ttf", "font/otf", "font/collection",
+                       "application/x-font-ttf", "application/x-font-otf",
+                       "application/vnd.ms-opentype")
+              or lower.endswith((".ttf", ".otf", ".ttc"))):
+            self._render_font(path)
         elif mime.startswith("text/") or os.path.splitext(lower)[1] in _TEXT_EXTRAS:
             self._render_text(path)
         elif os.path.splitext(lower)[1] in _OFFICE_EXTS:
@@ -1288,6 +1427,55 @@ class PreviewPanel(Gtk.Box):
     def _render_mobi(self, path):
         """MOBI/PRC/AZW-Vorschau (Titel, Autor, Textanfang)."""
         self._render_ebook(path, _mobi_data, "MOBI")
+
+    def _render_font(self, path):
+        """
+        Schriftarten-Wasserfall (TrueType, OpenType, Collections): die
+        Datei wird nur für diesen Prozess in Fontconfig aufgenommen
+        (nichts wird installiert), dann zeigt ein Probetext die Familie
+        in aufsteigenden Größen. Kann Pango die Familie nicht finden,
+        erscheint ein Hinweis – der Wasserfall läuft dann mit der
+        Ersatzschrift.
+        """
+        try:
+            fmt, family, style = _font_info(path)
+        except Exception as e:
+            dbg("Schrift konnte nicht gelesen werden (%s): %s" % (path, e))
+            self._hint("Konnte Schrift nicht lesen: %s" % e)
+            self._render_generic()
+            return
+        self._meta_grid([("Format", fmt), ("Familie", family),
+                         ("Stil", style)])
+        if not _fc_add_font_file(path):
+            dbg("Schrift konnte Fontconfig nicht hinzugefügt werden: %s"
+                % path)
+        if not _font_available(family):
+            dbg("Pango kennt die Familie nicht: %s" % family)
+            self._hint("Schrift konnte nicht eingebunden werden – der "
+                       "Wasserfall zeigt die Ersatzschrift.")
+
+        flow = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        flow.set_border_width(10)
+        for size in _FONT_SIZES:
+            tag = Gtk.Label(label="%d pt" % size)
+            tag.get_style_context().add_class("dim-label")
+            tag.set_halign(Gtk.Align.START)
+            flow.pack_start(tag, False, False, 0)
+            lbl = Gtk.Label(label=_FONT_SAMPLE_TEXT)
+            try:
+                fd = Pango.FontDescription()
+                fd.set_family(family)
+                fd.set_size(size * Pango.SCALE)
+                lbl.modify_font(fd)
+            except Exception:
+                pass
+            lbl.set_halign(Gtk.Align.START)
+            lbl.set_line_wrap(True)
+            flow.pack_start(lbl, False, False, 0)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.add(flow)
+        self._content.pack_start(scroll, True, True, 0)
 
     def _pdf_page_pixbuf(self, page, target_w):
         """Eine PDF-Seite auf target_w Pixel Breite rendern (weiße Unterlage)."""
@@ -1868,6 +2056,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.3.1"
-dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books (EPUB, FB2, "
-    "MOBI), Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
+PREVIEWER_VERSION = "0.4.0"
+dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
+    "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
