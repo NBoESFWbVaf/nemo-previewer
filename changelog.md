@@ -6,6 +6,16 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.7.2\] – 2026-10-27
+
+### Fixed (Behoben)
+
+- Video-Vorschau (Eigenbau-Ausgabe): Ton lief, aber das Bild blieb bei  
+der Platzhalter-Kachel – die DrawingArea wurde nach ihrem ersten  
+(leeren) Zeichnen nie wieder zum Neuzeichnen angestoßen. Der  
+Frame-Timer ruft jetzt nach jedem gezogenen Bild explizit das  
+Neuzeichnen (queue\_draw) auf
+
 ## \[0.7.1\] – 2026-10-27
 
 ### Fixed (Behoben)
