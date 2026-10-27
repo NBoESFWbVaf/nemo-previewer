@@ -29,7 +29,7 @@ auch große oder gescannte PDFs stehen augenblicklich im Panel
 Panelbreite kannte nur EIN Bild pro Vorschau (Einzel-Slot) – jedes  
 weitere skalierte Bild (z.B. Cover plus eingebettete Bilder) hätte  
 das erste überschrieben. Die Skalier-Parameter liegen jetzt als  
-Attach-Daten am jeweiligen Bild; beliebig viele Bilder skalieren mit
+Python-Daten je Bild in einer Liste; beliebig viele Bilder skalieren mit
 - R4: EPUB-Lesedeckel gegen Dekompressions-Bomben: Kapitel-Dokumente  
 werden mit 2-MB-Deckel, Cover mit 16-MB-Deckel gelesen – ein  
 winziges, riesig entpacktes XHTML im EPUB kann das Panel nicht mehr  
