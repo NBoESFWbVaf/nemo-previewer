@@ -247,25 +247,27 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   EIGENES Fenster – jetzt zeichnet in dem Fall eine DrawingArea per  
   appsink (videoconvert, RGBA-Roh-Frames, ca. 30 fps) selbst in die  
   Vorschauspalte; gtksink bleibt bevorzugt, fakesink ist der letzte  
-  Rückfall (nur Ton, nie ein Fenster).
+  Rückfall (nur Ton, nie ein Fenster). 0.7.2: Das Neuzeichnen der  
+  DrawingArea fehlte (queue\_draw) – der Ton lief, das Bild blieb bei  
+  der Kachel; jetzt stößt der Frame-Timer nach jedem Bild an.
 
 ---
 
 ## Empfohlene Reihenfolge
 
 
-| Schritt | Inhalt                                                                                                                | Zielversion                               |
-| ------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                  | ✅ 0.4.2 (Patch)                           |
-| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                         | ✅ 0.4.3 (Patch)                           |
-| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                            | ✅ 0.5.0 (Minor)                           |
-| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                               | ✅ 0.5.1 (Patch)                           |
-| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                  | ✅ 0.6.0 (Minor; in 0.7.0 wieder entfernt) |
-| 7       | F22 Abschluss – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                            | ✅ 0.7.0 (Minor; Fenster-Fix 0.7.1)        |
-| 8       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                          | 0.8.0                                     |
-| 9       | F4, F6–F11 nach Bedarf                                                                                                | später                                    |
-| 10      | F13–F17 + K3, K4, K6, K7 nach Bedarf                                                                                  | später                                    |
-| 11      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) | später                                    |
+| Schritt | Inhalt                                                                                                                | Zielversion                                          |
+| ------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                  | ✅ 0.4.2 (Patch)                                      |
+| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                         | ✅ 0.4.3 (Patch)                                      |
+| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                            | ✅ 0.5.0 (Minor)                                      |
+| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                               | ✅ 0.5.1 (Patch)                                      |
+| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                  | ✅ 0.6.0 (Minor; in 0.7.0 wieder entfernt)            |
+| 7       | F22 Abschluss – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                            | ✅ 0.7.0 (Minor; Fenster-Fix 0.7.1, Redraw-Fix 0.7.2) |
+| 8       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                          | 0.8.0                                                |
+| 9       | F4, F6–F11 nach Bedarf                                                                                                | später                                               |
+| 10      | F13–F17 + K3, K4, K6, K7 nach Bedarf                                                                                  | später                                               |
+| 11      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) | später                                               |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
