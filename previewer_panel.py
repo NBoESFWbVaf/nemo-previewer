@@ -4,9 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.5.0 – aktuelle Fassung (Robustheits-Paket R1–R8
-siehe 0.4.3; NEU: Platzhalter-Cover für Musikdateien ohne
-eingebettetes Bild – gezeichnete Verlaufs-Kachel mit Notensymbol).
+STAND: Version 0.5.1 – aktuelle Fassung (Platzhalter-Cover und
+Entdeckungs-Fixes wie 0.5.0; NEU: Ordner-Vorschau zählt ALLE
+Einträge und weist versteckte separat aus – K1-Kompromiss).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -1778,12 +1778,36 @@ class PreviewPanel(Gtk.Box):
             pass
 
     def _render_folder(self, path):
+        """
+        Ordner-Vorschau: Ordner-Icon plus Anzahl der Einträge.
+        K1 (Kompromiss statt nur-sichtbar-zählen): Es wird ALLES
+        gezählt, der Nutzer aber informiert – versteckte Einträge
+        werden separat ausgewiesen: „Der Ordner enthält X Dateien,
+        davon X versteckt." So stimmt die Zahl mit `ls -A` überein,
+        ohne dass versteckte Dateien stillschweigend fehlen.
+        """
+        total = hidden = 0
+        ok = False
         try:
             with os.scandir(path) as it:
-                n = sum(1 for _ in it)
-            self._hint("Ordner mit %d Einträgen." % n)
+                for entry in it:
+                    total += 1
+                    if entry.name.startswith("."):
+                        hidden += 1
+            ok = True
         except Exception:
+            pass
+        if not ok:
             self._hint("Ordner")
+        elif total == 0:
+            self._hint("Der Ordner ist leer.")
+        else:
+            unit = "Datei" if total == 1 else "Dateien"
+            if hidden > 0:
+                self._hint("Der Ordner enthält %d %s, davon %d versteckt."
+                           % (total, unit, hidden))
+            else:
+                self._hint("Der Ordner enthält %d %s." % (total, unit))
         big = Gtk.Image.new_from_icon_name("folder", Gtk.IconSize.DIALOG)
         big.set_pixel_size(128)
         self._content.pack_start(big, True, True, 0)
@@ -2490,6 +2514,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.5.0"
+PREVIEWER_VERSION = "0.5.1"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
     "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
