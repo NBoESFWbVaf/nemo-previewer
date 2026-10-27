@@ -12,6 +12,19 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 Feature-Vorschlägen inklusive Lösungsskizzen, Aufwandsschätzung und  
 empfohlener Abarbeitungs-Reihenfolge
 
+## \[0.5.0\] – 2026-10-27
+
+### Added (Hinzugefügt)
+
+- Audio-Vorschau: Auch ohne eingebettetes Cover erscheint über den  
+Mediaschaltflächen jetzt eine Platzhalter-Kachel – diagonaler  
+Farbverlauf (dunkles Blaugrau nach dunklem Violett) mit halb-  
+transparentem Notensymbol und abgerundeten Ecken, in Cairo/Pango in  
+doppelter Auflösung gezeichnet (HiDPI-scharf); fehlt PangoCairo,  
+greift ein Icon-Fallback auf dunklem Grund. Dateien mit und ohne  
+Cover zeigen damit ein einheitliches Erscheinungsbild (aus  
+planned.md vorgezogen, dort als F18 geführt)
+
 ## \[0.4.3\] – 2026-10-27
 
 ### Changed (Geändert) — Robustheits-Paket aus planned.md (R1–R8)
