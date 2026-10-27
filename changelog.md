@@ -6,6 +6,48 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.9.2\] – 2026-10-27
+
+Härtungs-Paket aus dem zweiten Sicherheitsaudit (Schwerpunkt  
+Pufferüberlauf/OOM): Klassische Überläufe sind auf Python-Ebene  
+ausgeschlossen; ein präpariertes Bild, PDF, EPUB, DOCX oder EML konnte  
+aber Nemo über Riesen-Allokationen abschießen. Keine neuen Funktionen,  
+normale Dateien verhalten sich unverändert.
+
+### Fixed (Behoben)
+
+- Bild-Vorschau: GdkPixbuf dekodierte die VOLLE Auflösung, bevor die  
+Deckelung griff – ein PNG, das nur im Header 30000×30000 deklariert,  
+allozierte \~3,6 GB (OOM-Absturz). `_pixbuf_from_bytes` nutzt jetzt  
+den size-prepared-Deckel (Verkleinerung zur Dekodierzeit) und ist  
+jetzt auch die Primärroute der Bild-Vorschau (Rohdaten-Deckel  
+64 MB, Fallback `new_from_file_at_scale`)
+- PDF-Vorschau: Die untere Scale-Klammer (0.2) erzwang bei  
+pathologisch riesigen Seiten (\~100000 pt) Rendern in  
+20000×20000 px ≈ 1,6 GB je Seite – jetzt greift zusätzlich ein  
+Pixel-Budget (4096²) je Seite, das nur im Extremfall  
+flächentreu zurückrechnet
+- EML-Vorschau: Der Parser las die GESAMTE Datei – mehr-GB-.eml  
+fraßen Nemos Speicher; es werden jetzt die ersten 2 MB gelesen  
+(Kopfzeilen stehen ohnehin oben)
+- EPUB-Vorschau: `META-INF/container.xml` und die OPF-Datei wurden  
+ungekappt gelesen (Dekompressionsbomben-Lücke neben den bestehenden  
+R4-Deckeln für Kapitel und Cover) – beide jetzt über  
+`_zf_read_capped`
+- Office-Vorschau: Eingebettete Miniaturansicht (16-MB-Deckel) und  
+content.xml/word/document.xml (2-MB-Deckel) werden nicht mehr  
+ungekappt gelesen; Medien-Cover aus Tags mit 32-MB-Byte-Deckel
+
+### Changed (Geändert)
+
+- Auswahl-Erkennung (previewer\_select.py): Wildcall-Schutz – die per  
+berechnetem VTable-Offset gelesenen Funktionszeiger (peek\_selection,  
+get\_name, get\_uri) werden vor dem Aufruf gegen die ausführbaren  
+Adressbereiche der Nemo-Bibliotheken geprüft (`/proc/self/maps`);  
+ein Nemo-Update mit verschobenem Klassenlayout führt so zu einer  
+sauber abgeschalteten Route statt zu einem Wildcall, der Nemo  
+beenden würde
+
 ## \[0.9.1\] – 2026-10-27
 
 Sicherheits- und Redundanz-Audit über alle vier Module; keine neuen  
