@@ -4,11 +4,11 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.9.2 – aktuelle Fassung (Härtungs-Paket gegen
-Dekompressions-/Dekodierbomben: bewachter PixbufLoader mit Decode-
-Deckel, PDF-Pixel-Budget, Lese-Deckel für EPUB-OPF, Office-XML/-Miniatur
-und EML, Byte-Deckel für Medien-Cover; sonst wie 0.9.1 – Video-Kachel
-plus Infos mit Öffnen-Knopf, PDF-Seitenanzeige).
+STAND: Version 0.10.0 – aktuelle Fassung (NEU F23: Text-Vorschau für
+endungslose Dateien über Inhalts-Sniffing – die ersten 4 KB werden auf
+lesbaren Text geprüft, Binärdateien bleiben generisch; sonst wie
+0.9.2 mit Decode-/Lese-Deckeln, Wildcall-Schutz, Video-Kachel plus
+Infos mit Öffnen-Knopf und PDF-Seitenanzeige).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -386,6 +386,30 @@ def _pixbuf_from_bytes(data, max_w=4096, max_h=4096):
     loader.write(data)
     loader.close()
     return loader.get_pixbuf()
+
+
+def _sniff_is_text(path, probe=4096):
+    """
+    F23: Ist eine endungslose Datei lesbarer Text? Gio rät den
+    MIME-Typ nur aus dem Dateinamen – frei benannte Dateien (notes,
+    todo, Dotfiles wie .bashrc) landen sonst auf application/
+    octet-stream und damit ohne Text-Vorschau. Kurzer Blick in die
+    ersten Bytes statt Vertrauen auf den Namen: NULL-Bytes und ein
+    überhöhter Anteil an Steuerzeichen (alles außer Tab/LF/CR)
+    deuten auf Binärdaten. Encoding-agnostisch – UTF-8 wie Latin-1-
+    Text bestehen, Zufalls-Binärdaten fallen sicher durch. Die
+    eigentliche Text-Vorschau kappelt wie immer bei 256 KB /
+    2000 Zeilen.
+    """
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(probe)
+    except Exception:
+        return False
+    if not head or b"\x00" in head:
+        return False
+    ctrl = sum(1 for b in head if b < 9 or 14 <= b <= 31 or b == 127)
+    return ctrl / len(head) < 0.05
 
 
 def _palmdoc_decompress(data):
@@ -1141,6 +1165,13 @@ class PreviewPanel(Gtk.Box):
             self._render_text(path)
         elif os.path.splitext(lower)[1] in _OFFICE_EXTS:
             self._render_office(path)
+        elif not os.path.splitext(lower)[1] and _sniff_is_text(path):
+            # F23: endungslose Dateien sind in der Regel Text (Notizen,
+            # Dotfiles, Skripte ohne Suffix) – der MIME-Typ-Rater von Gio
+            # errät nur bekannte Namen wie README/Makefile. Der Schnüffler
+            # entscheidet über den Inhalt; Binärdateien ohne Endung
+            # (Executables, Core-Dumps) fallen durch und bleiben generisch.
+            self._render_text(path)
         else:
             self._render_generic()
 
@@ -2613,7 +2644,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.9.2"
-dbg("previewer_panel %s geladen (Härtung: bewachter PixbufLoader, "
-    "PDF-Pixel-Budget, Lese-Deckel für EPUB/Office/EML, Medien-Byte-Deckel)"
-    % PREVIEWER_VERSION)
+PREVIEWER_VERSION = "0.10.0"
+dbg("previewer_panel %s geladen (F23: Text-Sniffing für endungslose "
+    "Dateien; Härtungs-Deckel aus 0.9.2 bleiben)" % PREVIEWER_VERSION)
