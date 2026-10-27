@@ -106,9 +106,14 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
 ### ⚪ Kosmetik
 
-- [ ] **K1** – Ordner-Vorschau zählt versteckte Dateien mit
+- [x] **K1** – Ordner-Vorschau zählt versteckte Dateien mit
 
-  (`_render_folder`): nur sichtbare zählen. **S**
+  (`_render_folder`): nur sichtbare zählen. **S**  
+  ✅ 0.5.1 – bewusst als KOMPROMISS gelöst statt nur-sichtbar-zählen:  
+  Es wird weiterhin ALLES gezählt (stimmt mit `ls -A` überein), der  
+  Nutzer aber informiert – „Der Ordner enthält X Dateien, davon  
+  X versteckt." Versteckte verschwinden so nicht stillschweigend aus  
+  der Zählung.
 - [ ] **K2** – Kaputtes Office-ZIP zeigt nur Hinweiszeile, kein Icon:
 
   `_render_generic()` als Hintergrund dazu. **S**
@@ -192,20 +197,63 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Fallback über Theme-Icon. ✅ 0.5.0: umgesetzt – Cairo/Pango-Kachel  
   mit abgerundeten Ecken in 2-facher Auflösung, Icon-Fallback ohne  
   PangoCairo; angezeigt über der Player-Leiste wie echte Covers.
+- [ ] **F19 – Vorschau-Toolbar am unteren Rand der Vorschauspalte**
+
+  Kontextsensitive Knopfleiste unter dem Vorschaubereich; die  
+  Renderer melden ihre Aktionen, statt Buttons frei im Inhalt zu  
+  streuen. Basis für F13 (Pfad kopieren), F20 (OCR) und F21  
+  (Office→PDF). **M** – *Skizze:* Gtk.ActionBar (oder ButtonBox) als  
+  fester Fuß der Spalte unter `self._content`; je Renderer Liste von  
+  (Icon, Tooltip, Callback)-Tripeln; ohne Aktionen bleibt die Leiste  
+  ausgeblendet.
+- [ ] **F20 – OCR-Button bei PDFs** (in der Toolbar, F19)
+
+  Bei PDF-Auswahl erscheint ein OCR-Knopf; Klick führt eine  
+  Texterkennung auf die PDF durch und speichert das Ergebnis als  
+  Kopie (z.B. `Name_OCR.pdf`) neben dem Original – Original bleibt  
+  unangetastet. **M–L** – *Skizze:* Backend `ocrmypdf` (Paket, nutzt  
+  tesseract; erhält durchsuchbare Textebene), Hintergrund-Job im  
+  Muster `_office_start_job` (spawn\_async + child\_watch + Hinweis im  
+  Panel, kein UI-Freeze); ohne ocrmypdf: Knopf grau mit Hinweis  
+  „Paket ocrmypdf installieren". Gescannte PDFs = Hauptanwendungsfall.
+- [ ] **F21 – Office→PDF-Knopf** (in der Toolbar, F19)
+
+  Bei Office-Dokumenten (ODT/ODS/ODP, DOCX/XLSX/PPTX) bietet die  
+  Toolbar „Als PDF speichern": konvertiert das Dokument nach PDF und  
+  legt die Kopie neben dem Original ab. **S–M** – *Skizze:* Steht das  
+  Cache-PDF schon bereit (`_office_cached_pdf`), ist es ein reiner  
+  Kopierlauf; sonst LibreOffice-Konvertierung als Hintergrundjob im  
+  bestehenden Muster (`soffice --headless --convert-to pdf`) und  
+  danach kopieren. Zielname: gleicher Basisname + `.pdf`  
+  (Kollision vermeiden: bei Existenz `_1`, `_2` … anhängen).
+- [ ] **F22 – Video-Platzhalterbild + Wiedergabe im Panel**
+
+  Filmdateien ohne Standbild bekommen dieselbe generische Kachel wie  
+  Musik ohne Cover (Symbol z.B. Filmstreifen/Kamera statt Noten);  
+  wenn möglich soll der Film außerdem im Panel abspielbar sein wie  
+  Musik (Player-Leiste mit Position/Slider). **M–L** – *Skizze:*  
+  `_media_cover_placeholder` um ein Symbol-Parameter ergänzen;  
+  Wiedergabe über den bestehenden Playbin mit Gtk-Video-Sink  
+  (`Gst.ElementFactory.make("gtksink")` → `get_widget()` in eine  
+  DrawingArea unter dem Standbild packen), Player-Leiste und  
+  EOS/Timer-Logik aus `_finish_audio` wiederverwenden; ohne gtksink  
+  nur Ton mit Hinweis.
 
 ---
 
 ## Empfohlene Reihenfolge
 
 
-| Schritt | Inhalt                                                                           | Zielversion     |
-| ------- | -------------------------------------------------------------------------------- | --------------- |
-| 1       | 🔴 B1–B5 (Bug-Paket)                                                             | ✅ 0.4.2 (Patch) |
-| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                    | ✅ 0.4.3 (Patch) |
-| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                       | ✅ 0.5.0 (Minor) |
-| 5       | K1, K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration) | 0.6.0           |
-| 6       | F4, F6–F11 nach Bedarf                                                           | 0.7.0           |
-| 7       | F13–F17 + K3, K4, K6, K7 nach Bedarf                                             | später          |
+| Schritt | Inhalt                                                                                                                                                | Zielversion     |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                                                  | ✅ 0.4.2 (Patch) |
+| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                                                         | ✅ 0.4.3 (Patch) |
+| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                                                            | ✅ 0.5.0 (Minor) |
+| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                                                               | ✅ 0.5.1 (Patch) |
+| 6       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                          | 0.6.0           |
+| 7       | F4, F6–F11 nach Bedarf                                                                                                                                | 0.7.0           |
+| 8       | F13–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                  | später          |
+| 9       | F19–F22 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf, Video-Platzhalter + Wiedergabe; F19 zuerst, F20/F21 bauen darauf auf) | später          |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
