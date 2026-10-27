@@ -11,6 +11,17 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 - planned.md: Arbeitsdatei mit Schwachstellen-Analyse (Stand 0.4.1) und  
 Feature-Vorschlägen inklusive Lösungsskizzen, Aufwandsschätzung und  
 empfohlener Abarbeitungs-Reihenfolge
+- planned.md: F19–F22 ergänzt (Vorschau-Toolbar am unteren Rand,  
+OCR-Knopf bei PDFs, Office→PDF-Knopf, Video-Platzhalterbild und  
+Wiedergabe im Panel) inklusive Roadmap-Schritt 8
+
+### Changed (Geändert)
+
+- INSTALL.md: Debian-13-Hinweise ergänzt – es gibt dort kein Paket  
+„python-gi“ (die Python-3-Bindings heißen python3-gi und werden von  
+nemo-python mitgezogen, das Cinnamon auf Debian nicht vorinstalliert);  
+SVG-Paketname auf gir1.2-rsvg-2.0 vereinheitlicht (gültig auf Mint  
+und Debian); getestet auf Debian 13 (Trixie)
 
 ## \[0.5.0\] – 2026-10-27
 
