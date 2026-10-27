@@ -12,6 +12,51 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 Feature-Vorschlägen inklusive Lösungsskizzen, Aufwandsschätzung und  
 empfohlener Abarbeitungs-Reihenfolge
 
+## \[0.4.3\] – 2026-10-27
+
+### Changed (Geändert) — Robustheits-Paket aus planned.md (R1–R8)
+
+- R1: Die Medien-Erkundung für Audio/Video (GStreamer-Discoverer)  
+blockierte den GTK-Main-Loop – bei langsam erreichbaren Medien (USB,  
+Netzlaufwerk) fror das Fenster bis zu 10 Sekunden ein. Sie läuft  
+jetzt in einem Hintergrund-Thread; das Panel zeigt sofort einen  
+„Lese Medien-Informationen"-Hinweis und bleibt bedienbar, das  
+Ergebnis schwenkt per Idle zurück in den Main-Loop
+- R2: PDF-Vorschau: Seite 1 wird sofort gerendert, die übrigen Seiten  
+(bis MAX\_PDF\_PAGES) werden je eine pro Idle-Durchlauf nachgeschoben –  
+auch große oder gescannte PDFs stehen augenblicklich im Panel
+- R3: Skalier-Designfalle behoben: Die Live-Skalierung mit der  
+Panelbreite kannte nur EIN Bild pro Vorschau (Einzel-Slot) – jedes  
+weitere skalierte Bild (z.B. Cover plus eingebettete Bilder) hätte  
+das erste überschrieben. Die Skalier-Parameter liegen jetzt als  
+Attach-Daten am jeweiligen Bild; beliebig viele Bilder skalieren mit
+- R4: EPUB-Lesedeckel gegen Dekompressions-Bomben: Kapitel-Dokumente  
+werden mit 2-MB-Deckel, Cover mit 16-MB-Deckel gelesen – ein  
+winziges, riesig entpacktes XHTML im EPUB kann das Panel nicht mehr  
+für Sekunden blockieren
+- R6: EPUB3-Navigationsdateien (properties="nav") werden beim  
+Textsammeln übersprungen – vorher konnte das Inhaltsverzeichnis als  
+„Textanfang" angezeigt werden
+- R7 (eingeschränkt): MOBI-Datensatzgrenzen werden bereinigt – halb  
+zerrissene Mehrbyte-Sequenzen und Trailing-Entry-Reste am Datensatz-  
+Rand erzeugten sichtbaren Zeichensalat zwischen Absätzen. Bewusst  
+NICHT umgesetzt: die vollständige Rückwärts-Dekodierung der Trailer-  
+Größen; ohne Referenzmaterial wäre ein Dekodierfehler schlimmer als  
+der kosmetische Fehler (siehe planned.md)
+- R5: Der Font-Temp-Ordner (\~/.local/share/nemo-python … Prozess-Temp)  
+wuchs unbegrenzt – jede angesehene Schrift wurde bis zum Prozessende  
+auf der Platte gehalten. Der Ordner ist jetzt auf 64 Kopien gedeckelt;  
+fontconfig behält entfernte Schriften im Speicher, bereits gesehene  
+Wasserfälle bleiben korrekt
+
+### Beobachtungspunkt (kein Code-Fix)
+
+- R8: Die Auswahl-Erkennung greift auf interne Nemo-Strukturen zu  
+(Klassen-VTable-Offsets). Nach Nemo-Updates das Log prüfen: Melden  
+alle vier Module ihre Version und erscheinen „Auswahl geändert …"-Zeilen,  
+ist alles gut; die Fallback-Kaskade (VTable → GI → ATK) fängt  
+Abweichungen ab. Dauerhaft in planned.md beobachtet
+
 ## \[0.4.2\] – 2026-10-27
 
 ### Fixed (Behoben) — Bug-Paket aus planned.md (B1–B5)
