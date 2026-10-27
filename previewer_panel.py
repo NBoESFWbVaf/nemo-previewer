@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.7.1 – aktuelle Fassung (Ordner-Zählung transparent
+STAND: Version 0.7.2 – aktuelle Fassung (Ordner-Zählung transparent
 wie 0.5.1; Video-Vorschau final: generische Kachel wie bei Musik,
 Wiedergabe IM PANEL – gtksink oder Eigenbau per appsink, nie ein
 eigenes Fenster; die Standbild-Extraktion aus 0.6.0 ist wieder
@@ -841,6 +841,7 @@ class PreviewPanel(Gtk.Box):
         # F22: Eigenbau-Video-Ausgabe (appsink + DrawingArea) – nur
         # belegt, solange eine Video-Vorschau mit dieser Route läuft.
         self._video_framesink = None
+        self._video_area = None
         self._video_pixbuf = None
         self._video_fps_timer = 0
         self._render_width = 0
@@ -2268,6 +2269,7 @@ class PreviewPanel(Gtk.Box):
         area.set_size_request(240, 135)
         area.set_hexpand(True)
         area.connect("draw", self._on_video_draw)
+        self._video_area = area
         self._video_fps_timer = GLib.timeout_add(33, self._video_tick)
         return area
 
@@ -2291,6 +2293,12 @@ class PreviewPanel(Gtk.Box):
                     self._video_pixbuf = GdkPixbuf.Pixbuf.new_from_bytes(
                         bytes(mi.data), GdkPixbuf.Colorspace.RGB,
                         True, 8, w, h, w * 4)
+                    # 0.7.2: Das Neuzeichnen EXPLIZIT anstoßen – GTK
+                    # zeichnet eine DrawingArea sonst nur beim ersten
+                    # Mal (leer) und bei Expo-Events; der Ton lief,
+                    # das Bild blieb bei der Kachel.
+                    if self._video_area is not None:
+                        self._video_area.queue_draw()
                 if ok:
                     buf.unmap(mi)
             except Exception as exc:
@@ -2657,6 +2665,7 @@ class PreviewPanel(Gtk.Box):
             GLib.source_remove(self._video_fps_timer)
             self._video_fps_timer = 0
         self._video_framesink = None
+        self._video_area = None
         self._video_pixbuf = None
         if self._playbin is not None:
             try:
@@ -2695,7 +2704,7 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.7.1"
+PREVIEWER_VERSION = "0.7.2"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
     "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix, Video im Panel)"
     % PREVIEWER_VERSION)
