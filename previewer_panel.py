@@ -4,8 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.4.1 – aktuelle Fassung (Schrift-Wasserfall: eigener
-frischer Pango-FontMap statt GTK-Standard, Größen bis 36 pt).
+STAND: Version 0.4.2 – aktuelle Fassung (Bug-Paket B1–B5:
+Font-Namenskollision, Audio-Bus-Watch, Timer-Aufräumen,
+Office-Cache-Fallback, MOBI-Lesedeckel).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -501,16 +502,23 @@ def _fb2_data(path):
     return rows, cover, text
 
 
+_MOBI_MAX_BYTES = 8 * 1024 * 1024   # MOBI: nur bis hier lesen – Text-Datensätze
+                                     # stehen ohnehin am Dateianfang; Records
+                                     # jenseits der Deckel überspringt der
+                                     # Offset-Check unten still
+
+
 def _mobi_data(path):
     """
     MOBI/PRC (Palm-Container): Titel, Autor (EXTH) und Textanfang.
     Unterstützt Kompressionsverfahren 1 (PalmDoc) und 2 (unkomprimiert);
     HUFF/CDIC (einige neuere AZW) wird abgelehnt – KF8-Dateien (AZW3)
     liefern bestenfalls HTML-Reste, sind aber lesbar, wenn PalmDoc
-    komprimiert ist.
+    komprimiert ist. Es wird nur der Dateikopf bis _MOBI_MAX_BYTES
+    gelesen (B5): riesige AZW3-Dateien sollen Nemo nicht einfrieren.
     """
     with open(path, "rb") as fh:
-        data = fh.read()
+        data = fh.read(_MOBI_MAX_BYTES)
     if len(data) < 88 or data[60:68] not in (b"BOOKMOBI", b"TEXtREAd"):
         raise ValueError("kein MOBI-Container")
 
@@ -671,7 +679,14 @@ def _fc_add_font_file(path):
     try:
         if state["tmpdir"] is None:
             state["tmpdir"] = tempfile.mkdtemp(prefix="previewer-font-")
-        dest = os.path.join(state["tmpdir"], os.path.basename(path))
+        # Zielname mit Hash des QUELLPFADS: zwei Schriften mit gleichem
+        # Dateinamen aus verschiedenen Ordnern dürfen sich nicht ins
+        # Gehege kommen (B1) – sonst sähe der Wasserfall immer die
+        # zuerst kopierte Datei.
+        stem, ext = os.path.splitext(os.path.basename(path))
+        digest = hashlib.sha1(os.path.abspath(path).encode(
+            "utf-8", "replace")).hexdigest()[:8]
+        dest = os.path.join(state["tmpdir"], "%s-%s%s" % (stem, digest, ext))
         if not os.path.exists(dest):
             shutil.copy2(path, dest)
         lib = ctypes.CDLL(ctypes.util.find_library("fontconfig")
@@ -797,6 +812,9 @@ class PreviewPanel(Gtk.Box):
                           Gtk.AccelFlags.VISIBLE, self._on_toggle_accel)
         except Exception:
             pass
+
+        # B3: Beim Abbauen des Panels Wiedergabe und Timer sauber stoppen
+        self.connect("destroy", self._on_panel_destroy)
 
     # ------------------------------ Selektion ------------------------------
 
@@ -1687,6 +1705,13 @@ class PreviewPanel(Gtk.Box):
         # --- Player-Leiste ---
         if self._playbin is None:
             self._playbin = Gst.ElementFactory.make("playbin", "previewer-playbin")
+            # B2: Bus-Watch – ohne ihn kennt der Player sein Trackende
+            # nicht (Pause-Icon blieb stehen, Position fror ein) und
+            # Abspielfehler blieben unsichtbar.
+            bus = self._playbin.get_bus()
+            bus.add_signal_watch()
+            bus.connect("message::eos", self._on_player_eos)
+            bus.connect("message::error", self._on_player_error)
         self._playbin.set_property("uri", uri)
 
         player_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -1713,9 +1738,44 @@ class PreviewPanel(Gtk.Box):
         player_box.pack_start(self._pos_label, False, False, 0)
         self._content.pack_start(player_box, False, False, 0)
 
-        if self._progress_timer:
-            GLib.source_remove(self._progress_timer)
-        self._progress_timer = GLib.timeout_add(400, self._tick_player)
+        self._ensure_progress_timer()
+
+    def _on_player_eos(self, bus, msg):
+        """Trackende: zurück an den Anfang, Icon zurück auf Play (B2)."""
+        try:
+            self._playbin.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, 0)
+            self._playbin.set_state(Gst.State.PAUSED)
+            if getattr(self, "_btn_play", None):
+                self._btn_play.set_image(Gtk.Image.new_from_icon_name(
+                    "media-playback-start-symbolic", Gtk.IconSize.BUTTON))
+            if getattr(self, "_pos_label", None):
+                self._pos_label.set_text("0:00")
+            if getattr(self, "_seek_scale", None):
+                self._seek_scale.set_value(0)
+        except Exception:
+            pass
+
+    def _on_player_error(self, bus, msg):
+        """Abspielfehler: still abstoppen und im Panel melden (B2)."""
+        try:
+            err, detail = msg.parse_error()
+            dbg("Abspielfehler: %s (%s)" % (err, detail))
+        except Exception:
+            err = "unbekannter Abspielfehler"
+        try:
+            self._playbin.set_state(Gst.State.NULL)
+            if getattr(self, "_btn_play", None):
+                self._btn_play.set_image(Gtk.Image.new_from_icon_name(
+                    "media-playback-start-symbolic", Gtk.IconSize.BUTTON))
+            self._hint("Abspielfehler – Datei über den Öffnen-Knopf "
+                       "mit einer anderen Anwendung betrachten.")
+        except Exception:
+            pass
+
+    def _ensure_progress_timer(self):
+        """Positionstimer anlegen, falls er gerade nicht läuft (B3)."""
+        if not self._progress_timer:
+            self._progress_timer = GLib.timeout_add(400, self._tick_player)
 
     def _pixbuf_from_sample(self, sample):
         buf = sample.get_buffer()
@@ -1937,15 +1997,33 @@ class PreviewPanel(Gtk.Box):
         self._office_job = None
         try:
             if os.path.exists(out_pdf):
+                cache_ok = False
                 try:
                     # shutil.move statt os.replace: /tmp liegt häufig auf
                     # einem eigenen Gerät (tmpfs) – rename(2) scheitert dann
                     # mit EXDEV, move kopiert in dem Fall.
                     shutil.move(out_pdf, office_cache_path(path))
+                    cache_ok = True
                 except Exception as exc:
                     dbg("Office-Cache konnte nicht geschrieben werden: %s"
                         % exc)
-                if self._path == path:
+                if not cache_ok:
+                    # B4: Ohne Cache würde JEDE Auswahl erneut konvertieren
+                    # (Endlosschleife, gleiche Symptomatik wie der alte
+                    # EXDEV-Bug). Deshalb: als gescheitert vermerken, aber
+                    # die fertige PDF nicht wegwerfen – die scharfe Ansicht
+                    # wird direkt aus dem Temp-Ordner gerendert (Poppler
+                    # liest die Seiten sofort, danach ist die Datei egal).
+                    self._office_failed.add(path)
+                    if len(self._office_failed) > 256:
+                        self._office_failed.clear()
+                    if self._path == path:
+                        try:
+                            self._render_pdf(out_pdf)
+                        except Exception as exc:
+                            dbg("Office-PDF aus Temp-Ordner nicht "
+                                "darstellbar (%s): %s" % (path, exc))
+                elif self._path == path:
                     self._render()   # scharfe Seitenansicht zeigen
             else:
                 # Gescheiterte Konvertierung merken – verhindert eine
@@ -2002,6 +2080,10 @@ class PreviewPanel(Gtk.Box):
             self._playbin.set_state(Gst.State.PLAYING)
             self._btn_play.set_image(Gtk.Image.new_from_icon_name(
                 "media-playback-pause-symbolic", Gtk.IconSize.BUTTON))
+            # B3: Timer läuft nur, solange eine Wiedergabe existiert –
+            # nach Pause/Stop wird er im _tick_player bzw. beim Wechsel
+            # abgeräumt; hier wieder anlegen, falls er weg ist.
+            self._ensure_progress_timer()
 
     def _on_seek(self, scale, scroll_type, value):
         if self._playbin is None:
@@ -2018,11 +2100,18 @@ class PreviewPanel(Gtk.Box):
         return False
 
     def _tick_player(self):
-        """Positionsanzeige aktualisieren; Timer läuft, solange Panel lebt."""
+        """Positionsanzeige aktualisieren (B3: nur während der Wiedergabe)."""
         if self._playbin is None:
             self._progress_timer = 0
             return False
         try:
+            ok, state, pending = self._playbin.get_state(0)
+            if (state != Gst.State.PLAYING
+                    and pending != Gst.State.PLAYING):
+                # Wiedergabe läuft (oder läuft an) nicht – Timer aus;
+                # _on_play_pause legt ihn bei erneutem Start wieder an.
+                self._progress_timer = 0
+                return False
             ok, pos = self._playbin.query_position(Gst.Format.TIME)
             ok2, dur = self._playbin.query_duration(Gst.Format.TIME)
             if ok and pos >= 0:
@@ -2075,9 +2164,23 @@ class PreviewPanel(Gtk.Box):
         return False        # GTK soll das Event weiterverarbeiten
 
     def _stop_playback(self):
+        # B3: Timer aufräumen (lief sonst ewig weiter, auch nach
+        # Fensterabbau) und Player sauber auf NULL legen.
+        if self._progress_timer:
+            GLib.source_remove(self._progress_timer)
+            self._progress_timer = 0
         if self._playbin is not None:
             try:
                 self._playbin.set_state(Gst.State.NULL)
+            except Exception:
+                pass
+
+    def _on_panel_destroy(self, *a):
+        """Panel wird abgebaut: Wiedergabe und Timer stoppen (B3)."""
+        self._stop_playback()
+        if self._playbin is not None:
+            try:
+                self._playbin.get_bus().remove_signal_watch()
             except Exception:
                 pass
 
@@ -2103,6 +2206,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.4.1"
+PREVIEWER_VERSION = "0.4.2"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
     "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
