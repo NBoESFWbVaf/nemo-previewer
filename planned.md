@@ -237,23 +237,27 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   (`Gst.ElementFactory.make("gtksink")` → `get_widget()` in eine  
   DrawingArea unter dem Standbild packen), Player-Leiste und  
   EOS/Timer-Logik aus `_finish_audio` wiederverwenden; ohne gtksink  
-  nur Ton mit Hinweis.
+  nur Ton mit Hinweis. ✅ Teil 1 in 0.6.0: Standbild-Extraktion aus  
+  der Videospur (Playbin + jpegenc/appsink im Worker-Thread) –  
+  eingebettete Tags allein lieferten nie ein Bild. Offen: Kachel als  
+  Fallback ohne Standbild, Wiedergabe im Panel.
 
 ---
 
 ## Empfohlene Reihenfolge
 
 
-| Schritt | Inhalt                                                                                                                                                | Zielversion     |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                                                  | ✅ 0.4.2 (Patch) |
-| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                                                         | ✅ 0.4.3 (Patch) |
-| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                                                            | ✅ 0.5.0 (Minor) |
-| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                                                               | ✅ 0.5.1 (Patch) |
-| 6       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                          | 0.6.0           |
-| 7       | F4, F6–F11 nach Bedarf                                                                                                                                | 0.7.0           |
-| 8       | F13–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                  | später          |
-| 9       | F19–F22 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf, Video-Platzhalter + Wiedergabe; F19 zuerst, F20/F21 bauen darauf auf) | später          |
+| Schritt | Inhalt                                                                                                                                                    | Zielversion     |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                                                      | ✅ 0.4.2 (Patch) |
+| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                                                             | ✅ 0.4.3 (Patch) |
+| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                                                                | ✅ 0.5.0 (Minor) |
+| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                                                                   | ✅ 0.5.1 (Patch) |
+| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                                                      | ✅ 0.6.0 (Minor) |
+| 7       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                              | 0.7.0           |
+| 8       | F4, F6–F11 nach Bedarf                                                                                                                                    | später          |
+| 9       | F13–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                      | später          |
+| 10      | F19–F22-Rest (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F22: Platzhalter + Wiedergabe; F19 zuerst, F20/F21 bauen darauf auf) | später          |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
