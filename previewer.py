@@ -4,10 +4,9 @@
 Previewer
 =========
 
-STAND: Version 0.9.2 – aktuelle Fassung (Härtungs-Paket: Decode- und
-Lese-Deckel gegen Dekompressions-/Dekodierbomben im Panel, Wildcall-
-Schutz in der Auswahl-Erkennung; Einstieg selbst unverändert).
-Dies ist die EINSTIEGS-Datei der
+STAND: Version 0.10.0 – aktuelle Fassung (NEU F23: Text-Vorschau für
+endungslose Dateien per Inhalts-Sniffing im Panel; Einstieg selbst
+unverändert). Dies ist die EINSTIEGS-Datei der
 vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
 previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
 Ordner liegen und die gleiche Version tragen.
@@ -21,7 +20,8 @@ Datei.
 Unterstützte Vorschauen
 -----------------------
 - Bilder (JPEG, PNG, WebP, GIF, TIFF, ... alles, was Gdk-Pixbuf kennt)
-- Text/Quellcode (read-only, monospace)
+- Text/Quellcode (read-only, monospace; endungslose Textdateien werden
+  über eine Inhaltsprüfung erkannt)
 - Markdown (.md): gerendert – Überschriften, Fett/Kursiv, Code, Listen
 - E-Mail-Dateien (.eml): Kopfzeilen und Textkörper
 - PDF (alle Seiten scrollbar untereinander; benötigt gir1.2-poppler)
@@ -116,7 +116,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.9.2"
+PREVIEWER_VERSION = "0.10.0"
 import previewer_util
 import previewer_select
 import previewer_panel
