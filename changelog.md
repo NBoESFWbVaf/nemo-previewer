@@ -6,6 +6,16 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.3.1\] – 2026-10-27
+
+### Changed (Geändert)
+
+- Installationsanleitung als eigene Datei INSTALL.md (Englisch) im  
+Repository: Voraussetzungen, optionale Pakete je Vorschautyp,  
+Installation, Upgrade, Deinstallation und Fehlerbehebung. Die  
+entsprechenden Installations- und Deinstallations-Passagen wurden  
+aus den Modul-Docstrings entfernt; sie verweisen nun auf INSTALL.md.
+
 ## \[0.3.0\] – 2026-10-26
 
 ### Added (Hinzugefügt)
