@@ -144,31 +144,40 @@ def _media_gi_warmup():
     if _MEDIA_STATE["warmed"]:
         return
     _MEDIA_STATE["warmed"] = True
-    for cls, name in (
-            (GstPbutils.Discoverer, "discover_uri"),
-            (GstPbutils.Discoverer, "discover_uri_sync"),
-            (GstPbutils.DiscovererInfo, "get_duration"),
-            (GstPbutils.DiscovererInfo, "get_tags"),
-            (Gst.TagList, "get_string"),
-            (Gst.TagList, "get_sample"),
-            (Gst.Sample, "get_buffer"),
-            (Gst.Buffer, "extract_dup"),
-            (Gst, "ElementFactory"),
-            (Gst, "parse_bin_from_description"),
-            (Gst, "PlayFlags"),
-            (Gst.PlayFlags, "VIDEO"),
-            (Gst.State, "PAUSED"),
-            (Gst.State, "NULL"),
-            (Gst.StateChangeReturn, "SUCCESS"),
-            (Gst.MapFlags, "READ"),
-            (Gst.Bin, "get_by_name"),
-            (Gst.Element, "set_state"),
-            (Gst.Element, "get_state"),
-            (Gst.Buffer, "map")):
+
+    def _touch(base, dotted):
+        # Lazy Pfad-Auflösung: Ein fehlendes Symbol (z.B. Gst.PlayFlags
+        # ist im Mint-22-Binding NICHT vorhanden) darf hier NIE eine
+        # AttributeError werfen – sonst reißt der Warm-up die gesamte
+        # Medien-Vorschau mit (Lehre aus dem 0.6.0-Test).
         try:
-            getattr(cls, name)
+            obj = base
+            for part in dotted.split("."):
+                obj = getattr(obj, part)
         except Exception:
             pass
+
+    for dotted in ("Discoverer.discover_uri",
+                   "Discoverer.discover_uri_sync",
+                   "DiscovererInfo.get_duration",
+                   "DiscovererInfo.get_tags"):
+        _touch(GstPbutils, dotted)
+    for dotted in ("TagList.get_string",
+                   "TagList.get_sample",
+                   "Sample.get_buffer",
+                   "Buffer.extract_dup",
+                   "Buffer.map",
+                   "ElementFactory",
+                   "parse_bin_from_description",
+                   "PlayFlags.VIDEO",
+                   "State.PAUSED",
+                   "State.NULL",
+                   "StateChangeReturn.SUCCESS",
+                   "MapFlags.READ",
+                   "Bin.get_by_name",
+                   "Element.set_state",
+                   "Element.get_state"):
+        _touch(Gst, dotted)
 
 
 def _video_frame_bytes(uri):
@@ -201,12 +210,17 @@ def _video_frame_bytes(uri):
         sink = sinkbin.get_by_name("frames")
         pipeline.set_property("video-sink", sinkbin)
         # Audio wegwerfen (kein Gerät öffnen!) und nur die Videospur
-        # decodieren – schneller beim Preroll.
+        # decodieren – schneller beim Preroll. Gst.PlayFlags ist je
+        # nach GStreamer-Bindung NICHT unter Gst.PlayFlags erreichbar
+        # (Mint 22: AttributeError) – deshalb per getattr und notfalls
+        # als Rohwert: playbin-Flag VIDEO = 1.
         fakesink = Gst.ElementFactory.make("fakesink", None)
         if fakesink is not None:
             pipeline.set_property("audio-sink", fakesink)
         try:
-            pipeline.set_property("flags", Gst.PlayFlags.VIDEO)
+            play_flags = getattr(Gst, "PlayFlags", None)
+            pipeline.set_property("flags",
+                                 play_flags.VIDEO if play_flags else 1)
         except Exception:
             pass
         pipeline.set_property("uri", uri)
