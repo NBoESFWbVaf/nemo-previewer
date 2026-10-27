@@ -4,7 +4,7 @@
 Previewer
 =========
 
-STAND: Version 0.7.0 – aktuelle Fassung. Dies ist die EINSTIEGS-Datei der
+STAND: Version 0.7.1 – aktuelle Fassung. Dies ist die EINSTIEGS-Datei der
 vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
 previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
 Ordner liegen und die gleiche Version tragen.
@@ -112,7 +112,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.7.0"
+PREVIEWER_VERSION = "0.7.1"
 import previewer_util
 import previewer_select
 import previewer_panel
