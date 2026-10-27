@@ -203,6 +203,19 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Fallback über Theme-Icon. ✅ 0.5.0: umgesetzt – Cairo/Pango-Kachel  
   mit abgerundeten Ecken in 2-facher Auflösung, Icon-Fallback ohne  
   PangoCairo; angezeigt über der Player-Leiste wie echte Covers.
+- [x] **F23 – Text-Vorschau für endungslose Dateien** (vorgezogen
+
+  auf Wunsch). **S–M**  
+  Der MIME-Typ-Rater von Gio errät nur bekannte Namen (README,  
+  Makefile, LICENSE …) – frei benannte Dateien (notes, todo, Dotfiles  
+  wie .bashrc) fielen auf application/octet-stream und zeigten nur  
+  Icon + Infos. ✅ 0.10.0: \_sniff\_is\_text prüft die ersten 4 KB  
+  (keine NULL-Bytes, unter 5 % Steuerzeichen); nur ohne Endung UND  
+  bei bestandener Prüfung zeigt der Dispatcher die Text-Vorschau –  
+  endungslose Binärdateien bleiben generisch. Nebeneffekt: Der  
+  \_TEXT\_EXTRAS-Eintrag „.gitignore" konnte nie matchen (splitext  
+  zählt führende Punkte zum Namen); das Sniffing deckt solche  
+  Dotfiles jetzt generisch ab.
 - [ ] **F19 – Vorschau-Toolbar am unteren Rand der Vorschauspalte**
 
   Kontextsensitive Knopfleiste unter dem Vorschaubereich; die  
@@ -268,7 +281,9 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 7       | F22 – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                                                                                 | Kachel ✅ 0.7.0 (Minor); Wiedergabe 0.7.0–0.7.2, in 0.8.0 zurückgebaut |
 | 8       | F14 – PDF-Seitenanzeige beim Scrollen (vorgezogen)                                                                                                               | ✅ 0.9.0 (Minor)                                                       |
 | 8a      | Sicherheits- + Redundanz-Audit (3 Lebenszyklus-Fixes: Crowbar-Race, Poll-Timer-Leck, Office-Kind-Watch; TextView-/Lese-/Tabellen-/Name-Helfer gegen Redundanzen) | ✅ 0.9.1 (Patch)                                                       |
-| 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                     | 0.10.0                                                                |
+| 8b      | Audit 2 „Pufferüberlauf/OOM“ (Decode-/Lese-Deckel gegen Bild-/PDF-/EPUB-/DOCX-/EML-Bomben, Wildcall-Schutz für VTable-Funktionszeiger)                           | ✅ 0.9.2 (Patch)                                                       |
+| 8c      | F23 – Text-Vorschau für endungslose Dateien (Inhalts-Sniffing, vorgezogen)                                                                                       | ✅ 0.10.0 (Minor)                                                      |
+| 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                     | später (vorher 0.10.0)                                                |
 | 10      | F4, F6–F11 nach Bedarf                                                                                                                                           | später                                                                |
 | 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                        | später                                                                |
 | 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + Neuversuch F22-Wiedergabe                | später                                                                |
