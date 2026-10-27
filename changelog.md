@@ -6,6 +6,21 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.10.0\] – 2026-10-27
+
+### Added (Hinzugefügt)
+
+- Text-Vorschau für endungslose Dateien (F23 aus planned.md): Frei  
+benannte Dateien (z.B. notes, todo, Dotfiles wie .bashrc) landeten  
+über den MIME-Typ-Rater auf application/octet-stream und zeigten  
+nur Icon und Datei-Infos. Dateien ohne Endung werden jetzt per  
+Inhalts-Sniffing geprüft: Die ersten 4 KB dürfen keine NULL-Bytes  
+und höchstens 5 % Steuerzeichen enthalten – nur dann zeigt der  
+Dispatcher die normale Text-Vorschau. Endungslose Binärdateien  
+(Executables, Core-Dumps) bleiben bei der generischen Ansicht;  
+die üblichen Kappeln der Text-Vorschau (256 KB / 2000 Zeilen)  
+greifen unverändert
+
 ## \[0.9.2\] – 2026-10-27
 
 Härtungs-Paket aus dem zweiten Sicherheitsaudit (Schwerpunkt  
