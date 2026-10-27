@@ -4,9 +4,8 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.3.0 – aktuelle Fassung (neu: E-Book-Vorschau für EPUB,
-FB2 und MOBI/PRC/AZW). Als previewer_panel.py in den
-Nemo-Extension-Ordner kopieren.
+STAND: Version 0.3.1 – aktuelle Fassung (neu: E-Book-Vorschau für EPUB,
+FB2 und MOBI/PRC/AZW).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -1869,6 +1868,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.3.0"
+PREVIEWER_VERSION = "0.3.1"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books (EPUB, FB2, "
     "MOBI), Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
