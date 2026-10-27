@@ -128,31 +128,31 @@ _MEDIA_STATE = {"warmed": False}
 
 def _media_gi_warmup():
     """
-    R1-Fix: PyGObject erzeugt die Method-Tabellen von GI-Klassen erst
-    beim ERSTEN Attribut-Zugriff – und diese Erst-Erzeugung ist nicht
-    thread-sicher. Fiel sie in den Erkundungs-Worker, scheiterte dort
-    die Attribut-Auflösung („'Discoverer' object has no attribute
-    'discover_uri_sync'“) und alle Medien erschienen ohne Tags, Dauer
-    und Cover. Erstkontakt mit allen am Erkundungsweg beteiligten
-    Klassen deshalb einmalig IM GTK-THREAD (siehe _media_probe_async);
-    der Worker findet danach fertige Tabellen vor.
+    R1-Härtung: PyGObject erzeugt die Method-Tabellen von GI-Klassen
+    erst beim ERSTEN Attribut-Zugriff. Damit der Erkundungs-Worker
+    (der die Medien-Tags liest) stabile Verhältnisse vorfindet, wird
+    der Erstkontakt mit allen beteiligten Klassen einmalig im
+    GTK-THREAD erledigt (siehe _media_probe_async). Der Name
+    discover_uri_sync wird hier bewusst mit angefasst: Existiert er
+    im Binding nicht, ist das kein Fehler – dann greift die Erkundung
+    auf den korrekten Namen discover_uri zurück.
     """
     if _MEDIA_STATE["warmed"]:
         return
     _MEDIA_STATE["warmed"] = True
-    try:
-        _ = GstPbutils.Discoverer.discover_uri_sync
-    except Exception:
-        pass
-    try:
-        _ = GstPbutils.DiscovererInfo.get_duration
-        _ = GstPbutils.DiscovererInfo.get_tags
-        _ = Gst.TagList.get_string
-        _ = Gst.TagList.get_sample
-        _ = Gst.Sample.get_buffer
-        _ = Gst.Buffer.extract_dup
-    except Exception:
-        pass
+    for cls, name in (
+            (GstPbutils.Discoverer, "discover_uri"),
+            (GstPbutils.Discoverer, "discover_uri_sync"),
+            (GstPbutils.DiscovererInfo, "get_duration"),
+            (GstPbutils.DiscovererInfo, "get_tags"),
+            (Gst.TagList, "get_string"),
+            (Gst.TagList, "get_sample"),
+            (Gst.Sample, "get_buffer"),
+            (Gst.Buffer, "extract_dup")):
+        try:
+            getattr(cls, name)
+        except Exception:
+            pass
 
 
 def office_cache_dir():
@@ -1806,14 +1806,15 @@ class PreviewPanel(Gtk.Box):
         schwenkt das Ergebnis per GLib.idle_add in den Main-Loop;
         finish ist die Fortsetzung (_finish_audio/_finish_video).
 
-        R1-Fix: PyGObject erzeugt die Method-Tabellen der GI-Klassen
-        LAZY – und die Erst-Erzeugung ist nicht thread-sicher. Löste
-        der Worker das Attribut discover_uri_sync als Erstes auf,
-        mündete das auf Mint 22 in „'Discoverer' object has no
-        attribute 'discover_uri_sync'“ (alle Medien ohne Tags/Dauer/
-        Cover). Deshalb: Warm-up der beteiligten GI-Klassen HIER im
-        GTK-Thread, Discoverer HIER bauen und die Erkundung als
-        fertiges Callable in den Worker reichen.
+        R1-Fix (0.5.0-Testergebnis): Die synchrone Erkundung heißt im
+        Python-Binding discover_uri() – der C-Name gst_discoverer_
+        discover_uri wird OHNE „_sync“ gebunden; ein discover_uri_sync
+        existiert nicht (AttributeError). Damit hatte die Tags/Dauer/
+        Cover-Erkundung noch NIE funktioniert – das Platzhalter-Cover
+        (F18) machte den Altfehler erstmals sichtbar. Zusätzlich werden
+        die GI-Klassen einmalig HIER im GTK-Thread warmgefahren
+        (PyGObject löst Method-Tabellen lazy auf) und die Erkundung
+        läuft im Worker als fertig aufgelöstes Callable.
         """
         self._hint("Lese Medien-Informationen – einen Moment …")
         _media_gi_warmup()
@@ -1825,9 +1826,12 @@ class PreviewPanel(Gtk.Box):
                 # NICHT als Konstruktor – deshalb explizit .new(),
                 # mit Fallback für ältere Builds.
                 disc = GstPbutils.Discoverer(10 * Gst.SECOND)
-            # Attribut-Auflösung IM GTK-Thread (siehe R1-Fix oben);
-            # der Worker ruft nur noch das fertige Callable auf.
-            probe = disc.discover_uri_sync
+            # Attribut-Auflösung IM GTK-Thread; der Worker ruft nur das
+            # fertige Callable auf. discover_uri = korrekter Name,
+            # discover_uri_sync nur als Defensiv-Fallback.
+            probe = getattr(disc, "discover_uri", None)
+            if probe is None:
+                probe = disc.discover_uri_sync
         except Exception as e:
             dbg("Discoverer nicht anlegbar: %s" % e)
             # Ohne Discoverer trotzdem die UI aufbauen (Platzhalter,
