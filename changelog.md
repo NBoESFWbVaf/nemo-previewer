@@ -1,122 +1,130 @@
-# Nemo Previewer — Installation
+# Changelog
 
-A Nemo file manager extension that docks a preview panel to the right  
-side of every Nemo window and renders the currently selected file:  
-images (with EXIF orientation), text and source code, Markdown, e-mails,  
-e-books (EPUB, FictionBook 2, MOBI), PDF, audio (with player), video,  
-folders, and office documents.
+Alle nennenswerten Änderungen am Nemo-Previewer werden in dieser Datei  
+dokumentiert. Format: [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),  
+Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
-Repository: [https://github.com/NBoESFWbVaf/nemo-previewer](https://github.com/NBoESFWbVaf/nemo-previewer)
+## \[Unreleased\]
 
-## Requirements
+## \[0.4.0\] – 2026-10-27
 
-Tested on Linux Mint 22. The extension consists of **four files that**  
-**belong together** and must all carry the same version:
+### Added (Hinzugefügt)
 
+- Schriftarten-Vorschau als Wasserfall (.ttf, .otf, .ttc): Die Datei  
+wird nur für den laufenden Prozess über Fontconfig eingebunden  
+(FcConfigAppFontAddDir via ctypes – nichts wird installiert), der  
+Familien- und Stilname wird direkt aus der sfnt-Namens-Tabelle  
+gelesen, und ein Probetext zeigt die Schrift in den Größen 8 bis  
+48 pt. Kann Pango die Familie nicht finden, erscheint ein Hinweis  
+und der Wasserfall läuft mit der Ersatzschrift. Keine neuen  
+Paket-Abhängigkeiten.
 
-| File                  | Purpose                                        |
-| --------------------- | ---------------------------------------------- |
-| `previewer.py`        | Entry point: Nemo integration, panel injection |
-| `previewer_panel.py`  | The preview panel and all renderers            |
-| `previewer_select.py` | Selection detection (vtable, GTK, ATK)         |
-| `previewer_util.py`   | Helpers and configuration constants            |
+## \[0.3.1\] – 2026-10-27
 
+### Changed (Geändert)
 
-**Mandatory packages**
+- Installationsanleitung als eigene Datei INSTALL.md (Englisch) im  
+Repository: Voraussetzungen, optionale Pakete je Vorschautyp,  
+Installation, Upgrade, Deinstallation und Fehlerbehebung. Die  
+entsprechenden Installations- und Deinstallations-Passagen wurden  
+aus den Modul-Docstrings entfernt; sie verweisen nun auf INSTALL.md.
 
-```bash
-sudo apt install nemo-python python3-gi
-```
+## \[0.3.0\] – 2026-10-26
 
-**Optional packages** — each one unlocks additional preview types:
+### Added (Hinzugefügt)
 
-```bash
-# PDF preview
-sudo apt install gir1.2-poppler-0.18 python3-cairo
+- E-Book-Vorschau (nur Python-Bordmittel, keine neuen Pakete):
+  - EPUB (.epub): Titel, Autor und Sprache aus der OPF-Inhaltsdatei,  
+  eingebettetes Cover (Manifest-Verweis oder Heuristik) und der  
+  Textanfang in Lesereihenfolge (Spine)
+  - FictionBook 2 (.fb2): Titel und Autor, Cover aus der eingebetteten  
+  base64-Ressource, Textanfang des Hauptkörpers
+  - MOBI (.mobi, .prc, .azw, .azw3): Titel, Autor aus dem EXTH-Header  
+  und Textanfang; PalmDoc-Entpackung in reinem Python; Dateien mit  
+  HUFF/CDIC-Kompression werden mit Hinweis abgelehnt
+  - unlesbare/kaputte E-Books zeigen einen Hinweis statt einer leeren  
+  Vorschau
+- Neue Konstante MAX\_EBOOK\_CHARS (30 000 Zeichen Textanfang je Buch)
 
-# Audio/video preview (GStreamer)
-sudo apt install gir1.2-gst-plugins-base-1.0
+## \[0.2.2\] – 2026-10-26
 
-# SVG preview (gdk-pixbuf ships no SVG loader anymore)
-sudo apt install gir1.2-rsvg
+### Fixed (Behoben)
 
-# Sharp office preview (ODT/ODS/ODP, DOCX/XLSX/PPTX):
-# converts documents to PDF in the background, once per document
-sudo apt install libreoffice-core
-```
+- SVG-Dateien wurden nicht angezeigt (GdkPixbuf-Fehler „Format konnte  
+nicht erkannt werden"): GdkPixbuf bringt seit Version 2.42 keinen  
+SVG-Loader mehr mit. SVGs werden jetzt über librsvg gerendert, falls  
+vorhanden (Paket gir1.2-rsvg); andernfalls erscheint ein Hinweis  
+statt einer Fehlermeldung. Auch nicht ladende Rasterbilder zeigen  
+nun einen Hinweis statt einer leeren Vorschau.
+- Der Office-Cache wurde nie geschrieben: os.replace scheitert still  
+mit „Ungültiger Link über Gerätegrenzen hinweg" (EXDEV), wenn /tmp  
+ein tmpfs auf einem eigenen Gerät liegt. Dadurch konvertierte  
+LibreOffice dasselbe Dokument bei jeder Auswahl erneut. Der Cache  
+nutzt jetzt shutil.move, das geräteübergreifend kopiert – jede  
+Konvertierung läuft nur noch einmal pro Dokument-Version.
 
-Everything else runs on Python standard library modules only.
+## \[0.2.1\] – 2026-10-26
 
-## Install
+### Fixed (Behoben)
 
-1. Copy **all four files** into the Nemo extension folder:
-  ```bash
-   mkdir -p ~/.local/share/nemo-python/extensions
-   cp previewer.py previewer_panel.py previewer_select.py previewer_util.py \
-      ~/.local/share/nemo-python/extensions/
-  ```
-2. Restart Nemo:
-  ```bash
-   nemo -q && nemo
-  ```
-3. Check the log. Each module reports its version on load:
-  ```text
-   [previewer] previewer_util 0.3.1 geladen
-   [previewer] previewer_panel 0.3.1 geladen (...)
-   [previewer] previewer_select 0.3.1 geladen
-   [previewer] previewer (Einstieg) v0.3.1 bereit
-  ```
+- Markdown-Vorschau blieb bei Dateien mit `---`-Linien (YAML-Front-Matter,  
+Trennlinien) leer: ein Operator-Rangfolge-Fehler erzeugte ungültige  
+Pango-Markup-Tags, die GTK beim Einfügen still verwarf. Korrigiert;  
+zusätzlich wird das Markup vor dem Einfügen validiert – im Zweifel  
+erscheint nun der Rohtext statt einer leeren Vorschau.
 
-   Four lines with the same version number — anything else means an old  
-   file is still in the folder.
-4. Select a file in Nemo. The panel appears on the right; toggle it with  
- **Ctrl+Alt+P** or the button in its header. The divider between the  
- file view and the panel is draggable.
+## \[0.2.0\] – 2026-10-26
 
-## Upgrade
+### Added (Hinzugefügt)
 
-1. Overwrite **all four files** — they share a version lock, and the  
- entry point warns in the log about version mismatches.
-2. Remove stale bytecode caches, then restart Nemo:
-  ```bash
-   rm -rf ~/.local/share/nemo-python/extensions/__pycache__
-   nemo -q && nemo
-  ```
-3. Verify the copy is complete before restarting:
-  ```bash
-   wc -l ~/.local/share/nemo-python/extensions/*.py
-   grep -H PREVIEWER_VERSION ~/.local/share/nemo-python/extensions/*.py
-  ```
+- Markdown-Vorschau (.md) gerendert: Überschriften, Fett-/Kursivschrift,  
+Inline- und Block-Code, Listen, Zitate, Trennlinien und Links als  
+formatierter Text (Pango-Markup, ohne neue Paket-Abhängigkeiten)
+- EML-Vorschau (.eml): Kopfzeilen (Betreff, Von, An, Cc, Datum) als  
+Tabelle plus Textkörper – bevorzugt text/plain, andernfalls wird der  
+HTML-Teil zu lesbarem Text bereinigt (Python-Bordmittel)
 
-   All four files must report the same version.
+### Fixed (Behoben)
 
-## Uninstall
+- EXIF-Ausrichtung von Bildern wird jetzt immer angewendet: Fotos, die  
+die Drehung nur im Orientation-Tag tragen, wurden zuvor quer bzw. im  
+falschen Format dargestellt; die Pixel-Maße unter der Vorschau  
+zeigen jetzt die tatsächlich angezeigte Orientierung
 
-```bash
-rm ~/.local/share/nemo-python/extensions/previewer*.py
-rm -rf ~/.local/share/nemo-python/extensions/__pycache__
-rm -rf ~/.cache/previewer      # optional: office preview cache
-nemo -q && nemo
-```
+## \[0.1.0\] – 2026-10-26
 
-## Debugging
+Erste versionierte Fassung der Nemo-Extension „Previewer“.
 
-For debugging, close your filebrowser and start it again over terminal.
+### Added (Hinzugefügt)
 
-```
-nemo -q && nemo --no-desktop
-```
+- Angedocktes Vorschau-Panel rechts im Nemo-Fenster (Crowbar-Technik über  
+Nemo.LocationWidgetProvider und Gtk.Paned), Trenner frei verschiebbar
+- Vorschauen: Bilder, Text/Quellcode, PDF (alle Seiten untereinander  
+scrollbar, bis 20 Seiten), Audio (GStreamer-Player mit Play/Pause,  
+Positions-Slider und Seek), Video (Standbild, Tags, Dauer), Ordner und  
+Dateiinformationen für alles andere
+- Office-Dokumente scharf: LibreOffice-Konvertierung im Hintergrund nach  
+PDF, gecacht in \~/.cache/previewer; während der Konvertierung die  
+eingebettete Miniaturansicht mit Hinweis, das scharfe Ergebnis erscheint  
+automatisch; ohne LibreOffice Miniaturansicht aus dem Dokument-ZIP
+- Auswahl-Erkennung über NemoView.peek\_selection (Klassen-VTable), die  
+Nemo-Auswahl-API, Gtk.IconView/TreeView und ATK-Fallbacks; Auswahl-  
+Signale werden zur Laufzeit entdeckt und verbunden
+- Live-Skalierung der Vorschau mit der Panelbreite ohne Neu-Rendern
+- Panel ein-/ausblenden per Strg+Alt+P
+- Vier-Module-Struktur (previewer.py, previewer\_panel.py,  
+previewer\_select.py, previewer\_util.py) mit Versionsabgleich beim Start:  
+veraltete Dateien im Extension-Ordner werden im Terminal-Log sofort  
+als ACHTUNG-Meldung sichtbar
+- changelog.md und semantische Versionierung ab 0.1.0
 
-## Troubleshooting
+### Fixed (Behoben)
 
-
-| Symptom                                           | Cause and fix                                                                                                  |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| No `geladen`/`bereit` lines in the log            | `nemo-python` missing or the files are not in `~/.local/share/nemo-python/extensions/`                         |
-| Version warning in the log, or different versions | Mixed old/new files in the extension folder — copy **all four** files again                                    |
-| Panel loads but stays empty                       | Watch the terminal; renderers log errors there. A missing preview type usually just needs its optional package |
-| Office preview converts over and over             | Old version before 0.3.x — update; the cache failed on `/tmp` being a separate device                          |
-| `net usershare` warnings in the log               | Comes from Nemo-Share, not from this extension — harmless                                                      |
-
-
-The changelog (`changelog.md` in the repository) documents every release.
+- Audio-Positions-Slider zog beim Abspielen nicht mit: Bei unbekannter  
+Stücklänge (Discoverer versagte) war der Slider-Bereich nur 0–1 und der  
+Timer konnte ihn nie bewegen; der Bereich wird jetzt aus der echten  
+Abspiellänge nachgezogen, und während der Nutzer am Slider zieht,  
+schiebt der Timer ihn nicht mehr weg
+- GstPbutils.Discoverer-Konstruktor auf neueren PyGObject-Builds ungültig  
+(jetzt Discoverer.new mit Fallback) – dadurch erscheinen jetzt  
+Titel/Interpret/Album, Stücklänge und Cover bei Audio und Video
