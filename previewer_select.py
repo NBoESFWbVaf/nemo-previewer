@@ -4,10 +4,9 @@
 Previewer – Auswahl-Modul (previewer_select.py)
 ===============================================
 
-STAND: Version 0.9.2 – aktuelle Fassung (Härtungs-Paket:
-Wildcall-Schutz – per VTable-Offset gelesene Funktionszeiger werden
-vor dem Aufruf gegen die Nemo-Bibliotheks-Adressbereiche geprüft;
-sonst wie 0.9.1 mit den gemeinsamen Name-/URI-Helfern).
+STAND: Version 0.10.0 – aktuelle Fassung (keine Änderungen in dieser
+Datei – Wildcall-Schutz und gemeinsame Helfer aus 0.9.1/0.9.2 bleiben;
+nur Versions-Sync zum F23-Feature-Release).
 
 Erkennt die in Nemo markierten Dateien – mehrstufig und defensiv:
 
@@ -1281,5 +1280,5 @@ class SelectionReader:
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.9.2"
+PREVIEWER_VERSION = "0.10.0"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)
