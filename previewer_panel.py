@@ -4,9 +4,10 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.6.0 – aktuelle Fassung (Ordner-Zählung transparent
-wie 0.5.1; NEU: Standbilder für Videodateien werden selbst aus der
-Videospur extrahiert – F22 Teil 1, jpegenc-Route im Worker-Thread).
+STAND: Version 0.7.0 – aktuelle Fassung (Ordner-Zählung transparent
+wie 0.5.1; NEU: Video-Vorschau final – generische Kachel wie bei
+Musik plus Wiedergabe im Panel über gtksink; die Standbild-Extraktion
+aus 0.6.0 ist wieder entfernt).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -125,10 +126,6 @@ except Exception:
 # global): wurde das GI-Warm-up bereits erledigt?
 _MEDIA_STATE = {"warmed": False}
 
-# Standbild-Extraktion (F22, Teil 1): Wartezeiten in Sekunden
-_VIDEO_FRAME_WAIT_S = 8      # auf den Preroll (PAUSED) des Playbin warten
-_VIDEO_FRAME_PULL_S = 3      # Bild aus dem appsink abziehen
-
 
 def _media_gi_warmup():
     """
@@ -166,89 +163,15 @@ def _media_gi_warmup():
                    "TagList.get_sample",
                    "Sample.get_buffer",
                    "Buffer.extract_dup",
-                   "Buffer.map",
                    "ElementFactory",
-                   "parse_bin_from_description",
-                   "PlayFlags.VIDEO",
                    "State.PAUSED",
+                   "State.PLAYING",
                    "State.NULL",
-                   "StateChangeReturn.SUCCESS",
-                   "MapFlags.READ",
-                   "Bin.get_by_name",
+                   "SeekFlags.FLUSH",
+                   "Format.TIME",
                    "Element.set_state",
                    "Element.get_state"):
         _touch(Gst, dotted)
-
-
-def _video_frame_bytes(uri):
-    """
-    Standbild aus einem Video extrahieren (F22, Teil 1): Ein Playbin
-    mit eigener Kette als Video-Sink – videoconvert ! jpegenc ! appsink –
-    wird in den PAUSED-Zustand versetzt; nach dem Preroll liegt genau
-    EIN JPEG im appsink, das als Bytes zurückfließt (Dekodierung zum
-    Pixbuf geschieht erst im GTK-Thread, wie bei Cover-Bytes). Läuft im
-    Erkundungs-Worker und blockiert damit NICHT die UI – nur bis zur
-    Wartezeit.
-    Hintergrund: Der Discoverer liefert nur Standbilder, die im Tag
-    EINGEBETTET sind (TAG_PREVIEW_IMAGE) – die allermeisten Film- und
-    Seriendateien tragen keins; ohne eigene Extraktion blieb das Panel
-    daher ohne Bild.
-    Ohne Videospur, ohne Decoder oder ohne jpegenc (Paket
-    gstreamer1.0-plugins-good): Rückgabe None, der Hinweis übernimmt.
-    """
-    pipeline = None
-    try:
-        pipeline = Gst.ElementFactory.make("playbin", "previewer-frame")
-        if pipeline is None:
-            return None
-        # Eigene Ausgangs-Kette: JPEG statt Roh-Pixel – umgeht das
-        # fehleranfällige Umrechnen von Strides/Formaten; das JPEG
-        # dekodiert der GdkPixbufLoader später im GTK-Thread.
-        sinkbin = Gst.parse_bin_from_description(
-            "videoconvert ! jpegenc ! appsink name=frames "
-            "sync=false max-buffers=2", False)
-        sink = sinkbin.get_by_name("frames")
-        pipeline.set_property("video-sink", sinkbin)
-        # Audio wegwerfen (kein Gerät öffnen!) und nur die Videospur
-        # decodieren – schneller beim Preroll. Gst.PlayFlags ist je
-        # nach GStreamer-Bindung NICHT unter Gst.PlayFlags erreichbar
-        # (Mint 22: AttributeError) – deshalb per getattr und notfalls
-        # als Rohwert: playbin-Flag VIDEO = 1.
-        fakesink = Gst.ElementFactory.make("fakesink", None)
-        if fakesink is not None:
-            pipeline.set_property("audio-sink", fakesink)
-        try:
-            play_flags = getattr(Gst, "PlayFlags", None)
-            pipeline.set_property("flags",
-                                 play_flags.VIDEO if play_flags else 1)
-        except Exception:
-            pass
-        pipeline.set_property("uri", uri)
-        pipeline.set_state(Gst.State.PAUSED)
-        ret, _state, _pending = pipeline.get_state(
-            _VIDEO_FRAME_WAIT_S * Gst.SECOND)
-        if ret != Gst.StateChangeReturn.SUCCESS:
-            return None
-        sample = sink.emit("try-pull-sample",
-                           _VIDEO_FRAME_PULL_S * Gst.SECOND)
-        if sample is None:
-            return None
-        buf = sample.get_buffer()
-        ok, mi = buf.map(Gst.MapFlags.READ)
-        if not ok:
-            return None
-        data = bytes(mi.data)
-        buf.unmap(mi)
-        return data
-    except Exception as exc:
-        dbg("Standbild-Extraktion fehlgeschlagen: %s" % exc)
-        return None
-    finally:
-        try:
-            if pipeline is not None:
-                pipeline.set_state(Gst.State.NULL)
-        except Exception:
-            pass
 
 
 def office_cache_dir():
@@ -1986,12 +1909,6 @@ class PreviewPanel(Gtk.Box):
                             break
             except Exception as e:
                 dbg("Discoverer-Fehler: %s" % e)
-            # F22 (Teil 1): Hat der Discoverer kein Standbild geliefert
-            # (Serien-/Filmdateien tragen fast nie eines im Tag), selbst
-            # eines aus der Videospur ziehen – hier im Worker, damit die
-            # UI nicht blockiert.
-            if video and image_bytes is None:
-                image_bytes = _video_frame_bytes(uri)
             GLib.idle_add(self._media_probe_done, path, uri, finish,
                           tags, duration, image_bytes)
 
@@ -2030,14 +1947,21 @@ class PreviewPanel(Gtk.Box):
         self._content.show_all()
         return False
 
-    def _media_cover_placeholder(self):
+    def _media_cover_placeholder(self, glyph="♫",
+                                 fallback_icon="audio-x-generic",
+                                 grad=((0.145, 0.173, 0.216),
+                                       (0.251, 0.204, 0.322)),
+                                 perforations=False):
         """
-        Platzhalter-Cover für Musikdateien ohne eingebettetes Bild (F18):
-        dunkle Kachel mit diagonalem Farbverlauf, halbtransparentem
-        Notensymbol und abgerundeten Ecken – in doppelter Auflösung
-        gezeichnet (640 px für 320 px Anzeige), damit die Kachel auch
-        auf HiDPI-Schirmen scharf bleibt. Ohne PangoCairo (oder bei
-        Zeichenfehlern) greift ein Icon-Fallback auf dunklem Grund.
+        Generische Kachel für Medien ohne eingebettetes Bild: dunkle
+        Kachel mit diagonalem Farbverlauf, halbtransparentem Symbol und
+        abgerundeten Ecken – in doppelter Auflösung gezeichnet (640 px
+        für 320 px Anzeige), damit die Kachel auch auf HiDPI-Schirmen
+        scharf bleibt. Musik ohne Cover (F18) zeigt das Notensymbol,
+        Video ohne eingebettetes Vorschaubild (F22) das Abspiel-
+        Dreieck mit Filmperforation am oberen und unteren Rand.
+        Ohne PangoCairo (oder bei Zeichenfehlern) greift ein Icon-
+        Fallback auf dunklem Grund.
         """
         size = 640
         try:
@@ -2055,16 +1979,27 @@ class PreviewPanel(Gtk.Box):
             cr.arc(r, r, r, math.pi, 1.5 * math.pi)
             cr.close_path()
             cr.clip()
-            # Diagonaler Verlauf: dunkles Blaugrau nach dunklem Violett
+            # Diagonaler Verlauf (Farbpaar je Medientyp)
             pat = cairo.LinearGradient(0.0, 0.0, size, size)
-            pat.add_color_stop_rgba(0.0, 0.145, 0.173, 0.216, 1.0)
-            pat.add_color_stop_rgba(1.0, 0.251, 0.204, 0.322, 1.0)
+            pat.add_color_stop_rgba(0.0, grad[0][0], grad[0][1], grad[0][2],
+                                   1.0)
+            pat.add_color_stop_rgba(1.0, grad[1][0], grad[1][1], grad[1][2],
+                                   1.0)
             cr.set_source(pat)
             cr.paint()
-            # Notensymbol halbtransparent weiß, mittig (Pango findet
-            # selbst eine Schrift mit dem Glyph ♫ – Serife zuerst).
+            # Filmperforation (nur Video-Kachel): halbtransparente
+            # Lochreihen am oberen und unteren Rand.
+            if perforations:
+                cr.set_source_rgba(1.0, 1.0, 1.0, 0.16)
+                for i in range(8):
+                    x = 23.0 + i * 80.0
+                    cr.rectangle(x, 20.0, 34.0, 26.0)
+                    cr.rectangle(x, size - 46.0, 34.0, 26.0)
+                cr.fill()
+            # Symbol halbtransparent weiß, mittig (Pango findet selbst
+            # eine Schrift mit dem Glyph – Serife zuerst).
             layout = PangoCairo.create_layout(cr)
-            layout.set_text("♫", -1)
+            layout.set_text(glyph, -1)
             font = Pango.FontDescription()
             font.set_family("Serif")
             font.set_absolute_size(320 * Pango.SCALE)
@@ -2078,13 +2013,13 @@ class PreviewPanel(Gtk.Box):
         except Exception as exc:
             dbg("Platzhalter-Cover nicht zeichenbar (%s) – Icon-Fallback"
                 % exc)
-        # Fallback: Audio-Icon auf dunklem, deckendem Grund
+        # Fallback: Datei-Icon auf dunklem, deckendem Grund
         pb = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8,
                                   size, size)
         pb.fill(0x151a22ff)
         try:
             icon = Gtk.IconTheme.get_default().load_icon(
-                "audio-x-generic", 256, Gtk.IconLookupFlags.FORCE_SIZE)
+                fallback_icon, 256, Gtk.IconLookupFlags.FORCE_SIZE)
             icon.composite(pb,
                            (size - icon.get_width()) // 2,
                            (size - icon.get_height()) // 2,
@@ -2131,18 +2066,30 @@ class PreviewPanel(Gtk.Box):
             grid.attach(vl, 1, i, 1, 1)
         self._content.pack_start(grid, False, False, 0)
 
-        # --- Player-Leiste ---
+        # --- Player-Leiste (mit _finish_video geteilt, F22) ---
+        self._playbin_set_uri(uri)
+        self._player_bar(duration)
+
+    def _playbin_set_uri(self, uri):
+        """
+        Playbin einmalig anlegen und die URI setzen – Musik und Video
+        (F22) teilen sich dieses eine Playbin. B2: Bus-Watch – ohne ihn
+        kennt der Player sein Trackende nicht (Pause-Icon blieb stehen,
+        Position fror ein) und Abspielfehler blieben unsichtbar.
+        """
         if self._playbin is None:
             self._playbin = Gst.ElementFactory.make("playbin", "previewer-playbin")
-            # B2: Bus-Watch – ohne ihn kennt der Player sein Trackende
-            # nicht (Pause-Icon blieb stehen, Position fror ein) und
-            # Abspielfehler blieben unsichtbar.
             bus = self._playbin.get_bus()
             bus.add_signal_watch()
             bus.connect("message::eos", self._on_player_eos)
             bus.connect("message::error", self._on_player_error)
         self._playbin.set_property("uri", uri)
 
+    def _player_bar(self, duration):
+        """
+        Player-Leiste (Play/Pause, Slider, Position) bauen und packen –
+        identisch für Musik und Video, deshalb zentral (B2/B3).
+        """
         player_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         self._btn_play = Gtk.Button.new_from_icon_name(
             "media-playback-start-symbolic", Gtk.IconSize.BUTTON)
@@ -2217,20 +2164,31 @@ class PreviewPanel(Gtk.Box):
 
     def _render_video(self, path, uri):
         """
-        Video-Vorschau: Standbild und Infos.
+        Video-Vorschau: Kachel, Infos und Wiedergabe im Panel.
         R1: Erkundung im Hintergrund-Thread (siehe _media_probe_async) –
-        UI bleibt sofort bedienbar.
+        UI bleibt sofort bedienbar. F22: Ohne eingebettetes Vorschaubild
+        erscheint die generische Kachel (wie bei Musik); abgespielt wird
+        über gtksink direkt im Panel – fehlt gtksink (Paket
+        gstreamer1.0-gtk3), läuft die Wiedergabe nur mit Ton.
         """
         self._media_probe_async(path, uri, self._finish_video, video=True)
 
-    def _finish_video(self, path, uri, tags, duration, frame):
-        """R1-Fortsetzung: Standbild und Infos aufbauen."""
-        if frame:
-            scroll = self._scaled_image(frame, 320, upscale=False,
-                                        keep_height=True)
-            self._content.pack_start(scroll, False, False, 0)
-        else:
-            self._hint("Kein Standbild verfügbar – Video im Player öffnen.")
+    def _finish_video(self, path, uri, tags, duration, image):
+        """
+        R1-Fortsetzung: Kachel und Infos aufbauen; F22: Wiedergabe im
+        Panel – gtksink liefert das einbettbare Video-Widget, darunter
+        die gleiche Player-Leiste wie bei Musik.
+        """
+        # F22: Ohne eingebettetes Vorschaubild die generische Kachel
+        # zeigen – Abspiel-Dreieck und Filmperforation statt Noten.
+        if image is None:
+            image = self._media_cover_placeholder(
+                glyph="▶", fallback_icon="video-x-generic",
+                grad=((0.086, 0.141, 0.180), (0.122, 0.322, 0.369)),
+                perforations=True)
+        scroll = self._scaled_image(image, 320, upscale=False,
+                                    keep_height=True)
+        self._content.pack_start(scroll, False, False, 0)
 
         rows = [("Datei", os.path.basename(path))]
         if "title" in tags:
@@ -2251,6 +2209,28 @@ class PreviewPanel(Gtk.Box):
             grid.attach(kl, 0, i, 1, 1)
             grid.attach(vl, 1, i, 1, 1)
         self._content.pack_start(grid, False, False, 0)
+
+        # --- Wiedergabe im Panel (F22) ---
+        self._playbin_set_uri(uri)
+        video_widget = None
+        try:
+            sink = Gst.ElementFactory.make("gtksink", "previewer-vsink")
+            if sink is not None:
+                self._playbin.set_property("video-sink", sink)
+                video_widget = sink.get_widget()
+                # Mindestgröße, damit das Widget die Spalte nicht
+                # sprengt – gtksink hält das Seitenverhältnis selbst.
+                video_widget.set_size_request(240, 135)
+        except Exception as exc:
+            dbg("gtksink nicht verfügbar (%s) – Wiedergabe nur mit Ton"
+                % exc)
+        if video_widget is not None:
+            self._content.pack_start(video_widget, False, False, 0)
+        else:
+            self._hint("Kein Videofenster im Panel (Paket "
+                       "gstreamer1.0-gtk3 fehlt?) – Wiedergabe nur "
+                       "mit Ton.")
+        self._player_bar(duration)
 
     def _render_office(self, path):
         """
@@ -2616,6 +2596,7 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.6.0"
+PREVIEWER_VERSION = "0.7.0"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
-    "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
+    "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix, Video im Panel)"
+    % PREVIEWER_VERSION)
