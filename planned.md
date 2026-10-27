@@ -226,7 +226,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   bestehenden Muster (`soffice --headless --convert-to pdf`) und  
   danach kopieren. Zielname: gleicher Basisname + `.pdf`  
   (Kollision vermeiden: bei Existenz `_1`, `_2` … anhängen).
-- [x] **F22 – Video-Platzhalterbild + Wiedergabe im Panel**
+- [ ] **F22 – Video-Platzhalterbild + Wiedergabe im Panel**
 
   Filmdateien ohne Standbild bekommen dieselbe generische Kachel wie  
   Musik ohne Cover (Symbol z.B. Filmstreifen/Kamera statt Noten);  
@@ -237,37 +237,33 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   (`Gst.ElementFactory.make("gtksink")` → `get_widget()` in eine  
   DrawingArea unter dem Standbild packen), Player-Leiste und  
   EOS/Timer-Logik aus `_finish_audio` wiederverwenden; ohne gtksink  
-  nur Ton mit Hinweis. ✅ 0.7.0: Kachel (Abspiel-Dreieck +  
-  Filmperforation, Petrol-Verlauf) und Wiedergabe über gtksink im  
-  Panel, Player-Leiste mit Musik geteilt; ohne gstreamer1.0-gtk3 nur  
-  Ton mit Hinweis. Die Standbild-Extraktion aus 0.6.0 (Teil 1) wurde  
-  in 0.7.0 wieder entfernt – sie lieferte nie ein Bild und ließ das  
-  GI-Warm-up am fehlenden Gst.PlayFlags des Mint-22-Bindings  
-  abstürzen. 0.7.1: Ohne gstreamer1.0-gtk3 öffnete der Playbin sein  
-  EIGENES Fenster – jetzt zeichnet in dem Fall eine DrawingArea per  
-  appsink (videoconvert, RGBA-Roh-Frames, ca. 30 fps) selbst in die  
-  Vorschauspalte; gtksink bleibt bevorzugt, fakesink ist der letzte  
-  Rückfall (nur Ton, nie ein Fenster). 0.7.2: Das Neuzeichnen der  
-  DrawingArea fehlte (queue\_draw) – der Ton lief, das Bild blieb bei  
-  der Kachel; jetzt stößt der Frame-Timer nach jedem Bild an.
+  nur Ton mit Hinweis. ✅ Kachel in 0.7.0 (Abspiel-Dreieck +  
+  Filmperforation, Petrol-Verlauf) – besteht und bleibt. Die Standbild-  
+  Extraktion aus 0.6.0 (Teil 1) wurde in 0.7.0 wieder entfernt – sie  
+  lieferte nie ein Bild und ließ das GI-Warm-up am fehlenden  
+  Gst.PlayFlags des Mint-22-Bindings abstürzen. Die Wiedergabe war  
+  0.7.0–0.7.2 eingebaut (gtksink, Appsink-Eigenbau, Redraw-Fix) und  
+  wurde in 0.8.0 VOLLSTÄNDIG zurückgebaut: gtksink fehlt ohne  
+  gstreamer1.0-gtk3, der Eigenbau zeigte im Feld kein Bild. Später neu  
+  angehen; \_playbin\_set\_uri/\_player\_bar bleiben als Bausteine.
 
 ---
 
 ## Empfohlene Reihenfolge
 
 
-| Schritt | Inhalt                                                                                                                | Zielversion                                          |
-| ------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                  | ✅ 0.4.2 (Patch)                                      |
-| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                         | ✅ 0.4.3 (Patch)                                      |
-| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                            | ✅ 0.5.0 (Minor)                                      |
-| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                               | ✅ 0.5.1 (Patch)                                      |
-| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                  | ✅ 0.6.0 (Minor; in 0.7.0 wieder entfernt)            |
-| 7       | F22 Abschluss – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                            | ✅ 0.7.0 (Minor; Fenster-Fix 0.7.1, Redraw-Fix 0.7.2) |
-| 8       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                          | 0.8.0                                                |
-| 9       | F4, F6–F11 nach Bedarf                                                                                                | später                                               |
-| 10      | F13–F17 + K3, K4, K6, K7 nach Bedarf                                                                                  | später                                               |
-| 11      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) | später                                               |
+| Schritt | Inhalt                                                                                                                                            | Zielversion                                                           |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                                              | ✅ 0.4.2 (Patch)                                                       |
+| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                                                     | ✅ 0.4.3 (Patch)                                                       |
+| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                                                        | ✅ 0.5.0 (Minor)                                                       |
+| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                                                           | ✅ 0.5.1 (Patch)                                                       |
+| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                                              | ✅ 0.6.0 (Minor; in 0.7.0 wieder entfernt)                             |
+| 7       | F22 – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                                                                  | Kachel ✅ 0.7.0 (Minor); Wiedergabe 0.7.0–0.7.2, in 0.8.0 zurückgebaut |
+| 8       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                      | 0.9.0                                                                 |
+| 9       | F4, F6–F11 nach Bedarf                                                                                                                            | später                                                                |
+| 10      | F13–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                              | später                                                                |
+| 11      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + Neuversuch F22-Wiedergabe | später                                                                |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
