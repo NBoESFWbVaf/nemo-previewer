@@ -10,7 +10,8 @@ Repository: [https://github.com/NBoESFWbVaf/nemo-previewer](https://github.com/N
 
 ## Requirements
 
-Tested on Linux Mint 22. The extension consists of **four files that**  
+Tested on Linux Mint 22 and Debian 13 (Trixie) with Cinnamon/Nemo. The  
+extension consists of **four files that**  
 **belong together** and must all carry the same version:
 
 
@@ -38,7 +39,7 @@ sudo apt install gir1.2-poppler-0.18 python3-cairo
 sudo apt install gir1.2-gst-plugins-base-1.0
 
 # SVG preview (gdk-pixbuf ships no SVG loader anymore)
-sudo apt install gir1.2-rsvg
+sudo apt install gir1.2-rsvg-2.0
 
 # Sharp office preview (ODT/ODS/ODP, DOCX/XLSX/PPTX):
 # converts documents to PDF in the background, once per document
@@ -46,6 +47,19 @@ sudo apt install libreoffice-core
 ```
 
 Everything else runs on Python standard library modules only.
+
+**Debian notes** (verified on Debian 13 "Trixie" with Cinnamon/Nemo)
+
+- There is **no `python-gi` package on Debian** — the Python 3  
+GObject bindings are called `python3-gi`. Installing `nemo-python`  
+pulls in `python3-gi` and the Nemo GIR bindings automatically
+- Cinnamon on Debian does **not** preinstall `nemo-python`. Without  
+it, extensions in `~/.local/share/nemo-python/extensions/` are  
+silently ignored — the panel never appears
+- The SVG package is named `gir1.2-rsvg-2.0` on both Debian and Mint  
+(Debian has no `gir1.2-rsvg` alias). PDF (`gir1.2-poppler-0.18`),  
+`python3-cairo`, GStreamer and `libreoffice-core` carry the same  
+names on both distributions
 
 ## Install
 
@@ -70,13 +84,13 @@ Everything else runs on Python standard library modules only.
    Four lines with the same version number — anything else means an old  
    file is still in the folder.
 4. Select a file in Nemo. The panel appears on the right; toggle it with  
- **Ctrl+Alt+P** or the button in its header. The divider between the  
- file view and the panel is draggable.
+**Ctrl+Alt+P** or the button in its header. The divider between the  
+file view and the panel is draggable.
 
 ## Upgrade
 
 1. Overwrite **all four files** — they share a version lock, and the  
- entry point warns in the log about version mismatches.
+entry point warns in the log about version mismatches.
 2. Remove stale bytecode caches, then restart Nemo:
   ```bash
    rm -rf ~/.local/share/nemo-python/extensions/__pycache__
@@ -97,6 +111,14 @@ rm ~/.local/share/nemo-python/extensions/previewer*.py
 rm -rf ~/.local/share/nemo-python/extensions/__pycache__
 rm -rf ~/.cache/previewer      # optional: office preview cache
 nemo -q && nemo
+```
+
+## Debugging
+
+For debugging, close your filebrowser and start it again over terminal.
+
+```
+nemo -q && nemo --no-desktop
 ```
 
 ## Troubleshooting
