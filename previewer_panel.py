@@ -4,11 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.4.3 – aktuelle Fassung (Robustheits-Paket R1–R8:
-Medien-Erkundung im Hintergrund-Thread, PDF-Seiten progressiv im
-Idle nachschieben, Skalier-Status je Bild statt Einzel-Slot,
-EPUB-Lesedeckel gegen Dekompressions-Bomben, EPUB3-Navigation
-überspringen, Font-Temp-Deckel, MOBI-Randbereinigung).
+STAND: Version 0.5.0 – aktuelle Fassung (Robustheits-Paket R1–R8
+siehe 0.4.3; NEU: Platzhalter-Cover für Musikdateien ohne
+eingebettetes Bild – gezeichnete Verlaufs-Kachel mit Notensymbol).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -35,6 +33,7 @@ import ctypes.util
 import email
 import hashlib
 import html
+import math
 import shutil
 import struct
 import tempfile
@@ -1846,12 +1845,80 @@ class PreviewPanel(Gtk.Box):
         self._content.show_all()
         return False
 
+    def _media_cover_placeholder(self):
+        """
+        Platzhalter-Cover für Musikdateien ohne eingebettetes Bild (F18):
+        dunkle Kachel mit diagonalem Farbverlauf, halbtransparentem
+        Notensymbol und abgerundeten Ecken – in doppelter Auflösung
+        gezeichnet (640 px für 320 px Anzeige), damit die Kachel auch
+        auf HiDPI-Schirmen scharf bleibt. Ohne PangoCairo (oder bei
+        Zeichenfehlern) greift ein Icon-Fallback auf dunklem Grund.
+        """
+        size = 640
+        try:
+            if not HAVE_PANGOCAIRO:
+                raise ValueError("PangoCairo nicht verfügbar")
+            surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
+            cr = cairo.Context(surf)
+            # Abgerundete Ecken als Beschneidungspfad; außerhalb bleibt
+            # die Fläche transparent – die Kachel wirkt auf jedem Theme.
+            r = 56.0
+            cr.new_sub_path()
+            cr.arc(size - r, r, r, -0.5 * math.pi, 0.0)
+            cr.arc(size - r, size - r, r, 0.0, 0.5 * math.pi)
+            cr.arc(r, size - r, r, 0.5 * math.pi, math.pi)
+            cr.arc(r, r, r, math.pi, 1.5 * math.pi)
+            cr.close_path()
+            cr.clip()
+            # Diagonaler Verlauf: dunkles Blaugrau nach dunklem Violett
+            pat = cairo.LinearGradient(0.0, 0.0, size, size)
+            pat.add_color_stop_rgba(0.0, 0.145, 0.173, 0.216, 1.0)
+            pat.add_color_stop_rgba(1.0, 0.251, 0.204, 0.322, 1.0)
+            cr.set_source(pat)
+            cr.paint()
+            # Notensymbol halbtransparent weiß, mittig (Pango findet
+            # selbst eine Schrift mit dem Glyph ♫ – Serife zuerst).
+            layout = PangoCairo.create_layout(cr)
+            layout.set_text("♫", -1)
+            font = Pango.FontDescription()
+            font.set_family("Serif")
+            font.set_absolute_size(320 * Pango.SCALE)
+            layout.set_font_description(font)
+            lw, lh = layout.get_pixel_size()
+            cr.move_to((size - lw) / 2.0, (size - lh) / 2.0)
+            cr.set_source_rgba(1.0, 1.0, 1.0, 0.82)
+            PangoCairo.update_layout(cr, layout)
+            PangoCairo.show_layout(cr, layout)
+            return Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
+        except Exception as exc:
+            dbg("Platzhalter-Cover nicht zeichenbar (%s) – Icon-Fallback"
+                % exc)
+        # Fallback: Audio-Icon auf dunklem, deckendem Grund
+        pb = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8,
+                                  size, size)
+        pb.fill(0x151a22ff)
+        try:
+            icon = Gtk.IconTheme.get_default().load_icon(
+                "audio-x-generic", 256, Gtk.IconLookupFlags.FORCE_SIZE)
+            icon.composite(pb,
+                           (size - icon.get_width()) // 2,
+                           (size - icon.get_height()) // 2,
+                           icon.get_width(), icon.get_height(),
+                           0, 0, 1, 1, GdkPixbuf.InterpType.BILINEAR, 255)
+        except Exception:
+            pass
+        return pb
+
     def _finish_audio(self, path, uri, tags, duration, cover):
         """R1-Fortsetzung: Cover, Infos und Player-Leiste aufbauen."""
-        if cover:
-            scroll = self._scaled_image(cover, 320, upscale=False,
-                                        keep_height=True)
-            self._content.pack_start(scroll, False, False, 0)
+        # F18: Ohne eingebettetes Cover (oder wenn es nicht dekodierbar
+        # war) die Platzhalter-Kachel zeigen – Dateien mit und ohne Bild
+        # haben damit das gleiche, ruhige Erscheinungsbild.
+        if cover is None:
+            cover = self._media_cover_placeholder()
+        scroll = self._scaled_image(cover, 320, upscale=False,
+                                    keep_height=True)
+        self._content.pack_start(scroll, False, False, 0)
 
         rows = []
         if "title" in tags and tags["title"] != os.path.basename(path):
@@ -2364,6 +2431,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.4.3"
+PREVIEWER_VERSION = "0.5.0"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
     "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
