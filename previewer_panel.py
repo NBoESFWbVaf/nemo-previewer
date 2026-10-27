@@ -4,9 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.5.1 – aktuelle Fassung (Platzhalter-Cover und
-Entdeckungs-Fixes wie 0.5.0; NEU: Ordner-Vorschau zählt ALLE
-Einträge und weist versteckte separat aus – K1-Kompromiss).
+STAND: Version 0.6.0 – aktuelle Fassung (Ordner-Zählung transparent
+wie 0.5.1; NEU: Standbilder für Videodateien werden selbst aus der
+Videospur extrahiert – F22 Teil 1, jpegenc-Route im Worker-Thread).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -125,6 +125,10 @@ except Exception:
 # global): wurde das GI-Warm-up bereits erledigt?
 _MEDIA_STATE = {"warmed": False}
 
+# Standbild-Extraktion (F22, Teil 1): Wartezeiten in Sekunden
+_VIDEO_FRAME_WAIT_S = 8      # auf den Preroll (PAUSED) des Playbin warten
+_VIDEO_FRAME_PULL_S = 3      # Bild aus dem appsink abziehen
+
 
 def _media_gi_warmup():
     """
@@ -148,9 +152,87 @@ def _media_gi_warmup():
             (Gst.TagList, "get_string"),
             (Gst.TagList, "get_sample"),
             (Gst.Sample, "get_buffer"),
-            (Gst.Buffer, "extract_dup")):
+            (Gst.Buffer, "extract_dup"),
+            (Gst, "ElementFactory"),
+            (Gst, "parse_bin_from_description"),
+            (Gst, "PlayFlags"),
+            (Gst.PlayFlags, "VIDEO"),
+            (Gst.State, "PAUSED"),
+            (Gst.State, "NULL"),
+            (Gst.StateChangeReturn, "SUCCESS"),
+            (Gst.MapFlags, "READ"),
+            (Gst.Bin, "get_by_name"),
+            (Gst.Element, "set_state"),
+            (Gst.Element, "get_state"),
+            (Gst.Buffer, "map")):
         try:
             getattr(cls, name)
+        except Exception:
+            pass
+
+
+def _video_frame_bytes(uri):
+    """
+    Standbild aus einem Video extrahieren (F22, Teil 1): Ein Playbin
+    mit eigener Kette als Video-Sink – videoconvert ! jpegenc ! appsink –
+    wird in den PAUSED-Zustand versetzt; nach dem Preroll liegt genau
+    EIN JPEG im appsink, das als Bytes zurückfließt (Dekodierung zum
+    Pixbuf geschieht erst im GTK-Thread, wie bei Cover-Bytes). Läuft im
+    Erkundungs-Worker und blockiert damit NICHT die UI – nur bis zur
+    Wartezeit.
+    Hintergrund: Der Discoverer liefert nur Standbilder, die im Tag
+    EINGEBETTET sind (TAG_PREVIEW_IMAGE) – die allermeisten Film- und
+    Seriendateien tragen keins; ohne eigene Extraktion blieb das Panel
+    daher ohne Bild.
+    Ohne Videospur, ohne Decoder oder ohne jpegenc (Paket
+    gstreamer1.0-plugins-good): Rückgabe None, der Hinweis übernimmt.
+    """
+    pipeline = None
+    try:
+        pipeline = Gst.ElementFactory.make("playbin", "previewer-frame")
+        if pipeline is None:
+            return None
+        # Eigene Ausgangs-Kette: JPEG statt Roh-Pixel – umgeht das
+        # fehleranfällige Umrechnen von Strides/Formaten; das JPEG
+        # dekodiert der GdkPixbufLoader später im GTK-Thread.
+        sinkbin = Gst.parse_bin_from_description(
+            "videoconvert ! jpegenc ! appsink name=frames "
+            "sync=false max-buffers=2", False)
+        sink = sinkbin.get_by_name("frames")
+        pipeline.set_property("video-sink", sinkbin)
+        # Audio wegwerfen (kein Gerät öffnen!) und nur die Videospur
+        # decodieren – schneller beim Preroll.
+        fakesink = Gst.ElementFactory.make("fakesink", None)
+        if fakesink is not None:
+            pipeline.set_property("audio-sink", fakesink)
+        try:
+            pipeline.set_property("flags", Gst.PlayFlags.VIDEO)
+        except Exception:
+            pass
+        pipeline.set_property("uri", uri)
+        pipeline.set_state(Gst.State.PAUSED)
+        ret, _state, _pending = pipeline.get_state(
+            _VIDEO_FRAME_WAIT_S * Gst.SECOND)
+        if ret != Gst.StateChangeReturn.SUCCESS:
+            return None
+        sample = sink.emit("try-pull-sample",
+                           _VIDEO_FRAME_PULL_S * Gst.SECOND)
+        if sample is None:
+            return None
+        buf = sample.get_buffer()
+        ok, mi = buf.map(Gst.MapFlags.READ)
+        if not ok:
+            return None
+        data = bytes(mi.data)
+        buf.unmap(mi)
+        return data
+    except Exception as exc:
+        dbg("Standbild-Extraktion fehlgeschlagen: %s" % exc)
+        return None
+    finally:
+        try:
+            if pipeline is not None:
+                pipeline.set_state(Gst.State.NULL)
         except Exception:
             pass
 
@@ -1890,6 +1972,12 @@ class PreviewPanel(Gtk.Box):
                             break
             except Exception as e:
                 dbg("Discoverer-Fehler: %s" % e)
+            # F22 (Teil 1): Hat der Discoverer kein Standbild geliefert
+            # (Serien-/Filmdateien tragen fast nie eines im Tag), selbst
+            # eines aus der Videospur ziehen – hier im Worker, damit die
+            # UI nicht blockiert.
+            if video and image_bytes is None:
+                image_bytes = _video_frame_bytes(uri)
             GLib.idle_add(self._media_probe_done, path, uri, finish,
                           tags, duration, image_bytes)
 
@@ -2514,6 +2602,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.5.1"
+PREVIEWER_VERSION = "0.6.0"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
     "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
