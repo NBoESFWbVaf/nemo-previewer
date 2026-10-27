@@ -25,6 +25,18 @@ greift ein Icon-Fallback auf dunklem Grund. Dateien mit und ohne
 Cover zeigen damit ein einheitliches Erscheinungsbild (aus  
 planned.md vorgezogen, dort als F18 geführt)
 
+### Fixed (Behoben)
+
+- Audio/Video: Im Hintergrund-Thread lief die Medien-Erkundung ins  
+Leere („'Discoverer' object has no attribute 'discover\_uri\_sync'“).  
+Ursache: PyGObject erzeugt die Method-Tabellen der GI-Klassen erst  
+beim ersten Zugriff – und diese Erst-Erzeugung ist nicht thread-  
+sicher. Der Discoverer wird jetzt im GTK-Thread gebaut, die  
+beteiligten GI-Klassen werden einmalig im GTK-Thread „warmgefahren“,  
+und die Erkundung läuft im Worker als fertig aufgelöstes Callable.  
+Vorher erschienen dadurch alle Medien ohne Tags, Länge und Cover  
+(zu beobachten ab 0.4.3, wo die Erkundung in den Thread zog)
+
 ## \[0.4.3\] – 2026-10-27
 
 ### Changed (Geändert) — Robustheits-Paket aus planned.md (R1–R8)
