@@ -6,6 +6,12 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+### Added (Hinzugefügt)
+
+- planned.md: Arbeitsdatei mit Schwachstellen-Analyse (Stand 0.4.1) und  
+Feature-Vorschlägen inklusive Lösungsskizzen, Aufwandsschätzung und  
+empfohlener Abarbeitungs-Reihenfolge
+
 ## \[0.4.1\] – 2026-10-27
 
 ### Fixed (Behoben)
