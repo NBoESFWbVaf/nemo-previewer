@@ -4,18 +4,12 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.3.0 – aktuelle Fassung. Als previewer_util.py in den
-Nemo-Extension-Ordner kopieren.
+STAND: Version 0.3.1 – aktuelle Fassung.
 
 Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
-Hilfsfunktionen und die zentralen Konfigurations-Konstanten.
-
-Die Extension besteht aus vier Dateien, die zusammen im
-Nemo-Extension-Ordner (~/.local/share/nemo-python/extensions/) liegen:
-  previewer.py         Einstieg: Nemo-Anbindung, Crowbar-Injektion
-  previewer_panel.py   Das Vorschau-Panel samt allen Renderern
-  previewer_select.py  Auswahl-Erkennung (VTable, GTK, ATK)
-  previewer_util.py    Diese Datei: Helfer und Konstanten
+Hilfsfunktionen und die zentralen Konfigurations-Konstanten. Teil der
+vierteiligen Extension (Einstieg und Übersicht: previewer.py;
+Installation: INSTALL.md im Repository).
 """
 
 import os
@@ -128,5 +122,5 @@ def content_type_description(mime):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.3.0"
+PREVIEWER_VERSION = "0.3.1"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
