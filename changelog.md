@@ -23,6 +23,20 @@ nemo-python mitgezogen, das Cinnamon auf Debian nicht vorinstalliert);
 SVG-Paketname auf gir1.2-rsvg-2.0 vereinheitlicht (gültig auf Mint  
 und Debian); getestet auf Debian 13 (Trixie)
 
+## \[0.5.1\] – 2026-10-27
+
+### Changed (Geändert)
+
+- Ordner-Vorschau (K1, bewusst als Kompromiss gelöst): Versteckte  
+Einträge werden weiterhin mitgezählt, aber jetzt transparent  
+ausgewiesen – der Hinweis lautet „Der Ordner enthält X Dateien,  
+davon X versteckt" (bei einem Eintrag in der Einzahl; ohne  
+versteckte Einträge entfällt der Zusatz, bei leeren bzw. nicht  
+lesbaren Ordnern erscheint „Der Ordner ist leer." bzw. „Ordner").  
+Vorher verschwieg „Ordner mit X Einträgen", ob versteckte Dateien  
+enthalten sind – die Zahl stimmte dann auch nicht mit dem sichtbaren  
+Bestand im Dateimanager überein
+
 ## \[0.5.0\] – 2026-10-27
 
 ### Added (Hinzugefügt)
