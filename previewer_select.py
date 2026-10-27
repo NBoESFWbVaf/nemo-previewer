@@ -4,9 +4,10 @@
 Previewer – Auswahl-Modul (previewer_select.py)
 ===============================================
 
-STAND: Version 0.9.1 – aktuelle Fassung (Audit: Namens-/URI-Lese-Logik
-in gemeinsamen Helfern gebündelt – _iface_file_name und _name_from_uri
-ersetzen die zuvor mehrfach identischen Inline-Implementierungen).
+STAND: Version 0.9.2 – aktuelle Fassung (Härtungs-Paket:
+Wildcall-Schutz – per VTable-Offset gelesene Funktionszeiger werden
+vor dem Aufruf gegen die Nemo-Bibliotheks-Adressbereiche geprüft;
+sonst wie 0.9.1 mit den gemeinsamen Name-/URI-Helfern).
 
 Erkennt die in Nemo markierten Dateien – mehrstufig und defensiv:
 
@@ -310,6 +311,53 @@ def _native_vtable_api():
         return None
 
 
+# --- Wildcall-Schutz (0.9.2, Audit „Pufferüberlauf/OOM“) ------------------
+# Die ctypes-Routen lesen Funktionszeiger aus berechneten VTable-Offsets
+# (peek_selection, get_name, get_uri) und rufen sie auf. Verschiebt ein
+# Nemo-Update das Klassen-/Interface-Layout, könnte ein Slot auf einen
+# falschen, aber nicht-NULL Zeiger zeigen – sein Aufruf wäre ein
+# Wildcall und würde Nemo schlagartig beenden (try/except wirkt bei
+# Speicherzugriffsverletzungen nicht). Jedes Call-Ziel muss deshalb
+# innerhalb einer Nemo-Bibliothek liegen, bevor es gerufen wird;
+# andernfalls wird die Route abgeschaltet (fail-closed – die anderen
+# Auswahl-Strategien übernehmen).
+_NEMO_TEXT_RANGES = None
+
+
+def _nemo_addr_ranges():
+    """
+    Adressbereiche aller ausführbaren Mappings von Nemo-Bibliotheken
+    (einmalig aus /proc/self/maps gelesen). Gibt None zurück, wenn die
+    Maps nicht lesbar sind – Aufrufer behandeln das als fail-closed:
+    lieber eine Route zu viel abgeschaltet als ein möglicher Wildcall.
+    """
+    global _NEMO_TEXT_RANGES
+    if _NEMO_TEXT_RANGES is not None:
+        return _NEMO_TEXT_RANGES
+    ranges = []
+    try:
+        with open("/proc/self/maps", "r", errors="replace") as fh:
+            for line in fh:
+                parts = line.split()
+                if len(parts) < 6:
+                    continue
+                perms = parts[1]
+                path = parts[5].lower()
+                if "nemo" not in path or "x" not in perms:
+                    continue
+                lo, hi = parts[0].split("-", 1)
+                ranges.append((int(lo, 16), int(hi, 16)))
+    except Exception:
+        ranges = None
+    _NEMO_TEXT_RANGES = ranges
+    return ranges
+
+
+def _ptr_in_nemo(ranges, ptr):
+    """True, wenn ptr in einem der Nemo-Adressbereiche liegt."""
+    return bool(ranges) and any(lo <= ptr < hi for lo, hi in ranges)
+
+
 # --- gemeinsame Helfer (Audit 0.9.1: Logik war zuvor mehrfach identisch
 # in _vtable_selection_names, _nemo_file_name_from_ptr und
 # _read_native_nemo_selection implementiert) ------------------------------
@@ -332,6 +380,10 @@ def _iface_file_name(api, file_ptr):
     Basename-Fallback. Gibt "" zurück, wenn nichts zu holen ist.
     Der Aufrufer muss file_ptr vorher gegen den NemoFile-GTyp
     validiert haben (api["is_a"]).
+    0.9.2: Die Funktionszeiger werden vor dem Call gegen die
+    Nemo-Adressbereiche geprüft (Wildcall-Schutz) – verschiebt ein
+    Nemo-Update das Interface-Layout, wird der falsche Zeiger nicht
+    gerufen, sondern still "" geliefert.
     """
     try:
         file_class = _read_cptr(file_ptr)             # GTypeInstance.g_class
@@ -340,9 +392,12 @@ def _iface_file_name(api, file_ptr):
         iface = api["iface_peek"](file_class, api["iface_gtype"])
         if not iface:
             return ""
+        ranges = _nemo_addr_ranges()
+        if ranges is None:
+            return ""
         str_fn_t = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p)
         name_ptr = _read_cptr(iface, api["iface_name_off"])
-        if name_ptr:
+        if name_ptr and _ptr_in_nemo(ranges, name_ptr):
             raw = ctypes.cast(name_ptr, str_fn_t)(file_ptr)
             if raw:
                 try:
@@ -350,7 +405,7 @@ def _iface_file_name(api, file_ptr):
                 finally:
                     api["g_free"](raw)
         uri_ptr = _read_cptr(iface, api["iface_uri_off"])
-        if uri_ptr:
+        if uri_ptr and _ptr_in_nemo(ranges, uri_ptr):
             raw = ctypes.cast(uri_ptr, str_fn_t)(file_ptr)
             if raw:
                 try:
@@ -411,6 +466,14 @@ def _vtable_selection_names(view):
         if not peek_ptr:
             if not _NATIVE_VTABLE_BROKEN:
                 dbg("VTable-API: peek_selection-Zeiger ist NULL – deaktiviert")
+            _NATIVE_VTABLE_BROKEN = True
+            return None, False
+        # 0.9.2: Wildcall-Schutz – der Zeiger wird GECALLT und muss
+        # deshalb innerhalb von Nemo liegen.
+        if not _ptr_in_nemo(_nemo_addr_ranges(), peek_ptr):
+            if not _NATIVE_VTABLE_BROKEN:
+                dbg("VTable-API: peek_selection-Zeiger liegt außerhalb "
+                    "der Nemo-Bibliotheken – deaktiviert")
             _NATIVE_VTABLE_BROKEN = True
             return None, False
         peek = ctypes.cast(
@@ -1218,5 +1281,5 @@ class SelectionReader:
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.9.1"
+PREVIEWER_VERSION = "0.9.2"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)
