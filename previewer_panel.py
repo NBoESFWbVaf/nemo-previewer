@@ -4,10 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.8.0 – aktuelle Fassung (Ordner-Zählung transparent
-wie 0.5.1; Video-Vorschau: generische Kachel wie bei Musik plus
-Datei-Infos – die Panel-Wiedergabe aus 0.7.0–0.7.2 ist wieder
-vollständig zurückgebaut, zum Abspielen der Öffnen-Knopf).
+STAND: Version 0.9.0 – aktuelle Fassung (NEU: PDF-Seitenanzeige
+„Seite X/Y" beim Scrollen; Video-Vorschau wie 0.8.0 – generische
+Kachel plus Infos, Wiedergabe zurückgebaut, Öffnen-Knopf).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -857,6 +856,9 @@ class PreviewPanel(Gtk.Box):
         # Office rendert seine PDF aus dem Cache, während self._path
         # weiterhin das ODT/DOCX ist.)
         self._pdf_gen = 0
+        # F14: Seitenanzeige der PDF-Vorschau + Gesamtzahl der Seiten
+        self._pdf_page_label = None
+        self._pdf_count = 0
 
         # --- Kopfzeile ---
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -961,6 +963,8 @@ class PreviewPanel(Gtk.Box):
         self._pdf_imgs = None
         self._pdf_box = None
         self._pdf_last_w = 0
+        self._pdf_page_label = None
+        self._pdf_count = 0
         self._pdf_gen += 1
 
     def _show_placeholder(self):
@@ -1687,6 +1691,9 @@ class PreviewPanel(Gtk.Box):
         wird in doppelter Panelbreite gerendert und bei Breitenänderung
         – wie bei der Bild-Vorschau – nur neu skaliert, nicht neu
         gerendert.
+        F14: Über dem Bereich zeigt ein dezentes Label „Seite X/Y",
+        das beim Scrollen auf die Seite am oberen Sichtfensterrand
+        nachführt (nur bei mehr als einer Seite).
         R2: Seite 1 wird sofort synchron gerendert, die übrigen Seiten
         piecewise im GLib-Idle nachgeschoben – das Panel steht auch bei
         großen/gescannten PDFs augenblicklich, die UI friert nicht ein.
@@ -1697,6 +1704,7 @@ class PreviewPanel(Gtk.Box):
             self._hint("PDF enthält keine Seiten.")
             return
         count = min(n, MAX_PDF_PAGES)
+        self._pdf_count = count
         dbg("PDF geöffnet: %d Seite(n), zeige %d untereinander (scrollbar)"
             % (n, count))
         src_w = max(300, self._preview_width() * 2)
@@ -1719,9 +1727,17 @@ class PreviewPanel(Gtk.Box):
             self._hint("PDF konnte nicht gerendert werden.")
             self._pdf_box = None
             return
+        # F14: Seitenanzeige über dem scrollbaren Bereich – nur bei
+        # mehr als einer Seite; beim Scrollen zählt sie nach.
+        if count > 1:
+            self._pdf_page_label = Gtk.Label(label="Seite 1/%d" % count)
+            self._pdf_page_label.get_style_context().add_class("dim-label")
+            self._content.pack_start(self._pdf_page_label, False, False, 0)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.add(box)
+        scroll.get_vadjustment().connect("value-changed",
+                                         self._on_pdf_scrolled)
         self._content.pack_start(scroll, True, True, 0)
         self._apply_pdf_scale()
         # R2: restliche Seiten je eine pro Idle-Durchlauf nachschieben.
@@ -1733,8 +1749,9 @@ class PreviewPanel(Gtk.Box):
         if n > count:
             self._hint("Erste %d von %d Seiten – ganze Datei über den "
                        "Öffnen-Knopf betrachten." % (count, n))
-        elif n > 1:
-            self._hint("%d Seiten – Vorschau nach unten scrollen." % n)
+        # F14: Das Seiten-Label zeigt die Seitenzahl inzwischen selbst –
+        # der frühere Hinweis „N Seiten – Vorschau nach unten
+        # scrollen." ist damit entfallen.
         # Der Office-Rückruf ruft _render_pdf DIREKT (ohne den show_all-
         # Nachlauf von _render) – deshalb hier selbst sorgen.
         self._content.show_all()
@@ -1769,6 +1786,28 @@ class PreviewPanel(Gtk.Box):
         if i >= count:
             return False
         GLib.idle_add(self._pdf_idle_step, doc, path, src_w, count, i, gen)
+        return False
+
+    def _on_pdf_scrolled(self, adj):
+        """
+        F14: Seitenanzeige beim Scrollen nachführen. Aktuell ist die
+        Seite, deren Unterkante den oberen Rand des Sichtfensters
+        überschreitet – die Seite, über der man gerade steht. Die
+        Koordinaten der Seiten-Images sind Box-Koordinaten und damit
+        direkt mit dem Stellwert des Scrollbalkens vergleichbar.
+        """
+        imgs = self._pdf_imgs
+        if not imgs or self._pdf_page_label is None:
+            return False
+        value = adj.get_value()
+        page = 1
+        for i, img in enumerate(imgs):
+            alloc = img.get_allocation()
+            if alloc.y + alloc.height > value:
+                page = i + 1
+                break
+        self._pdf_page_label.set_text(
+            "Seite %d/%d" % (page, max(1, self._pdf_count)))
         return False
 
     def _pdf_scale_one(self, src, img, target):
@@ -2571,7 +2610,7 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.8.0"
+PREVIEWER_VERSION = "0.9.0"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
-    "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix)"
+    "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix, PDF-Seitenanzeige)"
     % PREVIEWER_VERSION)
