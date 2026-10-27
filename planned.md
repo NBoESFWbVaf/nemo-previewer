@@ -1,4 +1,4 @@
-# Nemo Previewer – Planung ([planned.md](http://planned.md))
+# Nemo Previewer – Planung (planned.md)
 
 Arbeitsdatei zur systematischen Ablage. Stand der Analyse: **Version 0.4.1**,  
 2026-10-27. Abgearbeitetes wird abgehakt; erledigte Punkte wandern mit der  
@@ -13,20 +13,20 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
 ### 🔴 Echte Bugs (zunächst als Patch-Paket 0.4.2 vorgesehen)
 
-- [ ] **B1 – Font-Basename-Kollision** (`_fc_add_font_file`, panel)
+- [x] **B1 – Font-Basename-Kollision** (`_fc_add_font_file`, panel)
 
   Zwei Schriften mit gleichem Dateinamen aus verschiedenen Ordnern → das  
   zweite `os.path.exists(dest)` verhindert das Kopieren, Fontconfig sieht  
   die zweite Schrift nie (Wasserfall zeigt die erste).  
   *Skizze:* Zielname um Hash des Quellpfads ergänzen  
   (`<name>-<sha1(path)[:8]>.ttf`), Existenzprüfung entfällt.
-- [ ] **B2 – Audio: kein Bus-Watch** (`_render_audio`, panel)
+- [x] **B2 – Audio: kein Bus-Watch** (`_render_audio`, panel)
 
   Nach Trackende (EOS) bleibt das Pause-Icon stehen, die Position friert  
   ein; Fehler des playbin bleiben unsichtbar.  
   *Skizze:* `playbin.get_bus().add_signal_watch()` + `message::eos` /  
   `message::error` Handler: zurückspulen, Icon auf Play, Hint bei Fehler.
-- [ ] **B3 – Tick-Timer läuft ewig** (`_tick_player`, panel)
+- [x] **B3 – Tick-Timer läuft ewig** (`_tick_player`, panel)
 
   Der 400-ms-Timer wird nie abgeräumt; nach Fensterabbau läuft er gegen  
   zerstörte Widgets. playbin wird bei Auswahlwechsel nur auf NULL  
@@ -34,7 +34,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   *Skizze:* In `_clear_content()` / beim Panel-Abbau (entry `_detach`):  
   `GLib.source_remove(timer)` + `playbin.set_state(NULL)`; Timer nur  
   laufen lassen, solange wirklich abgespielt wird.
-- [ ] **B4 – Office-Cache-Schreibfehler** (`_office_job_done`, panel)
+- [x] **B4 – Office-Cache-Schreibfehler** (`_office_job_done`, panel)
 
   Ist der Cache unbeschreibbar (Disk voll, `~/.cache` read-only), schlägt  
   `shutil.move` fehl – `_office_failed` wird aber nur bei fehlendem  
@@ -43,7 +43,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   *Skizze:* Bei Schreibfehler ebenfalls in `_office_failed` aufnehmen und  
   einmalig dbggen; die Vorschau zeigt dann das fertige PDF aus dem  
   Temp-Ordner direkt, ohne Cache.
-- [ ] **B5 – MOBI ohne Größendeckelung** (`_mobi_data`, panel)
+- [x] **B5 – MOBI ohne Größendeckelung** (`_mobi_data`, panel)
 
   `fh.read()` liest die ganze Datei in den RAM – ein 500-MB-AZW3 friert  
   Nemo ein.  
