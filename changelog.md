@@ -6,6 +6,24 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.9.0\] – 2026-10-27
+
+### Added (Hinzugefügt)
+
+- PDF-Vorschau: Seitenanzeige „Seite X/Y" über dem scrollbaren  
+Bereich (F14 aus planned.md) – beim Scrollen zählt sie auf die  
+Seite nach, deren Unterkante den oberen Rand des Sichtfensters  
+überschreitet, also die Seite, über der man gerade steht.  
+Einseitige PDFs zeigen keine Anzeige; bei mehrseitigen PDFs mit  
+mehr als MAX\_PDF\_PAGES Seiten bleibt zusätzlich der bestehende  
+Hinweis „Erste X von Y Seiten"
+
+### Changed (Geändert)
+
+- PDF-Vorschau: Der Hinweis „N Seiten – Vorschau nach unten scrollen."  
+ist entfallen – die neue Seitenanzeige vermittelt die Zahl inzwischen  
+selbst
+
 ## \[0.8.0\] – 2026-10-27
 
 ### Removed (Entfernt)
