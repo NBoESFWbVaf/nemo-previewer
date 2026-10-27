@@ -45,7 +45,7 @@ def dbg(msg):
 # im Alltagsbetrieb still. Auf True setzen, wenn eine neue Nemo-Version
 # oder ein neues System untersucht werden soll – dann erscheinen die
 # ausführlichen Dumps wie in der Entwicklungsphase.
-VERBOSE_DIAG = False
+VERBOSE_DIAG = True
 
 
 def diag(msg):
