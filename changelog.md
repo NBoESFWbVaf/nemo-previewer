@@ -12,6 +12,29 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 Feature-Vorschlägen inklusive Lösungsskizzen, Aufwandsschätzung und  
 empfohlener Abarbeitungs-Reihenfolge
 
+## \[0.4.2\] – 2026-10-27
+
+### Fixed (Behoben) — Bug-Paket aus planned.md (B1–B5)
+
+- B1: Zwei Schriften mit gleichem Dateinamen aus verschiedenen Ordnern  
+überschrieben sich gegenseitig bei der Fontconfig-Übernahme – der  
+Zielname enthält jetzt einen Hash des Quellpfads, der Wasserfall  
+zeigt immer die angewählte Datei
+- B2: Der Audio-Player kannte sein Trackende nicht (kein Bus-Watch):  
+nach dem Ende blieb das Pause-Icon stehen und die Position fror ein;  
+jetzt springt die Anzeige auf 0:00 zurück, und Abspielfehler  
+erscheinen als Hinweis im Panel statt unsichtbar zu bleiben
+- B3: Der Positionstimer lief ewig weiter (auch nach Fensterabbau) und  
+wurde nie aufgeräumt – er läuft jetzt nur während der Wiedergabe und  
+wird beim Wechseln, Stoppen und Abbauen sauber entfernt
+- B4: War der Office-Cache unbeschreibbar (Disk voll, \~/.cache  
+read-only), konvertierte LibreOffice bei jeder Auswahl erneut – das  
+Dokument wird nun als gescheitert vermerkt und die fertige PDF wird  
+direkt aus dem Temp-Ordner angezeigt (nicht weggeworfen)
+- B5: MOBI-Dateien wurden vollständig in den Speicher gelesen – eine  
+500-MB-AZW3 konnte Nemo einfrieren; es wird nur der Kopf bis 8 MB  
+gelesen, die Text-Datensätze stehen ohnehin am Dateianfang
+
 ## \[0.4.1\] – 2026-10-27
 
 ### Fixed (Behoben)
