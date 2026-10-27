@@ -6,14 +6,27 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.7.0\] – 2026-10-27
+
 ### Added (Hinzugefügt)
 
+- Video-Vorschau (F22, Abschluss): Dateien ohne eingebettetes Vor-  
+schaubild zeigen jetzt eine generische Kachel wie bei Musik –  
+dunkler Petrol-Verlauf, halbtransparentes Abspiel-Dreieck und  
+Filmperforation am oberen und unteren Rand, in doppelter Auflösung  
+gezeichnet (HiDPI-scharf); fehlt PangoCairo, greift ein  
+video-x-generic-Icon-Fallback
+- Video-Vorschau (F22, Abschluss): Videos sind im Panel abspielbar –  
+der Playbin steckt seinen Bildausgang in ein gtksink-Widget, das  
+unter der Kachel erscheint; die Player-Leiste (Play/Pause, Slider,  
+Position) ist mit der Musik-Vorschau geteilt. Fehlt gtksink (Paket  
+gstreamer1.0-gtk3), läuft die Wiedergabe nur mit Ton, mit Hinweis
 - planned.md: Arbeitsdatei mit Schwachstellen-Analyse (Stand 0.4.1) und  
 Feature-Vorschlägen inklusive Lösungsskizzen, Aufwandsschätzung und  
 empfohlener Abarbeitungs-Reihenfolge
 - planned.md: F19–F22 ergänzt (Vorschau-Toolbar am unteren Rand,  
 OCR-Knopf bei PDFs, Office→PDF-Knopf, Video-Platzhalterbild und  
-Wiedergabe im Panel) inklusive Roadmap-Schritt 8
+Wiedergabe im Panel) inklusive Roadmap-Erweiterung
 
 ### Changed (Geändert)
 
@@ -22,6 +35,16 @@ Wiedergabe im Panel) inklusive Roadmap-Schritt 8
 nemo-python mitgezogen, das Cinnamon auf Debian nicht vorinstalliert);  
 SVG-Paketname auf gir1.2-rsvg-2.0 vereinheitlicht (gültig auf Mint  
 und Debian); getestet auf Debian 13 (Trixie)
+
+### Removed (Entfernt)
+
+- Video-Vorschau: die in 0.6.0 eingeführte Standbild-Extraktion aus der  
+Videospur (Playbin + videoconvert ! jpegenc ! appsink im Worker-Thread)  
+ist wieder entfernt – sie lieferte in der Praxis kein Bild, und der  
+Kontakt mit dem im Mint-22-Binding fehlenden Gst.PlayFlags ließ das  
+GI-Warm-up (und damit jede Video-Vorschau) mit AttributeError  
+abstürzen. Eingebettete Vorschaubilder aus den Tags werden weiterhin  
+angezeigt, wenn vorhanden
 
 ## \[0.6.0\] – 2026-10-27
 
