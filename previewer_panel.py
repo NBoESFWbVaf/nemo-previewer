@@ -786,10 +786,10 @@ class PreviewPanel(Gtk.Box):
         self._playbin = None
         self._progress_timer = 0
         self._render_width = 0
-        # Skalierbare Vorschauen (R3): Parameter liegen als Attach-Daten
-        # am JEWEILIGEN Bild (set_data), nicht in Einzelattributen –
-        # so sind beliebig viele live-skalierte Bilder pro Vorschau
-        # möglich, ohne sich gegenseitig zu überschreiben.
+        # Skalierbare Vorschauen (R3): JEDES Bild bringt seine Parameter
+        # als eigenen Dict-Eintrag mit (siehe _scaled_image) – so sind
+        # beliebig viele live-skalierte Bilder pro Vorschau möglich,
+        # ohne sich gegenseitig zu überschreiben.
         self._scale_items = []
         # Hintergrund-Konvertierung für Office-Dokumente (LibreOffice → PDF)
         self._office_job = None
@@ -1095,10 +1095,13 @@ class PreviewPanel(Gtk.Box):
         expandiertem Packen (Bild, PDF) darf KEINE Mindesthöhe gesetzt
         werden – hochkantige Bilder würden sonst dem Fenster ihre Höhe
         aufzwingen.
-        R3: Skalier-Parameter liegen als Attach-Daten (set_data) am
-        JEWEILIGEN Bild statt in Panel-Einzelattributen – mehrere
-        live-skalierte Bilder pro Vorschau (Cover + Kapitelbilder …)
-        überschreiben sich damit nicht mehr gegenseitig.
+        R3: Skalier-Parameter liegen als Python-Daten-Dict JEWEILS am
+        Bild-Eintrag in self._scale_items statt in Panel-Einzelattributen
+        – mehrere live-skalierte Bilder pro Vorschau (Cover +
+        Kapitelbilder …) überschreiben sich damit nicht mehr gegenseitig.
+        (Bewusst NICHT Gtk set_data/get_data: PyGObject blockiert die
+        GObject-Daten-Methoden mit 'Data access methods are unsupported'
+        – das Panel stürzte sonst beim ersten Bild ab.)
         Gibt den fertigen Container (Gtk.ScrolledWindow) zurück.
         """
         img = Gtk.Image()
@@ -1106,32 +1109,29 @@ class PreviewPanel(Gtk.Box):
         # kleben nicht am linken Rand, sondern sitzen zentriert.
         img.set_halign(Gtk.Align.CENTER)
         img.set_valign(Gtk.Align.START)
-        img.set_data("previewer-src", src)
-        img.set_data("previewer-maxh", max_h)
-        img.set_data("previewer-upscale", upscale)
-        img.set_data("previewer-maxup", max_upscale)
-        img.set_data("previewer-keeph", keep_height)
-        img.set_data("previewer-lastw", 0)
         scroll = Gtk.ScrolledWindow()
-        img.set_data("previewer-scroll", scroll)
         # AUTOMATIC in beide Richtungen: bricht die Weitergabe der
         # Kind-Minimalbreite nach oben ab, das Pane bleibt frei ziehbar.
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.add(img)
+        item = {"img": img, "scroll": scroll, "src": src, "maxh": max_h,
+                "upscale": upscale, "maxup": max_upscale,
+                "keeph": keep_height, "lastw": 0}
         if self._scale_items is None:
             self._scale_items = []
-        self._scale_items.append(img)
+        self._scale_items.append(item)
         self._apply_scale()
         return scroll
 
     def _apply_scale(self):
         """Angezeigte Pixbufs ALLER registrierten Vorschau-Bilder an die
-        aktuelle Panelbreite anpassen (R3: Liste statt Einzel-Slot)."""
+        aktuelle Panelbreite anpassen (R3: Liste statt Einzel-Slot;
+        Einträge sind Daten-Dicts, siehe _scaled_image)."""
         if not self._scale_items:
             return
-        for img in self._scale_items:
+        for item in self._scale_items:
             try:
-                src = img.get_data("previewer-src")
+                src = item["src"]
                 if src is None:
                     continue
                 sw, sh = src.get_width(), src.get_height()
@@ -1140,33 +1140,31 @@ class PreviewPanel(Gtk.Box):
                 target = self._preview_width()
                 f = float(target) / sw
                 if f > 1.0:
-                    if img.get_data("previewer-upscale"):
+                    if item["upscale"]:
                         # Hochskalieren, aber begrenzt: kleine Quellen
                         # (Office-Miniaturansichten) werden sonst unleserlich.
-                        f = min(f, img.get_data("previewer-maxup"))
+                        f = min(f, item["maxup"])
                     else:
                         f = 1.0      # kleine Bilder nicht unscharf aufblasen
-                max_h = img.get_data("previewer-maxh")
-                if f * sh > max_h:
-                    f = float(max_h) / sh
+                if f * sh > item["maxh"]:
+                    f = float(item["maxh"]) / sh
                 w = max(1, int(sw * f))
                 h = max(1, int(sh * f))
-                if abs(w - img.get_data("previewer-lastw")) < 4:
+                if abs(w - item["lastw"]) < 4:
                     continue
-                img.set_data("previewer-lastw", w)
+                item["lastw"] = w
                 # Beim Hochskalieren qualitativ besser interpolieren
                 interp = (GdkPixbuf.InterpType.HYPER if f > 1.0
                           else GdkPixbuf.InterpType.BILINEAR)
-                img.set_from_pixbuf(src.scale_simple(w, h, interp))
+                item["img"].set_from_pixbuf(src.scale_simple(w, h, interp))
                 # Mindesthöhe nur bei keep_height: hält den Container auf
                 # Bildhöhe, wenn er nicht expandiert gepackt ist (sonst
                 # würde das Bild unten abgeschnitten). Zusätzlich die
                 # Scrollposition zurücksetzen – nach einem Aufziehen-/
                 # Zurückschieben-Zyklus stünde das Bild sonst versetzt.
-                if img.get_data("previewer-keeph"):
-                    scroll = img.get_data("previewer-scroll")
-                    scroll.set_min_content_height(h)
-                    scroll.get_vadjustment().set_value(0)
+                if item["keeph"]:
+                    item["scroll"].set_min_content_height(h)
+                    item["scroll"].get_vadjustment().set_value(0)
             except Exception:
                 pass
 
