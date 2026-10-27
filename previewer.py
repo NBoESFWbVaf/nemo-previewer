@@ -4,9 +4,10 @@
 Previewer
 =========
 
-STAND: Version 0.9.1 – aktuelle Fassung (Audit: Crowbar-Race und
-Poll-Timer-Leck behoben, Modul-Kopf auf den Stand von 0.8.0/0.9.0
-aktualisiert). Dies ist die EINSTIEGS-Datei der
+STAND: Version 0.9.2 – aktuelle Fassung (Härtungs-Paket: Decode- und
+Lese-Deckel gegen Dekompressions-/Dekodierbomben im Panel, Wildcall-
+Schutz in der Auswahl-Erkennung; Einstieg selbst unverändert).
+Dies ist die EINSTIEGS-Datei der
 vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
 previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
 Ordner liegen und die gleiche Version tragen.
@@ -115,7 +116,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.9.1"
+PREVIEWER_VERSION = "0.9.2"
 import previewer_util
 import previewer_select
 import previewer_panel
