@@ -6,6 +6,21 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.4.1\] – 2026-10-27
+
+### Fixed (Behoben)
+
+- Schrift-Wasserfall zeigte die Ersatzschrift statt der eigentlichen  
+Familie: GTKs Standard-Pango-FontMap wird beim Start gebaut und  
+überliest Schriften, die später über Fontconfig hinzugefügt werden.  
+Der Wasserfall wird jetzt mit einem eigenen, frischen FontMap in  
+eine Pixbuf vorgerendert (Textfarbe aus dem Theme, doppelt  
+vorgerendert und mit der Panelbreite live herunterskaliert).
+
+### Changed (Geändert)
+
+- Größte Wasserfall-Größe von 48 pt auf 36 pt reduziert
+
 ## \[0.4.0\] – 2026-10-27
 
 ### Added (Hinzugefügt)
