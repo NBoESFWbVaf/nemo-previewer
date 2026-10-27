@@ -4,7 +4,9 @@
 Previewer – Auswahl-Modul (previewer_select.py)
 ===============================================
 
-STAND: Version 0.9.0 – aktuelle Fassung.
+STAND: Version 0.9.1 – aktuelle Fassung (Audit: Namens-/URI-Lese-Logik
+in gemeinsamen Helfern gebündelt – _iface_file_name und _name_from_uri
+ersetzen die zuvor mehrfach identischen Inline-Implementierungen).
 
 Erkennt die in Nemo markierten Dateien – mehrstufig und defensiv:
 
@@ -308,6 +310,60 @@ def _native_vtable_api():
         return None
 
 
+# --- gemeinsame Helfer (Audit 0.9.1: Logik war zuvor mehrfach identisch
+# in _vtable_selection_names, _nemo_file_name_from_ptr und
+# _read_native_nemo_selection implementiert) ------------------------------
+
+def _name_from_uri(uri):
+    """Dateiname (Basename) aus einer Nemo-URI – ein Ort, eine Wahrheit."""
+    try:
+        return Gio.File.new_for_uri(uri).get_basename() or ""
+    except Exception:
+        try:
+            return os.path.basename(urllib.parse.urlparse(uri).path)
+        except Exception:
+            return ""
+
+
+def _iface_file_name(api, file_ptr):
+    """
+    Dateiname eines rohen NemoFile-Zeigers über das NemoFileInfo-
+    Interface: get_name, falls der Zeiger vorhanden; sonst get_uri mit
+    Basename-Fallback. Gibt "" zurück, wenn nichts zu holen ist.
+    Der Aufrufer muss file_ptr vorher gegen den NemoFile-GTyp
+    validiert haben (api["is_a"]).
+    """
+    try:
+        file_class = _read_cptr(file_ptr)             # GTypeInstance.g_class
+        if not file_class:
+            return ""
+        iface = api["iface_peek"](file_class, api["iface_gtype"])
+        if not iface:
+            return ""
+        str_fn_t = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p)
+        name_ptr = _read_cptr(iface, api["iface_name_off"])
+        if name_ptr:
+            raw = ctypes.cast(name_ptr, str_fn_t)(file_ptr)
+            if raw:
+                try:
+                    return ctypes.string_at(raw).decode("utf-8", "replace")
+                finally:
+                    api["g_free"](raw)
+        uri_ptr = _read_cptr(iface, api["iface_uri_off"])
+        if uri_ptr:
+            raw = ctypes.cast(uri_ptr, str_fn_t)(file_ptr)
+            if raw:
+                try:
+                    uri = ctypes.string_at(raw).decode("utf-8", "replace")
+                finally:
+                    api["g_free"](raw)
+                if uri:
+                    return _name_from_uri(uri)
+    except Exception:
+        return ""
+    return ""
+
+
 def _vtable_selection_names(view):
     """
     Auswahl über NemoView.peek_selection lesen. Gibt (names, supported)
@@ -368,7 +424,6 @@ def _vtable_selection_names(view):
         _NATIVE_VTABLE_BROKEN = True
         return None, False
 
-    str_fn_t = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p)
     names = []
     seen = set()
     limit = 0
@@ -385,39 +440,9 @@ def _vtable_selection_names(view):
                         "deaktiviert")
                 _NATIVE_VTABLE_BROKEN = True
                 return None, False
-            name = ""
-            try:
-                file_class = _read_cptr(data)       # GTypeInstance.g_class
-                iface = api["iface_peek"](file_class, api["iface_gtype"])
-                if iface:
-                    name_ptr = _read_cptr(iface, api["iface_name_off"])
-                    if name_ptr:
-                        raw = ctypes.cast(name_ptr, str_fn_t)(data)
-                        if raw:
-                            try:
-                                name = ctypes.string_at(raw).decode(
-                                    "utf-8", "replace")
-                            finally:
-                                api["g_free"](raw)
-                    if not name:
-                        uri_ptr = _read_cptr(iface, api["iface_uri_off"])
-                        if uri_ptr:
-                            raw = ctypes.cast(uri_ptr, str_fn_t)(data)
-                            if raw:
-                                try:
-                                    uri = ctypes.string_at(raw).decode(
-                                        "utf-8", "replace")
-                                finally:
-                                    api["g_free"](raw)
-                                if uri:
-                                    try:
-                                        name = Gio.File.new_for_uri(
-                                            uri).get_basename() or ""
-                                    except Exception:
-                                        name = os.path.basename(
-                                            urllib.parse.urlparse(uri).path)
-            except Exception as exc:
-                dbg("VTable-API: Namenszugriff fehlgeschlagen: %s" % exc)
+            # 0.9.1: Name/URI über den gemeinsamen Interface-Helfer
+            # (zuvor identisch inline implementiert).
+            name = _iface_file_name(api, data)
             if name:
                 names.append(name)
         node = _read_cptr(node, api["ptr_size"])     # GList.next
@@ -431,6 +456,8 @@ def _nemo_file_name_from_ptr(file_ptr):
     NemoFileInfo-Interface). Gibt "" zurück, wenn der Zeiger ungültig ist
     oder die VTable-API nicht bereitsteht. Validiert die Instanz vorher
     gegen den NemoFile-GTyp – ein falscher Zeiger wird nie verfolgt.
+    0.9.1: Die Interface-Lese-Logik steckt im gemeinsamen Helfer
+    _iface_file_name (zuvor identisch in _vtable_selection_names).
     """
     api = _native_vtable_api()
     if not api or not file_ptr:
@@ -438,37 +465,9 @@ def _nemo_file_name_from_ptr(file_ptr):
     try:
         if not api["is_a"](file_ptr, api["file_gtype"]):
             return ""
-        file_class = _read_cptr(file_ptr)            # GTypeInstance.g_class
-        if not file_class:
-            return ""
-        iface = api["iface_peek"](file_class, api["iface_gtype"])
-        if not iface:
-            return ""
-        str_fn_t = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p)
-        name_ptr = _read_cptr(iface, api["iface_name_off"])
-        if name_ptr:
-            raw = ctypes.cast(name_ptr, str_fn_t)(file_ptr)
-            if raw:
-                try:
-                    return ctypes.string_at(raw).decode("utf-8", "replace")
-                finally:
-                    api["g_free"](raw)
-        uri_ptr = _read_cptr(iface, api["iface_uri_off"])
-        if uri_ptr:
-            raw = ctypes.cast(uri_ptr, str_fn_t)(file_ptr)
-            if raw:
-                try:
-                    uri = ctypes.string_at(raw).decode("utf-8", "replace")
-                finally:
-                    api["g_free"](raw)
-                if uri:
-                    try:
-                        return Gio.File.new_for_uri(uri).get_basename() or ""
-                    except Exception:
-                        return os.path.basename(urllib.parse.urlparse(uri).path)
     except Exception:
         return ""
-    return ""
+    return _iface_file_name(api, file_ptr)
 
 
 def _read_native_nemo_selection(view):
@@ -502,10 +501,9 @@ def _read_native_nemo_selection(view):
                     finally:
                         api["g_free"](uri_ptr)
                     if uri:
-                        try:
-                            name = Gio.File.new_for_uri(uri).get_basename()
-                        except Exception:
-                            name = os.path.basename(urllib.parse.urlparse(uri).path)
+                        # 0.9.1: Basename über den gemeinsamen Helfer
+                        # (zuvor identisch inline implementiert).
+                        name = _name_from_uri(uri)
                         if name:
                             names.append(name)
             node_addr = ctypes.cast(node.next, ctypes.c_void_p).value
@@ -1220,5 +1218,5 @@ class SelectionReader:
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.9.0"
+PREVIEWER_VERSION = "0.9.1"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)
