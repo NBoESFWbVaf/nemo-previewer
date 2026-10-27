@@ -4,9 +4,11 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.9.0 – aktuelle Fassung (NEU: PDF-Seitenanzeige
-„Seite X/Y" beim Scrollen; Video-Vorschau wie 0.8.0 – generische
-Kachel plus Infos, Wiedergabe zurückgebaut, Öffnen-Knopf).
+STAND: Version 0.9.1 – aktuelle Fassung (Audit-Paket: Lebenszyklus-
+Fix für die Office-Konvertierung nach Panel-Abbau; redundante
+TextView-, Lese- und Tabellen-Blöcke in gemeinsame Helfer überführt;
+Video weiterhin generische Kachel plus Infos, Wiedergabe zurückgebaut,
+Öffnen-Knopf – PDF-Seitenanzeige wie 0.9.0).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -845,6 +847,9 @@ class PreviewPanel(Gtk.Box):
         # Hintergrund-Konvertierung für Office-Dokumente (LibreOffice → PDF)
         self._office_job = None
         self._office_failed = set()
+        # 0.9.1: Panel-Abbau merken – der child-watch einer laufenden
+        # LibreOffice-Konvertierung darf dann nicht mehr rendern.
+        self._destroyed = False
         # Mehrseitige PDF-Vorschau: Quell-Pixbufs je Seite + Anzeige-Images
         self._pdf_src = None
         self._pdf_imgs = None
@@ -1302,39 +1307,58 @@ class PreviewPanel(Gtk.Box):
         except Exception:
             pass
 
-    def _render_text(self, path):
-        try:
-            with open(path, 'rb') as fh:
-                data = fh.read(MAX_TEXT_BYTES)
-            text = data.decode('utf-8', 'replace')
-            truncated = False
-            if len(data) == MAX_TEXT_BYTES:
-                truncated = True
-            lines = text.split("\n")
-            if len(lines) > MAX_TEXT_LINES:
-                lines = lines[:MAX_TEXT_LINES]
-                truncated = True
-            text = "\n".join(lines)
-        except Exception as e:
-            self._hint("Konnte Datei nicht lesen: %s" % e)
-            return
+    # --- gemeinsame Helfer für Text-Ansichten (Audit 0.9.1) ---------------
+    # Der TextView-Bau war zuvor FÜNF Mal nahezu identisch implementiert
+    # (Text, Markdown, EML-Körper, E-Book, Office-Textauszug), das
+    # gekappte Datei-Lesen zwei Mal (Text, Markdown).
 
+    def _read_text_file(self, path):
+        """Datei gekappt lesen: (Text, truncated) – Text und Markdown."""
+        with open(path, "rb") as fh:
+            data = fh.read(MAX_TEXT_BYTES)
+        text = data.decode("utf-8", "replace")
+        truncated = len(data) == MAX_TEXT_BYTES
+        lines = text.split("\n")
+        if len(lines) > MAX_TEXT_LINES:
+            text = "\n".join(lines[:MAX_TEXT_LINES])
+            truncated = True
+        return text, truncated
+
+    def _text_view(self, text, font="9", markup=None):
+        """
+        Fertig konfigurierter TextView im ScrolledWindow, gepackt in
+        self._content. markup: optionaler Pango-Markup-String (muss
+        vorher validiert sein); ohne Markup wird der Rohtext gesetzt.
+        """
         view = Gtk.TextView()
         view.set_editable(False)
         view.set_cursor_visible(False)
         view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        view.override_font(Pango.FontDescription("Monospace 9"))
+        view.override_font(Pango.FontDescription(font))
         # Innenabstand, damit der Text nicht am Rand klebt
         view.set_left_margin(10)
         view.set_right_margin(10)
         view.set_top_margin(8)
         view.set_bottom_margin(8)
-        view.get_buffer().set_text(text)
+        buf = view.get_buffer()
+        if markup is not None:
+            buf.insert_markup(buf.get_end_iter(), markup, -1)
+        else:
+            buf.set_text(text)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.set_shadow_type(Gtk.ShadowType.IN)
         scroll.add(view)
         self._content.pack_start(scroll, True, True, 0)
+        return view
+
+    def _render_text(self, path):
+        try:
+            text, truncated = self._read_text_file(path)
+        except Exception as e:
+            self._hint("Konnte Datei nicht lesen: %s" % e)
+            return
+        self._text_view(text, font="Monospace 9")
         if truncated:
             self._hint("Vorschau gekürzt (lange Datei).")
 
@@ -1346,29 +1370,10 @@ class PreviewPanel(Gtk.Box):
         Markup-Erzeugung ausnahmsweise fehl, erscheint der Rohtext.
         """
         try:
-            with open(path, "rb") as fh:
-                data = fh.read(MAX_TEXT_BYTES)
-            text = data.decode("utf-8", "replace")
-            truncated = False
-            if len(data) == MAX_TEXT_BYTES:
-                truncated = True
-            lines = text.split("\n")
-            if len(lines) > MAX_TEXT_LINES:
-                lines = lines[:MAX_TEXT_LINES]
-                text = "\n".join(lines)
-                truncated = True
+            text, truncated = self._read_text_file(path)
         except Exception as e:
             self._hint("Konnte Datei nicht lesen: %s" % e)
             return
-        view = Gtk.TextView()
-        view.set_editable(False)
-        view.set_cursor_visible(False)
-        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        view.override_font(Pango.FontDescription("9"))
-        view.set_left_margin(10)
-        view.set_right_margin(10)
-        view.set_top_margin(8)
-        view.set_bottom_margin(8)
         markup = _markdown_to_pango(text)
         valid = True
         try:
@@ -1380,16 +1385,8 @@ class PreviewPanel(Gtk.Box):
         except Exception as exc:
             valid = False
             dbg("Markdown-Markup ungültig (%s) – zeige Rohtext" % exc)
-        buf = view.get_buffer()
-        if valid:
-            buf.insert_markup(buf.get_end_iter(), markup, -1)
-        else:
-            buf.set_text(text)
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_shadow_type(Gtk.ShadowType.IN)
-        scroll.add(view)
-        self._content.pack_start(scroll, True, True, 0)
+        # Markup nur übernehmen, wenn es validiert wurde – sonst Rohtext.
+        self._text_view(text, markup=(markup if valid else None))
         if truncated:
             self._hint("Vorschau gekürzt (lange Datei).")
 
@@ -1418,42 +1415,16 @@ class PreviewPanel(Gtk.Box):
                 val = None
             if val:
                 rows.append((label, str(val)[:160]))
-        grid = Gtk.Grid()
-        grid.set_row_spacing(2)
-        grid.set_column_spacing(10)
-        for i, (k, v) in enumerate(rows):
-            kl = Gtk.Label(label=k)
-            kl.set_halign(Gtk.Align.END)
-            kl.get_style_context().add_class("dim-label")
-            vl = Gtk.Label(label=v)
-            vl.set_halign(Gtk.Align.START)
-            vl.set_ellipsize(Pango.EllipsizeMode.END)
-            vl.set_hexpand(True)
-            vl.set_tooltip_text(v)
-            grid.attach(kl, 0, i, 1, 1)
-            grid.attach(vl, 1, i, 1, 1)
-        self._content.pack_start(grid, False, False, 0)
+        # 0.9.1: Kopfzeilen über den zentralen Tabellen-Helfer
+        # (zuvor identisch inline gebaut).
+        self._meta_grid(rows)
 
         body = self._eml_body(msg)
         if not body.strip():
             self._hint("Kein lesbarer Textkörper gefunden – Datei "
                        "über den Öffnen-Knopf betrachten.")
             return
-        view = Gtk.TextView()
-        view.set_editable(False)
-        view.set_cursor_visible(False)
-        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        view.override_font(Pango.FontDescription("9"))
-        view.set_left_margin(10)
-        view.set_right_margin(10)
-        view.set_top_margin(8)
-        view.set_bottom_margin(8)
-        view.get_buffer().set_text(body)
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_shadow_type(Gtk.ShadowType.IN)
-        scroll.add(view)
-        self._content.pack_start(scroll, True, True, 0)
+        self._text_view(body)
 
     def _eml_body(self, msg):
         """Textkörper einer E-Mail: text/plain bevorzugt, sonst HTML."""
@@ -1496,7 +1467,12 @@ class PreviewPanel(Gtk.Box):
     # --- E-Books: EPUB, FictionBook, MOBI -----------------------------------
 
     def _meta_grid(self, rows):
-        """Schlüssel-Wert-Tabelle (wie beim EML-Kopf) für E-Book-Metadaten."""
+        """
+        Schlüssel-Wert-Tabelle (dim-Label links, Wert rechts mit
+        END-Ellipsize und Tooltip) – zentraler Helfer für E-Book-,
+        EML-, Audio- und Video-Infos. 0.9.1: zuvor zusätzlich mehrfach
+        identisch inline gebaut; die Inline-Kopien sind entfallen.
+        """
         grid = Gtk.Grid()
         grid.set_row_spacing(2)
         grid.set_column_spacing(10)
@@ -1543,21 +1519,9 @@ class PreviewPanel(Gtk.Box):
             self._hint("Kein lesbarer Text gefunden – Datei über den "
                        "Öffnen-Knopf betrachten.")
             return
-        view = Gtk.TextView()
-        view.set_editable(False)
-        view.set_cursor_visible(False)
-        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        view.override_font(Pango.FontDescription("9"))
-        view.set_left_margin(10)
-        view.set_right_margin(10)
-        view.set_top_margin(8)
-        view.set_bottom_margin(8)
-        view.get_buffer().set_text(text)
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_shadow_type(Gtk.ShadowType.IN)
-        scroll.add(view)
-        self._content.pack_start(scroll, True, True, 0)
+        # 0.9.1: Textanfang über den gemeinsamen TextView-Helfer
+        # (zuvor identisch inline gebaut).
+        self._text_view(text)
 
     def _render_epub(self, path):
         """EPUB-Vorschau (Titel, Autor, Cover, Textanfang)."""
@@ -2090,20 +2054,9 @@ class PreviewPanel(Gtk.Box):
         if duration >= 0:
             rows.append(("Länge", format_seconds(duration)))
 
-        grid = Gtk.Grid()
-        grid.set_row_spacing(2)
-        grid.set_column_spacing(10)
-        for i, (k, v) in enumerate(rows):
-            kl = Gtk.Label(label=k)
-            kl.set_halign(Gtk.Align.END)
-            kl.get_style_context().add_class("dim-label")
-            vl = Gtk.Label(label=v)
-            vl.set_halign(Gtk.Align.START)
-            vl.set_ellipsize(Pango.EllipsizeMode.END)
-            vl.set_hexpand(True)
-            grid.attach(kl, 0, i, 1, 1)
-            grid.attach(vl, 1, i, 1, 1)
-        self._content.pack_start(grid, False, False, 0)
+        # 0.9.1: Info-Tabelle über den zentralen Helfer (zuvor inline
+        # identisch gebaut – jetzt wie EML/E-Book einheitlich).
+        self._meta_grid(rows)
 
         # --- Player-Leiste (mit _finish_video geteilt, F22) ---
         self._playbin_set_uri(uri)
@@ -2231,20 +2184,9 @@ class PreviewPanel(Gtk.Box):
             rows.append(("Titel", tags["title"]))
         if duration >= 0:
             rows.append(("Länge", format_seconds(duration)))
-        grid = Gtk.Grid()
-        grid.set_row_spacing(2)
-        grid.set_column_spacing(10)
-        for i, (k, v) in enumerate(rows):
-            kl = Gtk.Label(label=k)
-            kl.set_halign(Gtk.Align.END)
-            kl.get_style_context().add_class("dim-label")
-            vl = Gtk.Label(label=v)
-            vl.set_halign(Gtk.Align.START)
-            vl.set_ellipsize(Pango.EllipsizeMode.END)
-            vl.set_hexpand(True)
-            grid.attach(kl, 0, i, 1, 1)
-            grid.attach(vl, 1, i, 1, 1)
-        self._content.pack_start(grid, False, False, 0)
+        # 0.9.1: Info-Tabelle über den zentralen Helfer (zuvor inline
+        # identisch gebaut – jetzt wie EML/E-Book/Audio einheitlich).
+        self._meta_grid(rows)
 
     def _render_office(self, path):
         """
@@ -2326,21 +2268,9 @@ class PreviewPanel(Gtk.Box):
         # Text nur als Ersatzvorschau, wenn keine Miniaturansicht
         # eingebettet war.
         if not shown and text.strip():
-            view = Gtk.TextView()
-            view.set_editable(False)
-            view.set_cursor_visible(False)
-            view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-            view.override_font(Pango.FontDescription("Monospace 9"))
-            view.set_left_margin(10)
-            view.set_right_margin(10)
-            view.set_top_margin(8)
-            view.set_bottom_margin(8)
-            view.get_buffer().set_text(text)
-            scroll = Gtk.ScrolledWindow()
-            scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-            scroll.set_shadow_type(Gtk.ShadowType.IN)
-            scroll.add(view)
-            self._content.pack_start(scroll, True, True, 0)
+            # 0.9.1: über den gemeinsamen TextView-Helfer (zuvor inline
+            # identisch gebaut).
+            self._text_view(text, font="Monospace 9")
             shown = True
         if not shown:
             self._hint("Keine eingebettete Vorschau und kein Text "
@@ -2394,6 +2324,12 @@ class PreviewPanel(Gtk.Box):
         """Konvertierung beendet: Ergebnis cachen, Vorschau auffrischen."""
         path, tmpdir, out_pdf = data
         self._office_job = None
+        # 0.9.1: Panel ist bereits abgebaut (Fenster zu, Reiter weg) –
+        # Ergebnis verwerfen und nur den Temp-Ordner aufräumen; ein
+        # Rendern auf das tote Panel wäre vergebliche Liebesmüh'.
+        if getattr(self, "_destroyed", False):
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            return
         try:
             if os.path.exists(out_pdf):
                 cache_ok = False
@@ -2581,6 +2517,10 @@ class PreviewPanel(Gtk.Box):
 
     def _on_panel_destroy(self, *a):
         """Panel wird abgebaut: Wiedergabe und Timer stoppen (B3)."""
+        # 0.9.1: Abbau markieren – der child-watch einer noch laufenden
+        # LibreOffice-Konvertierung (_office_job_done) verwirft sein
+        # Ergebnis dann, statt auf das tote Panel zu rendern.
+        self._destroyed = True
         self._stop_playback()
         if self._playbin is not None:
             try:
@@ -2610,7 +2550,7 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.9.0"
-dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
-    "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix, PDF-Seitenanzeige)"
+PREVIEWER_VERSION = "0.9.1"
+dbg("previewer_panel %s geladen (Audit-Fixes: Office-Kind-Watch nach "
+    "Panel-Abbau; gemeinsame TextView-, Lese- und Tabellen-Helfer)"
     % PREVIEWER_VERSION)
