@@ -27,15 +27,17 @@ planned.md vorgezogen, dort als F18 geführt)
 
 ### Fixed (Behoben)
 
-- Audio/Video: Im Hintergrund-Thread lief die Medien-Erkundung ins  
-Leere („'Discoverer' object has no attribute 'discover\_uri\_sync'“).  
-Ursache: PyGObject erzeugt die Method-Tabellen der GI-Klassen erst  
-beim ersten Zugriff – und diese Erst-Erzeugung ist nicht thread-  
-sicher. Der Discoverer wird jetzt im GTK-Thread gebaut, die  
-beteiligten GI-Klassen werden einmalig im GTK-Thread „warmgefahren“,  
-und die Erkundung läuft im Worker als fertig aufgelöstes Callable.  
-Vorher erschienen dadurch alle Medien ohne Tags, Länge und Cover  
-(zu beobachten ab 0.4.3, wo die Erkundung in den Thread zog)
+- Audio/Video: Tags, Länge und Cover erschienen nie – auch nicht in  
+früheren Versionen. Ursache war ein Binding-Fehler im Quellcode seit  
+der ersten Audio-Vorschau: Die synchrone Erkundung heißt im  
+Python-Binding discover\_uri() (C-Name gst\_discoverer\_discover\_uri,  
+OHNE „\_sync“); ein discover\_uri\_sync existiert nicht, der  
+AttributeError wurde still geschluckt. Das neue Platzhalter-Cover  
+machte den Altfehler erstmals sichtbar. Die Erkundung ruft jetzt den  
+korrekten Namen auf; zusätzlich werden die beteiligten GI-Klassen  
+einmalig im GTK-Thread „warmgefahren“ (PyGObject löst Method-  
+Tabellen lazy auf) und die Erkundung läuft im Worker als fertig  
+aufgelöstes Callable
 
 ## \[0.4.3\] – 2026-10-27
 
