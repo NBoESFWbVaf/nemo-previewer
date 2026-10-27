@@ -4,7 +4,9 @@
 Previewer
 =========
 
-STAND: Version 0.9.0 – aktuelle Fassung. Dies ist die EINSTIEGS-Datei der
+STAND: Version 0.9.1 – aktuelle Fassung (Audit: Crowbar-Race und
+Poll-Timer-Leck behoben, Modul-Kopf auf den Stand von 0.8.0/0.9.0
+aktualisiert). Dies ist die EINSTIEGS-Datei der
 vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
 previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
 Ordner liegen und die gleiche Version tragen.
@@ -26,7 +28,7 @@ Unterstützte Vorschauen
   über LibreOffice-Hintergrundkonvertierung nach PDF (Cache in
   ~/.cache/previewer); ohne LibreOffice die eingebettete Miniaturansicht
 - Audio (Tags, Cover, Play/Pause mit Seek-Leiste; via GStreamer)
-- Video (Erstframe als Standbild, Tags, Dauer)
+- Video (Kachel mit Tags und Dauer; Abspielen über den Öffnen-Knopf)
 - Ordner und alles andere: Icon + Dateiinformationen
 
 Installation
@@ -67,8 +69,9 @@ Office-Dokumente: LibreOffice konvertiert im Hintergrund (soffice
 --headless --convert-to pdf) einmalig nach PDF; das Ergebnis wird unter
 ~/.cache/previewer gecacht (Key = Hash des Dateipfads; gültig, solange
 die Quelldatei nicht neuer ist als das Cache-PDF). Poppler rendert daraus
-die erste Seite scharf und live skalierbar. Während der Konvertierung
-zeigt das Panel die eingebettete ZIP-Miniaturansicht mit Hinweis.
+alle Seiten scharf, untereinander scrollbar und live skalierbar. Während
+der Konvertierung zeigt das Panel die eingebettete ZIP-Miniaturansicht
+mit Hinweis.
 
 Alle Zugriffe sind defensiv gekapselt (try/except), damit die Extension
 Nemo niemals zum Absturz bringen kann. Alles läuft im Nemo-Prozess.
@@ -112,7 +115,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.9.0"
+PREVIEWER_VERSION = "0.9.1"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -491,11 +494,30 @@ def _poll(st):
     return True
 
 
+def _on_window_destroyed(window, st):
+    """
+    Fenster wird abgebaut (0.9.1): den 500-ms-Poll-Timer abräumen –
+    sonst liefe er als Zombie nach dem Fensterende ewig weiter.
+    """
+    try:
+        if st.poll_id:
+            GLib.source_remove(st.poll_id)
+        st.poll_id = 0
+    except Exception:
+        pass
+    return False
+
+
 def _get_state(window):
     st = getattr(window, "_previewer_state", None)
     if st is None:
         st = PanelState(window)
         window._previewer_state = st
+        # 0.9.1: Timer wieder abbauen, wenn das Fenster verschwindet.
+        try:
+            window.connect("destroy", _on_window_destroyed, st)
+        except Exception:
+            pass
         st.poll_id = GLib.timeout_add(POLL_MS, _poll, st)
         dbg("PanelState für Fenster angelegt")
     return st
@@ -504,15 +526,16 @@ def _get_state(window):
 def _on_crowbar_placed(crowbar, window, uri, tries):
     """
     Idle-Callback: crowbar ist jetzt im Baum → Panel injizieren.
-    Der Ordnerpfad wird erst übernommen, wenn die crowbar tatsächlich
-    platziert ist – ein überholter Aufruf einer alten crowbar würde
-    sonst den aktuellen Pfad mit einem ALTEN Pfad überschreiben.
+    0.9.1: Der Ordnerpfad wird hier NICHT mehr aus dem (eventuell
+    überholten) uri gesetzt – _get_widget schreibt st.dir_path bereits
+    synchron beim Anfordern der Crowbar. Eine alte Crowbar, die erst
+    NACH einer neueren platziert wird, konnte sonst den aktuellen
+    Pfad mit einem ALTEN Pfad überschreiben.
     """
     st = _get_state(window)
     if crowbar.get_parent() is None:
         tries[0] += 1
         return tries[0] < 40  # noch nicht platziert → weiter zuwarten
-    st.dir_path = _uri_to_dir(uri)
     _reconcile(st)
     _refresh(st)
     return False
