@@ -4,7 +4,7 @@
 Previewer
 =========
 
-STAND: Version 0.3.0 – aktuelle Fassung. Dies ist die EINSTIEGS-Datei der
+STAND: Version 0.3.1 – aktuelle Fassung. Dies ist die EINSTIEGS-Datei der
 vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
 previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
 Ordner liegen und die gleiche Version tragen.
@@ -31,21 +31,7 @@ Unterstützte Vorschauen
 
 Installation
 ------------
-1) DIESE VIER DATEIEN zusammen in den Nemo-Extension-Ordner kopieren:
-       ~/.local/share/nemo-python/extensions/
-     previewer.py           (Einstieg – diese Datei)
-     previewer_panel.py     (Panel & Renderer)
-     previewer_select.py    (Auswahl-Erkennung)
-     previewer_util.py      (Helfer & Konstanten)
-   (Ordner ggf. anlegen: mkdir -p ~/.local/share/nemo-python/extensions)
-
-2) Pakete, falls nicht vorhanden:
-       sudo apt install nemo-python python3-gi \
-            gir1.2-gst-plugins-base-1.0 gir1.2-poppler-0.18 python3-cairo \
-            libreoffice-core    (nur für die scharfe Office-Vorschau)
-
-3) Nemo neu starten:
-       nemo -q && nemo
+Siehe INSTALL.md im Repository (Anleitung in Englisch).
 
 Bedienung
 ---------
@@ -53,9 +39,6 @@ Bedienung
 - Trenner zwischen Dateiansicht und Panel ist verschiebbar (Gtk.Paned)
 - Play/Pause & Seek bei Audio über die Bedienelemente im Panel
 - PDF: alle Seiten untereinander, im Vorschau-Bereich scrollbar
-
-Deinstallation: alle vier Dateien aus dem extensions-Ordner löschen,
-Nemo neu starten. Optional den Cache leeren: rm -rf ~/.cache/previewer
 
 Technik (für Interessierte)
 ---------------------------
@@ -129,7 +112,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.3.0"
+PREVIEWER_VERSION = "0.3.1"
 import previewer_util
 import previewer_select
 import previewer_panel
