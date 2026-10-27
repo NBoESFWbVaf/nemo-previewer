@@ -185,6 +185,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 - [ ] **F17 – Panel links/rechts umschaltbar** (Crowbar parametrisieren).
 
   **M**
+- [x] **F18 – Audio-Platzhalter-Cover** (vorgezogen auf Wunsch)
+
+  Musikdateien ohne eingebettetes Cover zeigten nur Textzeilen. **M**  
+  *Skizze:* gezeichnete Kachel (Verlauf + Notensymbol) als Pixbuf,  
+  Fallback über Theme-Icon. ✅ 0.5.0: umgesetzt – Cairo/Pango-Kachel  
+  mit abgerundeten Ecken in 2-facher Auflösung, Icon-Fallback ohne  
+  PangoCairo; angezeigt über der Player-Leiste wie echte Covers.
 
 ---
 
@@ -195,9 +202,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | ------- | -------------------------------------------------------------------------------- | --------------- |
 | 1       | 🔴 B1–B5 (Bug-Paket)                                                             | ✅ 0.4.2 (Patch) |
 | 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                    | ✅ 0.4.3 (Patch) |
-| 4       | K1, K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration) | 0.5.0           |
-| 5       | F4, F6–F11 nach Bedarf                                                           | 0.6.0           |
-| 6       | F13–F17 + K3, K4, K6, K7 nach Bedarf                                             | später          |
+| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                       | ✅ 0.5.0 (Minor) |
+| 5       | K1, K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration) | 0.6.0           |
+| 6       | F4, F6–F11 nach Bedarf                                                           | 0.7.0           |
+| 7       | F13–F17 + K3, K4, K6, K7 nach Bedarf                                             | später          |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
