@@ -4,8 +4,8 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.4.0 – aktuelle Fassung (neu: Schriftarten-Wasserfall
-für TrueType/OpenType).
+STAND: Version 0.4.1 – aktuelle Fassung (Schrift-Wasserfall: eigener
+frischer Pango-FontMap statt GTK-Standard, Größen bis 36 pt).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -95,10 +95,12 @@ try:
 except Exception:
     pass
 
-# PangoCairo, um nach dem Laden einer Schrift in Fontconfig zu prüfen,
-# ob Pango die Familie wirklich kennt.
+# PangoCairo + pycairo, um den Schrift-Wasserfall mit einem eigenen,
+# FRISCHEN Pango-FontMap vorzurendern – GTKs Standard-FontMap wird beim
+# Start gebaut und überliest zur Laufzeit hinzugefügte Schriften.
 HAVE_PANGOCAIRO = False
 try:
+    import cairo  # pycairo
     gi.require_version('PangoCairo', '1.0')
     from gi.repository import PangoCairo
     HAVE_PANGOCAIRO = True
@@ -578,7 +580,7 @@ def _mobi_data(path):
 
 # --- Schriftarten: Wasserfall für TrueType/OpenType (Bordmittel) ------------
 
-_FONT_SIZES = (8, 11, 14, 18, 24, 36, 48)
+_FONT_SIZES = (8, 11, 14, 18, 24, 36)
 _FONT_SAMPLE_TEXT = ("Zwölf Boxkämpfer jagen Viktor quer über den "
                      "großen Sylter Deich")
 # Prozess-Zustand (kein global-Schlüsselwort, siehe Projekt-Konvention):
@@ -684,19 +686,20 @@ def _fc_add_font_file(path):
         return False
 
 
-def _font_available(family):
-    """Prüfen, ob Pango die Familie kennt (frischer, unbenutzter FontMap)."""
-    if not HAVE_PANGOCAIRO:
-        return True              # Prüfung unmöglich – nicht blocken
+def _font_known(font_map, family):
+    """
+    Liegt die Familie im übergebenen (frischen) FontMap? Die Prüfung
+    geht über einen NEUEN FontMap, denn der Standard-FontMap von GTK
+    kennt nur den Stand beim Start.
+    """
     try:
-        fm = PangoCairo.FontMap.new()
         low = family.lower()
-        for fam in fm.list_families():
+        for fam in font_map.list_families():
             if (fam.get_name() or "").lower() == low:
                 return True
         return False
     except Exception:
-        return True
+        return True      # Prüfung unmöglich – nicht blocken
 
 # ================================ Panel ====================================
 
@@ -1432,10 +1435,12 @@ class PreviewPanel(Gtk.Box):
         """
         Schriftarten-Wasserfall (TrueType, OpenType, Collections): die
         Datei wird nur für diesen Prozess in Fontconfig aufgenommen
-        (nichts wird installiert), dann zeigt ein Probetext die Familie
-        in aufsteigenden Größen. Kann Pango die Familie nicht finden,
-        erscheint ein Hinweis – der Wasserfall läuft dann mit der
-        Ersatzschrift.
+        (nichts wird installiert). Der Wasserfall wird mit einem
+        FRISCHEN Pango-FontMap in eine Pixbuf vorgerendert – GTKs
+        Standard-FontMap wird beim Start gebaut und überliest zur
+        Laufzeit hinzugefügte Schriften (Labels würden still die
+        Ersatzschrift zeigen). Das fertige Bild nutzt die übliche
+        Live-Skalierung mit der Panelbreite.
         """
         try:
             fmt, family, style = _font_info(path)
@@ -1444,37 +1449,79 @@ class PreviewPanel(Gtk.Box):
             self._hint("Konnte Schrift nicht lesen: %s" % e)
             self._render_generic()
             return
+        if not HAVE_PANGOCAIRO:
+            self._hint("Schriftvorschau nicht verfügbar – Pakete "
+                       "python3-cairo und gir1.2-pango installieren.")
+            self._render_generic()
+            return
         self._meta_grid([("Format", fmt), ("Familie", family),
                          ("Stil", style)])
         if not _fc_add_font_file(path):
             dbg("Schrift konnte Fontconfig nicht hinzugefügt werden: %s"
                 % path)
-        if not _font_available(family):
+
+        # Frischer FontMap + eigener Kontext: sieht die neue Familie.
+        try:
+            fctx = PangoCairo.FontMap.new().create_context()
+        except Exception as e:
+            dbg("Pango-Kontext fehlgeschlagen: %s" % e)
+            self._hint("Schriftvorschau nicht verfügbar.")
+            self._render_generic()
+            return
+        if not _font_known(fctx.get_font_map(), family):
             dbg("Pango kennt die Familie nicht: %s" % family)
             self._hint("Schrift konnte nicht eingebunden werden – der "
                        "Wasserfall zeigt die Ersatzschrift.")
 
-        flow = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        flow.set_border_width(10)
+        # Textfarbe aus dem Theme übernehmen
+        fg = (0.13, 0.13, 0.13)
+        try:
+            c = self.get_style_context().get_color()
+            fg = (c.red, c.green, c.blue)
+        except Exception:
+            pass
+
+        # Doppelt vorrendern und live herunterskalieren: bleibt auch
+        # beim Verziehen des Trenners scharf.
+        s = 2
+        surf_w = max(200, self._preview_width() * s)
+        pad = 8 * s
+        tag_fd = Pango.FontDescription()
+        tag_fd.set_size(9 * Pango.SCALE * s)
+        pairs = []
+        total_h = 2 * pad
         for size in _FONT_SIZES:
-            tag = Gtk.Label(label="%d pt" % size)
-            tag.get_style_context().add_class("dim-label")
-            tag.set_halign(Gtk.Align.START)
-            flow.pack_start(tag, False, False, 0)
-            lbl = Gtk.Label(label=_FONT_SAMPLE_TEXT)
-            try:
-                fd = Pango.FontDescription()
-                fd.set_family(family)
-                fd.set_size(size * Pango.SCALE)
-                lbl.modify_font(fd)
-            except Exception:
-                pass
-            lbl.set_halign(Gtk.Align.START)
-            lbl.set_line_wrap(True)
-            flow.pack_start(lbl, False, False, 0)
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.add(flow)
+            tag_l = Pango.Layout.new(fctx)
+            tag_l.set_font_description(tag_fd)
+            tag_l.set_text("%d pt" % size, -1)
+            text_fd = Pango.FontDescription()
+            text_fd.set_family(family)
+            text_fd.set_size(size * Pango.SCALE * s)
+            text_l = Pango.Layout.new(fctx)
+            text_l.set_font_description(text_fd)
+            text_l.set_text(_FONT_SAMPLE_TEXT, -1)
+            text_l.set_width(surf_w * Pango.SCALE)
+            text_l.set_wrap(Pango.WrapMode.WORD_CHAR)
+            pairs.append((tag_l, text_l))
+            total_h += tag_l.get_pixel_size()[1]
+            total_h += text_l.get_pixel_size()[1]
+            total_h += 6 * s
+
+        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, surf_w, total_h)
+        cr = cairo.Context(surf)
+        y = pad
+        for tag_l, text_l in pairs:
+            cr.set_source_rgba(fg[0], fg[1], fg[2], 0.55)
+            cr.move_to(pad, y)
+            PangoCairo.show_layout(cr, tag_l)
+            y += tag_l.get_pixel_size()[1]
+            cr.set_source_rgba(fg[0], fg[1], fg[2], 1.0)
+            cr.move_to(pad, y)
+            PangoCairo.show_layout(cr, text_l)
+            y += text_l.get_pixel_size()[1] + 6 * s
+
+        pb = Gdk.pixbuf_get_from_surface(surf, 0, 0, surf_w, total_h)
+        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
         self._content.pack_start(scroll, True, True, 0)
 
     def _pdf_page_pixbuf(self, page, target_w):
@@ -2056,6 +2103,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.4.0"
+PREVIEWER_VERSION = "0.4.1"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
     "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
