@@ -1,4 +1,4 @@
-# Nemo Previewer – Planung (planned.md)
+# Nemo Previewer – Planung ([planned.md](http://planned.md))
 
 Arbeitsdatei zur systematischen Ablage. Stand der Analyse: **Version 0.4.1**,  
 2026-10-27. Abgearbeitetes wird abgehakt; erledigte Punkte wandern mit der  
@@ -52,48 +52,57 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
 ### 🟡 Risiken
 
-- [ ] **R1 – Discoverer synchron** (`_render_audio`, `_render_video`)
+- [x] **R1 – Discoverer synchron** (`_render_audio`, `_render_video`)
 
   `discover_uri_sync` blockiert bei kaputtem Medium / NFS / SMB bis zu  
   10 s die komplette UI. **M** – *Skizze:* `discover_uri_async` mit  
   Callback oder Discoverer in Idle/Thread; bis dahin Timeout senken.
-- [ ] **R2 – PDF rendert synchron alle Seiten** (`_render_pdf`)
+- [x] **R2 – PDF rendert synchron alle Seiten** (`_render_pdf`)
 
   Bis zu 20 Seiten in 2-facher Breite bei der Auswahl – UI-Ruckler bei  
   gescannten PDFs. **M** – *Skizze:* Seite 1 sofort, Rest per  
   `GLib.idle_add` in kleinen Schritten nachschieben.
-- [ ] **R3 – Einzel-Slot-Design der Live-Skalierung** (`_scaled_image`)
+- [x] **R3 – Einzel-Slot-Design der Live-Skalierung** (`_scaled_image`)
 
   `self._scale_src` wird pro Renderzyklus überschrieben – nur EIN  
   live-skaliertes Bild ist möglich; ein zweiter `_scaled_image`-Aufruf  
   im selben Renderer verliert still die Skalierung des ersten. Heute  
   unkritisch, aber Designfalle. **M** – *Skizze:* Skalier-Status als  
   Attach-Daten ans Widget (`set_data`) statt Einzelattribute.
-- [ ] **R4 – EPUB-Kapitel ohne Chunk-Deckel** (`_epub_data`)
+- [x] **R4 – EPUB-Kapitel ohne Chunk-Deckel** (`_epub_data`)
 
   Ein einzelnes riesiges XHTML (ZIP-Bombe) landet vollständig im RAM,  
   bevor auf 30 000 Zeichen gekürzt wird. **S** – *Skizze:* `zf.open(...)`  
   mit begrenztem `read(cap)` je Kapitel.
-- [ ] **R5 – Font-Temp-Ordner wächst unbegrenzt** (`_FONT_STATE`, panel)
+- [x] **R5 – Font-Temp-Ordner wächst unbegrenzt** (`_FONT_STATE`, panel)
 
   Kopien jeder angesehenen Schrift bleiben bis Reboot liegen; der Ordner  
   wird je Schrift komplett neu an Fontconfig übergeben. **S** – *Skizze:*  
   Deckel (z. B. 64 Dateien, älteste löschen) oder pro Sitzung einen  
   Unterordner je Hash anlegen und nur diesen übergeben.
-- [ ] **R6 – EPUB zeigt Inhaltsverzeichnis statt Textanfang**
+- [x] **R6 – EPUB zeigt Inhaltsverzeichnis statt Textanfang**
 
   Steht `nav.xhtml`/TOC als erster Spine-Eintrag, dominiert das  
   Inhaltsverzeichnis die Vorschau. **S** – *Skizze:* Spine-Einträge mit  
   `properties="nav"` überspringen; Text erst ab erstem Inhalts-Kapitel.
-- [ ] **R7 – PalmDoc-Trailing-Entries** (`_palmdoc_decompress`)
+- [x] **R7 – PalmDoc-Trailing-Entries** (`_palmdoc_decompress`)
 
   Gelegentliche Schmutzbytes zwischen MOBI-Datensätzen (kosmetisch).  
-  **S** – *Skizze:* Trailing-Entry-Dekodierung ergänzen.
-- [ ] **R8 – Nemo-Update verschiebt VTable-Offsets** (`previewer_select`)
+  **S** – *Skizze:* Trailing-Entry-Dekodierung ergänzen.  
+  ✅ 0.4.3: umgesetzt als SICHERE Randbereinigung je Datensatz (Steuer-  
+  und Ersatz-Zeichen am Datensatzrand entfernen). Die vollständige  
+  Rückwärts-Dekodierung der Trailer-Größen wurde bewusst zurückgestellt:  
+  Ohne Referenzmaterial wäre ein Dekodierfehler schlimmer als der  
+  kosmetische Fehler.
+- [x] **R8 – Nemo-Update verschiebt VTable-Offsets** (`previewer_select`)
 
   Validierungen fangen Layout-Brüche meist ab; Restrisiko bleibt.  
   **Beobachtungspunkt:** nach jedem Nemo-Update Log auf die bekannten  
-  Zeilen prüfen (`VTable-API bereit` vs. Fallback-Meldungen).
+  Zeilen prüfen (`VTable-API bereit` vs. Fallback-Meldungen).  
+  ✅ 0.4.3: dokumentiert (kein Code-Fix möglich/sinnvoll) – Checkliste:  
+  (1) vier geladen/bereit-Zeilen mit gleicher Version, (2) „VTable-API  
+  bereit" ODER Fallback-Meldung, (3) „Auswahl geändert: …"-Zeilen beim  
+  Anklicken. Alles da → keine Handlung nötig.
 
 ### ⚪ Kosmetik
 
@@ -182,14 +191,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 ## Empfohlene Reihenfolge
 
 
-| Schritt | Inhalt                                                 | Zielversion   |
-| ------- | ------------------------------------------------------ | ------------- |
-| 1       | 🔴 B1–B5 (Bug-Paket)                                   | 0.4.2 (Patch) |
-| 2       | R4, R5, R6, K1, K2, K5 (kleine Risiken &amp; Kosmetik) | 0.4.3         |
-| 3       | R1, R2 (async/Idle-Rendering)                          | 0.5.0         |
-| 4       | F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)    | 0.5.0         |
-| 5       | F4, F6–F11 nach Bedarf                                 | 0.6.0         |
-| 6       | F13–F17 + K3, K4, K6, K7, R3, R7 nach Bedarf           | später        |
+| Schritt | Inhalt                                                                           | Zielversion     |
+| ------- | -------------------------------------------------------------------------------- | --------------- |
+| 1       | 🔴 B1–B5 (Bug-Paket)                                                             | ✅ 0.4.2 (Patch) |
+| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                    | ✅ 0.4.3 (Patch) |
+| 4       | K1, K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration) | 0.5.0           |
+| 5       | F4, F6–F11 nach Bedarf                                                           | 0.6.0           |
+| 6       | F13–F17 + K3, K4, K6, K7 nach Bedarf                                             | später          |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
