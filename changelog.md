@@ -6,6 +6,43 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.9.1\] – 2026-10-27
+
+Sicherheits- und Redundanz-Audit über alle vier Module; keine neuen  
+Funktionen, Verhalten der Vorschauen unverändert.
+
+### Fixed (Behoben)
+
+- Crowbar-Race im Einstieg (previewer.py): Eine überholte  
+Location-Widget-Crowbar konnte nach einem Ordnerwechsel noch platziert  
+werden und den aktuellen Ordnerpfad mit dem alten Pfad überschreiben;  
+der Pfad wird jetzt ausschließlich synchron in `get_widget` gesetzt
+- Poll-Timer-Leck im Einstieg (previewer.py): Der 500-ms-Sicherheits-  
+Timer lief nach dem Schließen des Nemo-Fensters als Zombie weiter;  
+er wird jetzt am Fenster-„destroy"-Signal abgeräumt
+- Office-Konvertierung nach Panel-Abbau (previewer\_panel.py): Der  
+child-watch auf die LibreOffice-Konvertierung konnte noch auf das  
+bereits abgebaute Panel treffen; das Ergebnis wird jetzt verworfen  
+und nur der Temp-Ordner aufgeräumt
+
+### Changed (Geändert)
+
+- Redundanz-Aufräumung (previewer\_panel.py, Verhalten unverändert): Der  
+TextView-Bau (zuvor fünf Mal identisch: Text, Markdown, EML-Körper,  
+E-Book, Office-Textauszug), das gekappte Textdatei-Lesen (Text +  
+Markdown) und die Info-Tabelle (zuvor inline in EML-Kopf, Audio und  
+Video neben `_meta_grid`) nutzen jetzt die gemeinsamen Helfer  
+`_text_view`, `_read_text_file` und `_meta_grid`
+- Redundanz-Aufräumung (previewer\_select.py, Verhalten unverändert):  
+VTable-Schleife und TreeView-Fallback lesen den Dateinamen jetzt über  
+den gemeinsamen Helfer `_iface_file_name`; der Basename aus einer  
+URI über `_name_from_uri` (zuvor jeweils mehrfach identisch  
+implementiert)
+- Modul-Kopf des Einstiegs aktualisiert: Video zeigt seit 0.7.0/0.8.0  
+eine Kachel mit Öffnen-Knopf (nicht mehr „Erstframe als Standbild")  
+und Poppler rendert alle Seiten scrollbar (nicht mehr „die erste  
+Seite scharf")
+
 ## \[0.9.0\] – 2026-10-27
 
 ### Added (Hinzugefügt)
