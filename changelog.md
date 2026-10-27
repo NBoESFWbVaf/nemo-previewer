@@ -23,6 +23,24 @@ nemo-python mitgezogen, das Cinnamon auf Debian nicht vorinstalliert);
 SVG-Paketname auf gir1.2-rsvg-2.0 vereinheitlicht (gültig auf Mint  
 und Debian); getestet auf Debian 13 (Trixie)
 
+## \[0.6.0\] – 2026-10-27
+
+### Added (Hinzugefügt)
+
+- Video-Vorschau: Standbilder werden jetzt selbst aus der Videospur  
+extrahiert, wenn die Datei kein eingebettetes Vorschaubild im Tag  
+trägt – was bei Serien- und Filmdateien fast immer der Fall ist  
+(der bisherige Weg über TAG\_PREVIEW\_IMAGE lief daher praktisch nie  
+auf ein Ergebnis, sichtbar nach dem Discoverer-Fix in 0.5.0). Ein  
+Playbin mit einer videoconvert ! jpegenc ! appsink-Kette wird im  
+Erkundungs-Hintergrundthread in den PAUSED-Zustand versetzt; nach  
+dem Preroll fließt genau ein JPEG als Bytes zurück und wird im  
+GTK-Thread dekodiert – die UI blockiert nicht (max. 8 s Wartezeit,  
+dann greift der Hinweis). Voraussetzung: gstreamer1.0-plugins-good  
+(jpegenc); Audio wird weggeworfen, nur die Videospur wird dekodiert.  
+F22 aus planned.md, Teil 1 (Platzhalter-Kachel und Wiedergabe im  
+Panel folgen später)
+
 ## \[0.5.1\] – 2026-10-27
 
 ### Changed (Geändert)
