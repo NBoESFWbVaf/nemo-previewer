@@ -4,9 +4,11 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.4.2 – aktuelle Fassung (Bug-Paket B1–B5:
-Font-Namenskollision, Audio-Bus-Watch, Timer-Aufräumen,
-Office-Cache-Fallback, MOBI-Lesedeckel).
+STAND: Version 0.4.3 – aktuelle Fassung (Robustheits-Paket R1–R8:
+Medien-Erkundung im Hintergrund-Thread, PDF-Seiten progressiv im
+Idle nachschieben, Skalier-Status je Bild statt Einzel-Slot,
+EPUB-Lesedeckel gegen Dekompressions-Bomben, EPUB3-Navigation
+überspringen, Font-Temp-Deckel, MOBI-Randbereinigung).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -36,6 +38,7 @@ import html
 import shutil
 import struct
 import tempfile
+import threading
 import traceback
 import zipfile
 from email import policy
@@ -330,6 +333,22 @@ def _palmdoc_decompress(data):
     return bytes(out)
 
 
+_EBOOK_CHUNK_CAP = 2 * 1024 * 1024     # R4: max. Bytes je Spine-Dokument
+_EBOOK_COVER_CAP = 16 * 1024 * 1024    # R4: max. Bytes für Cover-Bilder
+
+
+def _zf_read_capped(zf, name, cap):
+    """
+    R4: Ein ZIP-Mitglied mit Lese-Deckel lesen – Schutz vor Dekompressions-
+    Bomben: gezippte XHTML-Kapitel können entpackt ein Vielfaches ihrer
+    gepackten Größe belegen und das Panel wäre für Sekunden blockiert.
+    Alles jenseits des Deckels wird bewusst abgeschnitten – für die
+    Vorschau reicht der Anfang des Kapitels bzw. Bildes.
+    """
+    with zf.open(name) as zh:
+        return zh.read(cap)
+
+
 def _epub_data(path):
     """
     EPUB öffnen: Metadaten (Titel, Autor, Sprache), Cover-Bytes und der
@@ -376,7 +395,8 @@ def _epub_data(path):
                     if _xml_local(item.tag) != "item":
                         continue
                     manifest[item.get("id")] = (
-                        item.get("href"), item.get("media-type"))
+                        item.get("href"), item.get("media-type"),
+                        item.get("properties") or "")
                     if "cover-image" in (item.get("properties") or ""):
                         cover_id = item.get("id")
             elif tag == "spine":
@@ -392,7 +412,8 @@ def _epub_data(path):
         cover = None
         if cover_id in manifest:
             try:
-                cover = zf.read(base + manifest[cover_id][0])
+                cover = _zf_read_capped(zf, base + manifest[cover_id][0],
+                                        _EBOOK_COVER_CAP)
             except KeyError:
                 cover = None
         if not cover:
@@ -401,7 +422,7 @@ def _epub_data(path):
                 if "cover" in low and low.endswith(
                         (".jpg", ".jpeg", ".png", ".gif", ".webp")):
                     try:
-                        cover = zf.read(name)
+                        cover = _zf_read_capped(zf, name, _EBOOK_COVER_CAP)
                         break
                     except KeyError:
                         pass
@@ -412,13 +433,17 @@ def _epub_data(path):
         for idref in spine:
             if total >= MAX_EBOOK_CHARS:
                 break
-            href, mtype = manifest.get(idref, (None, None))
+            href, mtype, props = manifest.get(idref, (None, None, ""))
             if not href:
+                continue
+            # R6: EPUB3-Navigationsdatei (properties="nav") ist das
+            # Inhaltsverzeichnis, nicht Buchtext – überspringen.
+            if "nav" in props.split():
                 continue
             if mtype and "html" not in mtype and "xml" not in mtype:
                 continue
             try:
-                raw = zf.read(base + href)
+                raw = _zf_read_capped(zf, base + href, _EBOOK_CHUNK_CAP)
             except KeyError:
                 continue
             chunk = _html_to_text(raw.decode("utf-8", "replace"))
@@ -572,13 +597,26 @@ def _mobi_data(path):
         raise ValueError("Kompressionsverfahren %d nicht unterstützt "
                          "(HUFF/CDIC)" % compression)
 
+    # R7: MOBI-Datensätze können am Rand Schmutzbytes tragen – halb
+    # zerrissene Mehrbyte-Sequenzen und Reste von Trailing Entries
+    # (Index-/Steuerdaten am Datensatz-Ende), die der Dekompressor als
+    # Zeichensalat interpretiert. Eine vollständige Rückwärts-Dekodierung
+    # der Trailer-Größe wäre ohne Referenzmaterial riskant (ein Fehler
+    # würde ALLE Bücher beschädigen); die sichere Randbereinigung je
+    # Datensatz entfernt den sichtbaren Großteil des Mülls.
+    _mobi_edge = ("\ufffd\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c"
+                  "\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19"
+                  "\x1a\x1b\x1c\x1d\x1e\x1f")
     parts = []
     total = 0
     for rec in recs[1:first_non_book]:
         if compression == 1:
             rec = _palmdoc_decompress(rec)
-        parts.append(rec.decode(encoding, "replace"))
-        total += len(parts[-1])
+        chunk = rec.decode(encoding, "replace").strip(_mobi_edge)
+        if not chunk:
+            continue
+        parts.append(chunk)
+        total += len(chunk)
         if total >= MAX_EBOOK_CHARS * 2:
             break
     text = _html_to_text(" ".join(parts))[:MAX_EBOOK_CHARS]
@@ -592,8 +630,13 @@ _FONT_SIZES = (8, 11, 14, 18, 24, 36)
 _FONT_SAMPLE_TEXT = ("Zwölf Boxkämpfer jagen Viktor quer über den "
                      "großen Sylter Deich")
 # Prozess-Zustand (kein global-Schlüsselwort, siehe Projekt-Konvention):
-# temporärer Ordner für die Fontconfig-Übernahme + bereits übernommene Pfade
-_FONT_STATE = {"tmpdir": None, "added": set()}
+# temporärer Ordner für die Fontconfig-Übernahme, bereits übernommene
+# Pfade und die geordnete Liste der Kopien im Temp-Ordner (R5-Deckel)
+_FONT_STATE = {"tmpdir": None, "added": set(), "copies": []}
+# R5: Temp-Ordner auf 64 Kopien deckeln – fontconfig behält gelöschte
+# Schriften im Speicher, bis der Prozess endet; der Ordner selbst
+# darf aber nicht bis zum Reboot/Absturz unendlich wachsen.
+_FONT_COPY_LIMIT = 64
 
 
 def _font_info(path):
@@ -689,6 +732,18 @@ def _fc_add_font_file(path):
         dest = os.path.join(state["tmpdir"], "%s-%s%s" % (stem, digest, ext))
         if not os.path.exists(dest):
             shutil.copy2(path, dest)
+            # R5: Kopie registrieren und älteste entfernen, wenn der
+            # Deckel erreicht ist. Fontconfig hat die Schriften beim
+            # FcConfigAppFontAddDir bereits in den Speicher geladen –
+            # bereits gesehene Wasserfälle bleiben also korrekt
+            # dargestellt, nur die Festplatte/der Temp-Ordner atmet auf.
+            state["copies"].append(dest)
+            while len(state["copies"]) > _FONT_COPY_LIMIT:
+                old = state["copies"].pop(0)
+                try:
+                    os.unlink(old)
+                except Exception:
+                    pass
         lib = ctypes.CDLL(ctypes.util.find_library("fontconfig")
                           or "libfontconfig.so.1")
         res = lib.FcConfigAppFontAddDir(
@@ -731,22 +786,25 @@ class PreviewPanel(Gtk.Box):
         self._playbin = None
         self._progress_timer = 0
         self._render_width = 0
-        # Skalierbare Vorschau: Quelle in voller Auflösung behalten und
-        # nur die angezeigte Pixbuf bei Breitenänderung neu skalieren.
-        self._scale_img = None
-        self._scale_src = None
-        self._scale_max_h = 0
-        self._scale_upscale = False
-        self._scale_max_up = 1.0
-        self._scale_keep_h = False
-        self._scale_last_w = 0
+        # Skalierbare Vorschauen (R3): Parameter liegen als Attach-Daten
+        # am JEWEILIGEN Bild (set_data), nicht in Einzelattributen –
+        # so sind beliebig viele live-skalierte Bilder pro Vorschau
+        # möglich, ohne sich gegenseitig zu überschreiben.
+        self._scale_items = []
         # Hintergrund-Konvertierung für Office-Dokumente (LibreOffice → PDF)
         self._office_job = None
         self._office_failed = set()
         # Mehrseitige PDF-Vorschau: Quell-Pixbufs je Seite + Anzeige-Images
         self._pdf_src = None
         self._pdf_imgs = None
+        self._pdf_box = None
         self._pdf_last_w = 0
+        # R2: Render-Generation – _clear_content zählt sie hoch; die
+        # Idle-Nachschub-Schritte erkennen daran, ob ihre Vorschau noch
+        # aktuell ist. (Ein self._path-Vergleich würde FALSCH greifen:
+        # Office rendert seine PDF aus dem Cache, während self._path
+        # weiterhin das ODT/DOCX ist.)
+        self._pdf_gen = 0
 
         # --- Kopfzeile ---
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -842,14 +900,16 @@ class PreviewPanel(Gtk.Box):
     def _clear_content(self):
         for child in list(self._content.get_children()):
             self._content.remove(child)
-        # Skalier-Quelle freigeben (Speicher der vollen Auflösung)
-        self._scale_img = None
-        self._scale_src = None
-        self._scale_last_w = 0
-        # ebenso die Quell-Pixbufs der PDF-Seiten
+        # Skalier-Quellen freigeben (Speicher der vollen Auflösung)
+        self._scale_items = []
+        # ebenso die Quell-Pixbufs der PDF-Seiten; die Render-Generation
+        # hochzählen, damit laufende Idle-Nachschub-Schritte (R2)
+        # abbrechen, statt in eine verwaiste Ansicht hinein zu malen.
         self._pdf_src = None
         self._pdf_imgs = None
+        self._pdf_box = None
         self._pdf_last_w = 0
+        self._pdf_gen += 1
 
     def _show_placeholder(self):
         self._name_label.set_text("Keine Datei ausgewählt")
@@ -1035,72 +1095,80 @@ class PreviewPanel(Gtk.Box):
         expandiertem Packen (Bild, PDF) darf KEINE Mindesthöhe gesetzt
         werden – hochkantige Bilder würden sonst dem Fenster ihre Höhe
         aufzwingen.
+        R3: Skalier-Parameter liegen als Attach-Daten (set_data) am
+        JEWEILIGEN Bild statt in Panel-Einzelattributen – mehrere
+        live-skalierte Bilder pro Vorschau (Cover + Kapitelbilder …)
+        überschreiben sich damit nicht mehr gegenseitig.
         Gibt den fertigen Container (Gtk.ScrolledWindow) zurück.
         """
-        self._scale_src = src
-        self._scale_max_h = max_h
-        self._scale_upscale = upscale
-        self._scale_max_up = max_upscale
-        self._scale_keep_h = keep_height
-        self._scale_last_w = 0
         img = Gtk.Image()
         # Horizontal mittig: kleine Vorschauen (Cover, Office-Miniatur)
         # kleben nicht am linken Rand, sondern sitzen zentriert.
         img.set_halign(Gtk.Align.CENTER)
         img.set_valign(Gtk.Align.START)
-        self._scale_img = img
+        img.set_data("previewer-src", src)
+        img.set_data("previewer-maxh", max_h)
+        img.set_data("previewer-upscale", upscale)
+        img.set_data("previewer-maxup", max_upscale)
+        img.set_data("previewer-keeph", keep_height)
+        img.set_data("previewer-lastw", 0)
         scroll = Gtk.ScrolledWindow()
-        self._scale_scroll = scroll
+        img.set_data("previewer-scroll", scroll)
         # AUTOMATIC in beide Richtungen: bricht die Weitergabe der
         # Kind-Minimalbreite nach oben ab, das Pane bleibt frei ziehbar.
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.add(img)
+        if self._scale_items is None:
+            self._scale_items = []
+        self._scale_items.append(img)
         self._apply_scale()
         return scroll
 
     def _apply_scale(self):
-        """Angezeigte Pixbuf der Vorschau an die aktuelle Breite anpassen."""
-        img = self._scale_img
-        src = self._scale_src
-        if img is None or src is None:
+        """Angezeigte Pixbufs ALLER registrierten Vorschau-Bilder an die
+        aktuelle Panelbreite anpassen (R3: Liste statt Einzel-Slot)."""
+        if not self._scale_items:
             return
-        try:
-            sw, sh = src.get_width(), src.get_height()
-            if sw <= 0 or sh <= 0:
-                return
-            target = self._preview_width()
-            f = float(target) / sw
-            if f > 1.0:
-                if self._scale_upscale:
-                    # Hochskalieren, aber begrenzt: kleine Quellen
-                    # (Office-Miniaturansichten) werden sonst unleserlich.
-                    f = min(f, self._scale_max_up)
-                else:
-                    f = 1.0          # kleine Bilder nicht unscharf aufblasen
-            if f * sh > self._scale_max_h:
-                f = float(self._scale_max_h) / sh
-            w = max(1, int(sw * f))
-            h = max(1, int(sh * f))
-            if abs(w - self._scale_last_w) < 4:
-                return
-            self._scale_last_w = w
-            # Beim Hochskalieren qualitativ besser interpolieren
-            interp = (GdkPixbuf.InterpType.HYPER if f > 1.0
-                      else GdkPixbuf.InterpType.BILINEAR)
-            img.set_from_pixbuf(src.scale_simple(w, h, interp))
-            # Mindesthöhe nur bei keep_height: hält den Container auf
-            # Bildhöhe, wenn er nicht expandiert gepackt ist (sonst
-            # würde das Bild unten abgeschnitten). Zusätzlich die
-            # Scrollposition zurücksetzen – nach einem Aufziehen-/
-            # Zurückschieben-Zyklus stünde das Bild sonst versetzt.
+        for img in self._scale_items:
             try:
-                if self._scale_keep_h:
-                    self._scale_scroll.set_min_content_height(h)
-                    self._scale_scroll.get_vadjustment().set_value(0)
+                src = img.get_data("previewer-src")
+                if src is None:
+                    continue
+                sw, sh = src.get_width(), src.get_height()
+                if sw <= 0 or sh <= 0:
+                    continue
+                target = self._preview_width()
+                f = float(target) / sw
+                if f > 1.0:
+                    if img.get_data("previewer-upscale"):
+                        # Hochskalieren, aber begrenzt: kleine Quellen
+                        # (Office-Miniaturansichten) werden sonst unleserlich.
+                        f = min(f, img.get_data("previewer-maxup"))
+                    else:
+                        f = 1.0      # kleine Bilder nicht unscharf aufblasen
+                max_h = img.get_data("previewer-maxh")
+                if f * sh > max_h:
+                    f = float(max_h) / sh
+                w = max(1, int(sw * f))
+                h = max(1, int(sh * f))
+                if abs(w - img.get_data("previewer-lastw")) < 4:
+                    continue
+                img.set_data("previewer-lastw", w)
+                # Beim Hochskalieren qualitativ besser interpolieren
+                interp = (GdkPixbuf.InterpType.HYPER if f > 1.0
+                          else GdkPixbuf.InterpType.BILINEAR)
+                img.set_from_pixbuf(src.scale_simple(w, h, interp))
+                # Mindesthöhe nur bei keep_height: hält den Container auf
+                # Bildhöhe, wenn er nicht expandiert gepackt ist (sonst
+                # würde das Bild unten abgeschnitten). Zusätzlich die
+                # Scrollposition zurücksetzen – nach einem Aufziehen-/
+                # Zurückschieben-Zyklus stünde das Bild sonst versetzt.
+                if img.get_data("previewer-keeph"):
+                    scroll = img.get_data("previewer-scroll")
+                    scroll.set_min_content_height(h)
+                    scroll.get_vadjustment().set_value(0)
             except Exception:
                 pass
-        except Exception:
-            pass
 
     def _preview_width(self):
         """
@@ -1569,6 +1637,9 @@ class PreviewPanel(Gtk.Box):
         wird in doppelter Panelbreite gerendert und bei Breitenänderung
         – wie bei der Bild-Vorschau – nur neu skaliert, nicht neu
         gerendert.
+        R2: Seite 1 wird sofort synchron gerendert, die übrigen Seiten
+        piecewise im GLib-Idle nachgeschoben – das Panel steht auch bei
+        großen/gescannten PDFs augenblicklich, die UI friert nicht ein.
         """
         doc = Poppler.Document.new_from_file(GLib.filename_to_uri(path), None)
         n = doc.get_n_pages()
@@ -1582,31 +1653,82 @@ class PreviewPanel(Gtk.Box):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self._pdf_src = []
         self._pdf_imgs = []
-        for i in range(count):
-            try:
-                pb = self._pdf_page_pixbuf(doc.get_page(i), src_w)
-            except Exception as exc:
-                dbg("PDF-Seite %d nicht renderbar: %s" % (i + 1, exc))
-                continue
+        self._pdf_box = box
+        # Seite 1 sofort – erst danach ist das Panel benutzbar.
+        try:
+            pb = self._pdf_page_pixbuf(doc.get_page(0), src_w)
             img = Gtk.Image()
             img.set_halign(Gtk.Align.CENTER)
             img.set_valign(Gtk.Align.START)
             box.pack_start(img, False, False, 0)
             self._pdf_src.append(pb)
             self._pdf_imgs.append(img)
+        except Exception as exc:
+            dbg("PDF-Seite 1 nicht renderbar: %s" % exc)
         if not self._pdf_src:
             self._hint("PDF konnte nicht gerendert werden.")
+            self._pdf_box = None
             return
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.add(box)
         self._content.pack_start(scroll, True, True, 0)
         self._apply_pdf_scale()
+        # R2: restliche Seiten je eine pro Idle-Durchlauf nachschieben.
+        # Die Generation wird MITGEBEN (nicht später gelesen), damit der
+        # Schritt eindeutig weiß, zu welchem Render-Durchlauf er gehört.
+        if count > 1:
+            GLib.idle_add(self._pdf_idle_step, doc, path, src_w, count, 1,
+                          self._pdf_gen)
         if n > count:
             self._hint("Erste %d von %d Seiten – ganze Datei über den "
                        "Öffnen-Knopf betrachten." % (count, n))
         elif n > 1:
             self._hint("%d Seiten – Vorschau nach unten scrollen." % n)
+        # Der Office-Rückruf ruft _render_pdf DIREKT (ohne den show_all-
+        # Nachlauf von _render) – deshalb hier selbst sorgen.
+        self._content.show_all()
+
+    def _pdf_idle_step(self, doc, path, src_w, count, i, gen):
+        """R2: eine weitere PDF-Seite im Idle rendern (UI bleibt flüssig).
+        Der Index wird im Aufruf geführt, nicht aus len(self._pdf_src)
+        abgeleitet – sonst könnte ein Renderfehler zur Endlosschleife
+        werden. Rückkehr False: nicht automatisch wiederholen, der
+        Nachschub wird jeweils explizit neu angesetzt."""
+        try:
+            # Abbruch, wenn inzwischen ein neuer Render-Durchlauf lief
+            # (Generation hochgezählt) oder die PDF-Ansicht entsorgt
+            # wurde (Stale-Check).
+            if gen != self._pdf_gen or self._pdf_box is None:
+                return False
+            pb = self._pdf_page_pixbuf(doc.get_page(i), src_w)
+            img = Gtk.Image()
+            img.set_halign(Gtk.Align.CENTER)
+            img.set_valign(Gtk.Align.START)
+            self._pdf_box.pack_start(img, False, False, 0)
+            img.show()
+            self._pdf_src.append(pb)
+            self._pdf_imgs.append(img)
+            # Nur die neue Seite skalieren – _apply_pdf_scale springt
+            # dank Breiten-Schwellenwert früh ab, wenn sich die Panel-
+            # breite nicht geändert hat, und würde sie sonst übersehen.
+            self._pdf_scale_one(pb, img, self._preview_width())
+        except Exception as exc:
+            dbg("PDF-Seite %d nicht renderbar: %s" % (i + 1, exc))
+        i += 1
+        if i >= count:
+            return False
+        GLib.idle_add(self._pdf_idle_step, doc, path, src_w, count, i, gen)
+        return False
+
+    def _pdf_scale_one(self, src, img, target):
+        """Eine PDF-Seite auf die Zielbreite skalieren und zuweisen."""
+        sw, sh = src.get_width(), src.get_height()
+        f = min(float(target) / sw, 1.0)   # nicht hochskalieren
+        w = max(1, int(sw * f))
+        h = max(1, int(sh * f))
+        img.set_from_pixbuf(
+            src.scale_simple(w, h, GdkPixbuf.InterpType.BILINEAR))
 
     def _apply_pdf_scale(self):
         """Alle PDF-Seiten an die aktuelle Panelbreite anpassen."""
@@ -1620,12 +1742,7 @@ class PreviewPanel(Gtk.Box):
         self._pdf_last_w = target
         try:
             for src, img in zip(srcs, imgs):
-                sw, sh = src.get_width(), src.get_height()
-                f = min(float(target) / sw, 1.0)   # nicht hochskalieren
-                w = max(1, int(sw * f))
-                h = max(1, int(sh * f))
-                img.set_from_pixbuf(
-                    src.scale_simple(w, h, GdkPixbuf.InterpType.BILINEAR))
+                self._pdf_scale_one(src, img, target)
         except Exception:
             pass
 
@@ -1641,36 +1758,98 @@ class PreviewPanel(Gtk.Box):
         self._content.pack_start(big, True, True, 0)
 
     def _render_audio(self, path, uri):
-        tags = {}
-        duration = -1
-        cover = None
-        try:
-            try:
-                disc = GstPbutils.Discoverer.new(10 * Gst.SECOND)
-            except (AttributeError, TypeError):
-                # Neuere PyGObject-Builds mappen gst_discoverer_new NICHT
-                # als Konstruktor ('GObject.__init__() takes exactly 0
-                # arguments (1 given)') – deshalb explizit .new(), mit
-                # Fallback für ältere Builds.
-                disc = GstPbutils.Discoverer(10 * Gst.SECOND)
-            info = disc.discover_uri_sync(uri)
-            duration = info.get_duration() // Gst.SECOND
-            taglist = info.get_tags()
-            if taglist:
-                for key, gst_tag in (("title", Gst.TAG_TITLE),
-                                     ("artist", Gst.TAG_ARTIST),
-                                     ("album", Gst.TAG_ALBUM)):
-                    ok, val = taglist.get_string(gst_tag)
-                    if ok and val:
-                        tags[key] = val
-                ok, sample = taglist.get_sample(Gst.TAG_IMAGE)
-                if not (ok and sample):
-                    ok, sample = taglist.get_sample(Gst.TAG_PREVIEW_IMAGE)
-                if ok and sample:
-                    cover = self._pixbuf_from_sample(sample)
-        except Exception as e:
-            dbg("Discoverer-Fehler: %s" % e)
+        """
+        Audio-Vorschau: Cover, Tags und Player-Leiste.
+        R1: Tags, Dauer und Cover werden im Hintergrund-Thread erkannt
+        (siehe _media_probe_async) – das Panel erscheint sofort mit
+        einem Lese-Hinweis und bleibt bedienbar, statt auf der Stelle
+        einzufrieren, wenn das Medium langsam erreichbar ist.
+        """
+        self._media_probe_async(path, uri, self._finish_audio)
 
+    def _media_probe_async(self, path, uri, finish, video=False):
+        """
+        R1: Medien-Erkundung ohne UI-Blockade. Der GStreamer-Discoverer
+        läuft in einem Daemon-Thread (Tags, Dauer, Bildbytes – KEIN
+        Pixbuf, Gdk-Objekte entstehen erst zurück im GTK-Thread) und
+        schwenkt das Ergebnis per GLib.idle_add in den Main-Loop;
+        finish ist die Fortsetzung (_finish_audio/_finish_video).
+        """
+        self._hint("Lese Medien-Informationen – einen Moment …")
+
+        def work():
+            tags, duration, image_bytes = {}, -1, None
+            try:
+                try:
+                    disc = GstPbutils.Discoverer.new(10 * Gst.SECOND)
+                except (AttributeError, TypeError):
+                    # Neuere PyGObject-Builds mappen gst_discoverer_new
+                    # NICHT als Konstruktor – deshalb explizit .new(),
+                    # mit Fallback für ältere Builds.
+                    disc = GstPbutils.Discoverer(10 * Gst.SECOND)
+                info = disc.discover_uri_sync(uri)
+                duration = info.get_duration() // Gst.SECOND
+                taglist = info.get_tags()
+                if taglist:
+                    for key, gst_tag in (("title", Gst.TAG_TITLE),
+                                         ("artist", Gst.TAG_ARTIST),
+                                         ("album", Gst.TAG_ALBUM)):
+                        ok, val = taglist.get_string(gst_tag)
+                        if ok and val:
+                            tags[key] = val
+                    # Bild-Bytes sammeln (nicht dekodieren – das passiert
+                    # erst im GTK-Thread). Videos: Standbild bevorzugt;
+                    # Audio: eingebettetes Cover bevorzugt.
+                    order = ((Gst.TAG_PREVIEW_IMAGE, Gst.TAG_IMAGE) if video
+                             else (Gst.TAG_IMAGE, Gst.TAG_PREVIEW_IMAGE))
+                    for gst_tag in order:
+                        ok, sample = taglist.get_sample(gst_tag)
+                        if ok and sample:
+                            buf = sample.get_buffer()
+                            image_bytes = buf.extract_dup(0, buf.get_size())
+                            break
+            except Exception as e:
+                dbg("Discoverer-Fehler: %s" % e)
+            GLib.idle_add(self._media_probe_done, path, uri, finish,
+                          tags, duration, image_bytes)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _media_probe_done(self, path, uri, finish, tags, duration,
+                          image_bytes):
+        """R1: Rückkehr der Hintergrund-Erkundung in den GTK-Main-Loop."""
+        # Auswahl hat inzwischen gewechselt – Ergebnis verwerfen.
+        if self._path != path:
+            return False
+        pixbuf = None
+        if image_bytes:
+            try:
+                loader = GdkPixbuf.PixbufLoader()
+                loader.write(image_bytes)
+                loader.close()
+                pixbuf = loader.get_pixbuf()
+            except Exception as exc:
+                dbg("Medien-Bild nicht darstellbar: %s" % exc)
+        # Lese-Hinweis entfernen und die eigentliche Vorschau aufbauen.
+        self._clear_content()
+        try:
+            finish(path, uri, tags, duration, pixbuf)
+        except Exception:
+            # Gleicher Schutz wie in _render: nie werfen, immer Fallback.
+            dbg("Fehler beim Aufbauen der Medien-Vorschau (%r):" % path)
+            traceback.print_exc()
+            try:
+                self._clear_content()
+                self._render_generic()
+            except Exception:
+                pass
+        # Erst hier gepackte Widgets liegen NACH dem show_all() des
+        # Render-Durchlaufs – sie brauchen daher ihr eigenes show_all.
+        self._content.show_all()
+        return False
+
+    def _finish_audio(self, path, uri, tags, duration, cover):
+        """R1-Fortsetzung: Cover, Infos und Player-Leiste aufbauen."""
         if cover:
             scroll = self._scaled_image(cover, 320, upscale=False,
                                         keep_height=True)
@@ -1777,14 +1956,6 @@ class PreviewPanel(Gtk.Box):
         if not self._progress_timer:
             self._progress_timer = GLib.timeout_add(400, self._tick_player)
 
-    def _pixbuf_from_sample(self, sample):
-        buf = sample.get_buffer()
-        data = buf.extract_dup(0, buf.get_size())
-        loader = GdkPixbuf.PixbufLoader()
-        loader.write(data)
-        loader.close()
-        return loader.get_pixbuf()
-
     def _scale_pixbuf(self, pb, max_w, max_h):
         w, h = pb.get_width(), pb.get_height()
         if w <= max_w and h <= max_h:
@@ -1795,31 +1966,15 @@ class PreviewPanel(Gtk.Box):
                                GdkPixbuf.InterpType.BILINEAR)
 
     def _render_video(self, path, uri):
-        duration = -1
-        frame = None
-        tags = {}
-        try:
-            try:
-                disc = GstPbutils.Discoverer.new(10 * Gst.SECOND)
-            except (AttributeError, TypeError):
-                # Siehe _render_audio: Konstruktor-Mapping je nach
-                # PyGObject-Build unterschiedlich.
-                disc = GstPbutils.Discoverer(10 * Gst.SECOND)
-            info = disc.discover_uri_sync(uri)
-            duration = info.get_duration() // Gst.SECOND
-            taglist = info.get_tags()
-            if taglist:
-                for key, gst_tag in (("title", Gst.TAG_TITLE),
-                                     ("artist", Gst.TAG_ARTIST)):
-                    ok, val = taglist.get_string(gst_tag)
-                    if ok and val:
-                        tags[key] = val
-            ok, sample = taglist.get_sample(Gst.TAG_PREVIEW_IMAGE) if taglist else (False, None)
-            if ok and sample:
-                frame = self._pixbuf_from_sample(sample)
-        except Exception as e:
-            dbg("Discoverer-Fehler: %s" % e)
+        """
+        Video-Vorschau: Standbild und Infos.
+        R1: Erkundung im Hintergrund-Thread (siehe _media_probe_async) –
+        UI bleibt sofort bedienbar.
+        """
+        self._media_probe_async(path, uri, self._finish_video, video=True)
 
+    def _finish_video(self, path, uri, tags, duration, frame):
+        """R1-Fortsetzung: Standbild und Infos aufbauen."""
         if frame:
             scroll = self._scaled_image(frame, 320, upscale=False,
                                         keep_height=True)
@@ -2019,6 +2174,11 @@ class PreviewPanel(Gtk.Box):
                         self._office_failed.clear()
                     if self._path == path:
                         try:
+                            # Übergangs-Miniaturansicht mit ihrem
+                            # „wird konvertiert"-Hinweis entfernen,
+                            # sonst steht die scharfe Ansicht UNTER
+                            # der Miniaturansicht.
+                            self._clear_content()
                             self._render_pdf(out_pdf)
                         except Exception as exc:
                             dbg("Office-PDF aus Temp-Ordner nicht "
@@ -2206,6 +2366,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.4.2"
+PREVIEWER_VERSION = "0.4.3"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
     "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix)" % PREVIEWER_VERSION)
