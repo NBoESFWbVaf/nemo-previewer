@@ -4,11 +4,10 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.7.2 – aktuelle Fassung (Ordner-Zählung transparent
-wie 0.5.1; Video-Vorschau final: generische Kachel wie bei Musik,
-Wiedergabe IM PANEL – gtksink oder Eigenbau per appsink, nie ein
-eigenes Fenster; die Standbild-Extraktion aus 0.6.0 ist wieder
-entfernt).
+STAND: Version 0.8.0 – aktuelle Fassung (Ordner-Zählung transparent
+wie 0.5.1; Video-Vorschau: generische Kachel wie bei Musik plus
+Datei-Infos – die Panel-Wiedergabe aus 0.7.0–0.7.2 ist wieder
+vollständig zurückgebaut, zum Abspielen der Öffnen-Knopf).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -838,12 +837,6 @@ class PreviewPanel(Gtk.Box):
         self._names = []
         self._playbin = None
         self._progress_timer = 0
-        # F22: Eigenbau-Video-Ausgabe (appsink + DrawingArea) – nur
-        # belegt, solange eine Video-Vorschau mit dieser Route läuft.
-        self._video_framesink = None
-        self._video_area = None
-        self._video_pixbuf = None
-        self._video_fps_timer = 0
         self._render_width = 0
         # Skalierbare Vorschauen (R3): JEDES Bild bringt seine Parameter
         # als eigenen Dict-Eintrag mit (siehe _scaled_image) – so sind
@@ -2079,10 +2072,11 @@ class PreviewPanel(Gtk.Box):
 
     def _playbin_set_uri(self, uri):
         """
-        Playbin einmalig anlegen und die URI setzen – Musik und Video
-        (F22) teilen sich dieses eine Playbin. B2: Bus-Watch – ohne ihn
-        kennt der Player sein Trackende nicht (Pause-Icon blieb stehen,
-        Position fror ein) und Abspielfehler blieben unsichtbar.
+        Playbin einmalig anlegen und die URI setzen. B2: Bus-Watch –
+        ohne ihn kennt der Player sein Trackende nicht (Pause-Icon
+        blieb stehen, Position fror ein) und Abspielfehler blieben
+        unsichtbar. Zentraler Baustein – ein späterer Neuversuch der
+        Video-Wiedergabe kann ihn unverändert wiederverwenden.
         """
         if self._playbin is None:
             self._playbin = Gst.ElementFactory.make("playbin", "previewer-playbin")
@@ -2095,7 +2089,7 @@ class PreviewPanel(Gtk.Box):
     def _player_bar(self, duration):
         """
         Player-Leiste (Play/Pause, Slider, Position) bauen und packen –
-        identisch für Musik und Video, deshalb zentral (B2/B3).
+        zentraler Baustein der Musik-Vorschau (B2/B3).
         """
         player_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         self._btn_play = Gtk.Button.new_from_icon_name(
@@ -2171,21 +2165,17 @@ class PreviewPanel(Gtk.Box):
 
     def _render_video(self, path, uri):
         """
-        Video-Vorschau: Kachel, Infos und Wiedergabe im Panel.
+        Video-Vorschau: Kachel und Infos.
         R1: Erkundung im Hintergrund-Thread (siehe _media_probe_async) –
-        UI bleibt sofort bedienbar. F22: Ohne eingebettetes Vorschaubild
-        erscheint die generische Kachel (wie bei Musik); abgespielt wird
-        über gtksink direkt im Panel – fehlt gtksink (Paket
-        gstreamer1.0-gtk3), läuft die Wiedergabe nur mit Ton.
+        UI bleibt sofort bedienbar. Ohne eingebettetes Vorschaubild
+        erscheint die generische Kachel wie bei Musik (F22). Die Panel-
+        Wiedergabe aus 0.7.0–0.7.2 ist in 0.8.0 wieder entfernt – zum
+        Abspielen der Öffnen-Knopf (Medienprogramm der Wahl).
         """
         self._media_probe_async(path, uri, self._finish_video, video=True)
 
     def _finish_video(self, path, uri, tags, duration, image):
-        """
-        R1-Fortsetzung: Kachel und Infos aufbauen; F22: Wiedergabe im
-        Panel – gtksink liefert das einbettbare Video-Widget, darunter
-        die gleiche Player-Leiste wie bei Musik.
-        """
+        """R1-Fortsetzung: Kachel und Infos aufbauen."""
         # F22: Ohne eingebettetes Vorschaubild die generische Kachel
         # zeigen – Abspiel-Dreieck und Filmperforation statt Noten.
         if image is None:
@@ -2216,121 +2206,6 @@ class PreviewPanel(Gtk.Box):
             grid.attach(kl, 0, i, 1, 1)
             grid.attach(vl, 1, i, 1, 1)
         self._content.pack_start(grid, False, False, 0)
-
-        # --- Wiedergabe im Panel (F22) ---
-        self._playbin_set_uri(uri)
-        video_widget = None
-        try:
-            sink = Gst.ElementFactory.make("gtksink", "previewer-vsink")
-            if sink is not None:
-                self._playbin.set_property("video-sink", sink)
-                video_widget = sink.get_widget()
-                # Mindestgröße, damit das Widget die Spalte nicht
-                # sprengt – gtksink hält das Seitenverhältnis selbst.
-                video_widget.set_size_request(240, 135)
-        except Exception as exc:
-            dbg("gtksink nicht verfügbar (%s) – Eigenbau-Video-Widget"
-                % exc)
-        if video_widget is None:
-            # Ohne gtksink (Paket gstreamer1.0-gtk3): Eigenbau – der
-            # Playbin darf NIEMALS ohne eigenen Video-Sink laufen,
-            # sein Standard-Sink öffnet ein EIGENES Fenster
-            # (0.7.0-Fehlerfall).
-            try:
-                video_widget = self._video_widget_own()
-            except Exception as exc:
-                dbg("Eigenbau-Video-Ausgabe fehlgeschlagen: %s" % exc)
-        if video_widget is not None:
-            self._content.pack_start(video_widget, False, False, 0)
-        else:
-            self._media_silence_video()
-            self._hint("Kein Videofenster im Panel – Wiedergabe nur "
-                       "mit Ton.")
-        self._player_bar(duration)
-
-    def _video_widget_own(self):
-        """
-        Eigenbau-Video-Ausgabe (F22): Ohne gtksink (Paket
-        gstreamer1.0-gtk3) zeichnet eine DrawingArea die Frames selbst –
-        der Playbin bekommt einen appsink als Video-Ausgang
-        (videoconvert, Roh-Frames im Format RGBA), ein 30-fps-Timer
-        zieht dort das neueste Bild ab und stößt das Neuzeichnen an.
-        Läuft komplett ohne Zusatzpaket, auf X11 wie auf Wayland, und
-        der Playbin öffnet dadurch nie wieder ein eigenes Fenster.
-        """
-        vbin = Gst.parse_bin_from_description(
-            "videoconvert ! video/x-raw,format=RGBA ! appsink "
-            "name=frames sync=false max-buffers=2 drop=true", False)
-        if vbin is None:
-            return None
-        self._video_framesink = vbin.get_by_name("frames")
-        self._playbin.set_property("video-sink", vbin)
-        area = Gtk.DrawingArea()
-        area.set_size_request(240, 135)
-        area.set_hexpand(True)
-        area.connect("draw", self._on_video_draw)
-        self._video_area = area
-        self._video_fps_timer = GLib.timeout_add(33, self._video_tick)
-        return area
-
-    def _video_tick(self):
-        """Neuesten Frame aus dem appsink ziehen (F22, ca. 30 fps)."""
-        sink = self._video_framesink
-        if sink is None:
-            self._video_fps_timer = 0
-            return False
-        sample = sink.emit("try-pull-sample", 0)
-        if sample is not None:
-            try:
-                buf = sample.get_buffer()
-                st = sample.get_caps().get_structure(0)
-                w = int(st.get_value("width"))
-                h = int(st.get_value("height"))
-                ok, mi = buf.map(Gst.MapFlags.READ)
-                if ok and w > 0 and h > 0:
-                    # RGBA ist zeilenweise dicht gepackt (4 Byte pro
-                    # Pixel) – der Stride ist deshalb sicher w * 4.
-                    self._video_pixbuf = GdkPixbuf.Pixbuf.new_from_bytes(
-                        bytes(mi.data), GdkPixbuf.Colorspace.RGB,
-                        True, 8, w, h, w * 4)
-                    # 0.7.2: Das Neuzeichnen EXPLIZIT anstoßen – GTK
-                    # zeichnet eine DrawingArea sonst nur beim ersten
-                    # Mal (leer) und bei Expo-Events; der Ton lief,
-                    # das Bild blieb bei der Kachel.
-                    if self._video_area is not None:
-                        self._video_area.queue_draw()
-                if ok:
-                    buf.unmap(mi)
-            except Exception as exc:
-                dbg("Video-Frame nicht lesbar: %s" % exc)
-        return True  # weiterlaufen – in Pause/EOS kommt nur None
-
-    def _on_video_draw(self, widget, cr):
-        """Aktuellen Frame maßstabsgetreu zeichnen (F22)."""
-        pb = self._video_pixbuf
-        if pb is None:
-            return False
-        alloc = widget.get_allocation()
-        sw, sh = pb.get_width(), pb.get_height()
-        if sw <= 0 or sh <= 0 or alloc.width <= 1 or alloc.height <= 1:
-            return False
-        # Bild einpassen, Seitenverhältnis halten, zentriert setzen
-        scale = min(alloc.width / float(sw), alloc.height / float(sh))
-        dw, dh = sw * scale, sh * scale
-        cr.translate((alloc.width - dw) / 2.0, (alloc.height - dh) / 2.0)
-        cr.scale(scale, scale)
-        Gdk.cairo_set_source_pixbuf(cr, pb, 0.0, 0.0)
-        cr.paint()
-        return False
-
-    def _media_silence_video(self):
-        """Video-Ausgang abschalten: nur Ton, kein separates Fenster."""
-        try:
-            fakesink = Gst.ElementFactory.make("fakesink", None)
-            if fakesink is not None:
-                self._playbin.set_property("video-sink", fakesink)
-        except Exception:
-            pass
 
     def _render_office(self, path):
         """
@@ -2659,14 +2534,6 @@ class PreviewPanel(Gtk.Box):
         if self._progress_timer:
             GLib.source_remove(self._progress_timer)
             self._progress_timer = 0
-        # F22: Frame-Timer der Eigenbau-Video-Ausgabe ebenfalls
-        # aufräumen, letzten Frame freigeben.
-        if self._video_fps_timer:
-            GLib.source_remove(self._video_fps_timer)
-            self._video_fps_timer = 0
-        self._video_framesink = None
-        self._video_area = None
-        self._video_pixbuf = None
         if self._playbin is not None:
             try:
                 self._playbin.set_state(Gst.State.NULL)
@@ -2704,7 +2571,7 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.7.2"
+PREVIEWER_VERSION = "0.8.0"
 dbg("previewer_panel %s geladen (scrollbare PDFs, E-Books, "
-    "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix, Video im Panel)"
+    "Schrift-Wasserfall, Slider-Fix, Discoverer-Fix)"
     % PREVIEWER_VERSION)
