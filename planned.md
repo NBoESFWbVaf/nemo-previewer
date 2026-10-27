@@ -258,19 +258,20 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 ## Empfohlene Reihenfolge
 
 
-| Schritt | Inhalt                                                                                                                                            | Zielversion                                                           |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                                              | ✅ 0.4.2 (Patch)                                                       |
-| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                                                     | ✅ 0.4.3 (Patch)                                                       |
-| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                                                        | ✅ 0.5.0 (Minor)                                                       |
-| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                                                           | ✅ 0.5.1 (Patch)                                                       |
-| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                                              | ✅ 0.6.0 (Minor; in 0.7.0 wieder entfernt)                             |
-| 7       | F22 – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                                                                  | Kachel ✅ 0.7.0 (Minor); Wiedergabe 0.7.0–0.7.2, in 0.8.0 zurückgebaut |
-| 8       | F14 – PDF-Seitenanzeige beim Scrollen (vorgezogen)                                                                                                | ✅ 0.9.0 (Minor)                                                       |
-| 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                      | 0.10.0                                                                |
-| 10      | F4, F6–F11 nach Bedarf                                                                                                                            | später                                                                |
-| 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                         | später                                                                |
-| 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + Neuversuch F22-Wiedergabe | später                                                                |
+| Schritt | Inhalt                                                                                                                                                           | Zielversion                                                           |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                                                             | ✅ 0.4.2 (Patch)                                                       |
+| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                                                                    | ✅ 0.4.3 (Patch)                                                       |
+| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                                                                       | ✅ 0.5.0 (Minor)                                                       |
+| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                                                                          | ✅ 0.5.1 (Patch)                                                       |
+| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                                                             | ✅ 0.6.0 (Minor; in 0.7.0 wieder entfernt)                             |
+| 7       | F22 – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                                                                                 | Kachel ✅ 0.7.0 (Minor); Wiedergabe 0.7.0–0.7.2, in 0.8.0 zurückgebaut |
+| 8       | F14 – PDF-Seitenanzeige beim Scrollen (vorgezogen)                                                                                                               | ✅ 0.9.0 (Minor)                                                       |
+| 8a      | Sicherheits- + Redundanz-Audit (3 Lebenszyklus-Fixes: Crowbar-Race, Poll-Timer-Leck, Office-Kind-Watch; TextView-/Lese-/Tabellen-/Name-Helfer gegen Redundanzen) | ✅ 0.9.1 (Patch)                                                       |
+| 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                     | 0.10.0                                                                |
+| 10      | F4, F6–F11 nach Bedarf                                                                                                                                           | später                                                                |
+| 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                        | später                                                                |
+| 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + Neuversuch F22-Wiedergabe                | später                                                                |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
