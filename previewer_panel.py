@@ -4,12 +4,16 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.16.1 – F24-Feld-Fix: 0.16.0 maß die Randbreite
-mit Pango.Layout.get_pixel_width, das die GI-Bindung nicht anbietet
-(Testfeld: AttributeError bei jeder Text-Vorschau) – jetzt misst
-get_pixel_size(). Sonst unverändert: F24-Zeilennummern als
-Randzeichnung (nicht im kopierbaren Text), Schlüssel
-text_line_numbers, Rubrik „Textdateien“ im Toolbar-Modul.
+STAND: Version 0.16.2 – F24-Feld-Fix 2: Zwei Testfeld-Befunde.
+Erstens blieben die Nummern unsichtbar, obwohl der Platz da war:
+„draw“ ist ein RUN_LAST-Signal, der per connect() angemeldete
+Handler lief VOR der TextView-Standardzeichnung, die die Nummern
+übermalte – jetzt connect_after(). Zweitens wirkte das Re-Aktivieren
+des Einstellungs-Toggles nicht: _last_textish speicherte den
+linenumbers-Schalter, stand nach dem Deaktivieren also auf False –
+jetzt markiert der Merker TextView-basierte Vorschauen generell.
+Zeilennummern als Randzeichnung – nicht im kopierbaren Text –,
+Schlüssel text_line_numbers, Rubrik „Textdateien“ im Toolbar-Modul.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -137,8 +141,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Default laut Nutzer-Wunsch AN, umschaltbar im Einstellungs-
         # fenster (Rubrik „Textdateien“).
         self._conf_text_linenumbers = True
-        # Merker: Zeigt die AKTUELLE Vorschau Zeilennummern? (Damit
-        # der Einstellungs-Toggle nur Textvorschauen neu rendert,
+        # Merker: Ist die AKTUELLE Vorschau TextView-basiert, der
+        # Zeilennummern-Toggle also billig anwendbar? (Damit der
+        # Einstellungs-Toggle nur solche Vorschauen neu rendert,
         # statt z.B. Audio-Player oder Office-Konvertierung.)
         self._last_textish = False
         # Standardbreite beim Start: Default PANEL_WIDTH (300 px,
@@ -577,7 +582,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         scroll.set_shadow_type(Gtk.ShadowType.IN)
         scroll.add(view)
         self._content.pack_start(scroll, True, True, 0)
-        self._last_textish = linenumbers
+        # 0.16.2: Merker immer True setzen – „aktuelle Vorschau ist
+        # TextView-basiert (billig neu renderbar)“. Vorher stand hier
+        # der linenumbers-Schalter, deshalb wirkte der Einstellungs-
+        # Toggle nur beim Deaktivieren: Nach dem Abschalten war der
+        # Merker False und das erneute Aktivieren renderte nicht.
+        self._last_textish = True
         return view
 
     def _install_line_numbers(self, view, font=None):
@@ -608,7 +618,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         pw, _ph = probe.get_pixel_size()
         view.set_left_margin(pw + 16)
 
+        reported = [False]
+
         def _on_draw(view, cr):
+            # 0.16.2: Exceptions einmalig melden statt still pass –
+            # draw feuert oft, das Closure-Flag verhindert Log-Spam.
             try:
                 vis = view.get_visible_rect()
                 it, _top = view.get_line_at_y(vis.y)
@@ -630,11 +644,17 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                                       wy + 1, probe)
                     if not it.forward_line():
                         break
-            except Exception:
-                pass
+            except Exception as exc:
+                if not reported[0]:
+                    reported[0] = True
+                    dbg("Zeilennummern-Zeichnung fehlgeschlagen: %r" % exc)
             return False
 
-        view.connect("draw", _on_draw)
+        # 0.16.2: connect_after statt connect – "draw" ist ein
+        # RUN_LAST-Signal; der User-Handler liefe VOR der Standard-
+        # zeichnung, die den Hintergrund füllt und die Nummern
+        # übermalt (Testfeld: Platz war da, Nummern blieben unsichtbar).
+        view.connect_after("draw", _on_draw)
 
     # --- E-Books: EPUB, FictionBook, MOBI -----------------------------------
 
@@ -870,7 +890,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.16.1"
+PREVIEWER_VERSION = "0.16.2"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
