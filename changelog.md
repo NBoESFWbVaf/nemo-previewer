@@ -6,6 +6,26 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.10.2\] – 2026-10-27
+
+### Changed (Geändert)
+
+- Bild-Vorschau beschleunigt (R9 aus planned.md): Große Bilder  
+(typisch 20-MB-JPEGs mit 50–100 Megapixeln) blockierten bisher die  
+komplette UI, weil Lesen, Dekodieren und EXIF-Drehung synchron im  
+GTK-Main-Loop liefen. Zweistufig wie bei der Medien-Vorschau:  
+Sofort erscheint ein „Lade Bild"-Hinweis, die Dekodierung läuft in  
+einem Hintergrund-Thread, und die fertige Pixbuf wird per Idle-  
+Callback ins Panel gereicht (bei weitergewanderter Auswahl still  
+verworfen). Zusätzlich dekodiert der size-prepared-Deckel statt  
+stur auf 4096 px auf max(2 × Panelbreite, 1024) – die Dekodierung  
+wird damit um ein Vielfaches billiger, die Live-Skalierung beim  
+Trenner-Ziehen verliert nichts. Das Info-Label zeigt jetzt die  
+ORIGINALMAßE aus dem Datei-Kopf statt der gedeckelten Dekodier-  
+größe. Der Bomben-Schutz aus 0.9.2 bleibt vollständig erhalten;  
+schlägt der Thread-Weg ausnahmsweise fehl, greift der bisherige  
+synchrone Pfad als Rettungsanker
+
 ## \[0.10.1\] – 2026-10-27
 
 ### Fixed (Behoben)
