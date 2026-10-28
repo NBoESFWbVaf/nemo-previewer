@@ -4,13 +4,11 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.15.0 – Struktur-Release (F29): Die ActionBar am
-unteren Rand der Vorschauspalte (F19, statisch, Einstellungs-Knopf
-rechts), ihr CSS-Feintuning, das Tastenkürzel Strg+Alt+P sowie das
-gesamte Einstellungsfenster (F12: Sichtbarkeit beim Start,
-Standardbreite) sind aus dem Panel-Kern in dieses Mixin-Modul
-gezogen. Lange Kommentar- und Historienblöcke stehen als Marker in
-REFERENZ.md (F28).
+STAND: Version 0.16.0 – F24: Neue Rubrik „Textdateien“ im
+Einstellungsfenster (CheckButton „Zeilennummern anzeigen“, Default
+an, sofort gespeichert und live angewendet). Die ActionBar (F19),
+Strg+Alt+P und der 0.15.0-Stand (F29: Mixin-Modul) bleiben sonst
+unverändert.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -153,8 +151,27 @@ class PreviewToolbarMixin:
         fbox.pack_start(wrow, False, False, 0)
         box.pack_start(frame, False, False, 0)
 
+        # --- F24 (0.16.0): Rubrik „Textdateien“ --------------------------
+        # Nur die reine Text-Vorschau (Textdateien und endungslose
+        # Textdateien) – gerenderte Vorschauen (Markdown, E-Mail,
+        # E-Book, Font-Wasserfall) bleiben ohne Nummern.
+        tframe = Gtk.Frame(label="Textdateien")
+        tfbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        tfbox.set_border_width(8)
+        tframe.add(tfbox)
+        ln = Gtk.CheckButton(
+            label="Zeilennummern anzeigen (nicht kopierbar)")
+        ln.set_tooltip_text(
+            "Zeilennummern am linken Rand der Text-Vorschau. Die "
+            "Nummern sind eine Randzeichnung außerhalb des Texts – "
+            "ausgewählt und kopiert wird nur der Text selbst.")
+        ln.set_active(self._conf_text_linenumbers)
+        ln.connect("toggled", self._on_linenumbers_toggled)
+        tfbox.pack_start(ln, False, False, 0)
+        box.pack_start(tframe, False, False, 0)
+
         hint = Gtk.Label(
-            label="Weitere Einstellungen (Panelbreite, PDF-Seitenzahl,\n"
+            label="Weitere Einstellungen (PDF-Seitenzahl,\n"
                   "Wasserfall-Anzeige …) folgen hier in späteren "
                   "Versionen.")
         hint.get_style_context().add_class("dim-label")
@@ -177,6 +194,19 @@ class PreviewToolbarMixin:
         # Sofort speichern – kein separater Speichern-Knopf nötig.
         self._conf_show_at_start = chk.get_active()
         self._config_save()
+
+    def _on_linenumbers_toggled(self, chk):
+        """
+        F24 (0.16.0): Zeilennummern sofort speichern und live
+        anwenden. Nur wenn die AKTUELLE Vorschau eine reine Text-
+        Vorschau ist, wird sie neu aufgebaut (der Merker
+        _last_textish wird im Kern gesetzt) – PDF, Office, Audio
+        und Co. bleiben unberührt und werden nicht neu gerendert.
+        """
+        self._conf_text_linenumbers = chk.get_active()
+        self._config_save()
+        if self._last_textish and self._path:
+            self._render()
 
     def _on_start_width_changed(self, spin):
         """
@@ -221,7 +251,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.15.0"
+PREVIEWER_VERSION = "0.16.0"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)
