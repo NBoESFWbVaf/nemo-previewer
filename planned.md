@@ -1,4 +1,4 @@
-# Nemo Previewer – Planung (planned.md)
+# Nemo Previewer – Planung ([planned.md](http://planned.md))
 
 Arbeitsdatei zur systematischen Ablage. Stand der Analyse: **Version 0.4.1**,  
 2026-10-27. Abgearbeitetes wird abgehakt; erledigte Punkte wandern mit der  
@@ -493,7 +493,11 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   „Zeilennummern anzeigen", Default AN, sofort gespeichert und  
   live auf die aktuelle Text-Vorschau angewendet); gilt für  
   Textdateien und endungslose Textdateien, nicht für Markdown,  
-  EML, E-Books oder den Font-Wasserfall.
+  EML, E-Books oder den Font-Wasserfall.  
+  ✅ 0.16.1 – Feld-Fix nach Testfeld 0.16.0: Die GI-Bindung von  
+  Pango.Layout kennt get\_pixel\_width() nicht (AttributeError,  
+  Text-Vorschau blieb leer); die Randbreiten-Messung läuft jetzt  
+  über get\_pixel\_size().
 - [ ] **F25 – Zeilenabstand einstellen** (Text-Toolbar, F19)
 
   Knopf „Zeilenabstand" in der Text-Toolbar, z. B. Durchschalten  
