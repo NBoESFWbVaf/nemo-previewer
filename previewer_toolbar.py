@@ -4,11 +4,11 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.16.1 – F24: Neue Rubrik „Textdateien“ im
-Einstellungsfenster (CheckButton „Zeilennummern anzeigen“, Default
-an, sofort gespeichert und live angewendet). Die ActionBar (F19),
-Strg+Alt+P und der 0.15.0-Stand (F29: Mixin-Modul) bleiben sonst
-unverändert.
+STAND: Version 0.16.2 – F24-Feld-Fix 2, hier nur Präzisierung des
+Toggle-Docstrings: Neu aufgebaut werden TextView-basierte Vorschauen
+generell (nicht nur „reine Textvorschau mit Nummern“), damit der
+Toggle in beide Richtungen wirkt. Die ActionBar (F19), Strg+Alt+P
+und der 0.15.0-Stand (F29: Mixin-Modul) bleiben sonst unverändert.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -198,10 +198,13 @@ class PreviewToolbarMixin:
     def _on_linenumbers_toggled(self, chk):
         """
         F24 (0.16.0): Zeilennummern sofort speichern und live
-        anwenden. Nur wenn die AKTUELLE Vorschau eine reine Text-
-        Vorschau ist, wird sie neu aufgebaut (der Merker
-        _last_textish wird im Kern gesetzt) – PDF, Office, Audio
-        und Co. bleiben unberührt und werden nicht neu gerendert.
+        anwenden. 0.16.2: Neu aufgebaut wird jede TextView-basierte
+        Vorschau (Text, Markdown, EML, E-Book, Font – der Merker
+        _last_textish steht im Kern jetzt generell auf True, wenn
+        die aktuelle Vorschau TextView-basiert ist), damit der
+        Toggle in BEIDE Richtungen wirkt – auch beim Re-Aktivieren.
+        PDF, Office, Audio, Video, Bild und Ordner bleiben
+        unberührt und werden nicht neu gerendert.
         """
         self._conf_text_linenumbers = chk.get_active()
         self._config_save()
@@ -251,7 +254,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.16.1"
+PREVIEWER_VERSION = "0.16.2"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)
