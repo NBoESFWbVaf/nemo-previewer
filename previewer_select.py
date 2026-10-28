@@ -4,9 +4,8 @@
 Previewer – Auswahl-Modul (previewer_select.py)
 ===============================================
 
-STAND: Version 0.10.0 – aktuelle Fassung (keine Änderungen in dieser
-Datei – Wildcall-Schutz und gemeinsame Helfer aus 0.9.1/0.9.2 bleiben;
-nur Versions-Sync zum F23-Feature-Release).
+STAND: Version 0.10.1 – aktuelle Fassung (keine Änderungen in dieser
+Datei – nur Versions-Sync zum B6-Bugfix-Release).
 
 Erkennt die in Nemo markierten Dateien – mehrstufig und defensiv:
 
@@ -1280,5 +1279,5 @@ class SelectionReader:
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.10.0"
+PREVIEWER_VERSION = "0.10.1"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)
