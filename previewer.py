@@ -4,12 +4,15 @@
 Previewer
 =========
 
-STAND: Version 0.14.1 – aktuelle Fassung (K4-Feld-Fix-Release:
-keine Änderungen am Einstieg selbst – nur Versions-Sync).
-Dies ist die EINSTIEGS-Datei der
-vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
-previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
-Ordner liegen und die gleiche Version tragen.
+STAND: Version 0.15.0 – Struktur-Release (F28/F29/F31): Die Renderer
+für Medien, Dokumente und Text sowie die Toolbar sind als eigene
+Mixin-Module ausgelagert; der Einstieg prüft jetzt alle acht Module
+auf identische Version.
+Dies ist die EINSTIEGS-Datei der acht zusammengehörigen Dateien
+(previewer.py, previewer_panel.py, previewer_select.py,
+previewer_util.py, previewer_toolbar.py, previewer_render_media.py,
+previewer_render_docs.py, previewer_render_text.py) – alle müssen im
+gleichen Ordner liegen und die gleiche Version tragen.
 Projekt-Repository: https://github.com/NBoESFWbVaf/nemo-previewer
 (Versionsverlauf: changelog.md im Repository).
 
@@ -113,15 +116,21 @@ from previewer_select import (
 )
 from previewer_panel import PreviewPanel
 
-# PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
+# PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.14.1"
+PREVIEWER_VERSION = "0.15.0"
 import previewer_util
 import previewer_select
 import previewer_panel
+import previewer_toolbar
+import previewer_render_media
+import previewer_render_docs
+import previewer_render_text
 
-for _mod in (previewer_util, previewer_select, previewer_panel):
+for _mod in (previewer_util, previewer_select, previewer_panel,
+             previewer_toolbar, previewer_render_media,
+             previewer_render_docs, previewer_render_text):
     _ver = getattr(_mod, "PREVIEWER_VERSION", None)
     if _ver != PREVIEWER_VERSION:
         dbg("ACHTUNG: %s.py hat Version %r, erwartet wird %r – Datei im "
@@ -612,13 +621,7 @@ Provider = type("NemoPreviewerProvider", tuple(_bases), _provider_dict)
 
 
 # ------------------------- Gtk-Protokoll-Filter ------------------------------
-#
-# Beim Ordnerwechsel baut Nemo den alten Slot ab. GTK druckt dabei
-# teilweise die Meldung
-#   gtk_container_foreach: assertion 'GTK_IS_CONTAINER (container)' failed
-# für Widgets, die bereits halb zerstört sind – auch wenn fremder Code
-# (wie diese Extension) den Baum nur liest. Genau DIESE eine Meldung
-# wird unterdrückt; alle anderen Gtk-Meldungen bleiben sichtbar.
+# → REF ENT-FILTER-1
 
 _GTK_FOREACH_MSG = "gtk_container_foreach: assertion 'GTK_IS_CONTAINER"
 
