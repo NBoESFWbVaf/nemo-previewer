@@ -6,6 +6,28 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.10.3\] – 2026-10-28
+
+### Fixed (Behoben)
+
+- R9-Regression aus 0.10.2 (B7): Im Feldtest erschienen gar keine  
+Bild-Vorschauen mehr. Ursache: 0.10.2 dekodierte die Bilder im  
+Hintergrund-Thread und erzeugte damit Gdk-Objekte (PixbufLoader)  
+außerhalb des GTK-Threads – gegen das bewährte R1-Muster der  
+Medien-Vorschau („keine Gdk-Objekte im Worker"); der Worker  
+scheiterte still, ohne Traceback oder Fehlerhinweis, und der  
+„Lade Bild"-Zettel blieb stehen. Jetzt liest der Hintergrund-  
+Thread nur noch die Datei (reines Python-I/O), Dekodierung,  
+EXIF-Drehung und Skalierung laufen zurück im GTK-Thread –  
+dieselbe Disziplin wie bei den Medien-Covern. Der unnötige  
+GI-Warm-up für die Bild-Dekodierung (er erzeugte einen  
+PixbufLoader, den niemand schloss – Quelle der GdkPixbuf-Warnung  
+„finalized without calling gdk\_pixbuf\_loader\_close()" im  
+Terminal-Log) entfiel komplett. Alle Beschleunigungs-Hebel aus  
+0.10.2 bleiben: „Lade Bild"-Hinweis sofort, Decode-Deckel  
+max(2 × Panelbreite, 1024), Originalmaße im Info-Label,  
+Stale-Verwurf bei schnellem Weiterklicken
+
 ## \[0.10.2\] – 2026-10-27
 
 ### Changed (Geändert)
