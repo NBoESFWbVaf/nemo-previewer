@@ -4,8 +4,9 @@
 Previewer
 =========
 
-STAND: Version 0.10.2 – aktuelle Fassung (R9: Bild-Vorschau asynchron
-im Panel, Dekodierung auf Anzeigegröße; Einstieg selbst unverändert).
+STAND: Version 0.10.3 – aktuelle Fassung (R9-Feld-Fix: Bild-Lesen im
+Hintergrund, Dekodierung zurück im GTK-Thread; Einstieg selbst
+unverändert).
 Dies ist die EINSTIEGS-Datei der
 vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
 previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
@@ -116,7 +117,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.10.2"
+PREVIEWER_VERSION = "0.10.3"
 import previewer_util
 import previewer_select
 import previewer_panel
