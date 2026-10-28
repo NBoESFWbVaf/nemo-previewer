@@ -4,10 +4,11 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.10.2 – aktuelle Fassung (R9: große Bilder laden
-asynchron im Hintergrund-Thread und dekodieren direkt auf Anzeige-
-größe – kein UI-Einfrieren mehr bei 20-MB-Fotos; B6-Systemschrift
-und F23-Text-Sniffing bleiben).
+STAND: Version 0.10.3 – aktuelle Fassung (R9-Feld-Fix aus 0.10.2: der
+Hintergrund-Thread liest nur noch die Datei, Dekodierung, EXIF-Drehung
+und Skalierung laufen zurück im GTK-Thread – Gdk-Objekte im Worker
+scheiterten im Feld still; B6-Systemschrift, F23-Sniffing und sämtliche
+Härtungs-Deckel bleiben).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -125,37 +126,6 @@ except Exception:
 # Prozess-Zustand für die Medien-Erkundung (Konvention: Modul-Dict statt
 # global): wurde das GI-Warm-up bereits erledigt?
 _MEDIA_STATE = {"warmed": False}
-
-# R9: Bild-Dekodierung im Hintergrund-Thread (gleiche Konvention)
-_IMAGE_STATE = {"warmed": False}
-
-
-def _image_gi_warmup():
-    """
-    R9-Härtung: Erstkontakt mit den GI-Klassen der Bild-Dekodierung
-    einmalig im GTK-THREAD (gleiche Begründung wie _media_gi_warmup,
-    R1: PyGObject erzeugt Method-Tabellen erst beim ersten Attribut-
-    Zugriff). Der Dekodier-Worker in _render_image findet dann
-    stabile Verhältnisse vor. Ein fehlendes Symbol darf hier nie
-    werfen – der Warm-up schweigt still und der synchrone
-    Rettungsanker bleibt ohnehin stehen.
-    """
-    if _IMAGE_STATE["warmed"]:
-        return
-    _IMAGE_STATE["warmed"] = True
-    try:
-        loader = GdkPixbuf.PixbufLoader()
-        loader.connect
-        loader.set_size
-        loader.write
-        loader.close
-        loader.get_pixbuf
-        GdkPixbuf.Pixbuf.apply_embedded_orientation
-        GdkPixbuf.Pixbuf.scale_simple
-        GdkPixbuf.Pixbuf.get_width
-        GdkPixbuf.Pixbuf.get_height
-    except Exception:
-        pass
 
 
 def _media_gi_warmup():
@@ -1381,78 +1351,68 @@ class PreviewPanel(Gtk.Box):
 
     def _render_image(self, path):
         """
-        R9 (0.10.2): Große Bilder (typisch 20-MB-JPEGs mit 50–100
-        Megapixeln) blockierten den GTK-Main-Loop – Lesen, Dekodieren
-        und EXIF-Drehung liefen synchron in einem Rutsch bei der
-        Auswahl, die UI stand still. Zweistufig wie bei den Medien (R1):
-        (1) sofort Hinweis zeigen, die UI bleibt bedienbar;
-        (2) Lesen + Dekodieren + EXIF-Drehung im Daemon-Thread, die
-        fertige Pixbuf wird per GLib.idle_add zurückgereicht und bei
-        weitergewanderter Auswahl still verworfen.
-        Zusätzlicher Geschwindigkeitshebel: Der Dekodier-Deckel liegt
-        statt stur 4096 px bei max(2 × Panelbreite, 1024) – die
-        Dekodierung wird damit um ein Vielfaches billiger, und die
-        Live-Skalierung verliert nichts (die Quelle bleibt breiter
-        als jede Panelbreite, wie bei PDF-R2 mit 2-facher Breite).
-        Der Bomben-Schutz aus 0.9.2 bleibt vollständig erhalten.
-        Schlägt der Thread-Start ausnahmsweise fehl, läuft der alte
-        synchrone Weg als Rettungsanker.
+        R9 (0.10.2) mit Feld-Korrektur (0.10.3): Große Bilder
+        (typisch 20-MB-JPEGs mit 50–100 Megapixeln) blockierten den
+        GTK-Main-Loop – Lesen, Dekodieren und EXIF-Drehung liefen
+        synchron in einem Rutsch bei der Auswahl, die UI stand
+        still. Zweistufig wie bei den Medien (R1): (1) sofort
+        Hinweis zeigen, die UI bleibt bedienbar; (2) der Daemon-
+        Thread liest NUR die Datei (reines Python-I/O) und reicht
+        die Bytes per GLib.idle_add zurück. Dekodierung, EXIF-
+        Drehung und Skalierung laufen zurück im GTK-Thread – der
+        Feldtest von 0.10.2 zeigte: Gdk-Objekte (PixbufLoader) im
+        Worker scheitern still, das R1-Muster „keine Gdk-Objekte
+        im Worker" gilt auch hier.
+        Geschwindigkeitshebel bleibt der Decode-Deckel
+        max(2 × Panelbreite, 1024): Die Dekodierung wird um ein
+        Vielfaches billiger, die Live-Skalierung verliert nichts
+        (die Quelle bleibt breiter als jede Panelbreite, wie bei
+        PDF-R2 mit 2-facher Breite). Der Bomben-Schutz aus 0.9.2
+        bleibt vollständig erhalten. Schlägt der Thread-Start
+        ausnahmsweise fehl, läuft der alte synchrone Weg als
+        Rettungsanker.
         """
         self._hint("Lade Bild – einen Moment …")
-        _image_gi_warmup()
         try:
             target_w = max(1024, self._preview_width() * 2)
         except Exception:
             target_w = 1024
 
         def work():
-            pb, err, orig = self._image_load_data(path, target_w)
-            GLib.idle_add(self._image_probe_done, path, pb, err, orig)
+            data, err = None, None
+            try:
+                with open(path, "rb") as fh:
+                    data = fh.read(_IMAGE_FILE_CAP)
+            except Exception as exc:
+                data, err = None, exc
+            try:
+                GLib.idle_add(self._image_probe_done,
+                              path, target_w, data, err)
+            except Exception as exc:
+                dbg("Bild-Rückgabe fehlgeschlagen (%s): %s"
+                    % (path, exc))
 
         try:
             threading.Thread(target=work, daemon=True).start()
         except Exception:
-            # Rettungsanker: Thread nicht startbar → synchron wie vorher.
-            pb, err, orig = self._image_load_data(path, target_w)
-            self._image_probe_done(path, pb, err, orig)
+            # Rettungsanker: Thread nicht startbar → synchron lesen,
+            # die Dekodierung übernimmt _image_probe_done direkt.
+            data, err = None, None
+            try:
+                with open(path, "rb") as fh:
+                    data = fh.read(_IMAGE_FILE_CAP)
+            except Exception as exc:
+                data, err = None, exc
+            self._image_probe_done(path, target_w, data, err)
 
-    def _image_load_data(self, path, target_w):
+    def _image_probe_done(self, path, target_w, data, err):
         """
-        R9: Lesen, Dekodieren (Decode-Deckel auf target_w) und EXIF-
-        Drehung – reine Datenarbeit ohne GTK-Widgets; darf im Daemon-
-        Thread laufen (GI-Klassen sind per _image_gi_warmup im
-        GTK-Thread aufgewärmt). Rückgabe (pb, err, orig): orig trägt
-        die Originalmaße aus size-prepared (vor der Deckelung).
-        """
-        pb, err, orig = None, None, {}
-        try:
-            with open(path, "rb") as fh:
-                data = fh.read(_IMAGE_FILE_CAP)
-            # Decode-Deckel (0.9.2) bleibt: set_size verkleinert zur
-            # DEKODIERzeit – Bomben-Bilder kosten nur die gedeckelte
-            # Fläche.
-            pb = _pixbuf_from_bytes(
-                data, max_w=target_w, max_h=2 * MAX_IMAGE_HEIGHT,
-                orig=orig)
-            if pb is None:
-                err = "keine Pixbuf erzeugt"
-            else:
-                # EXIF-Ausrichtung anwenden: Fotos, die die Drehung nur
-                # im Orientation-Tag tragen (typisch bei Smartphone-
-                # Kameras), würden sonst quer oder auf dem Kopf liegen.
-                try:
-                    pb = pb.apply_embedded_orientation()
-                except Exception:
-                    pass
-        except Exception as exc:
-            pb, err = None, exc
-        return pb, err, orig
-
-    def _image_probe_done(self, path, pb, err, orig):
-        """
-        R9: Rückkehr der Bild-Dekodierung in den GTK-Main-Loop. Bei
-        weitergewanderter Auswahl wird das Ergebnis still verworfen.
-        Schlägt die asynchrone Dekodierung fehl, greift der synchrone
+        R9-Rückkehr (0.10.3): Dekodierung der im Worker gelesenen
+        Bytes HIER im GTK-Thread (gleiche Disziplin wie bei den
+        Medien-Covern in _media_probe_done – Gdk-Objekte entstehen
+        nur im GTK-Thread). Decode-Deckel target_w; bei weiterge-
+        wanderter Auswahl wird das Ergebnis still verworfen.
+        Schlägt die Dekodierung fehl, greift der synchrone
         at_scale-Fallback (begrenzt die Dekodierung intern und ist
         damit ebenfalls bombensicher); erst wenn auch der scheitert,
         erscheint der generische Fehlerhinweis.
@@ -1460,6 +1420,18 @@ class PreviewPanel(Gtk.Box):
         if self._path != path:
             return False      # Auswahl hat inzwischen gewechselt
         self._clear_content()
+        pb, orig = None, {}
+        if data is not None:
+            try:
+                # Decode-Deckel (0.9.2) bleibt: set_size verkleinert
+                # zur DEKODIERzeit – Bomben-Bilder kosten nur die
+                # gedeckelte Fläche.
+                pb = _pixbuf_from_bytes(
+                    data, max_w=target_w, max_h=2 * MAX_IMAGE_HEIGHT,
+                    orig=orig)
+            except Exception as exc:
+                dbg("Bild-Dekodierung fehlgeschlagen (%s): %s"
+                    % (path, exc))
         if pb is None:
             try:
                 pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
@@ -1470,6 +1442,13 @@ class PreviewPanel(Gtk.Box):
             self._hint("Konnte Bild nicht laden: %s" % (err or "unbekannt"))
             self._render_generic()
             return False
+        # EXIF-Ausrichtung anwenden: Fotos, die die Drehung nur im
+        # Orientation-Tag tragen (typisch bei Smartphone-Kameras),
+        # würden sonst quer oder auf dem Kopf liegen.
+        try:
+            pb = pb.apply_embedded_orientation()
+        except Exception:
+            pass
         if pb.get_width() > 4096 or pb.get_height() > MAX_IMAGE_HEIGHT:
             pb = self._scale_pixbuf(pb, 4096, MAX_IMAGE_HEIGHT)
         scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
@@ -2760,7 +2739,7 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.10.2"
-dbg("previewer_panel %s geladen (R9: große Bilder asynchron + Deko-"
-    "dierung auf Anzeigegröße; B6/F23 und Härtungs-Deckel bleiben)"
+PREVIEWER_VERSION = "0.10.3"
+dbg("previewer_panel %s geladen (R9-Fix: Bild-Lesen im Hintergrund, "
+    "Dekodierung im GTK-Thread; B6/F23 und Härtungs-Deckel bleiben)"
     % PREVIEWER_VERSION)
