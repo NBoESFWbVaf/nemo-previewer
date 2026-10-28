@@ -6,6 +6,36 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.15.0\] – 2026-10-28
+
+### Changed (Geändert)
+
+- Struktur-Release (F28/F29/F31): Die Extension besteht aus acht  
+Modulen – der Panel-Kern (previewer\_panel.py) bleibt das Herz,  
+aber die Renderer für Medien (previewer\_render\_media.py),  
+Dokumente (previewer\_render\_docs.py) und Text  
+(previewer\_render\_text.py) sind als Mixin-Klassen ausgelagert,  
+ebenso die Toolbar samt Einstellungsfenster  
+(previewer\_toolbar.py). Zwei gemeinsame Basis-Helfer  
+(\_pixbuf\_from\_bytes, \_zf\_read\_capped) leben jetzt in  
+previewer\_util.py, wo sie allen Renderern zur Verfügung stehen
+- Der Einstieg (previewer.py) prüft beim Laden jetzt alle acht  
+Module auf identische PREVIEWER\_VERSION – liegt im Extension-  
+Ordner noch eine alte Fassung, warnt das Terminal sofort
+- F29: Die Toolbar ist – wie vom Nutzer angefragt als „sinnvoll  
+erachtet: umgesetzt“ – ein eigenes Mixin-Modul; die ActionBar,  
+das Einstellungsfenster (F12) und das Tastenkürzel Strg+Alt+P  
+verhalten sich unverändert
+- F28: Lange Kommentar- und Historienblöcke sind aus dem Code in  
+die neue REFERENZ.md ausgelagert; der Code trägt an ihrer Stelle  
+Marker der Form `# → REF PAN-R9-1` (Modul-Kürzel + Thema +  
+Nummer). REFERENZ.md ist ein lebendes Projektdokument im  
+Repository und wird bewusst NICHT mitdeployt – das Deployment  
+kopiert nur die \*.py-Dateien
+- Verhalten unverändert: Es gibt keine neuen Features und keinen  
+Bugfix – alle Renderer, Deckel (0.9.2), Thread-Disziplinen  
+(R1/B7) und Einstellungen (F12) wirken exakt wie in 0.14.1
+
 ## \[0.14.1\] – 2026-10-28
 
 ### Fixed (Behoben)
