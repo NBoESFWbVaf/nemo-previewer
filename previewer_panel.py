@@ -4,9 +4,10 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.10.1 – aktuelle Fassung (B6: Markdown nutzt die
-System-Schriftgröße statt hartcodierter 9 pt; F23-Text-Sniffing und
-alle Härtungs-Deckel aus 0.9.2/0.10.0 bleiben).
+STAND: Version 0.10.2 – aktuelle Fassung (R9: große Bilder laden
+asynchron im Hintergrund-Thread und dekodieren direkt auf Anzeige-
+größe – kein UI-Einfrieren mehr bei 20-MB-Fotos; B6-Systemschrift
+und F23-Text-Sniffing bleiben).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -124,6 +125,37 @@ except Exception:
 # Prozess-Zustand für die Medien-Erkundung (Konvention: Modul-Dict statt
 # global): wurde das GI-Warm-up bereits erledigt?
 _MEDIA_STATE = {"warmed": False}
+
+# R9: Bild-Dekodierung im Hintergrund-Thread (gleiche Konvention)
+_IMAGE_STATE = {"warmed": False}
+
+
+def _image_gi_warmup():
+    """
+    R9-Härtung: Erstkontakt mit den GI-Klassen der Bild-Dekodierung
+    einmalig im GTK-THREAD (gleiche Begründung wie _media_gi_warmup,
+    R1: PyGObject erzeugt Method-Tabellen erst beim ersten Attribut-
+    Zugriff). Der Dekodier-Worker in _render_image findet dann
+    stabile Verhältnisse vor. Ein fehlendes Symbol darf hier nie
+    werfen – der Warm-up schweigt still und der synchrone
+    Rettungsanker bleibt ohnehin stehen.
+    """
+    if _IMAGE_STATE["warmed"]:
+        return
+    _IMAGE_STATE["warmed"] = True
+    try:
+        loader = GdkPixbuf.PixbufLoader()
+        loader.connect
+        loader.set_size
+        loader.write
+        loader.close
+        loader.get_pixbuf
+        GdkPixbuf.Pixbuf.apply_embedded_orientation
+        GdkPixbuf.Pixbuf.scale_simple
+        GdkPixbuf.Pixbuf.get_width
+        GdkPixbuf.Pixbuf.get_height
+    except Exception:
+        pass
 
 
 def _media_gi_warmup():
@@ -359,7 +391,7 @@ def _xml_local(tag):
     return tag.rsplit("}", 1)[-1]
 
 
-def _pixbuf_from_bytes(data, max_w=4096, max_h=4096):
+def _pixbuf_from_bytes(data, max_w=4096, max_h=4096, orig=None):
     """
     Bytes zu einer Pixbuf dekodieren – GdkPixbuf riecht das Format –
     mit Decode-Deckel (0.9.2): Das size-prepared-Signal feuert, BEVOR
@@ -368,10 +400,19 @@ def _pixbuf_from_bytes(data, max_w=4096, max_h=4096):
     (PNG-Bombe), kostet damit nur die gedeckelte Fläche statt
     Gigabytes. Bei Dekodierfehlern wird wie bisher geworfen (der
     jeweilige Aufrufer fängt).
+    orig: optionales Dict – wird mit den VOR der Deckelung gemeldeten
+    Originalmaßen gefüllt (R9): size-prepared meldet sie, bevor
+    set_size verkleinert, sodass die Bild-Vorschau die echten Maße
+    anzeigen kann, obwohl gedeckelt dekodiert wird.
     """
     loader = GdkPixbuf.PixbufLoader()
 
     def _on_size(loader, w, h):
+        if orig is not None:
+            try:
+                orig["w"], orig["h"] = w, h
+            except Exception:
+                pass
         if w > max_w or h > max_h:
             f = min(max_w / max(w, 1), max_h / max(h, 1))
             try:
@@ -1339,50 +1380,116 @@ class PreviewPanel(Gtk.Box):
             pass
 
     def _render_image(self, path):
-        # Quelle laden (Riesenbilder werden auf eine sinnvolle Deckelung
-        # verkleinert); die ANZEIGE regelt die Live-Skalierung über die
-        # Panelbreite.
-        # 0.9.2: Primärroute ist der BEWACHTE Loader aus _pixbuf_from_
-        # bytes – Pixbuf dekodiert sonst die VOLLE Auflösung, bevor die
-        # Deckelung unten greift, und ein PNG, das nur im Header
-        # 30000×30000 deklariert, alloziert ~3,6 GB (OOM-Absturz von
-        # Nemo). Der size-prepared-Deckel verkleinert zur DEKODIERzeit.
-        # Der Rohdaten-Deckel begrenzt zusätzlich Monstrum-Dateien.
+        """
+        R9 (0.10.2): Große Bilder (typisch 20-MB-JPEGs mit 50–100
+        Megapixeln) blockierten den GTK-Main-Loop – Lesen, Dekodieren
+        und EXIF-Drehung liefen synchron in einem Rutsch bei der
+        Auswahl, die UI stand still. Zweistufig wie bei den Medien (R1):
+        (1) sofort Hinweis zeigen, die UI bleibt bedienbar;
+        (2) Lesen + Dekodieren + EXIF-Drehung im Daemon-Thread, die
+        fertige Pixbuf wird per GLib.idle_add zurückgereicht und bei
+        weitergewanderter Auswahl still verworfen.
+        Zusätzlicher Geschwindigkeitshebel: Der Dekodier-Deckel liegt
+        statt stur 4096 px bei max(2 × Panelbreite, 1024) – die
+        Dekodierung wird damit um ein Vielfaches billiger, und die
+        Live-Skalierung verliert nichts (die Quelle bleibt breiter
+        als jede Panelbreite, wie bei PDF-R2 mit 2-facher Breite).
+        Der Bomben-Schutz aus 0.9.2 bleibt vollständig erhalten.
+        Schlägt der Thread-Start ausnahmsweise fehl, läuft der alte
+        synchrone Weg als Rettungsanker.
+        """
+        self._hint("Lade Bild – einen Moment …")
+        _image_gi_warmup()
+        try:
+            target_w = max(1024, self._preview_width() * 2)
+        except Exception:
+            target_w = 1024
+
+        def work():
+            pb, err, orig = self._image_load_data(path, target_w)
+            GLib.idle_add(self._image_probe_done, path, pb, err, orig)
+
+        try:
+            threading.Thread(target=work, daemon=True).start()
+        except Exception:
+            # Rettungsanker: Thread nicht startbar → synchron wie vorher.
+            pb, err, orig = self._image_load_data(path, target_w)
+            self._image_probe_done(path, pb, err, orig)
+
+    def _image_load_data(self, path, target_w):
+        """
+        R9: Lesen, Dekodieren (Decode-Deckel auf target_w) und EXIF-
+        Drehung – reine Datenarbeit ohne GTK-Widgets; darf im Daemon-
+        Thread laufen (GI-Klassen sind per _image_gi_warmup im
+        GTK-Thread aufgewärmt). Rückgabe (pb, err, orig): orig trägt
+        die Originalmaße aus size-prepared (vor der Deckelung).
+        """
+        pb, err, orig = None, None, {}
         try:
             with open(path, "rb") as fh:
                 data = fh.read(_IMAGE_FILE_CAP)
-            pb = _pixbuf_from_bytes(data)
-        except Exception:
-            # Fallback: at_scale begrenzt die Dekodierung bereits intern
-            # und ist damit ebenfalls bombensicher.
+            # Decode-Deckel (0.9.2) bleibt: set_size verkleinert zur
+            # DEKODIERzeit – Bomben-Bilder kosten nur die gedeckelte
+            # Fläche.
+            pb = _pixbuf_from_bytes(
+                data, max_w=target_w, max_h=2 * MAX_IMAGE_HEIGHT,
+                orig=orig)
+            if pb is None:
+                err = "keine Pixbuf erzeugt"
+            else:
+                # EXIF-Ausrichtung anwenden: Fotos, die die Drehung nur
+                # im Orientation-Tag tragen (typisch bei Smartphone-
+                # Kameras), würden sonst quer oder auf dem Kopf liegen.
+                try:
+                    pb = pb.apply_embedded_orientation()
+                except Exception:
+                    pass
+        except Exception as exc:
+            pb, err = None, exc
+        return pb, err, orig
+
+    def _image_probe_done(self, path, pb, err, orig):
+        """
+        R9: Rückkehr der Bild-Dekodierung in den GTK-Main-Loop. Bei
+        weitergewanderter Auswahl wird das Ergebnis still verworfen.
+        Schlägt die asynchrone Dekodierung fehl, greift der synchrone
+        at_scale-Fallback (begrenzt die Dekodierung intern und ist
+        damit ebenfalls bombensicher); erst wenn auch der scheitert,
+        erscheint der generische Fehlerhinweis.
+        """
+        if self._path != path:
+            return False      # Auswahl hat inzwischen gewechselt
+        self._clear_content()
+        if pb is None:
             try:
                 pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
                     path, 4096, 4096, True)
-            except Exception as exc:
-                self._hint("Konnte Bild nicht laden: %s" % exc)
-                self._render_generic()
-                return
-        # EXIF-Ausrichtung anwenden: Fotos, die die Drehung nur im
-        # Orientation-Tag tragen (typisch bei Smartphone-Kameras),
-        # würden sonst quer oder auf dem Kopf liegen.
-        try:
-            pb = pb.apply_embedded_orientation()
-        except Exception:
-            pass
+            except Exception:
+                pb = None
+        if pb is None:
+            self._hint("Konnte Bild nicht laden: %s" % (err or "unbekannt"))
+            self._render_generic()
+            return False
         if pb.get_width() > 4096 or pb.get_height() > MAX_IMAGE_HEIGHT:
             pb = self._scale_pixbuf(pb, 4096, MAX_IMAGE_HEIGHT)
         scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
         self._content.pack_start(scroll, True, True, 0)
         try:
-            # Maße des orientierten Bildes (die ANZEIGE ist der Maßstab,
-            # nicht die rohen Pixeldaten der Datei)
-            info = Gtk.Label(label="%d × %d px"
-                             % (pb.get_width(), pb.get_height()))
+            # Maße: die ORIGINALMAßE aus dem Datei-Kopf (size-prepared,
+            # vor der Deckelung), nicht die gedeckelte Dekodiergröße –
+            # sonst hieße ein 50-MP-Foto plötzlich „1024 px". Das
+            # Hoch-/Querformat folgt dem orientierten Bild (EXIF).
+            w = orig.get("w", pb.get_width())
+            h = orig.get("h", pb.get_height())
+            if (w > h) != (pb.get_width() > pb.get_height()):
+                w, h = h, w
+            info = Gtk.Label(label="%d × %d px" % (w, h))
             info.get_style_context().add_class("dim-label")
             info.set_halign(Gtk.Align.START)
             self._content.pack_start(info, False, False, 0)
         except Exception:
             pass
+        return False
 
     # --- gemeinsame Helfer für Text-Ansichten (Audit 0.9.1) ---------------
     # Der TextView-Bau war zuvor FÜNF Mal nahezu identisch implementiert
@@ -2653,6 +2760,7 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.10.1"
-dbg("previewer_panel %s geladen (B6: Markdown in System-Schriftgröße; "
-    "F23-Text-Sniffing und Härtungs-Deckel bleiben)" % PREVIEWER_VERSION)
+PREVIEWER_VERSION = "0.10.2"
+dbg("previewer_panel %s geladen (R9: große Bilder asynchron + Deko-"
+    "dierung auf Anzeigegröße; B6/F23 und Härtungs-Deckel bleiben)"
+    % PREVIEWER_VERSION)
