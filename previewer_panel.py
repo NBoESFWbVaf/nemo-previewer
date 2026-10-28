@@ -4,13 +4,14 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.12.0 – aktuelle Fassung (F12 Teil 1: Zahnrad-Knopf
-öffnet das Einstellungsfenster; Einstellungen werden sofort in
-~/.config/nemo-previewer/nemo-previewer.conf gespeichert (Gio.Keyfile)
-und bei jedem Start angewendet – erste Einstellung: Vorschauspalte
-beim Start anzeigen; Toolbar laut Nutzer-Wunsch ~5 px schmaler). Die
-R9-Bild-Fixes, B6-Systemschrift, F23-Sniffing und sämtliche Härtungs-
-Deckel bleiben.
+STAND: Version 0.12.1 – aktuelle Fassung (F12 Teil 1 mit Feld-Fix
+B8: Zahnrad-Knopf öffnet das Einstellungsfenster; Einstellungen
+werden sofort in ~/.config/nemo-previewer/nemo-previewer.conf
+gespeichert (GLib.KeyFile – 0.12.0 adressierte fälschlich
+Gio.Keyfile) und bei jedem Start angewendet – erste Einstellung:
+Vorschauspalte beim Start anzeigen; Toolbar laut Nutzer-Wunsch
+~5 px schmaler). Die R9-Bild-Fixes, B6-Systemschrift, F23-Sniffing
+und sämtliche Härtungs-Deckel bleiben.
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -266,11 +267,25 @@ _MEDIA_IMAGE_CAP = 32 * 1024 * 1024  # eingebettetes Cover aus Medien-Tags
 _OFFICE_THUMB_CAP = 16 * 1024 * 1024  # eingebettete Office-Miniatur
 _OFFICE_XML_CAP = 2 * 1024 * 1024     # content.xml / word/document.xml
 
-# F12 (0.12.0): Konfiguration der Vorschauspalte – Gio.Keyfile ist
-# GLib-natives INI-Format, braucht keine zusätzliche Abhängigkeit.
-# Verzeichnis wird beim ersten Speichern angelegt.
+# F12 (0.12.0): Konfiguration der Vorschauspalte – GLib-natives
+# INI-Format, braucht keine zusätzliche Abhängigkeit. Verzeichnis
+# wird beim ersten Speichern angelegt.
 CONF_DIR = os.path.expanduser("~/.config/nemo-previewer")
 CONF_FILE = os.path.join(CONF_DIR, "nemo-previewer.conf")
+# B8 (0.12.1): GKeyFile wird von PyGObject als GLib.KeyFile gebunden
+# (GLib, NICHT Gio – 0.12.0 griff auf Gio.Keyfile zu und scheiterte
+# laut Testfeld mit „'gi.repository.Gio' object has no attribute
+# 'Keyfile'"). Defensiv beide Namen auflösen (gleiche Begründung wie
+# beim Discoverer in _media_probe_async); fehlt die Klasse ganz,
+# dbggen Lade-/Speicherpfad und die Defaults bleiben stehen.
+try:
+    _KEYFILE_CLS = GLib.KeyFile
+except AttributeError:
+    _KEYFILE_CLS = getattr(GLib, "Keyfile", None)
+try:
+    _KEYFILE_FLAGS_NONE = GLib.KeyFileFlags.NONE
+except AttributeError:
+    _KEYFILE_FLAGS_NONE = 0
 
 
 # --- Markdown -> Pango-Markup (Vorschau-Qualität, kein voller Parser) ---
@@ -2811,9 +2826,13 @@ class PreviewPanel(Gtk.Box):
         Start hindern. Neue Einstellungen docken als get_boolean/
         get_string mit try/except hier an.
         """
+        if _KEYFILE_CLS is None:
+            dbg("GLib.KeyFile fehlt im Binding – Konfiguration "
+                "bleibt auf Defaults")
+            return
         try:
-            kf = Gio.Keyfile()
-            kf.load_from_file(CONF_FILE, Gio.KeyfileFlags.NONE)
+            kf = _KEYFILE_CLS()
+            kf.load_from_file(CONF_FILE, _KEYFILE_FLAGS_NONE)
             try:
                 self._conf_show_at_start = kf.get_boolean(
                     "previewer", "show_at_start")
@@ -2829,9 +2848,13 @@ class PreviewPanel(Gtk.Box):
         Änderung im Einstellungsfenster – ein separater Speichern-
         Knopf ist damit unnötig.
         """
+        if _KEYFILE_CLS is None:
+            dbg("GLib.KeyFile fehlt im Binding – Konfiguration "
+                "nicht speicherbar")
+            return
         try:
             os.makedirs(CONF_DIR, exist_ok=True)
-            kf = Gio.Keyfile()
+            kf = _KEYFILE_CLS()
             kf.set_boolean("previewer", "show_at_start",
                            self._conf_show_at_start)
             kf.save_to_file(CONF_FILE)
@@ -2927,8 +2950,9 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.12.0"
+PREVIEWER_VERSION = "0.12.1"
 dbg("previewer_panel %s geladen (F12 Teil 1: Einstellungsfenster + "
-    "Konfigurationsdatei + Start-Anwendung; Toolbar ~5 px schmaler; "
-    "R9-Bild-Fixes, B6/F23 und Härtungs-Deckel bleiben)"
+    "Konfigurationsdatei + Start-Anwendung; B8-Fix GLib.KeyFile; "
+    "Toolbar ~5 px schmaler; R9-Bild-Fixes, B6/F23 und Härtungs-"
+    "Deckel bleiben)"
     % PREVIEWER_VERSION)
