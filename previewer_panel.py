@@ -4,11 +4,11 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.10.3 – aktuelle Fassung (R9-Feld-Fix aus 0.10.2: der
-Hintergrund-Thread liest nur noch die Datei, Dekodierung, EXIF-Drehung
-und Skalierung laufen zurück im GTK-Thread – Gdk-Objekte im Worker
-scheiterten im Feld still; B6-Systemschrift, F23-Sniffing und sämtliche
-Härtungs-Deckel bleiben).
+STAND: Version 0.10.4 – aktuelle Fassung (R9-Feld-Fix komplett: Der
+Bild-Callback zeigt sein Ergebnis jetzt mit eigenem show_all – ohne das
+bleiben die im Idle gepackten Widgets unsichtbar, die eigentliche Feld-
+Ursache der B7-Regression aus 0.10.2/0.10.3; plus dbg-Diagnosezeilen
+für Bild gelesen/dekodiert/verworfen).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -1383,8 +1383,10 @@ class PreviewPanel(Gtk.Box):
             try:
                 with open(path, "rb") as fh:
                     data = fh.read(_IMAGE_FILE_CAP)
+                dbg("Bild gelesen: %s (%d Bytes)" % (path, len(data)))
             except Exception as exc:
                 data, err = None, exc
+                dbg("Bild-Lesen fehlgeschlagen (%s): %s" % (path, exc))
             try:
                 GLib.idle_add(self._image_probe_done,
                               path, target_w, data, err)
@@ -1407,17 +1409,23 @@ class PreviewPanel(Gtk.Box):
 
     def _image_probe_done(self, path, target_w, data, err):
         """
-        R9-Rückkehr (0.10.3): Dekodierung der im Worker gelesenen
-        Bytes HIER im GTK-Thread (gleiche Disziplin wie bei den
-        Medien-Covern in _media_probe_done – Gdk-Objekte entstehen
+        R9-Rückkehr (0.10.3/0.10.4): Dekodierung der im Worker
+        gelesenen Bytes HIER im GTK-Thread (gleiche Disziplin wie bei
+        den Medien-Covern in _media_probe_done – Gdk-Objekte entstehen
         nur im GTK-Thread). Decode-Deckel target_w; bei weiterge-
         wanderter Auswahl wird das Ergebnis still verworfen.
         Schlägt die Dekodierung fehl, greift der synchrone
         at_scale-Fallback (begrenzt die Dekodierung intern und ist
         damit ebenfalls bombensicher); erst wenn auch der scheitert,
         erscheint der generische Fehlerhinweis.
+        0.10.4: Alle hier gepackten Widgets liegen NACH dem
+        show_all() des Render-Durchlaufs – genau wie in
+        _media_probe_done braucht der Callback daher sein EIGENES
+        show_all, sonst bleibt die Vorschau unsichtbar (Feld-Ursache
+        der B7-Regression, in 0.10.2/0.10.3 übersehen).
         """
         if self._path != path:
+            dbg("Bild-Ergebnis verworfen, Auswahl wechselte: %s" % path)
             return False      # Auswahl hat inzwischen gewechselt
         self._clear_content()
         pb, orig = None, {}
@@ -1441,6 +1449,9 @@ class PreviewPanel(Gtk.Box):
         if pb is None:
             self._hint("Konnte Bild nicht laden: %s" % (err or "unbekannt"))
             self._render_generic()
+            # Auch dieser Fallback packt NACH dem show_all() des
+            # Render-Durchlaufs – ohne eigenes show_all unsichtbar.
+            self._content.show_all()
             return False
         # EXIF-Ausrichtung anwenden: Fotos, die die Drehung nur im
         # Orientation-Tag tragen (typisch bei Smartphone-Kameras),
@@ -1449,6 +1460,8 @@ class PreviewPanel(Gtk.Box):
             pb = pb.apply_embedded_orientation()
         except Exception:
             pass
+        dbg("Bild dekodiert: %s (%d × %d px)" %
+            (path, pb.get_width(), pb.get_height()))
         if pb.get_width() > 4096 or pb.get_height() > MAX_IMAGE_HEIGHT:
             pb = self._scale_pixbuf(pb, 4096, MAX_IMAGE_HEIGHT)
         scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
@@ -1468,6 +1481,12 @@ class PreviewPanel(Gtk.Box):
             self._content.pack_start(info, False, False, 0)
         except Exception:
             pass
+        # R1-Muster aus _media_probe_done (0.10.4): Erst hier gepackte
+        # Widgets liegen NACH dem show_all() des Render-Durchlaufs –
+        # sie brauchen ihr eigenes show_all, sonst bleibt die Vorschau
+        # unsichtbar. Genau dieses fehlende show_all war die eigent-
+        # liche Feld-Ursache der B7-Regression.
+        self._content.show_all()
         return False
 
     # --- gemeinsame Helfer für Text-Ansichten (Audit 0.9.1) ---------------
@@ -2739,7 +2758,8 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.10.3"
-dbg("previewer_panel %s geladen (R9-Fix: Bild-Lesen im Hintergrund, "
-    "Dekodierung im GTK-Thread; B6/F23 und Härtungs-Deckel bleiben)"
+PREVIEWER_VERSION = "0.10.4"
+dbg("previewer_panel %s geladen (R9-Fix komplett: Bild-Lesen im "
+    "Hintergrund, Dekodierung im GTK-Thread, Anzeige per show_all; "
+    "B6/F23 und Härtungs-Deckel bleiben)"
     % PREVIEWER_VERSION)
