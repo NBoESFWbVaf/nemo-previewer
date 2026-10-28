@@ -6,6 +6,20 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.10.1\] – 2026-10-27
+
+### Fixed (Behoben)
+
+- Markdown-Vorschau (B6): Der Textkörper wurde mit hartcodierter  
+Standardschrift in 9 pt override\_font-überschrieben und erschien  
+damit kleiner als die übrige Oberfläche – die Text-Vorschau  
+(Monospace) wirkt dagegen wie die System-Schriftgröße. Die  
+Markdown-Vorschau überschreibt die Schrift jetzt gar nicht mehr  
+und nutzt die System-Schrift des GTK-Themes (also die  
+Schriftgröße des Systems); Überschriften skalieren mit, da ihre  
+Größenangaben relativ zur Basis-Schrift sind. EML- und E-Book-  
+Vorschau bleiben vorerst bei 9 pt
+
 ## \[0.10.0\] – 2026-10-27
 
 ### Added (Hinzugefügt)
