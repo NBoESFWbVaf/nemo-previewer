@@ -4,9 +4,8 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.13.0 – aktuelle Fassung (F12 Teil 2:
-PANEL_WIDTH-Default laut Nutzer-Wunsch von 340 auf 300 px geändert
-und als konfigurierbare Standardbreite beim Start dokumentiert).
+STAND: Version 0.14.0 – aktuelle Fassung (keine Änderungen an den
+Konstanten – nur Versions-Sync zum K4-Markdown-Release).
 
 Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
 Hilfsfunktionen und die zentralen Konfigurations-Konstanten. Teil der
@@ -128,5 +127,5 @@ def content_type_description(mime):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.13.0"
+PREVIEWER_VERSION = "0.14.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
