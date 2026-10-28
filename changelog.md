@@ -6,6 +6,18 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.16.1\] – 2026-10-28
+
+### Fixed (Behoben)
+
+- F24-Feld-Fix (Testfeld 0.16.0): Der Zeilennummern-Rand riss beim  
+ersten Anklicken einer Textdatei mit AttributeError ab – die  
+GI-Bindung von Pango.Layout bietet get\_pixel\_width() nicht an.  
+Die Randbreiten-Messung nutzt jetzt get\_pixel\_size(); der Fallback  
+auf die generische Kachel hatte den Absturz abgefangen, die Text-  
+Vorschau selbst blieb aber leer. Mit dem Fix erscheinen die  
+Zeilennummern wie in 0.16.0 vorgesehen
+
 ## \[0.16.0\] – 2026-10-28
 
 ### Added (Hinzugefügt)
