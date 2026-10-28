@@ -4,11 +4,9 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.15.0 – Struktur-Release (F28/F29/F31): Die zwei
-gemeinsamen Basis-Helfer _pixbuf_from_bytes (Decode-Deckel 0.9.2)
-und _zf_read_capped (gekapseltes, gedeckeltes ZIP-Lesen) sind von
-previewer_panel.py hierher gezogen – sie dienen Medien-, Dokument-
-und Text-Renderern gleichermaßen.
+STAND: Version 0.16.0 – F24: Nur Versions-Sync. (Seit dem Struktur-
+Release 0.15.0/F31 leben hier die zwei Basis-Helfer
+_pixbuf_from_bytes und _zf_read_capped für alle Renderer.)
 
 Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
 Hilfsfunktionen und die zentralen Konfigurations-Konstanten. Teil der
@@ -183,5 +181,5 @@ def _zf_read_capped(zf, name, cap):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.15.0"
+PREVIEWER_VERSION = "0.16.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
