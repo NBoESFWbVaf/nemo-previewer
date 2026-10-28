@@ -6,6 +6,28 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.16.0\] – 2026-10-28
+
+### Added (Hinzugefügt)
+
+- Zeilennummern in der reinen Text-Vorschau (F24, Nutzer-Wunsch):  
+Textdateien und endungslose Textdateien zeigen ihre Zeilen-  
+nummern am linken Rand. Die Nummern sind eine Randzeichnung  
+AUSSERHALB des Textbuffers – Auswahl und Kopie (Strg+C)  
+erfassen ausschließlich den Text selbst, die Nummern werden  
+nie mitkopiert. Umgebrochene Zeilen behalten ihre Nummer an  
+der ersten visuellen Zeile; gezeichnet werden nur die  
+sichtbaren Zeilen
+- Neue Rubrik „Textdateien“ im Einstellungsfenster: CheckButton  
+„Zeilennummern anzeigen (nicht kopierbar)“ – standardmäßig  
+aktiviert, sofort gespeichert (Schlüssel text\_line\_numbers in  
+der conf) und live auf die aktuell angezeigte Text-Vorschau  
+angewendet. Nur reine Textvorschauen werden beim Umschalten  
+neu aufgebaut; Markdown, E-Mail, E-Book und Font-Wasserfall  
+bleiben ohne Nummern und unberührt
+- Bewusst ohne GtkSourceView umgesetzt (kein neues Paket): Die  
+Nummern entstehen im draw-Handler des bestehenden TextView
+
 ## \[0.15.0\] – 2026-10-28
 
 ### Changed (Geändert)
