@@ -236,7 +236,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   (kollidiert mit Listeneinrückungen), Webview, neue Pakete;  
   breite Tabellen brechen im Panel um statt zu scrollen. Tiefe  
   Inline-Verschachtelungen weiterhin nur teilweise (`***…***` ja,  
-  beliebig tief nein) – Rest bei Bedarf.
+  beliebig tief nein) – Rest bei Bedarf.  
+  ✅ 0.14.1 (Feldtest 0.14.0): Tabellen waren so breit wie ihre  
+  längste Zelle (Reihenfolge-Tabelle meterbreit, TextView-Umbruch-  
+  Chaos) – jetzt Gesamtbudget in Anzeigespalten (300-px-Panel),  
+  schmale Spalten voll, überlange Zellen brechen mehrzeilig  
+  innerhalb ihrer Spalte; Emoji zählen doppelt breit (🔴 ✅ ☑),  
+  Backslash-Escapes (\[ → \[) und maskierte Balken | behandelt.
 - [ ] **K5** – `Gst.init(None)` beim Import verlangsamt den Nemo-Start
 
   minimal → GStreamer erst beim ersten Audio/Video-Rendering anfassen  
@@ -576,6 +582,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 13      | F28 – Kommentar-Auslagerung (Marker + REFERENZ.md als laufend gepflegtes Projektdokument; Canvas-Soll-Zeilenzahlen danach neu vereinbaren)                                                                                                                                                                                                              | später (ruhiger Moment, nicht mit laufenden Fixes mischen)            |
 | 14      | F30 – Dual-Pane (F3): Vorschau folgt der aktiven Spalte (zuerst Feld-Log, dann Option A; ggf. Interims-Hinweis Option C)                                                                                                                                                                                                                                | nach erstem Release (1.0.0); Erprobung ausschließlich im Branch       |
 | 15      | K4 – Markdown-Vorschau: GFM-Varianten (Tabellen, Task-Listen, sortierte/verschachtelte Listen, Durchstreichen, Setext, Links mit Klammern)                                                                                                                                                                                                              | ✅ 0.14.0 (Minor; Nutzer-Priorisierung)                                |
+| 16      | K4-Feld-Fix – Tabellen-Gesamtbudget mit mehrzeiligem Zell-Umbruch, Emoji-Breite, Backslash-Escapes, maskierte Balken                                                                                                                                                                                                                                    | ✅ 0.14.1 (Patch; Feldtest 0.14.0)                                     |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
