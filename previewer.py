@@ -4,7 +4,7 @@
 Previewer
 =========
 
-STAND: Version 0.16.1 – F24: Zeilennummern in der Text-Vorschau
+STAND: Version 0.16.2 – F24: Zeilennummern in der Text-Vorschau
 (laut Einstellung „Textdateien“, Randzeichnung – nicht kopierbar).
 Am Einstieg selbst keine Änderung – nur Versions-Sync.
 Dies ist die EINSTIEGS-Datei der acht zusammengehörigen Dateien
@@ -118,7 +118,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.16.1"
+PREVIEWER_VERSION = "0.16.2"
 import previewer_util
 import previewer_select
 import previewer_panel
