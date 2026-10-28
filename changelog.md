@@ -6,6 +6,34 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.14.0\] – 2026-10-28
+
+### Changed (Geändert)
+
+- Markdown-Vorschau deutlich browserähnlicher (K4): Der Konverter  
+deckt jetzt die verbreiteten Markdown-Varianten (GitHub Flavored)  
+ab, statt nur den Standard-Kern. Neu sind GFM-Tabellen (Kopfzeile  
+fett, graue Trennzeile mit Box-Zeichen, Spalten bündig im  
+Monospace-Satz, Rechtsausrichtung bei `---:`), Task-Listen  
+(`[x]`/`[ ]` werden zu ☑/☐, erledigte Punkte erscheinen  
+durchgestrichen wie im Browser), sortierte Listen (1./1)),  
+eingerückte und verschachtelte Listen mit Ebenen-Zeichen  
+(•/◦/▪), Setext-Überschriften (`===`/`---` unter der Zeile),  
+fett+kursiv (`***…***`), `~~Durchstreichen~~`, mehrfach  
+verschachtelte Zitate (`> >`), Autolinks in spitzen Klammern,  
+Trennlinien auch mit Leerzeichen (`- - -`) sowie Links mit  
+runden Klammern in der URL (brachen bisher die Regex).  
+Überschriften der Ebenen 1 und 2 bekommen einen Unterstrich  
+(nähert den farbigen Balken der Browser-Darstellung an), und  
+Überschriften, Linien und Tabellen erhalten Luft nach oben –  
+Dokumente wie planned.md oder changelog.md erscheinen damit so  
+aufgebaut wie im Browser. Bewusst unverändert: kein Webview,  
+keine neuen Paket-Abhängigkeiten; breite Tabellen brechen im  
+Panel um, statt horizontal zu scrollen; 4-Spaces-Codeblöcke  
+bleiben unberücksichtigt (kollidiert mit Listeneinrückungen).  
+Die bestehende Sicherheitslinie bleibt: Ungültiges Markup führt  
+zur dbg-Meldung und zur Anzeige des Rohtexts
+
 ## \[0.13.0\] – 2026-10-28
 
 ### Added (Hinzugefügt)
