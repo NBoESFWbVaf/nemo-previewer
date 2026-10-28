@@ -4,13 +4,9 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.15.0 – Struktur-Release (F31): Die Renderer für
-Bilder (inkl. EXIF-Ausrichtung, asynchrone Dekodierung R9 mit
-Dekodier-Deckel), SVG, Audio (mit Player) und Video (einschließlich
-Platzhalter-Cover F18) sind aus dem Panel-Kern in dieses Mixin-Modul
-gezogen; die Thread-Disziplinen (R1: Gdk-Objekte nur im GTK-Thread,
-R9/B7: Worker liest nur I/O) bleiben unverändert. Lange Kommentar-
-und Historienblöcke stehen als Marker in REFERENZ.md (F28).
+STAND: Version 0.16.0 – F24: Keine Änderungen an den Medien-
+Renderern – nur Versions-Sync. (0.15.0/F31: aus dem Panel-Kern
+hierher gezogen; R1/R9/B7-Disziplinen und Deckel unverändert.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -763,7 +759,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.15.0"
+PREVIEWER_VERSION = "0.16.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)
