@@ -4,11 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.10.0 – aktuelle Fassung (NEU F23: Text-Vorschau für
-endungslose Dateien über Inhalts-Sniffing – die ersten 4 KB werden auf
-lesbaren Text geprüft, Binärdateien bleiben generisch; sonst wie
-0.9.2 mit Decode-/Lese-Deckeln, Wildcall-Schutz, Video-Kachel plus
-Infos mit Öffnen-Knopf und PDF-Seitenanzeige).
+STAND: Version 0.10.1 – aktuelle Fassung (B6: Markdown nutzt die
+System-Schriftgröße statt hartcodierter 9 pt; F23-Text-Sniffing und
+alle Härtungs-Deckel aus 0.9.2/0.10.0 bleiben).
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -1406,14 +1404,18 @@ class PreviewPanel(Gtk.Box):
     def _text_view(self, text, font="9", markup=None):
         """
         Fertig konfigurierter TextView im ScrolledWindow, gepackt in
-        self._content. markup: optionaler Pango-Markup-String (muss
-        vorher validiert sein); ohne Markup wird der Rohtext gesetzt.
+        self._content. font: Pango-Beschreibung; None belässt die
+        System-Schrift des GTK-Themes (also die Schriftgröße des
+        Systems) und ruft override_font gar nicht erst auf. markup:
+        optionaler Pango-Markup-String (muss vorher validiert sein);
+        ohne Markup wird der Rohtext gesetzt.
         """
         view = Gtk.TextView()
         view.set_editable(False)
         view.set_cursor_visible(False)
         view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        view.override_font(Pango.FontDescription(font))
+        if font is not None:
+            view.override_font(Pango.FontDescription(font))
         # Innenabstand, damit der Text nicht am Rand klebt
         view.set_left_margin(10)
         view.set_right_margin(10)
@@ -1464,8 +1466,15 @@ class PreviewPanel(Gtk.Box):
         except Exception as exc:
             valid = False
             dbg("Markdown-Markup ungültig (%s) – zeige Rohtext" % exc)
+        # B6 (0.10.1): OHNE Font-Override – der TextView nutzt die
+        # System-Schrift des GTK-Themes und damit die Schriftgröße des
+        # Systems. Die bisher hartcodierte "9" (Standardschrift in
+        # 9 pt) war auf dem System sichtbar kleiner als die Text-
+        # Vorschau (Monospace), die der Nutzer als Maßstab kennt.
+        # Überschriften skalieren mit: ihre size='large'/'x-large'-
+        # Angaben sind relativ zur Basis-Schrift.
         # Markup nur übernehmen, wenn es validiert wurde – sonst Rohtext.
-        self._text_view(text, markup=(markup if valid else None))
+        self._text_view(text, font=None, markup=(markup if valid else None))
         if truncated:
             self._hint("Vorschau gekürzt (lange Datei).")
 
@@ -2644,6 +2653,6 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.10.0"
-dbg("previewer_panel %s geladen (F23: Text-Sniffing für endungslose "
-    "Dateien; Härtungs-Deckel aus 0.9.2 bleiben)" % PREVIEWER_VERSION)
+PREVIEWER_VERSION = "0.10.1"
+dbg("previewer_panel %s geladen (B6: Markdown in System-Schriftgröße; "
+    "F23-Text-Sniffing und Härtungs-Deckel bleiben)" % PREVIEWER_VERSION)
