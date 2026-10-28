@@ -4,12 +4,15 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.14.1 – aktuelle Fassung (keine Änderungen an den
-Konstanten – nur Versions-Sync zum K4-Feld-Fix-Release).
+STAND: Version 0.15.0 – Struktur-Release (F28/F29/F31): Die zwei
+gemeinsamen Basis-Helfer _pixbuf_from_bytes (Decode-Deckel 0.9.2)
+und _zf_read_capped (gekapseltes, gedeckeltes ZIP-Lesen) sind von
+previewer_panel.py hierher gezogen – sie dienen Medien-, Dokument-
+und Text-Renderern gleichermaßen.
 
 Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
 Hilfsfunktionen und die zentralen Konfigurations-Konstanten. Teil der
-vierteiligen Extension (Einstieg und Übersicht: previewer.py;
+achtteiligen Extension (Einstieg und Übersicht: previewer.py;
 Installation: INSTALL.md im Repository).
 """
 
@@ -20,8 +23,9 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
+gi.require_version('GdkPixbuf', '2.0')
 
-from gi.repository import Gtk, Gdk, Gio, GLib
+from gi.repository import Gtk, Gdk, Gio, GLib, GdkPixbuf
 
 # ------------------------------ Konfiguration ------------------------------
 # F12 (0.13.0): Startbreite laut Nutzer-Wunsch per Default 300 px –
@@ -50,7 +54,7 @@ def dbg(msg):
 # im Alltagsbetrieb still. Auf True setzen, wenn eine neue Nemo-Version
 # oder ein neues System untersucht werden soll – dann erscheinen die
 # ausführlichen Dumps wie in der Entwicklungsphase.
-VERBOSE_DIAG = False
+VERBOSE_DIAG = True
 
 
 def diag(msg):
@@ -126,6 +130,58 @@ def content_type_description(mime):
     return mime
 
 
+
+# --- Gemeinsame Basis-Helfer (F31: früher in previewer_panel.py) ---
+
+def _pixbuf_from_bytes(data, max_w=4096, max_h=4096, orig=None):
+    """
+    Bytes zu einer Pixbuf dekodieren – GdkPixbuf riecht das Format –
+    mit Decode-Deckel (0.9.2): Das size-prepared-Signal feuert, BEVOR
+    die Pixeldaten alloziert werden; set_size() verkleinert dort die
+    Dekodierung. Ein Bild, das nur im Header Riesenmaße deklariert
+    (PNG-Bombe), kostet damit nur die gedeckelte Fläche statt
+    Gigabytes. Bei Dekodierfehlern wird wie bisher geworfen (der
+    jeweilige Aufrufer fängt).
+    orig: optionales Dict – wird mit den VOR der Deckelung gemeldeten
+    Originalmaßen gefüllt (R9): size-prepared meldet sie, bevor
+    set_size verkleinert, sodass die Bild-Vorschau die echten Maße
+    anzeigen kann, obwohl gedeckelt dekodiert wird.
+    """
+    loader = GdkPixbuf.PixbufLoader()
+
+    def _on_size(loader, w, h):
+        if orig is not None:
+            try:
+                orig["w"], orig["h"] = w, h
+            except Exception:
+                pass
+        if w > max_w or h > max_h:
+            f = min(max_w / max(w, 1), max_h / max(h, 1))
+            try:
+                loader.set_size(max(1, int(w * f)),
+                                max(1, int(h * f)))
+            except Exception:
+                pass
+
+    loader.connect("size-prepared", _on_size)
+    loader.write(data)
+    loader.close()
+    return loader.get_pixbuf()
+
+
+def _zf_read_capped(zf, name, cap):
+    """
+    R4: Ein ZIP-Mitglied mit Lese-Deckel lesen – Schutz vor Dekompressions-
+    Bomben: gezippte XHTML-Kapitel können entpackt ein Vielfaches ihrer
+    gepackten Größe belegen und das Panel wäre für Sekunden blockiert.
+    Alles jenseits des Deckels wird bewusst abgeschnitten – für die
+    Vorschau reicht der Anfang des Kapitels bzw. Bildes.
+    """
+    with zf.open(name) as zh:
+        return zh.read(cap)
+
+
+
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.14.1"
+PREVIEWER_VERSION = "0.15.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
