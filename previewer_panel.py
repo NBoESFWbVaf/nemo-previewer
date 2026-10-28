@@ -4,13 +4,15 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.13.0 – aktuelle Fassung (F12 Teil 2: „Standardbreite
-beim Start" im Einstellungsfenster, Default 300 px; eine per Ziehen
-gewählte Breite wird automatisch zur künftigen Startbreite und landet
-entprellt in der conf; SpinButton trägt den aktuellen Wert vorab,
-Default genannt, Ist-Wert als „aktuell" gekennzeichnet; Änderungen
-greifen sofort live). B8-Fix GLib.KeyFile, R9-Bild-Fixes, B6/F23 und
-sämtliche Härtungs-Deckel bleiben.
+STAND: Version 0.14.0 – aktuelle Fassung (K4: Markdown-Vorschau mit
+den verbreiteten Varianten deutlich browserähnlicher – GFM-Tabellen
+mit fetter Kopfzeile/grauer Trennzeile/Rechtsausrichtung, Task-Listen
+☑/☐ mit Durchstreichen erledigter Punkte, sortierte und eingerückte
+Listen mit Ebenen-Zeichen, Setext-Überschriften, fett+kursiv,
+~~Durchstreichen~~, verschachtelte Zitate, Autolinks, Links mit
+Klammern in der URL, Luft um Überschriften/Tabellen/Linien).
+B8-Fix GLib.KeyFile, R9-Bild-Fixes, B6/F12/F23 und sämtliche
+Härtungs-Deckel bleiben.
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -294,73 +296,257 @@ def _pango_escape(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+_MD_BULLETS = ("\u2022", "\u25e6", "\u25aa")   # • ◦ ▪ je Listenebene
+
+
 def _md_inline(t):
-    """Inline-Formatierung: **fett**, *kursiv*, `code`, [Link](url)."""
+    """Inline-Formatierung: ***fett+kursiv***, **fett**, __fett__,
+    *kursiv*, _kursiv_, ~~durchgestrichen~~ (GFM), `code`,
+    [Link](url) – auch mit runden Klammern in der URL –,
+    <https://Autolink>, ![Bild](url)."""
+    t = re.sub(r"\*\*\*(.+?)\*\*\*", r"<b><i>\1</i></b>", t)
+    t = re.sub(r"___(.+?)___", r"<b><i>\1</i></b>", t)
     t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t)
     t = re.sub(r"__(.+?)__", r"<b>\1</b>", t)
     t = re.sub(r"(?<!\w)\*([^*\n]+?)\*(?!\w)", r"<i>\1</i>", t)
     t = re.sub(r"(?<!\w)_([^_\n]+?)_(?!\w)", r"<i>\1</i>", t)
+    t = re.sub(r"~~(.+?)~~", r"<s>\1</s>", t)
     t = re.sub(r"`([^`]+?)`", r"<tt>\1</tt>", t)
-    t = re.sub(r"!\[([^\]]*)\]\(([^)\s]+)\)",
+    t = re.sub(r"!\[([^\]]*)\]\(((?:[^()\s]|\([^()\s]*\))+)\)",
                r"<span size='small'>[Bild: \1]</span>", t)
-    t = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)",
+    t = re.sub(r"\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)",
                r"\1 <span size='small' foreground='grey'>\2</span>", t)
+    t = re.sub(r"&lt;(https?://[^&\s]+)&gt;",
+               r"\1 <span size='small' foreground='grey'>[Link]</span>", t)
     return t
+
+
+def _md_heading(depth, text):
+    """Überschrift (ATX oder Setext): Größe nach Tiefe, H1/H2 mit
+    Unterstrich – nähert den farbigen Balken der Browser-Darstellung
+    an, ohne extra Widgets."""
+    if depth == 1:
+        tag = ("<span size='x-large' weight='bold' "
+               "underline='single'>", "</span>")
+    elif depth == 2:
+        tag = ("<span size='large' weight='bold' "
+               "underline='single'>", "</span>")
+    else:
+        tag = "<span weight='bold'>", "</span>"
+    return tag[0] + _md_inline(_pango_escape(text)) + tag[1]
+
+
+def _md_hr():
+    # Wichtig: "+" statt impliziter String-Verkettung –
+    # "a" "b" * 12 ergibt sonst ("ab") * 12 (Rangfolge-Falle):
+    # 12 ungeöffnete <span>-Tags machten das Markup komplett
+    # ungültig, und jede Datei mit einer ----Linie (YAML-
+    # Front-Matter!) blieb ohne Vorschau.
+    return ("<span size='small' foreground='grey'>"
+            + "\u2500" * 12 + "</span>")
+
+
+def _md_table(lines, i):
+    """
+    GFM-Tabelle ab Zeile i einlesen: Kopfzeile, Trennzeile mit
+    :--/--:/:-:, beliebig viele Zeilen. Rückgabe (Markup-Zeilen,
+    nächster Index) oder None, wenn dort keine Tabelle steht.
+    Die Spaltenbreiten entstehen aus dem längsten formatlosen
+    Zellinhalt; die Tabelle läuft komplett im Monospace-<tt>,
+    damit die Spalten bündig sind: Kopfzeile fett, graue
+    Trennzeile, rechtsbündig bei '---:'. Breiten werden an der
+    ROHEN Zelle gemessen und VOR dem Escapen gepolstert, damit
+    &amp; die Ausrichtung nicht verdirbt.
+    """
+    def split_cells(row):
+        s = row.strip()
+        if s.startswith("|"):
+            s = s[1:]
+        if s.endswith("|"):
+            s = s[:-1]
+        return [c.strip() for c in s.split("|")]
+
+    if i + 1 >= len(lines) or "|" not in lines[i]:
+        return None
+    sep_cells = split_cells(lines[i + 1])
+    if not sep_cells:
+        return None
+    for c in sep_cells:
+        if not re.fullmatch(r":?-{2,}:?", c):
+            return None
+    head = split_cells(lines[i])
+    body = []
+    j = i + 2
+    while j < len(lines):
+        s = lines[j]
+        if not s.strip() or "|" not in s:
+            break
+        body.append(split_cells(s))
+        j += 1
+    cols = len(sep_cells)
+    right = [c.endswith(":") and not c.startswith(":")
+             for c in sep_cells]
+
+    def plain(cell):
+        s = re.sub(r"\[([^\]]+)\]\(([^()\s]+)\)", r"\1 (\2)", cell)
+        return re.sub(r"[*_`~]", "", s)
+
+    widths = [0] * cols
+    for r in [head] + body:
+        for k in range(cols):
+            if k < len(r):
+                widths[k] = max(widths[k], len(plain(r[k])))
+
+    def fmt_row(r, bold=False):
+        cells = []
+        for k in range(cols):
+            cell = r[k] if k < len(r) else ""
+            pad = widths[k] - len(plain(cell))
+            if right[k]:
+                cell = " " * pad + cell
+            else:
+                cell = cell + " " * pad
+            esc = _md_inline(_pango_escape(cell))
+            if bold:
+                esc = "<b>%s</b>" % esc
+            cells.append(esc)
+        return "<tt>%s</tt>" % " \u2502 ".join(cells)
+
+    rows = [fmt_row(head, bold=True),
+            "<tt><span foreground='grey'>%s</span></tt>"
+            % "\u253c".join("\u2500" * (w + 2) for w in widths)]
+    for r in body:
+        rows.append(fmt_row(r))
+    return rows, j
 
 
 def _markdown_to_pango(text):
     """
-    Markdown grob in Pango-Markup übersetzen: Überschriften, Fett/
-    Kursiv, Inline- und Block-Code, Listen, Zitate, Trennlinien,
-    Links. Bewusst kein vollständiger Parser – für die Vorschau im
-    Panel reicht das, und es entstehen keine neuen Paket-Abhängigkeiten.
+    Markdown in Pango-Markup übersetzen – bewusst kein vollständiger
+    Parser, aber mit den verbreiteten Varianten (GitHub Flavored
+    Markdown): ATX- (#) und Setext-Überschriften (===/---) mit
+    Unterstrich bei H1/H2, Fett/Kursiv/fett+kursiv, ~~Streichen~~,
+    Inline- und Block-Code, unsortierte Listen mit Ebenen-Zeichen
+    (•/◦/▪), sortierte (1./1)), Task-Listen ([x] → ☑ mit
+    Durchstreichen wie im Browser, [ ] → ☐), eingerückte Listen,
+    mehrfach verschachtelte Zitate, Trennlinien (auch mit
+    Leerzeichen: - - -), Links (auch mit Klammern in der URL),
+    Autolinks und GFM-Tabellen. Überschriften, Linien und Tabellen
+    bekommen Luft nach oben – das wirkt wie im Browser. Kein
+    Webview, keine neuen Paket-Abhängigkeiten; bewusst weg:
+    4-Spaces-Codeblöcke (kollidiert mit Listeneinrückungen).
     """
+    lines = text.split("\n")
     out = []
     in_code = False
-    for line in text.split("\n"):
-        if line.strip().startswith("```"):
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        stripped = line.strip()
+        # --- Code-Zäune (``` … ```) ---
+        if stripped.startswith("```"):
             in_code = not in_code
             out.append("")
+            i += 1
             continue
         if in_code:
             out.append("<tt>%s</tt>" % _pango_escape(line))
+            i += 1
             continue
-        stripped = line.strip()
         if not stripped:
             out.append("")
+            i += 1
             continue
-        if re.fullmatch(r"(-{3,}|\*{3,}|_{3,})", stripped):
-            # Wichtig: "+" statt impliziter String-Verkettung –
-            # "a" "b" * 12 ergibt sonst ("ab") * 12 (Rangfolge-Falle):
-            # 12 ungeöffnete <span>-Tags machten das Markup komplett
-            # ungültig, und jede Datei mit einer ----Linie (YAML-
-            # Front-Matter!) blieb ohne Vorschau.
-            out.append("<span size='small' foreground='grey'>"
-                       + "\u2500" * 12 + "</span>")
+        # --- Setext-Überschriften: Textzeile + ===== / ------ ---
+        # (\x29 = Hex-Escape für die schließende Klammer – hält die
+        # Zeichenklasse aus der Paren-Diff-Bilanz heraus)
+        if (i + 1 < n
+                and not re.match(r"^(#|>|`|\||[-*+]\s|\d+[\x29.]\s)",
+                                 stripped)
+                and not re.fullmatch(r"(?:[-=*_]\s*){3,}", stripped)):
+            nxt = lines[i + 1].strip()
+            if re.fullmatch(r"=+\s*", nxt):
+                if out and out[-1] != "":
+                    out.append("")
+                out.append(_md_heading(1, stripped))
+                i += 2
+                continue
+            if re.fullmatch(r"-{2,}\s*", nxt):
+                if out and out[-1] != "":
+                    out.append("")
+                out.append(_md_heading(2, stripped))
+                i += 2
+                continue
+        # --- Trennlinien (auch mit Leerzeichen: - - - / * * *) ---
+        if re.fullmatch(r"((?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})",
+                        stripped):
+            if out and out[-1] != "":
+                out.append("")
+            out.append(_md_hr())
+            i += 1
             continue
-        m = re.match(r"^(#{1,6})\s+(.*)$", stripped)
+        # --- ATX-Überschriften (# … ######, auch mit End-#) ---
+        m = re.match(r"^(#{1,6})\s+(.*?)(?:\s+#+)?$", stripped)
+        if m:
+            if out and out[-1] != "":
+                out.append("")
+            out.append(_md_heading(len(m.group(1)), m.group(2)))
+            i += 1
+            continue
+        # --- GFM-Tabellen ---
+        tbl = _md_table(lines, i)
+        if tbl is not None:
+            if out and out[-1] != "":
+                out.append("")
+            out.extend(tbl[0])
+            if tbl[1] < n and lines[tbl[1]].strip():
+                out.append("")
+            i = tbl[1]
+            continue
+        # --- Zitate (mehrfach verschachtelt: >, >>, > >) ---
+        m = re.match(r"^(>+)(.*)$", stripped)
         if m:
             depth = len(m.group(1))
-            if depth == 1:
-                tag = ("<span size='x-large' weight='bold'>",
-                       "</span>")
-            elif depth == 2:
-                tag = ("<span size='large' weight='bold'>", "</span>")
-            else:
-                tag = "<span weight='bold'>", "</span>"
-            out.append(tag[0] + _md_inline(_pango_escape(m.group(2)))
-                       + tag[1])
+            body = m.group(2).strip()
+            while body.startswith(">"):
+                depth += 1
+                body = body[1:].lstrip()
+            out.append("    " * (depth - 1) + "<i>%s</i>"
+                       % _md_inline(_pango_escape(body)))
+            i += 1
             continue
-        if stripped.startswith(">"):
-            out.append("<i>%s</i>"
-                       % _md_inline(_pango_escape(
-                           stripped.lstrip("> ").strip())))
-            continue
-        m = re.match(r"^[-*+]\s+(.*)$", stripped)
+        # --- Task-Listen (GFM): - [x] erledigt / - [ ] offen ---
+        m = re.match(r"^(\s*)([-*+])\s+\[([ xX])\]\s+(.*)$", line)
         if m:
-            out.append("\u2022 " + _md_inline(_pango_escape(m.group(1))))
+            lvl = len(m.group(1)) // 2
+            done = m.group(3).strip().lower() == "x"
+            body = _md_inline(_pango_escape(m.group(4)))
+            if done:
+                body = "<s>%s</s>" % body
+            out.append("    " * lvl + ("\u2611" if done else "\u2610")
+                       + " " + body)
+            i += 1
+            continue
+        # --- Unsortierte Listen mit Ebenen ---
+        m = re.match(r"^(\s*)([-*+])\s+(.*)$", line)
+        if m:
+            lvl = len(m.group(1)) // 2
+            out.append("    " * lvl
+                       + _MD_BULLETS[lvl % len(_MD_BULLETS)] + " "
+                       + _md_inline(_pango_escape(m.group(3))))
+            i += 1
+            continue
+        # --- Sortierte Listen (1. / "1)" ) ---
+        m = re.match(r"^(\s*)(\d{1,3})([\x29.])\s+(.*)$", line)
+        if m:
+            lvl = len(m.group(1)) // 2
+            out.append("    " * lvl + m.group(2) + m.group(3) + " "
+                       + _md_inline(_pango_escape(m.group(4))))
+            i += 1
             continue
         out.append(_md_inline(_pango_escape(line)))
+        i += 1
     return "\n".join(out)
 
 
@@ -3099,8 +3285,9 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.13.0"
-dbg("previewer_panel %s geladen (F12 Teil 2: Standardbreite beim "
-    "Start, Default 300 px, Zieh-Breite wird Startbreite; "
-    "R9-Bild-Fixes, B6/F23 und Härtungs-Deckel bleiben)"
+PREVIEWER_VERSION = "0.14.0"
+dbg("previewer_panel %s geladen (K4: Markdown-Vorschau mit GFM-"
+    "Varianten – Tabellen, Task-Listen, sortierte/verschachtelte "
+    "Listen, Durchstreichen, Setext; F12/B8, R9-Bild-Fixes, B6/F23 "
+    "und Härtungs-Deckel bleiben)"
     % PREVIEWER_VERSION)
