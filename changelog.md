@@ -6,6 +6,25 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.10.4\] – 2026-10-28
+
+### Fixed (Behoben)
+
+- Bild-Vorschau erschien auch nach dem R9-Fix 0.10.3 weiterhin nicht  
+(B7, zweiter Teil): Die im Idle-Callback gepackten Bild-Widgets  
+liegen zeitlich NACH dem show\_all() des Render-Durchlaufs und  
+wurden daher nie sichtbar – GTK3 zeigt ungezeigte Widgets nicht an.  
+Die R1-Medien-Vorschau trägt deshalb am Ende von \_media\_probe\_done  
+ein explizites eigenes show\_all (mit Kommentar); im R9-Bild-Umbau  
+von 0.10.2 war genau dieses übersehen worden. Jetzt zeigt der  
+Bild-Callback sein Ergebnis an beiden Exit-Pfaden (Vorschau UND  
+Fehler-Fallback) mit eigenem show\_all. Der „Lade Bild"-Zettel,  
+der bisher ewig stehen blieb, wird damit erstmals wirklich abgelöst.  
+Neu sind außerdem dbg-Diagnosezeilen, damit der Terminal-Log den  
+Bild-Weg jetzt nachvollziehbar zeigt: „Bild gelesen … (Bytes)",  
+„Bild dekodiert … (Maße)" und „Bild-Ergebnis verworfen, Auswahl  
+wechselte …" bei schnellem Weiterklicken
+
 ## \[0.10.3\] – 2026-10-28
 
 ### Fixed (Behoben)
