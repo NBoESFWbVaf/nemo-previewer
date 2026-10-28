@@ -11,16 +11,20 @@ Repository: [https://github.com/NBoESFWbVaf/nemo-previewer](https://github.com/N
 ## Requirements
 
 Tested on Linux Mint 22 and Debian 13 (Trixie) with Cinnamon/Nemo. The  
-extension consists of **four files that**  
+extension consists of **eight files that**  
 **belong together** and must all carry the same version:
 
 
-| File                  | Purpose                                        |
-| --------------------- | ---------------------------------------------- |
-| `previewer.py`        | Entry point: Nemo integration, panel injection |
-| `previewer_panel.py`  | The preview panel and all renderers            |
-| `previewer_select.py` | Selection detection (vtable, GTK, ATK)         |
-| `previewer_util.py`   | Helpers and configuration constants            |
+| File                        | Purpose                                        |
+| --------------------------- | ---------------------------------------------- |
+| `previewer.py`              | Entry point: Nemo integration, panel injection |
+| `previewer_panel.py`        | Panel core: dispatch, helpers, config (F12)    |
+| `previewer_select.py`       | Selection detection (vtable, GTK, ATK)         |
+| `previewer_util.py`         | Helpers and configuration constants            |
+| `previewer_toolbar.py`      | Toolbar bar + settings window                  |
+| `previewer_render_media.py` | Renderers: images, SVG, audio, video           |
+| `previewer_render_docs.py`  | Renderers: PDF, Office                         |
+| `previewer_render_text.py`  | Renderers: text, Markdown, EML, e-books, fonts |
 
 
 **Mandatory packages**
@@ -63,10 +67,12 @@ names on both distributions
 
 ## Install
 
-1. Copy **all four files** into the Nemo extension folder:
+1. Copy **all eight files** into the Nemo extension folder:
   ```bash
    mkdir -p ~/.local/share/nemo-python/extensions
    cp previewer.py previewer_panel.py previewer_select.py previewer_util.py \
+      previewer_toolbar.py previewer_render_media.py \
+      previewer_render_docs.py previewer_render_text.py \
       ~/.local/share/nemo-python/extensions/
   ```
 2. Restart Nemo:
@@ -76,12 +82,16 @@ names on both distributions
 3. Check the log. Each module reports its version on load:
   ```text
    [previewer] previewer_util 0.3.1 geladen
-   [previewer] previewer_panel 0.3.1 geladen (...)
    [previewer] previewer_select 0.3.1 geladen
+   [previewer] previewer_render_media 0.3.1 geladen (...)
+   [previewer] previewer_render_docs 0.3.1 geladen (...)
+   [previewer] previewer_render_text 0.3.1 geladen (...)
+   [previewer] previewer_toolbar 0.3.1 geladen (...)
+   [previewer] previewer_panel 0.3.1 geladen (...)
    [previewer] previewer (Einstieg) v0.3.1 bereit
   ```
 
-   Four lines with the same version number — anything else means an old  
+   Eight lines with the same version number — anything else means an old  
    file is still in the folder.
 4. Select a file in Nemo. The panel appears on the right; toggle it with  
 **Ctrl+Alt+P** or the button in its header. The divider between the  
@@ -89,7 +99,7 @@ file view and the panel is draggable.
 
 ## Upgrade
 
-1. Overwrite **all four files** — they share a version lock, and the  
+1. Overwrite **all eight files** — they share a version lock, and the  
 entry point warns in the log about version mismatches.
 2. Remove stale bytecode caches, then restart Nemo:
   ```bash
@@ -102,7 +112,7 @@ entry point warns in the log about version mismatches.
    grep -H PREVIEWER_VERSION ~/.local/share/nemo-python/extensions/*.py
   ```
 
-   All four files must report the same version.
+   All eight files must report the same version.
 
 ## Uninstall
 
@@ -127,7 +137,7 @@ nemo -q && nemo --no-desktop
 | Symptom                                           | Cause and fix                                                                                                  |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | No `geladen`/`bereit` lines in the log            | `nemo-python` missing or the files are not in `~/.local/share/nemo-python/extensions/`                         |
-| Version warning in the log, or different versions | Mixed old/new files in the extension folder — copy **all four** files again                                    |
+| Version warning in the log, or different versions | Mixed old/new files in the extension folder — copy **all eight** files again                                   |
 | Panel loads but stays empty                       | Watch the terminal; renderers log errors there. A missing preview type usually just needs its optional package |
 | Office preview converts over and over             | Old version before 0.3.x — update; the cache failed on `/tmp` being a separate device                          |
 | `net usershare` warnings in the log               | Comes from Nemo-Share, not from this extension — harmless                                                      |
