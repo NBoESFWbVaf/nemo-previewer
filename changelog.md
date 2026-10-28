@@ -6,6 +6,31 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.13.0\] – 2026-10-28
+
+### Added (Hinzugefügt)
+
+- Einstellung „Standardbreite beim Start" (F12, Teil 2): Unter  
+„Allgemein" im Einstellungsfenster kann die Breite eingestellt  
+werden, mit der die Vorschauspalte nach dem Start von Nemo  
+geöffnet wird. Der SpinButton trägt den AKTUELLEN Wert vorab  
+(mindestens 260 px, dem kleinsten erlaubten Wert), daneben nennt  
+eine dezente Zeile den Standard (300 px) und kennzeichnet den  
+Ist-Zustand als „aktuell". Zieht der Nutzer die Vorschauspalte am  
+Trenner, wird die gewählte Breite automatisch zur künftigen  
+Startbreite: Sie landet – entprellt, erst wenn der Trenner  
+stillsteht – in der Konfigurationsdatei und beim nächsten Start  
+genau so angewendet. Änderungen im Einstellungsfenster greifen  
+sofort: Das Panel zieht live auf die neue Breite, ohne dass  
+gespeichert oder neu gestartet werden muss. Ist das  
+Einstellungsfenster offen, während am Trenner gezogen wird,  
+zieht der SpinButton mit (außer der Nutzer tippt dort gerade)
+
+### Changed (Geändert)
+
+- Standard-Startbreite des Panels von 340 px auf 300 px geändert  
+(Nutzer-Wunsch); ohne Konfigurationsdatei gilt jetzt 300 px
+
 ## \[0.12.1\] – 2026-10-28
 
 ### Fixed (Behoben)
