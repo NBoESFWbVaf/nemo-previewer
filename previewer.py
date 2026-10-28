@@ -4,9 +4,9 @@
 Previewer
 =========
 
-STAND: Version 0.10.4 – aktuelle Fassung (R9-Feld-Fix komplett:
-show_all im Bild-Callback, dbg-Diagnosezeilen; Einstieg selbst
-unverändert).
+STAND: Version 0.11.0 – aktuelle Fassung (F19 Teil 1: statische
+Toolbar am unteren Rand der Vorschauspalte mit Einstellungs-Knopf;
+Einstieg selbst unverändert).
 Dies ist die EINSTIEGS-Datei der
 vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
 previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
@@ -117,7 +117,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.10.4"
+PREVIEWER_VERSION = "0.11.0"
 import previewer_util
 import previewer_select
 import previewer_panel
