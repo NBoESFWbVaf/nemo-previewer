@@ -6,6 +6,32 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.16.2\] – 2026-10-28
+
+### Fixed (Behoben)
+
+- F24-Feld-Fix 2, erster Befund (Testfeld 0.16.1): Der Platz für  
+die Zeilennummern war da, die Nummern blieben aber unsichtbar.  
+„draw“ ist ein RUN\_LAST-Signal – der per connect() angemeldete  
+Handler lief VOR der TextView-Standardzeichnung, die danach den  
+Hintergrund füllt und die Randzeichnung übermalt. Der Handler  
+wird jetzt per connect\_after() angemeldet und zeichnet ÜBER der  
+Standardzeichnung (klassische Overlay-Ordnung)
+- F24-Feld-Fix 2, zweiter Befund: Deaktivierte Zeilennummern in  
+den Einstellungen wirkten sofort (der Text rückte vor), das  
+erneute Aktivieren tat aber nichts. Der Merker \_last\_textish  
+speicherte den linenumbers-Schalter statt „aktuelle Vorschau  
+ist TextView-basiert“ – nach dem Deaktivieren stand er auf  
+False, sodass der Toggle beim Re-Aktivieren nicht neu renderte.  
+Der Merker markiert jetzt TextView-basierte Vorschauen generell;  
+der Toggle wirkt damit live in beide Richtungen. Teure Renderer  
+(PDF, Office, Audio, Video, Bild, Ordner) bleiben wie bisher  
+unberührt
+- Härtung: Scheitert die Zeilennummern-Zeichnung ausnahmsweise  
+(künftige Nemo-/GTK-Änderungen), meldet der draw-Handler den  
+Fehler jetzt einmalig per dbg statt still – draw feuert oft,  
+ein Closure-Flag verhindert Log-Spam
+
 ## \[0.16.1\] – 2026-10-28
 
 ### Fixed (Behoben)
