@@ -267,7 +267,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 - [ ] **F2 – Render-Debounce**: Schwer-Renderer (PDF, Office, Audio)
 
   erst nach kurzer Auswahl-Ruhe starten. **S**
-- [ ] **F28 – Kommentare auslagern: Marker statt Fließtext**
+- [x] **F28 – Kommentare auslagern: Marker statt Fließtext**
 
   (alle vier Module, Nutzer-Wunsch: „die \*.py sollen schlanker  
   werden"; HAUPTZWECK: die Referenz wird fortlaufend aktualisiert)  
@@ -281,6 +281,14 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Projektdokument: Sie wird bei jeder künftigen Änderung im selben  
   Zug mit aktualisiert (Nutzer-Entscheid) – genau wie changelog.md  
   und planned.md heute schon Teil jedes Fixes sind.  
+  ✅ 0.15.0: umgesetzt als Teil des Struktur-Releases – 23 Marker  
+  in acht Modulen (Format `# → REF <MODUL>-<THEMA>-<NNN>`, Präfixe  
+  ENT/PAN/SEL/UT/TB/MED/DOC/TXT); REFERENZ.md lebt im Repo und  
+  wird laufend gepflegt, das Deployment kopiert nur \*.py. Was  
+  NICHT wandert: STAND-/Versionszeilen, Docstrings, einzeilige  
+  Abschnittstitel und kurze Inline-Hinweise. Ausnahme UT: Der Run  
+  über PANEL\_WIDTH ist nach Abzug des Abschnittstitels nur  
+  4 Zeilen und blieb deshalb komplett stehen.  
   **M** – *Skizze:* Ehrliche Abwägung vorab: Kommentare kosten KEINE  
   Laufzeit – der Gewinn ist reine Lesbarkeit und kürzere Dateien,  
   kein Performance- oder Speichereffekt. Fortlaufende Pflege heißt  
@@ -296,6 +304,48 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Canvas-Workflow: Die Soll-Zeilenzahlen ändern sich massiv → in  
   einem ruhigen Moment umsetzen, nicht mit laufenden Fixes  
   vermischt, danach neue Soll-Zeilen vereinbaren.
+- [x] **F31 – Renderer-Modul-Split: previewer\_panel.py entlasten**
+
+  (Nutzer-Wunsch: „ich kann das alles kaum noch überschauen";  
+  weitere Wünsche stehen vor dem festen Release an).  
+  previewer\_panel.py trägt mit 3414 Zeilen (Stand 0.14.1)  
+  praktisch das ganze Projekt allein – die anderen Module liegen  
+  bei 131–1283. Vorschlag: Renderer nach Domäne in eigene  
+  Dateien, technisch über Mixin-Klassen – das Panel erbt von den  
+  Renderer-Mixins, die Methoden wandern UNVERÄNDERT (Dispatch,  
+  \_hint/\_scaled\_image/\_meta\_grid-Helfer, R1/B7-Thread-Disziplin  
+  bleiben an Ort und Stelle; die Deckel-Konstanten ziehen MIT  
+  ihren Renderern um, damit die Audit-Logik 0.9.1/0.9.2 nicht  
+  auseinandergerissen wird). Modul-Vorschlag:  
+  previewer\_render\_media.py (Bild/Video/Audio, Platzhalter-Cover),  
+  previewer\_render\_docs.py (PDF/Office inkl. LibreOffice-  
+  Konvertierung + Cache), previewer\_render\_text.py (Markdown/  
+  Text/EML/E-Book/Font) – feinere Aufteilung nach Bedarf. Sollte  
+  der Markdown-Webview-Reverse kommen (Idee „HTML + Stylesheet im  
+  Cache", Nutzer überlegt noch): Der Renderer landet dann in  
+  previewer\_render\_text.py, als optionaler Pfad mit Pango-  
+  Fallback.  
+  **L** – *Skizze:* Ehrliche Abwägung vorab: Reine Struktur –  
+  KEIN Laufzeit- oder Featuregewinn, aber die Übersichtlichkeit  
+  für alles Kommende. Kosten: PREVIEWER\_VERSION künftig in 6–8  
+  Dateien identisch (Sync-Check im Einstieg über die Modulliste  
+  erweitern); eine Repo-Datei = ein Canvas → mehr Canvases und  
+  mehr Sync pro Release; Deployment bleibt glatt (Kopierliste  
+  nimmt \*.py, unverändert). Risiko GERING, weil Mixins verschieben  
+  statt umschreiben – aber ein Struktur-Release verdient einen  
+  frischen Kopf und ein eigenes Feldtestfenster. Empfehlung: mit  
+  F28 (REFERENZ.md) und F29 (Toolbar-Modul) zu EINEM Struktur-  
+  Release zusammenziehen – ein Umbau, danach die Canvas-Soll-  
+  Zeilenzahlen einmal neu vereinbaren, statt dreimal zu  
+  disruptieren.  
+  ✅ 0.15.0: umgesetzt als EIN Struktur-Release mit F28 + F29 –  
+  acht Module, Mixins unverändert verschoben, Sync-Check im  
+  Einstieg auf alle acht Module erweitert. Neue Soll-Zeilen  
+  (Canvas = py + 7 Frontmatter-Zeilen): previewer.py 646 ·  
+  previewer\_panel.py 801 · previewer\_select.py 1260 ·  
+  previewer\_util.py 187 · previewer\_toolbar.py 227 ·  
+  previewer\_render\_media.py 769 · previewer\_render\_docs.py 521 ·  
+  previewer\_render\_text.py 1202.
 
 ### Neue Formate
 
@@ -469,7 +519,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Datei + „\_zusammen.pdf", Kollisions-Suffix `_1`, `_2` …).  
   Später denkbar: mehrere Bilder → Bildstreifen/Kontaktbogen,  
   mehrere Medien → Playlist.
-- [ ] **F29 – Toolbar als eigene Datei** (previewer\_toolbar.py,
+- [x] **F29 – Toolbar als eigene Datei** (previewer\_toolbar.py,
 
   Nutzer-Wunsch: „wenn möglich und sinnvoll")  
   Die F19-Toolbar ggf. als fünftes Modul führen statt als Teil von  
@@ -486,7 +536,11 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   neue Modul automatisch). Erst ZUSAMMEN mit F19 anpacken – vorher  
   gibt es nichts auszulagern; bleibt die Toolbar am Ende klein,  
   ist sie im Panel besser aufgehoben („wenn sinnvoll" vor dem  
-  Abspalten ehrlich abwägen).
+  Abspalten ehrlich abwägen).  
+  ✅ 0.15.0: als sinnvoll erachtet – umgesetzt. Die Toolbar samt  
+  Einstellungsfenster (F12) und Strg+Alt+P ist das Mixin-Modul  
+  previewer\_toolbar.py (PreviewToolbarMixin) und importiert nur  
+  GTK + previewer\_util, das Panel erbt – keine Zirkel-Imports.
 - [ ] **F22 – Video-Platzhalterbild + Wiedergabe im Panel**
 
   Filmdateien ohne Standbild bekommen dieselbe generische Kachel wie  
@@ -555,34 +609,35 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 ## Empfohlene Reihenfolge
 
 
-| Schritt | Inhalt                                                                                                                                                                                                                                                                                                                                                  | Zielversion                                                           |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                                                                                                                                                                                                                                                    | ✅ 0.4.2 (Patch)                                                       |
-| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                                                                                                                                                                                                                                                           | ✅ 0.4.3 (Patch)                                                       |
-| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                                                                                                                                                                                                                                                              | ✅ 0.5.0 (Minor)                                                       |
-| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                                                                                                                                                                                                                                                                 | ✅ 0.5.1 (Patch)                                                       |
-| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                                                                                                                                                                                                                                                    | ✅ 0.6.0 (Minor; in 0.7.0 wieder entfernt)                             |
-| 7       | F22 – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                                                                                                                                                                                                                                                                        | Kachel ✅ 0.7.0 (Minor); Wiedergabe 0.7.0–0.7.2, in 0.8.0 zurückgebaut |
-| 8       | F14 – PDF-Seitenanzeige beim Scrollen (vorgezogen)                                                                                                                                                                                                                                                                                                      | ✅ 0.9.0 (Minor)                                                       |
-| 8a      | Sicherheits- + Redundanz-Audit (3 Lebenszyklus-Fixes: Crowbar-Race, Poll-Timer-Leck, Office-Kind-Watch; TextView-/Lese-/Tabellen-/Name-Helfer gegen Redundanzen)                                                                                                                                                                                        | ✅ 0.9.1 (Patch)                                                       |
-| 8b      | Audit 2 „Pufferüberlauf/OOM“ (Decode-/Lese-Deckel gegen Bild-/PDF-/EPUB-/DOCX-/EML-Bomben, Wildcall-Schutz für VTable-Funktionszeiger)                                                                                                                                                                                                                  | ✅ 0.9.2 (Patch)                                                       |
-| 8c      | F23 – Text-Vorschau für endungslose Dateien (Inhalts-Sniffing, vorgezogen)                                                                                                                                                                                                                                                                              | ✅ 0.10.0 (Minor)                                                      |
-| 8d      | B6 – Markdown in System-Schriftgröße (aus dem Testfeld gemeldet)                                                                                                                                                                                                                                                                                        | ✅ 0.10.1 (Patch)                                                      |
-| 8e      | R9 – Große Bilder asynchron dekodieren + Dekodierung auf Anzeigegröße (vorgezogen, aus dem Testfeld gemeldet)                                                                                                                                                                                                                                           | ✅ 0.10.2 (Patch)                                                      |
-| 8f      | B7 – R9-Regression: Dekodierung zurück in den GTK-Thread (Feldtest 0.10.2)                                                                                                                                                                                                                                                                              | ✅ 0.10.3 (Patch; Teil des Fixes)                                      |
-| 8g      | B7 – fehlendes show\_all im Bild-Idle-Callback: eigentliche Feld-Ursache (R1-Muster nachgezogen)                                                                                                                                                                                                                                                        | ✅ 0.10.4 (Patch)                                                      |
-| 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                                                                                                                                                                                                            | später (vorher 0.10.0)                                                |
-| 10      | F4, F6–F11 nach Bedarf                                                                                                                                                                                                                                                                                                                                  | später                                                                |
-| 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                                                                                                                                                                                                               | später                                                                |
-| 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + F24–F27 (Toolbar-Erweiterungen: Zeilennummern nicht kopierbar, Zeilenabstand, Bild→PNG-mit-Alpha, Mehrfachauswahl: PDFs zusammenfügen) + F29 (Toolbar ggf. als eigenes Modul previewer\_toolbar.py) + Neuversuch F22-Wiedergabe | später                                                                |
-| 12a     | F19 Teil 1 – Toolbar-Grundgerüst: statische ActionBar am unteren Rand, Einstellungs-Knopf (Zahnrad-Systemicon) rechts                                                                                                                                                                                                                                   | ✅ 0.11.0 (Minor)                                                      |
-| 12b     | F12 Teil 1 – Einstellungsfenster (öffnet über Zahnrad), Konfigurationsdatei \~/.config/nemo-previewer/nemo-previewer.conf mit sofortiger Speicherung + Anwendung bei jedem Start; erste Einstellung: Sichtbarkeit beim Start                                                                                                                            | ✅ 0.12.0 (Minor)                                                      |
-| 12c     | B8 – F12-Feld-Fix: GLib.KeyFile statt Gio.Keyfile (Persistenz war wirkungslos)                                                                                                                                                                                                                                                                          | ✅ 0.12.1 (Patch)                                                      |
-| 12d     | F12 Teil 2 – „Standardbreite beim Start": Default 300 px, Zieh-Breite wird Startbreite (entprellt in conf), sofortige Live-Anwendung                                                                                                                                                                                                                    | ✅ 0.13.0 (Minor)                                                      |
-| 13      | F28 – Kommentar-Auslagerung (Marker + REFERENZ.md als laufend gepflegtes Projektdokument; Canvas-Soll-Zeilenzahlen danach neu vereinbaren)                                                                                                                                                                                                              | später (ruhiger Moment, nicht mit laufenden Fixes mischen)            |
-| 14      | F30 – Dual-Pane (F3): Vorschau folgt der aktiven Spalte (zuerst Feld-Log, dann Option A; ggf. Interims-Hinweis Option C)                                                                                                                                                                                                                                | nach erstem Release (1.0.0); Erprobung ausschließlich im Branch       |
-| 15      | K4 – Markdown-Vorschau: GFM-Varianten (Tabellen, Task-Listen, sortierte/verschachtelte Listen, Durchstreichen, Setext, Links mit Klammern)                                                                                                                                                                                                              | ✅ 0.14.0 (Minor; Nutzer-Priorisierung)                                |
-| 16      | K4-Feld-Fix – Tabellen-Gesamtbudget mit mehrzeiligem Zell-Umbruch, Emoji-Breite, Backslash-Escapes, maskierte Balken                                                                                                                                                                                                                                    | ✅ 0.14.1 (Patch; Feldtest 0.14.0)                                     |
+| Schritt | Inhalt                                                                                                                                                                                                                                                                                                   | Zielversion                                                                  |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                                                                                                                                                                                                     | ✅ 0.4.2 (Patch)                                                              |
+| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                                                                                                                                                                                                            | ✅ 0.4.3 (Patch)                                                              |
+| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                                                                                                                                                                                                               | ✅ 0.5.0 (Minor)                                                              |
+| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                                                                                                                                                                                                                  | ✅ 0.5.1 (Patch)                                                              |
+| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                                                                                                                                                                                                     | ✅ 0.6.0 (Minor; in 0.7.0 wieder entfernt)                                    |
+| 7       | F22 – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                                                                                                                                                                                                                         | Kachel ✅ 0.7.0 (Minor); Wiedergabe 0.7.0–0.7.2, in 0.8.0 zurückgebaut        |
+| 8       | F14 – PDF-Seitenanzeige beim Scrollen (vorgezogen)                                                                                                                                                                                                                                                       | ✅ 0.9.0 (Minor)                                                              |
+| 8a      | Sicherheits- + Redundanz-Audit (3 Lebenszyklus-Fixes: Crowbar-Race, Poll-Timer-Leck, Office-Kind-Watch; TextView-/Lese-/Tabellen-/Name-Helfer gegen Redundanzen)                                                                                                                                         | ✅ 0.9.1 (Patch)                                                              |
+| 8b      | Audit 2 „Pufferüberlauf/OOM“ (Decode-/Lese-Deckel gegen Bild-/PDF-/EPUB-/DOCX-/EML-Bomben, Wildcall-Schutz für VTable-Funktionszeiger)                                                                                                                                                                   | ✅ 0.9.2 (Patch)                                                              |
+| 8c      | F23 – Text-Vorschau für endungslose Dateien (Inhalts-Sniffing, vorgezogen)                                                                                                                                                                                                                               | ✅ 0.10.0 (Minor)                                                             |
+| 8d      | B6 – Markdown in System-Schriftgröße (aus dem Testfeld gemeldet)                                                                                                                                                                                                                                         | ✅ 0.10.1 (Patch)                                                             |
+| 8e      | R9 – Große Bilder asynchron dekodieren + Dekodierung auf Anzeigegröße (vorgezogen, aus dem Testfeld gemeldet)                                                                                                                                                                                            | ✅ 0.10.2 (Patch)                                                             |
+| 8f      | B7 – R9-Regression: Dekodierung zurück in den GTK-Thread (Feldtest 0.10.2)                                                                                                                                                                                                                               | ✅ 0.10.3 (Patch; Teil des Fixes)                                             |
+| 8g      | B7 – fehlendes show\_all im Bild-Idle-Callback: eigentliche Feld-Ursache (R1-Muster nachgezogen)                                                                                                                                                                                                         | ✅ 0.10.4 (Patch)                                                             |
+| 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                                                                                                                                                             | später (vorher 0.10.0)                                                       |
+| 10      | F4, F6–F11 nach Bedarf                                                                                                                                                                                                                                                                                   | später                                                                       |
+| 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                                                                                                                                                                | später                                                                       |
+| 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + F24–F27 (Toolbar-Erweiterungen: Zeilennummern nicht kopierbar, Zeilenabstand, Bild→PNG-mit-Alpha, Mehrfachauswahl: PDFs zusammenfügen; F29 ✅ 0.15.0) + Neuversuch F22-Wiedergabe | später                                                                       |
+| 12a     | F19 Teil 1 – Toolbar-Grundgerüst: statische ActionBar am unteren Rand, Einstellungs-Knopf (Zahnrad-Systemicon) rechts                                                                                                                                                                                    | ✅ 0.11.0 (Minor)                                                             |
+| 12b     | F12 Teil 1 – Einstellungsfenster (öffnet über Zahnrad), Konfigurationsdatei \~/.config/nemo-previewer/nemo-previewer.conf mit sofortiger Speicherung + Anwendung bei jedem Start; erste Einstellung: Sichtbarkeit beim Start                                                                             | ✅ 0.12.0 (Minor)                                                             |
+| 12c     | B8 – F12-Feld-Fix: GLib.KeyFile statt Gio.Keyfile (Persistenz war wirkungslos)                                                                                                                                                                                                                           | ✅ 0.12.1 (Patch)                                                             |
+| 12d     | F12 Teil 2 – „Standardbreite beim Start": Default 300 px, Zieh-Breite wird Startbreite (entprellt in conf), sofortige Live-Anwendung                                                                                                                                                                     | ✅ 0.13.0 (Minor)                                                             |
+| 13      | F28 – Kommentar-Auslagerung (Marker + REFERENZ.md als laufend gepflegtes Projektdokument; Canvas-Soll-Zeilenzahlen danach neu vereinbaren)                                                                                                                                                               | ✅ 0.15.0 (Minor; Struktur-Release mit F29 + F31)                             |
+| 14      | F30 – Dual-Pane (F3): Vorschau folgt der aktiven Spalte (zuerst Feld-Log, dann Option A; ggf. Interims-Hinweis Option C)                                                                                                                                                                                 | nach erstem Release (1.0.0); Erprobung ausschließlich im Branch              |
+| 15      | K4 – Markdown-Vorschau: GFM-Varianten (Tabellen, Task-Listen, sortierte/verschachtelte Listen, Durchstreichen, Setext, Links mit Klammern)                                                                                                                                                               | ✅ 0.14.0 (Minor; Nutzer-Priorisierung)                                       |
+| 16      | K4-Feld-Fix – Tabellen-Gesamtbudget mit mehrzeiligem Zell-Umbruch, Emoji-Breite, Backslash-Escapes, maskierte Balken                                                                                                                                                                                     | ✅ 0.14.1 (Patch; Feldtest 0.14.0)                                            |
+| 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                                                                   | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
