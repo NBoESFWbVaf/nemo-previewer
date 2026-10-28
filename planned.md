@@ -61,6 +61,22 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   size-Angaben im Markup). EML/E-Book bleiben vorerst bei 9 pt  
   (gleiches Muster, gleiche Lösung möglich – bewusst nicht  
   mitgerissen, da nicht gemeldet).
+- [x] **B7 – R9-Regression: Bild-Vorschau erschien gar nicht mehr**
+
+  (`_render_image`/`_image_probe_done`, panel; aus dem Testfeld  
+  gemeldet, nur in 0.10.2)  
+  0.10.2 dekodierte die Bilder im Daemon-Thread und erzeugte dort  
+  Gdk-Objekte (PixbufLoader) – gegen das R1-Muster „keine Gdk-  
+  Objekte im Worker". Im Feld scheiterte der Worker still: keine  
+  Vorschau, kein Traceback, kein Fehlerhinweis; im Log tauchte nur  
+  die GdkPixbuf-Warnung „Loader finalized without close" auf (sie  
+  stammte vom \_image\_gi\_warmup-Loader, den niemand schloss, und  
+  war Symptom-Anzeiger, nicht Ursache).  
+  *Skizze:* Worker liest nur die Datei (reines Python-I/O) und  
+  reicht die Bytes per GLib.idle\_add zurück; Dekodierung, EXIF-  
+  Drehung und Skalierung laufen im GTK-Thread (wie bei den  
+  Medien-Covern); \_image\_gi\_warmup/\_IMAGE\_STATE entfernen.  
+  ✅ 0.10.3: umgesetzt wie skizziert.
 
 ### 🟡 Risiken
 
@@ -141,7 +157,16 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   (\_image\_gi\_warmup, wie R1), Dekodierung im Daemon-Thread mit  
   Idle-Rückgabe und Auswahl-Abgleich, Originalmaße aus  
   size-prepared fürs Info-Label (statt der Dekodiergröße); Thread-  
-  Start-Fehler fallen auf den synchronen Weg zurück.
+  Start-Fehler fallen auf den synchronen Weg zurück.  
+  ⚠️ Feldtest 0.10.2: REGRESSION – die Dekodierung im Worker  
+  erzeugte Gdk-Objekte (PixbufLoader) außerhalb des GTK-Threads  
+  und scheiterte still (keine Vorschau, kein Traceback, nur die  
+  GdkPixbuf-Finalize-Warnung des Warm-up-Loaders im Log); die  
+  Annahme „Pixbuf im Thread ist ungefährlich" war falsch.  
+  ✅ 0.10.3 korrigiert auf das R1-Muster: Der Thread liest NUR die  
+  Datei (reines I/O), Dekodierung/EXIF/Skalierung laufen zurück im  
+  GTK-Thread; \_image\_gi\_warmup entfiel komplett (Quelle der  
+  GdkPixbuf-Warnung). Details siehe B7.
 
 ### ⚪ Kosmetik
 
@@ -324,6 +349,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 8c      | F23 – Text-Vorschau für endungslose Dateien (Inhalts-Sniffing, vorgezogen)                                                                                       | ✅ 0.10.0 (Minor)                                                      |
 | 8d      | B6 – Markdown in System-Schriftgröße (aus dem Testfeld gemeldet)                                                                                                 | ✅ 0.10.1 (Patch)                                                      |
 | 8e      | R9 – Große Bilder asynchron dekodieren + Dekodierung auf Anzeigegröße (vorgezogen, aus dem Testfeld gemeldet)                                                    | ✅ 0.10.2 (Patch)                                                      |
+| 8f      | B7 – R9-Regression: Dekodierung zurück in den GTK-Thread (Feldtest 0.10.2)                                                                                       | ✅ 0.10.3 (Patch)                                                      |
 | 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                     | später (vorher 0.10.0)                                                |
 | 10      | F4, F6–F11 nach Bedarf                                                                                                                                           | später                                                                |
 | 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                        | später                                                                |
