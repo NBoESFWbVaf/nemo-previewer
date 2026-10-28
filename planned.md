@@ -231,6 +231,35 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 - [ ] **F2 – Render-Debounce**: Schwer-Renderer (PDF, Office, Audio)
 
   erst nach kurzer Auswahl-Ruhe starten. **S**
+- [ ] **F28 – Kommentare auslagern: Marker statt Fließtext**
+
+  (alle vier Module, Nutzer-Wunsch: „die \*.py sollen schlanker  
+  werden"; HAUPTZWECK: die Referenz wird fortlaufend aktualisiert)  
+  Die Module sind durch die ausführlichen Block-Kommentare und  
+  Docstrings (R-/B-/F-Notizen, Skizzen, Historie) auf 128–2766  
+  Zeilen gewachsen. Jede längere Kommentar-Stelle bekommt stattdes-  
+  sen einen kurzen, stabilen Marker (Vorschlag: Modul-Kürzel +  
+  Fortlaufnummer, z. B. `# → REF PAN-R9-1`); die vollständigen Texte  
+  wandern nummeriert in eine Referenzdatei REFERENZ.md im Repo.  
+  REFERENZ.md ist kein einmaliger Auszug, sondern das LEBENDIGE  
+  Projektdokument: Sie wird bei jeder künftigen Änderung im selben  
+  Zug mit aktualisiert (Nutzer-Entscheid) – genau wie changelog.md  
+  und planned.md heute schon Teil jedes Fixes sind.  
+  **M** – *Skizze:* Ehrliche Abwägung vorab: Kommentare kosten KEINE  
+  Laufzeit – der Gewinn ist reine Lesbarkeit und kürzere Dateien,  
+  kein Performance- oder Speichereffekt. Fortlaufende Pflege heißt  
+  konsequent: Berührt ein Fix eine markierte Stelle, gehört die  
+  REFERENZ.md-Aktualisierung zum Done-Zustand (eigenes Canvas wie  
+  für jede Repo-Datei, eigene Commit-Zeile im Antwort-Schema);  
+  Marker eindeutig und stabil nummerieren, NIE umbenennen. Was  
+  NICHT wandert: STAND-/Versions-Zeilen und PREVIEWER\_VERSION  
+  (Konvention!), einzeilige Helfer-Docstrings (help() bleibt  
+  nützlich) und kurze Inline-Hinweise, wo Code sonst rätselhaft  
+  bliebe – nur die langen Block-Kommentare und Historien-Docstrings.  
+  REFERENZ.md wird NICHT mitdeployt (Kopierliste nimmt nur \*.py).  
+  Canvas-Workflow: Die Soll-Zeilenzahlen ändern sich massiv → in  
+  einem ruhigen Moment umsetzen, nicht mit laufenden Fixes  
+  vermischt, danach neue Soll-Zeilen vereinbaren.
 
 ### Neue Formate
 
@@ -302,11 +331,20 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
   Kontextsensitive Knopfleiste unter dem Vorschaubereich; die  
   Renderer melden ihre Aktionen, statt Buttons frei im Inhalt zu  
-  streuen. Basis für F13 (Pfad kopieren), F20 (OCR) und F21  
-  (Office→PDF). **M** – *Skizze:* Gtk.ActionBar (oder ButtonBox) als  
-  fester Fuß der Spalte unter `self._content`; je Renderer Liste von  
-  (Icon, Tooltip, Callback)-Tripeln; ohne Aktionen bleibt die Leiste  
-  ausgeblendet.
+  streuen. Basis für F13 (Pfad kopieren), F20 (OCR), F21  
+  (Office→PDF) und F24–F27 (Zeilennummern, Zeilenabstand,  
+  Bild→PNG-mit-Alpha, Mehrfachauswahl-Aktionen). **M** – *Skizze:*  
+  Gtk.ActionBar (oder ButtonBox) als fester Fuß der Spalte unter  
+  `self._content`; je Renderer Liste von (Icon, Tooltip, Callback)-  
+  Tripeln. Nutzer-Entscheid (0.11.0): Die Leiste ist STATISCH –  
+  immer sichtbar, solange das Panel aktiv ist; das ursprüngliche  
+  „ohne Aktionen bleibt die Leiste ausgeblendet" ist damit  
+  verworfen. ✅ Teil 1 in 0.11.0: ActionBar-Fuß mit eigener  
+  Trennlinie unter dem Inhaltsbereich, rechts außen fester  
+  Einstellungs-Knopf (preferences-system-symbolic, Zahnrad aus den  
+  Systemicons, Tooltip „Einstellungen"; Klick bis F12 nur dbg im  
+  Log). Offen: Anmeldung der Renderer-Aktionen (Icon, Tooltip,  
+  Callback) inkl. Auswahlwechsel-Verwaltung.
 - [ ] **F20 – OCR-Button bei PDFs** (in der Toolbar, F19)
 
   Bei PDF-Auswahl erscheint ein OCR-Knopf; Klick führt eine  
@@ -327,6 +365,74 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   bestehenden Muster (`soffice --headless --convert-to pdf`) und  
   danach kopieren. Zielname: gleicher Basisname + `.pdf`  
   (Kollision vermeiden: bei Existenz `_1`, `_2` … anhängen).
+- [ ] **F24 – Zeilennummern ein-/ausblenden** (Text-Toolbar, F19)
+
+  Bei Textdateien zeigt die Toolbar einen Knopf „Zeilennummern".  
+  Die Nummern dürfen NICHT mitkopiert werden – Selektion/Kopie  
+  erfassen ausschließlich den eigentlichen Inhalt (Nutzer-Wunsch).  
+  **S–M** – *Skizze:* Text-Vorschau auf GtkSource.View umstellen  
+  (Paket gir1.2-gtksourceview-4): Der Nummern-Gutter ist KEIN Teil  
+  des TextBuffers, Selektion und Kopie greifen ihn nie an – genau  
+  die geforderte Trennung. Ohne GtkSource: Knopf ausgegraut mit  
+  Hinweis „Paket gir1.2-gtksourceview-4 installieren" (Alternative  
+  ohne Paket wäre eine synchrone Nummern-Spalte als DrawingArea –  
+  mehr Arbeit, lieber das fertige GtkSource-Gutter). Später ggf.  
+  auch für die anderen TextView-Ansichten (EML-Kopf, E-Book)  
+  anbieten.
+- [ ] **F25 – Zeilenabstand einstellen** (Text-Toolbar, F19)
+
+  Knopf „Zeilenabstand" in der Text-Toolbar, z. B. Durchschalten  
+  zwischen normal / luftig / sehr luftig (Nutzer-Wunsch: „etwas  
+  modifizieren"). **S** – *Skizze:* GtkTextTag „zeilenabstand" mit  
+  pixels-above-lines (z. B. Stufen 0/3/6 px) über den gesamten  
+  Buffer anwenden – nach jedem erneuten Laden/Neuaufbau der  
+  Vorschau wiederholen; Zustand als Panel-Attribut, damit der  
+  Knopf beim nächsten Öffnen die richtige Stufe anzeigt. Kopier-  
+  Verhalten ändert sich nicht (Tag beteiligt sich nicht an der  
+  Zwischenablage).
+- [ ] **F26 – Bild als PNG mit Alphakanal speichern** (Toolbar, F19)
+
+  Bei Bilddateien ein Knopf „Als PNG mit Alpha speichern": legt das  
+  Bild als PNG MIT Alphakanal als Kopie neben dem Original ab –  
+  Original unangetastet (Nutzer-Wunsch). **S–M** – *Skizze:* Pixbuf  
+  im GTK-Thread laden (R1-Muster), EXIF-Ausrichtung anwenden,  
+  `pb.add_alpha()` erzwingt den Alphakanal auch bei JPEG-Quellen,  
+  `pb.savev()` als PNG; Zielname Basisname + `.png`, bei Existenz  
+  `_1`, `_2` … (wie F21); ohne Schreibrechte im Ordner: Fehler-  
+  Hinweis im Panel statt Traceback.
+- [ ] **F27 – Aktionen bei Mehrfachauswahl** (Toolbar, F19)
+
+  Bei Mehrfachauswahl (das Panel kennt bereits alle Namen über  
+  `self._names`) bietet die Toolbar gemeinsame Aktionen für die  
+  ausgewählten Dateien statt nur „… und N weitere" (Nutzer-Wunsch).  
+  Erstes Beispiel: mehrere PDFs zu EINER Datei zusammenfügen.  
+  **M–L** – *Skizze:* Toolbar prüft die Typen der Auswahl und  
+  zeigt nur gemeinsame Aktionen. PDF-Zusammenfügen als Hintergrund-  
+  job im `_office_start_job`-Muster (spawn\_async + child\_watch +  
+  Hinweis im Panel, kein UI-Freeze); Backend-Reihenfolge  
+  `pdfunite` (poppler-utils) → `qpdf` → Knopf grau mit Installations-  
+  Hinweis; Ziel neben den Quellen (z. B. Basisname der ersten  
+  Datei + „\_zusammen.pdf", Kollisions-Suffix `_1`, `_2` …).  
+  Später denkbar: mehrere Bilder → Bildstreifen/Kontaktbogen,  
+  mehrere Medien → Playlist.
+- [ ] **F29 – Toolbar als eigene Datei** (previewer\_toolbar.py,
+
+  Nutzer-Wunsch: „wenn möglich und sinnvoll")  
+  Die F19-Toolbar ggf. als fünftes Modul führen statt als Teil von  
+  previewer\_panel.py. **S–M** – *Skizze:* Wird sinnvoll, sobald der  
+  Aktionen-Katalog wächst (F13, F20, F21, F24–F27): Eine eigene  
+  Datei hält das Panel schlanker und die Toolbar isoliert testbar.  
+  previewer\_toolbar importiert nur GTK + previewer\_util, NICHT das  
+  Panel – das Panel instanziiert die Toolbar und meldet (Icon,  
+  Tooltip, Callback)-Tripel an; so gibt es keine Zirkel-Imports.  
+  Konsequenzen ehrlich mitdenken: PREVIEWER\_VERSION dann in FÜNF  
+  Dateien identisch (Versions-Check im Einstieg erweitern!),  
+  dbg-Zeile „previewer\_toolbar … geladen", neues Canvas pro  
+  Repo-Datei; die Deploy-Kopierliste bleibt `cp *.py` (erfasst das  
+  neue Modul automatisch). Erst ZUSAMMEN mit F19 anpacken – vorher  
+  gibt es nichts auszulagern; bleibt die Toolbar am Ende klein,  
+  ist sie im Panel besser aufgehoben („wenn sinnvoll" vor dem  
+  Abspalten ehrlich abwägen).
 - [ ] **F22 – Video-Platzhalterbild + Wiedergabe im Panel**
 
   Filmdateien ohne Standbild bekommen dieselbe generische Kachel wie  
@@ -353,26 +459,28 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 ## Empfohlene Reihenfolge
 
 
-| Schritt | Inhalt                                                                                                                                                           | Zielversion                                                           |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                                                             | ✅ 0.4.2 (Patch)                                                       |
-| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                                                                    | ✅ 0.4.3 (Patch)                                                       |
-| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                                                                       | ✅ 0.5.0 (Minor)                                                       |
-| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                                                                          | ✅ 0.5.1 (Patch)                                                       |
-| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                                                             | ✅ 0.6.0 (Minor; in 0.7.0 wieder entfernt)                             |
-| 7       | F22 – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                                                                                 | Kachel ✅ 0.7.0 (Minor); Wiedergabe 0.7.0–0.7.2, in 0.8.0 zurückgebaut |
-| 8       | F14 – PDF-Seitenanzeige beim Scrollen (vorgezogen)                                                                                                               | ✅ 0.9.0 (Minor)                                                       |
-| 8a      | Sicherheits- + Redundanz-Audit (3 Lebenszyklus-Fixes: Crowbar-Race, Poll-Timer-Leck, Office-Kind-Watch; TextView-/Lese-/Tabellen-/Name-Helfer gegen Redundanzen) | ✅ 0.9.1 (Patch)                                                       |
-| 8b      | Audit 2 „Pufferüberlauf/OOM“ (Decode-/Lese-Deckel gegen Bild-/PDF-/EPUB-/DOCX-/EML-Bomben, Wildcall-Schutz für VTable-Funktionszeiger)                           | ✅ 0.9.2 (Patch)                                                       |
-| 8c      | F23 – Text-Vorschau für endungslose Dateien (Inhalts-Sniffing, vorgezogen)                                                                                       | ✅ 0.10.0 (Minor)                                                      |
-| 8d      | B6 – Markdown in System-Schriftgröße (aus dem Testfeld gemeldet)                                                                                                 | ✅ 0.10.1 (Patch)                                                      |
-| 8e      | R9 – Große Bilder asynchron dekodieren + Dekodierung auf Anzeigegröße (vorgezogen, aus dem Testfeld gemeldet)                                                    | ✅ 0.10.2 (Patch)                                                      |
-| 8f      | B7 – R9-Regression: Dekodierung zurück in den GTK-Thread (Feldtest 0.10.2)                                                                                       | ✅ 0.10.3 (Patch; Teil des Fixes)                                      |
-| 8g      | B7 – fehlendes show\_all im Bild-Idle-Callback: eigentliche Feld-Ursache (R1-Muster nachgezogen)                                                                 | ✅ 0.10.4 (Patch)                                                      |
-| 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                     | später (vorher 0.10.0)                                                |
-| 10      | F4, F6–F11 nach Bedarf                                                                                                                                           | später                                                                |
-| 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                        | später                                                                |
-| 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + Neuversuch F22-Wiedergabe                | später                                                                |
+| Schritt | Inhalt                                                                                                                                                                                                                                                                                                                                                  | Zielversion                                                           |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1       | 🔴 B1–B5 (Bug-Paket)                                                                                                                                                                                                                                                                                                                                    | ✅ 0.4.2 (Patch)                                                       |
+| 2+3     | 🟡 R1–R8 (Robustheits-Paket, zusammengezogen)                                                                                                                                                                                                                                                                                                           | ✅ 0.4.3 (Patch)                                                       |
+| 4       | F18 – Audio-Platzhalter-Cover (vorgezogen)                                                                                                                                                                                                                                                                                                              | ✅ 0.5.0 (Minor)                                                       |
+| 5       | K1 – Ordnerzählung transparent (Kompromiss, vorgezogen)                                                                                                                                                                                                                                                                                                 | ✅ 0.5.1 (Patch)                                                       |
+| 6       | F22 Teil 1 – Video-Standbild-Extraktion (vorgezogen)                                                                                                                                                                                                                                                                                                    | ✅ 0.6.0 (Minor; in 0.7.0 wieder entfernt)                             |
+| 7       | F22 – generische Video-Kachel + Wiedergabe im Panel (vorgezogen)                                                                                                                                                                                                                                                                                        | Kachel ✅ 0.7.0 (Minor); Wiedergabe 0.7.0–0.7.2, in 0.8.0 zurückgebaut |
+| 8       | F14 – PDF-Seitenanzeige beim Scrollen (vorgezogen)                                                                                                                                                                                                                                                                                                      | ✅ 0.9.0 (Minor)                                                       |
+| 8a      | Sicherheits- + Redundanz-Audit (3 Lebenszyklus-Fixes: Crowbar-Race, Poll-Timer-Leck, Office-Kind-Watch; TextView-/Lese-/Tabellen-/Name-Helfer gegen Redundanzen)                                                                                                                                                                                        | ✅ 0.9.1 (Patch)                                                       |
+| 8b      | Audit 2 „Pufferüberlauf/OOM“ (Decode-/Lese-Deckel gegen Bild-/PDF-/EPUB-/DOCX-/EML-Bomben, Wildcall-Schutz für VTable-Funktionszeiger)                                                                                                                                                                                                                  | ✅ 0.9.2 (Patch)                                                       |
+| 8c      | F23 – Text-Vorschau für endungslose Dateien (Inhalts-Sniffing, vorgezogen)                                                                                                                                                                                                                                                                              | ✅ 0.10.0 (Minor)                                                      |
+| 8d      | B6 – Markdown in System-Schriftgröße (aus dem Testfeld gemeldet)                                                                                                                                                                                                                                                                                        | ✅ 0.10.1 (Patch)                                                      |
+| 8e      | R9 – Große Bilder asynchron dekodieren + Dekodierung auf Anzeigegröße (vorgezogen, aus dem Testfeld gemeldet)                                                                                                                                                                                                                                           | ✅ 0.10.2 (Patch)                                                      |
+| 8f      | B7 – R9-Regression: Dekodierung zurück in den GTK-Thread (Feldtest 0.10.2)                                                                                                                                                                                                                                                                              | ✅ 0.10.3 (Patch; Teil des Fixes)                                      |
+| 8g      | B7 – fehlendes show\_all im Bild-Idle-Callback: eigentliche Feld-Ursache (R1-Muster nachgezogen)                                                                                                                                                                                                                                                        | ✅ 0.10.4 (Patch)                                                      |
+| 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                                                                                                                                                                                                            | später (vorher 0.10.0)                                                |
+| 10      | F4, F6–F11 nach Bedarf                                                                                                                                                                                                                                                                                                                                  | später                                                                |
+| 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                                                                                                                                                                                                               | später                                                                |
+| 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + F24–F27 (Toolbar-Erweiterungen: Zeilennummern nicht kopierbar, Zeilenabstand, Bild→PNG-mit-Alpha, Mehrfachauswahl: PDFs zusammenfügen) + F29 (Toolbar ggf. als eigenes Modul previewer\_toolbar.py) + Neuversuch F22-Wiedergabe | später                                                                |
+| 12a     | F19 Teil 1 – Toolbar-Grundgerüst: statische ActionBar am unteren Rand, Einstellungs-Knopf (Zahnrad-Systemicon) rechts                                                                                                                                                                                                                                   | ✅ 0.11.0 (Minor)                                                      |
+| 13      | F28 – Kommentar-Auslagerung (Marker + REFERENZ.md als laufend gepflegtes Projektdokument; Canvas-Soll-Zeilenzahlen danach neu vereinbaren)                                                                                                                                                                                                              | später (ruhiger Moment, nicht mit laufenden Fixes mischen)            |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
