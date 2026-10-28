@@ -4,13 +4,10 @@
 Previewer – Renderer-Modul Text (previewer_render_text.py)
 ==========================================================
 
-STAND: Version 0.15.0 – Struktur-Release (F31): Die Renderer für
-Text und Markdown (GFM-Varianten: Tabellen mit Gesamtbudget, Task-
-Listen, Setext-Überschriften – K4), E-Mail-Dateien, E-Books (EPUB,
-FictionBook, MOBI) und Schriftarten (Wasserfall, frischer
-Pango-FontMap) sind aus dem Panel-Kern in dieses Mixin-Modul gezogen;
-die Lese-Deckel (R4, 0.9.2) bleiben unverändert. Lange Kommentar-
-und Historienblöcke stehen als Marker in REFERENZ.md (F28).
+STAND: Version 0.16.0 – F24: _render_text reicht die Zeilennummern-
+Einstellung an den TextView weiter (Rubrik „Textdateien“, Default
+an; die Nummern sind nicht kopierbar, der Text schon). Markdown,
+EML, E-Books und Font-Wasserfall bleiben ohne Nummern.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -946,7 +943,11 @@ class TextRendererMixin:
         except Exception as e:
             self._hint("Konnte Datei nicht lesen: %s" % e)
             return
-        self._text_view(text, font="Monospace 9")
+        # F24 (0.16.0): Zeilennummern laut Einstellung „Textdateien“
+        # (Default an); sie sind Randzeichnung, nicht Textbuffer –
+        # kopiert wird nur der Text selbst.
+        self._text_view(text, font="Monospace 9",
+                        linenumbers=self._conf_text_linenumbers)
         if truncated:
             self._hint("Vorschau gekürzt (lange Datei).")
 
@@ -1196,7 +1197,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.15.0"
+PREVIEWER_VERSION = "0.16.0"
 dbg("previewer_render_text %s geladen (F31: Text/Markdown/EML/"
     "E-Book/Schrift-Renderer; K4-Markdown und Lese-Deckel bleiben)"
     % PREVIEWER_VERSION)
