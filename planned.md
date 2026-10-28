@@ -497,7 +497,17 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ✅ 0.16.1 – Feld-Fix nach Testfeld 0.16.0: Die GI-Bindung von  
   Pango.Layout kennt get\_pixel\_width() nicht (AttributeError,  
   Text-Vorschau blieb leer); die Randbreiten-Messung läuft jetzt  
-  über get\_pixel\_size().
+  über get\_pixel\_size().  
+  ✅ 0.16.2 – Feld-Fix 2 nach Testfeld 0.16.1, zwei Befunde:
+  1. Platz da, Nummern unsichtbar: „draw“ ist RUN\_LAST, der per  
+  connect() angemeldete Handler lief VOR der TextView-Standard-  
+  zeichnung und wurde übermalt – jetzt connect\_after() (Overlay).
+  2. Re-Aktivieren des Toggles wirkte nicht: \_last\_textish  
+  speicherte den linenumbers-Schalter statt „Vorschau ist  
+  TextView-basiert“ – jetzt markiert der Merker TextView-basierte  
+  Vorschauen generell, der Toggle rendert live in beide Richtungen.  
+  Zusätzlich loggt der draw-Handler Fehler einmalig per dbg statt  
+  still zu bleiben (Closure-Flag gegen Log-Spam).
 - [ ] **F25 – Zeilenabstand einstellen** (Text-Toolbar, F19)
 
   Knopf „Zeilenabstand" in der Text-Toolbar, z. B. Durchschalten  
