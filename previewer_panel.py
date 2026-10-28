@@ -4,14 +4,13 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.12.1 – aktuelle Fassung (F12 Teil 1 mit Feld-Fix
-B8: Zahnrad-Knopf öffnet das Einstellungsfenster; Einstellungen
-werden sofort in ~/.config/nemo-previewer/nemo-previewer.conf
-gespeichert (GLib.KeyFile – 0.12.0 adressierte fälschlich
-Gio.Keyfile) und bei jedem Start angewendet – erste Einstellung:
-Vorschauspalte beim Start anzeigen; Toolbar laut Nutzer-Wunsch
-~5 px schmaler). Die R9-Bild-Fixes, B6-Systemschrift, F23-Sniffing
-und sämtliche Härtungs-Deckel bleiben.
+STAND: Version 0.13.0 – aktuelle Fassung (F12 Teil 2: „Standardbreite
+beim Start" im Einstellungsfenster, Default 300 px; eine per Ziehen
+gewählte Breite wird automatisch zur künftigen Startbreite und landet
+entprellt in der conf; SpinButton trägt den aktuellen Wert vorab,
+Default genannt, Ist-Wert als „aktuell" gekennzeichnet; Änderungen
+greifen sofort live). B8-Fix GLib.KeyFile, R9-Bild-Fixes, B6/F23 und
+sämtliche Härtungs-Deckel bleiben.
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -958,12 +957,22 @@ class PreviewPanel(Gtk.Box):
         # F14: Seitenanzeige der PDF-Vorschau + Gesamtzahl der Seiten
         self._pdf_page_label = None
         self._pdf_count = 0
-        # F12 (0.12.0): Konfiguration der Vorschauspalte – Werte aus
-        # ~/.config/nemo-previewer/nemo-previewer.conf, angewendet bei
-        # jedem Start (siehe _config_load/apply_start_settings).
-        # Defaults zuerst setzen, dann Datei drüberlesen.
+        # F12 (0.12.0/0.13.0): Konfiguration der Vorschauspalte –
+        # Werte aus ~/.config/nemo-previewer/nemo-previewer.conf,
+        # angewendet bei jedem Start (siehe _config_load/
+        # apply_start_settings). Defaults zuerst setzen, dann Datei
+        # drüberlesen.
         self._conf_show_at_start = True
+        # Standardbreite beim Start: Default PANEL_WIDTH (300 px,
+        # Nutzer-Wunsch). Eine per Ziehen gewählte Breite wird zur
+        # künftigen Startbreite und landet entprellt in der conf;
+        # _panel_width_saved verhindert Doppel-Schreibvorgänge.
+        self._panel_width = PANEL_WIDTH
+        self._panel_width_saved = PANEL_WIDTH
+        self._panel_width_timer = 0
         self._settings_win = None
+        self._settings_spin = None
+        self._settings_width_label = None
         self._config_load()
 
         # --- Kopfzeile ---
@@ -1267,9 +1276,17 @@ class PreviewPanel(Gtk.Box):
         den Gtk.Paned-Trenner). Es wird NICHT neu gerendert – stattdessen
         wird nur die angezeigte Pixbuf der skalierbaren Vorschau sofort
         an die neue Breite angepasst (billig, ohne Neu-Decodieren).
+        F12 (0.13.0): Eine gezogene Breite wird außerdem zur künftigen
+        STARTBREITE – sie steht dann als aktueller Wert im Einstellungs-
+        fenster und landet entprellt in der conf. Das Tracking liegt VOR
+        der 12-px-Render-Schwelle, damit auch kleine Züge zählen.
         """
         try:
             width = allocation.width
+            if (width >= PANEL_MIN_WIDTH
+                    and width != self._panel_width):
+                self._panel_width = width
+                self._panel_width_schedule_save()
             if abs(width - self._render_width) < 12:
                 return
             self._render_width = width
@@ -2838,6 +2855,13 @@ class PreviewPanel(Gtk.Box):
                     "previewer", "show_at_start")
             except Exception:
                 pass
+            try:
+                w = kf.get_integer("previewer", "panel_width")
+                if PANEL_MIN_WIDTH <= w <= 2400:
+                    self._panel_width = int(w)
+            except Exception:
+                pass
+            self._panel_width_saved = self._panel_width
         except Exception:
             pass
 
@@ -2857,6 +2881,8 @@ class PreviewPanel(Gtk.Box):
             kf = _KEYFILE_CLS()
             kf.set_boolean("previewer", "show_at_start",
                            self._conf_show_at_start)
+            kf.set_integer("previewer", "panel_width",
+                           int(self._panel_width))
             kf.save_to_file(CONF_FILE)
         except Exception as exc:
             dbg("Konfiguration nicht speicherbar: %s" % exc)
@@ -2903,8 +2929,10 @@ class PreviewPanel(Gtk.Box):
         win.add(box)
 
         frame = Gtk.Frame(label="Allgemein")
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        row.set_border_width(8)
+        fbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        fbox.set_border_width(8)
+        frame.add(fbox)
+
         chk = Gtk.CheckButton(label="Vorschauspalte beim Start anzeigen")
         chk.set_tooltip_text(
             "Abhaken, damit die Vorschauspalte nach dem Start von "
@@ -2912,8 +2940,36 @@ class PreviewPanel(Gtk.Box):
             "sie jederzeit wieder ein)")
         chk.set_active(self._conf_show_at_start)
         chk.connect("toggled", self._on_show_at_start_toggled)
-        row.pack_start(chk, False, False, 0)
-        frame.add(row)
+        fbox.pack_start(chk, False, False, 0)
+
+        # Standardbreite beim Start: Der SpinButton trägt den
+        # AKTUELLEN Wert vorab (gezogene Breite schlägt sich ja in
+        # _panel_width nieder und liegt schon in der conf); der
+        # Default wird daneben genannt, der Ist-Wert als „aktuell"
+        # gekennzeichnet (Nutzer-Wunsch).
+        wrow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        lbl_width = Gtk.Label(label="Standardbreite beim Start")
+        lbl_width.set_halign(Gtk.Align.START)
+        wrow.pack_start(lbl_width, False, False, 0)
+        adj = Gtk.Adjustment(value=self._panel_width,
+                             lower=PANEL_MIN_WIDTH, upper=1600,
+                             step_increment=10, page_increment=50)
+        self._settings_spin = Gtk.SpinButton.new(adj, 1.0, 0)
+        self._settings_spin.set_value(self._panel_width)
+        self._settings_spin.set_tooltip_text(
+            "Breite der Vorschauspalte, mit der Nemo startet – "
+            "Ziehen am Trenner übernimmt die gewählte Breite "
+            "automatisch als neuen Wert")
+        self._settings_spin.connect("value-changed",
+                                    self._on_start_width_changed)
+        wrow.pack_start(self._settings_spin, False, False, 0)
+        self._settings_width_label = Gtk.Label()
+        self._settings_width_label.get_style_context().add_class(
+            "dim-label")
+        self._settings_width_label.set_halign(Gtk.Align.START)
+        wrow.pack_start(self._settings_width_label, False, False, 0)
+        self._update_width_hint()
+        fbox.pack_start(wrow, False, False, 0)
         box.pack_start(frame, False, False, 0)
 
         hint = Gtk.Label(
@@ -2933,11 +2989,104 @@ class PreviewPanel(Gtk.Box):
 
     def _on_settings_win_destroyed(self, *a):
         self._settings_win = None
+        self._settings_spin = None
+        self._settings_width_label = None
 
     def _on_show_at_start_toggled(self, chk):
         # Sofort speichern – kein separater Speichern-Knopf nötig.
         self._conf_show_at_start = chk.get_active()
         self._config_save()
+
+    def _on_start_width_changed(self, spin):
+        """
+        F12 (0.13.0): Neue Startbreite aus dem SpinButton – sofort
+        übernehmen, live anwenden und speichern (kein Extra-Knopf).
+        """
+        try:
+            value = int(spin.get_value())
+            if value == self._panel_width:
+                return
+            self._panel_width = value
+            self._panel_width_saved = value
+            self._config_save()
+            self._apply_panel_width_live()
+            self._update_width_hint()
+        except Exception:
+            pass
+
+    def _panel_width_schedule_save(self):
+        """
+        F12 (0.13.0): Gezogene Breite erst speichern, wenn der
+        Trenner stillsteht (~800 ms) – nicht bei jedem Zieh-Pixel.
+        Der laufende Timer wird dabei jeweils ersetzt.
+        """
+        try:
+            if self._panel_width_timer:
+                GLib.source_remove(self._panel_width_timer)
+            self._panel_width_timer = GLib.timeout_add(
+                800, self._panel_width_save)
+        except Exception:
+            self._panel_width_timer = 0
+
+    def _panel_width_save(self):
+        """
+        F12 (0.13.0): Breite in die conf schreiben, sobald sie sich
+        gegen den zuletzt gespeicherten Wert geändert hat. Ist das
+        Einstellungsfenster offen, zieht der SpinButton nach (außer
+        der Nutzer tippt dort gerade) und die „aktuell"-Zeile wird
+        frisch gesetzt.
+        """
+        self._panel_width_timer = 0
+        try:
+            if self._panel_width != self._panel_width_saved:
+                self._panel_width_saved = self._panel_width
+                self._config_save()
+                dbg("Panelbreite (gezogen) gespeichert: %d px"
+                    % self._panel_width)
+        except Exception:
+            pass
+        try:
+            if self._settings_spin is not None:
+                if not self._settings_spin.has_focus():
+                    self._settings_spin.set_value(self._panel_width)
+            self._update_width_hint()
+        except Exception:
+            pass
+        return False
+
+    def _apply_panel_width_live(self):
+        """
+        F12 (0.13.0): Neue Startbreite sofort anwenden, während das
+        Einstellungsfenster offen ist – der Nutzer sieht die Wirkung
+        direkt. Die Paned-Position wird so gesetzt, dass die
+        Vorschauspalte self._panel_width breit ist; geht es nicht
+        (Fenster zu klein), bleibt alles unverändert.
+        """
+        try:
+            parent = self.get_parent()
+            if parent is None:
+                return
+            total = parent.get_allocated_width()
+            if total > self._panel_width + 100:
+                parent.set_position(total - self._panel_width)
+        except Exception:
+            pass
+
+    def _update_width_hint(self):
+        """
+        F12 (0.13.0): „Standard … · aktuell …"-Zeile im Einstellungs-
+        fenster pflegen: genannter Default (PANEL_WIDTH) und der
+        aktuelle Panelwert – genau die beiden Größen, die der Nutzer
+        dort sehen will.
+        """
+        if self._settings_width_label is None:
+            return
+        try:
+            self._settings_width_label.set_label(
+                "Standard: %d px · aktuell: %d px"
+                % (PANEL_WIDTH, self._panel_width))
+        except Exception:
+            pass
 
     def _on_toggle_accel(self, group, accelerable, key, mods):
         if self.get_visible():
@@ -2950,9 +3099,8 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.12.1"
-dbg("previewer_panel %s geladen (F12 Teil 1: Einstellungsfenster + "
-    "Konfigurationsdatei + Start-Anwendung; B8-Fix GLib.KeyFile; "
-    "Toolbar ~5 px schmaler; R9-Bild-Fixes, B6/F23 und Härtungs-"
-    "Deckel bleiben)"
+PREVIEWER_VERSION = "0.13.0"
+dbg("previewer_panel %s geladen (F12 Teil 2: Standardbreite beim "
+    "Start, Default 300 px, Zieh-Breite wird Startbreite; "
+    "R9-Bild-Fixes, B6/F23 und Härtungs-Deckel bleiben)"
     % PREVIEWER_VERSION)
