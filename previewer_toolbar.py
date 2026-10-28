@@ -4,7 +4,7 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.16.0 – F24: Neue Rubrik „Textdateien“ im
+STAND: Version 0.16.1 – F24: Neue Rubrik „Textdateien“ im
 Einstellungsfenster (CheckButton „Zeilennummern anzeigen“, Default
 an, sofort gespeichert und live angewendet). Die ActionBar (F19),
 Strg+Alt+P und der 0.15.0-Stand (F29: Mixin-Modul) bleiben sonst
@@ -251,7 +251,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.16.0"
+PREVIEWER_VERSION = "0.16.1"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)

@@ -4,7 +4,7 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.16.0 – F24: Keine Änderungen an den Medien-
+STAND: Version 0.16.1 – F24: Keine Änderungen an den Medien-
 Renderern – nur Versions-Sync. (0.15.0/F31: aus dem Panel-Kern
 hierher gezogen; R1/R9/B7-Disziplinen und Deckel unverändert.)
 
@@ -759,7 +759,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.16.0"
+PREVIEWER_VERSION = "0.16.1"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)
