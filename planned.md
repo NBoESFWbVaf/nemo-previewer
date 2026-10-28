@@ -49,6 +49,18 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Nemo ein.  
   *Skizze:* Nur Datensatz-Tabelle + erste n Text-Datensätze lesen  
   (Anzahl begrenzen, z. B. 32 MB Deckel); Rest nicht mehr anfassen.
+- [x] **B6 – Markdown kleiner als die System-Schriftgröße**
+
+  (`_render_markdown`, panel; aus dem Testfeld gemeldet)  
+  Der Textkörper wurde mit hartcodierter Standardschrift in 9 pt  
+  überschrieben und erschien damit kleiner als die Text-Vorschau  
+  (Monospace), die der Nutzer als „System-Schriftgröße" wahrnimmt.  
+  *Skizze:* override\_font für Markdown wegfallen lassen – der  
+  TextView nutzt dann die System-Schrift des GTK-Themes.  
+  ✅ 0.10.1: umgesetzt; Überschriften skalieren mit (relative  
+  size-Angaben im Markup). EML/E-Book bleiben vorerst bei 9 pt  
+  (gleiches Muster, gleiche Lösung möglich – bewusst nicht  
+  mitgerissen, da nicht gemeldet).
 
 ### 🟡 Risiken
 
@@ -283,6 +295,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 8a      | Sicherheits- + Redundanz-Audit (3 Lebenszyklus-Fixes: Crowbar-Race, Poll-Timer-Leck, Office-Kind-Watch; TextView-/Lese-/Tabellen-/Name-Helfer gegen Redundanzen) | ✅ 0.9.1 (Patch)                                                       |
 | 8b      | Audit 2 „Pufferüberlauf/OOM“ (Decode-/Lese-Deckel gegen Bild-/PDF-/EPUB-/DOCX-/EML-Bomben, Wildcall-Schutz für VTable-Funktionszeiger)                           | ✅ 0.9.2 (Patch)                                                       |
 | 8c      | F23 – Text-Vorschau für endungslose Dateien (Inhalts-Sniffing, vorgezogen)                                                                                       | ✅ 0.10.0 (Minor)                                                      |
+| 8d      | B6 – Markdown in System-Schriftgröße (aus dem Testfeld gemeldet)                                                                                                 | ✅ 0.10.1 (Patch)                                                      |
 | 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                     | später (vorher 0.10.0)                                                |
 | 10      | F4, F6–F11 nach Bedarf                                                                                                                                           | später                                                                |
 | 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                        | später                                                                |
