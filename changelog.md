@@ -6,6 +6,22 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.12.1\] – 2026-10-28
+
+### Fixed (Behoben)
+
+- Einstellungen wurden nicht gespeichert (B8, gemeldet aus dem  
+Testfeld): 0.12.0 griff für die Konfigurationsdatei auf Gio.Keyfile  
+zu – PyGObject bindet GKeyFile aber als GLib.KeyFile (GKeyFile ist  
+eine GLib-Klasse, keine Gio-Klasse). Der Fehler wurde von den  
+Defensiv-Blöcken gefangen („Konfiguration nicht speicherbar" im  
+Terminal-Log), das Einstellungsfenster blieb benutzbar, nur die  
+Persistenz war wirkungslos. Jetzt läuft die Datei über GLib.KeyFile  
+mit Kompatibilitäts-Auflösung für den alten Alias GLib.Keyfile  
+(gleiches Muster wie beim Discoverer in der Medien-Vorschau);  
+fehlt die Klasse im Binding, meldet das Panel das per dbg und  
+bleibt auf den Defaults, statt still zu scheitern
+
 ## \[0.12.0\] – 2026-10-28
 
 ### Added (Hinzugefügt)
