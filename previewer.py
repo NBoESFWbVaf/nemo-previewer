@@ -4,9 +4,9 @@
 Previewer
 =========
 
-STAND: Version 0.12.1 – aktuelle Fassung (F12-Feld-Fix B8: Einstieg
-wendet die geladene Konfiguration nach der Panel-Injektion an –
-apply_start_settings, mit getattr-Schutz gegen gemischte Versionen).
+STAND: Version 0.13.0 – aktuelle Fassung (F12 Teil 2: Einstieg setzt
+die Startbreite aus der Konfiguration statt aus der Konstante –
+gezogene Breite wird künftige Startbreite, Default 300 px).
 Dies ist die EINSTIEGS-Datei der
 vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
 previewer_select.py, previewer_util.py) – alle vier müssen im gleichen
@@ -117,7 +117,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.12.1"
+PREVIEWER_VERSION = "0.13.0"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -151,8 +151,13 @@ class PanelState:
     def _on_size_allocate(self, paned, alloc):
         if not self.pos_pending:
             return
-        if alloc.width > PANEL_WIDTH + 200:
-            paned.set_position(alloc.width - PANEL_WIDTH)
+        # F12 (0.13.0): Startbreite aus der Konfiguration (das Panel
+        # liest sie im Konstruktor aus nemo-previewer.conf, inklusive
+        # der per Ziehen gewählten Breite als künftige Startbreite);
+        # ohne Konfiguration gilt der Default PANEL_WIDTH (300 px).
+        width = getattr(self.panel, "_panel_width", None) or PANEL_WIDTH
+        if alloc.width > width + 200:
+            paned.set_position(alloc.width - width)
             self.pos_pending = False
 
 
