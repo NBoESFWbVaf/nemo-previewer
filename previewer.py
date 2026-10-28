@@ -4,10 +4,9 @@
 Previewer
 =========
 
-STAND: Version 0.15.0 – Struktur-Release (F28/F29/F31): Die Renderer
-für Medien, Dokumente und Text sowie die Toolbar sind als eigene
-Mixin-Module ausgelagert; der Einstieg prüft jetzt alle acht Module
-auf identische Version.
+STAND: Version 0.16.0 – F24: Zeilennummern in der Text-Vorschau
+(laut Einstellung „Textdateien“, Randzeichnung – nicht kopierbar).
+Am Einstieg selbst keine Änderung – nur Versions-Sync.
 Dies ist die EINSTIEGS-Datei der acht zusammengehörigen Dateien
 (previewer.py, previewer_panel.py, previewer_select.py,
 previewer_util.py, previewer_toolbar.py, previewer_render_media.py,
@@ -119,7 +118,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.15.0"
+PREVIEWER_VERSION = "0.16.0"
 import previewer_util
 import previewer_select
 import previewer_panel
