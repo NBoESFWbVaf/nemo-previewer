@@ -4,13 +4,12 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.14.0 – aktuelle Fassung (K4: Markdown-Vorschau mit
-den verbreiteten Varianten deutlich browserähnlicher – GFM-Tabellen
-mit fetter Kopfzeile/grauer Trennzeile/Rechtsausrichtung, Task-Listen
-☑/☐ mit Durchstreichen erledigter Punkte, sortierte und eingerückte
-Listen mit Ebenen-Zeichen, Setext-Überschriften, fett+kursiv,
-~~Durchstreichen~~, verschachtelte Zitate, Autolinks, Links mit
-Klammern in der URL, Luft um Überschriften/Tabellen/Linien).
+STAND: Version 0.14.1 – aktuelle Fassung (K4-Feld-Fix nach dem
+Testfeld: GFM-Tabellen halten ein Gesamtbudget – passend zum
+300-px-Panel – und brechen überlange Zellen mehrzeilig INNERHALB
+ihrer Spalte um, statt dass die längste Zelle alle Zeilen
+meterbreit aufbläht; Emoji zählen doppelt breit, \\[-Escapes
+werden behandelt, maskierte Balken \\| sind kein Spaltentrenner).
 B8-Fix GLib.KeyFile, R9-Bild-Fixes, B6/F12/F23 und sämtliche
 Härtungs-Deckel bleiben.
 
@@ -298,12 +297,23 @@ def _pango_escape(s):
 
 _MD_BULLETS = ("\u2022", "\u25e6", "\u25aa")   # • ◦ ▪ je Listenebene
 
+# GFM-Tabellen: Gesamtbudget in Anzeigespalten – ausgelegt aufs
+# 300-px-Standardpanel (Monospace). Kürzere Spalten bleiben ggf.
+# unter dem Budget, breite Tabellen brechen innerhalb der Spalten
+# mehrzeilig um, statt das TextView zum Zeilenumbruch zu zwingen.
+_MD_TABLE_BUDGET = 44
+_MD_TABLE_MIN = 4      # Mindestbreite je Spalte
+_MD_TABLE_FIT = 24    # Spalten bis hierher werden bevorzugt NICHT umgebrochen
+
 
 def _md_inline(t):
     """Inline-Formatierung: ***fett+kursiv***, **fett**, __fett__,
     *kursiv*, _kursiv_, ~~durchgestrichen~~ (GFM), `code`,
     [Link](url) – auch mit runden Klammern in der URL –,
     <https://Autolink>, ![Bild](url)."""
+    # Backslash-Escapes zuerst (CommonMark): \[ wird zu [ – der
+    # Rest dieser Funktion läuft ohnehin auf gescapetem Text
+    t = re.sub(r"\\(\W)", r"\1", t)
     t = re.sub(r"\*\*\*(.+?)\*\*\*", r"<b><i>\1</i></b>", t)
     t = re.sub(r"___(.+?)___", r"<b><i>\1</i></b>", t)
     t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t)
@@ -346,27 +356,55 @@ def _md_hr():
             + "\u2500" * 12 + "</span>")
 
 
+def _md_w(s):
+    """Anzeigebreite eines Strings schätzen: Emoji und Symbole
+    belegen im TextView zwei Spalten (🔴 ✅ ☑ …), der Variation-
+    Selector FE0F gar keine, alles Übrige genau eine. Ohne diese
+    Schätzung standen Emoji-Zellen um die Emoji-Breite daneben."""
+    w = 0
+    for c in s:
+        o = ord(c)
+        if c == "\ufe0f":
+            continue
+        if (0x2600 <= o <= 0x27bf or 0x2b00 <= o <= 0x2bff
+                or o >= 0x1f000):
+            w += 2
+        else:
+            w += 1
+    return w
+
+
 def _md_table(lines, i):
     """
     GFM-Tabelle ab Zeile i einlesen: Kopfzeile, Trennzeile mit
     :--/--:/:-:, beliebig viele Zeilen. Rückgabe (Markup-Zeilen,
     nächster Index) oder None, wenn dort keine Tabelle steht.
-    Die Spaltenbreiten entstehen aus dem längsten formatlosen
-    Zellinhalt; die Tabelle läuft komplett im Monospace-<tt>,
-    damit die Spalten bündig sind: Kopfzeile fett, graue
+    Wie im Browser gilt ein Gesamtbudget: schmale Spalten
+    behalten ihre volle Breite, überlange Zellen brechen
+    mehrzeilig INNERHALB ihrer Spalte um – die Spalten bleiben
+    bündig, statt dass die längste Zelle alle Zeilen aufbläht
+    (0.14.0-Feldtest: die Reihenfolge-Tabelle in planned.md war
+    meterbreit und zerfiel im TextView). Kopfzeile fett, graue
     Trennzeile, rechtsbündig bei '---:'. Breiten werden an der
     ROHEN Zelle gemessen und VOR dem Escapen gepolstert, damit
-    &amp; die Ausrichtung nicht verdirbt.
+    &amp; die Ausrichtung nicht verdirbt. Markup, das über einen
+    Zell-Umbruch hinwegläuft, wird bewusst NICHT zusammengefügt –
+    gültiges Markup ist wichtiger als Optik, der Rohtext-Fallback
+    in _render_markdown darf niemals wegen einer Tabelle greifen.
     """
     def split_cells(row):
         s = row.strip()
         if s.startswith("|"):
             s = s[1:]
-        if s.endswith("|"):
+        if s.endswith("|") and not s.endswith("\\|"):
             s = s[:-1]
-        return [c.strip() for c in s.split("|")]
+        # GFM: \| ist ein maskierter Balken, KEIN Spaltentrenner
+        return [re.sub(r"\\(\|)", r"\1", c).strip()
+                for c in re.split(r"(?<!\\)\|", s)]
 
-    if i + 1 >= len(lines) or "|" not in lines[i]:
+    if i + 1 >= len(lines):
+        return None
+    if not re.search(r"(?<!\\)\|", lines[i]):
         return None
     sep_cells = split_cells(lines[i + 1])
     if not sep_cells:
@@ -379,7 +417,7 @@ def _md_table(lines, i):
     j = i + 2
     while j < len(lines):
         s = lines[j]
-        if not s.strip() or "|" not in s:
+        if not s.strip() or not re.search(r"(?<!\\)\|", s):
             break
         body.append(split_cells(s))
         j += 1
@@ -391,32 +429,115 @@ def _md_table(lines, i):
         s = re.sub(r"\[([^\]]+)\]\(([^()\s]+)\)", r"\1 (\2)", cell)
         return re.sub(r"[*_`~]", "", s)
 
-    widths = [0] * cols
+    demand = [0] * cols
     for r in [head] + body:
         for k in range(cols):
             if k < len(r):
-                widths[k] = max(widths[k], len(plain(r[k])))
+                demand[k] = max(demand[k], _md_w(plain(r[k])))
+
+    # Spaltenbreiten: schmale Spalten voll bedienen, den Rest
+    # nach Bedarf auf die breiten Spalten verteilen – im Rahmen
+    # des Gesamtbudgets
+    sep_w = 3 * (cols - 1)          # " │ " zwischen den Spalten
+    avail = max(0, _MD_TABLE_BUDGET - sep_w)
+    widths = [min(d, _MD_TABLE_MIN) for d in demand]
+    bigs = [k for k in range(cols)
+            if demand[k] > _MD_TABLE_MIN]
+    if sum(demand[k] for k in range(cols)
+           if demand[k] <= _MD_TABLE_FIT) <= avail:
+        for k in range(cols):
+            if demand[k] <= _MD_TABLE_FIT:
+                widths[k] = demand[k]
+        bigs = [k for k in bigs if demand[k] > _MD_TABLE_FIT]
+    base = _MD_TABLE_MIN
+    if bigs and base * len(bigs) > avail:
+        base = 1
+    if bigs:
+        taken = sum(widths[k] for k in range(cols)
+                    if k not in bigs)
+        extra = max(0, avail - taken - base * len(bigs))
+        rest = [demand[k] - base for k in bigs]
+        rsum = sum(rest) or 1
+        for pos, k in enumerate(bigs):
+            widths[k] = base + rest[pos] * extra // rsum
+        left = avail - taken - sum(widths[k] for k in bigs)
+        order = sorted(bigs,
+                       key=lambda k: (demand[k] - base) * extra
+                       % rsum,
+                       reverse=True)
+        for k in order[:left]:
+            widths[k] += 1
+    for k in range(cols):
+        widths[k] = min(widths[k], demand[k])
+    # Sicherheitsnetz: selbst bei absurd vielen Spalten die
+    # breiteste schrumpfen, bis das Budget hält
+    while (sum(widths) + sep_w > _MD_TABLE_BUDGET
+           and max(widths) > 1):
+        widths[widths.index(max(widths))] -= 1
+
+    def wrap_cell(cell, w):
+        # Zelle in Anzeigesegmente der Breite w brechen (Wort-
+        # Umbruch, überlange Wörter hart). Passt alles in eine
+        # Zeile, bleibt die Zelle mitsamt ihrem Markup unangetastet.
+        w = max(1, w)
+        if _md_w(plain(cell)) <= w:
+            return [cell]
+        segs = []
+        cur = ""
+        for word in cell.split(" "):
+            if _md_w(word) > w:
+                if cur:
+                    segs.append(cur)
+                    cur = ""
+                while _md_w(word) > w:
+                    acc = ""
+                    for ch in word:
+                        if _md_w(acc + ch) > w:
+                            break
+                        acc += ch
+                    if not acc:
+                        acc = word[0]
+                    segs.append(acc)
+                    word = word[len(acc):]
+                cur = word
+                continue
+            if cur and _md_w(cur + " " + word) <= w:
+                cur = cur + " " + word
+            else:
+                if cur:
+                    segs.append(cur)
+                cur = word
+        if cur or not segs:
+            segs.append(cur)
+        return segs
 
     def fmt_row(r, bold=False):
-        cells = []
-        for k in range(cols):
-            cell = r[k] if k < len(r) else ""
-            pad = widths[k] - len(plain(cell))
-            if right[k]:
-                cell = " " * pad + cell
-            else:
-                cell = cell + " " * pad
-            esc = _md_inline(_pango_escape(cell))
-            if bold:
-                esc = "<b>%s</b>" % esc
-            cells.append(esc)
-        return "<tt>%s</tt>" % " \u2502 ".join(cells)
+        wrapped = [wrap_cell(r[k] if k < len(r) else "",
+                             widths[k])
+                   for k in range(cols)]
+        height = max(len(w) for w in wrapped)
+        rows_out = []
+        for y in range(height):
+            cells = []
+            for k in range(cols):
+                seg = wrapped[k][y] if y < len(wrapped[k]) else ""
+                pad = max(0, widths[k] - _md_w(plain(seg)))
+                if right[k]:
+                    seg = " " * pad + seg
+                else:
+                    seg = seg + " " * pad
+                esc = _md_inline(_pango_escape(seg))
+                if bold:
+                    esc = "<b>%s</b>" % esc
+                cells.append(esc)
+            rows_out.append("<tt>%s</tt>" % " \u2502 ".join(cells))
+        return rows_out
 
-    rows = [fmt_row(head, bold=True),
-            "<tt><span foreground='grey'>%s</span></tt>"
-            % "\u253c".join("\u2500" * (w + 2) for w in widths)]
+    rows = fmt_row(head, bold=True)
+    rows.append("<tt><span foreground='grey'>%s</span></tt>"
+                % "\u253c".join("\u2500" * (w + 2) for w in widths))
     for r in body:
-        rows.append(fmt_row(r))
+        rows.extend(fmt_row(r))
     return rows, j
 
 
@@ -3285,9 +3406,8 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.14.0"
-dbg("previewer_panel %s geladen (K4: Markdown-Vorschau mit GFM-"
-    "Varianten – Tabellen, Task-Listen, sortierte/verschachtelte "
-    "Listen, Durchstreichen, Setext; F12/B8, R9-Bild-Fixes, B6/F23 "
-    "und Härtungs-Deckel bleiben)"
+PREVIEWER_VERSION = "0.14.1"
+dbg("previewer_panel %s geladen (K4-Feld-Fix: Tabellen-Budget mit "
+    "mehrzeiligem Zell-Umbruch, Emoji-Breite, Backslash-Escapes; "
+    "F12/B8, R9-Bild-Fixes, B6/F23 und Härtungs-Deckel bleiben)"
     % PREVIEWER_VERSION)
