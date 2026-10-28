@@ -4,9 +4,9 @@
 Previewer – Auswahl-Modul (previewer_select.py)
 ===============================================
 
-STAND: Version 0.15.0 – Struktur-Release (F28/F31): Keine Änderungen
-an der Auswahl-Logik – nur Versions-Sync; die langerklärten
-Kommentarblöcke stehen als Marker in REFERENZ.md (F28).
+STAND: Version 0.16.0 – F24: Keine Änderungen an der Auswahl-Logik –
+nur Versions-Sync (die langerklärten Kommentarblöcke stehen als
+Marker in REFERENZ.md, F28).
 
 Erkennt die in Nemo markierten Dateien – mehrstufig und defensiv:
 
@@ -1256,5 +1256,5 @@ class SelectionReader:
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.15.0"
+PREVIEWER_VERSION = "0.16.0"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)
