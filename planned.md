@@ -89,6 +89,21 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Exit-Pfaden (Vorschau und Fehler-Fallback); zusätzlich dbg-  
   Diagnosezeilen (Bild gelesen/dekodiert/verworfen), damit der  
   Log den Bild-Weg ab jetzt nachvollziehbar zeigt.
+- [x] **B8 – Konfiguration nicht speicherbar: Gio.Keyfile**
+
+  (F12/\_config\_save, panel; aus dem Testfeld gemeldet, nur in  
+  0.12.0)  
+  0.12.0 adressierte die Keyfile-Klasse als Gio.Keyfile –  
+  PyGObject bindet GKeyFile aber als GLib.KeyFile (GLib, nicht  
+  Gio). Die Defensiv-Blöcke fingen den AttributeError, dbg  
+  meldete „Konfiguration nicht speicherbar", Fenster und Defaults  
+  blieben benutzbar – nur die Persistenz war tot.  
+  *Skizze:* GLib.KeyFile verwenden, mit Kompatibilitäts-Auflösung  
+  für den alten Alias GLib.Keyfile (Muster wie beim Discoverer  
+  in \_media\_probe\_async); fehlt die Klasse ganz, dbggen statt  
+  still.  
+  ✅ 0.12.1: umgesetzt wie skizziert (Resolver \_KEYFILE\_CLS +  
+  \_KEYFILE\_FLAGS\_NONE auf Modulebene, dbg in beiden Pfaden).
 
 ### 🟡 Risiken
 
@@ -293,7 +308,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Wasserfall-Probetext. **M**  
   ✅ Teil 1 in 0.12.0: Zahnrad-Knopf öffnet das Einstellungsfenster  
   (eine Instanz, wiederholter Klick holt es nach vorn); jede Änderung  
-  speichert sofort via Gio.Keyfile und wird bei jedem Start  
+  speichert sofort und wird bei jedem Start  
   angewendet (apply\_start\_settings im Einstieg, NACH dem show\_all  
   der Injizierung); erste Einstellung „Vorschauspalte beim Start  
   anzeigen" läuft damit komplett durch (Fenster → conf → Start).  
@@ -492,6 +507,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + F24–F27 (Toolbar-Erweiterungen: Zeilennummern nicht kopierbar, Zeilenabstand, Bild→PNG-mit-Alpha, Mehrfachauswahl: PDFs zusammenfügen) + F29 (Toolbar ggf. als eigenes Modul previewer\_toolbar.py) + Neuversuch F22-Wiedergabe | später                                                                |
 | 12a     | F19 Teil 1 – Toolbar-Grundgerüst: statische ActionBar am unteren Rand, Einstellungs-Knopf (Zahnrad-Systemicon) rechts                                                                                                                                                                                                                                   | ✅ 0.11.0 (Minor)                                                      |
 | 12b     | F12 Teil 1 – Einstellungsfenster (öffnet über Zahnrad), Konfigurationsdatei \~/.config/nemo-previewer/nemo-previewer.conf mit sofortiger Speicherung + Anwendung bei jedem Start; erste Einstellung: Sichtbarkeit beim Start                                                                                                                            | ✅ 0.12.0 (Minor)                                                      |
+| 12c     | B8 – F12-Feld-Fix: GLib.KeyFile statt Gio.Keyfile (Persistenz war wirkungslos)                                                                                                                                                                                                                                                                          | ✅ 0.12.1 (Patch)                                                      |
 | 13      | F28 – Kommentar-Auslagerung (Marker + REFERENZ.md als laufend gepflegtes Projektdokument; Canvas-Soll-Zeilenzahlen danach neu vereinbaren)                                                                                                                                                                                                              | später (ruhiger Moment, nicht mit laufenden Fixes mischen)            |
 
 
