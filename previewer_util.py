@@ -4,7 +4,7 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.16.0 – F24: Nur Versions-Sync. (Seit dem Struktur-
+STAND: Version 0.16.1 – F24: Nur Versions-Sync. (Seit dem Struktur-
 Release 0.15.0/F31 leben hier die zwei Basis-Helfer
 _pixbuf_from_bytes und _zf_read_capped für alle Renderer.)
 
@@ -181,5 +181,5 @@ def _zf_read_capped(zf, name, cap):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.16.0"
+PREVIEWER_VERSION = "0.16.1"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
