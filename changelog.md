@@ -6,6 +6,21 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.11.0\] – 2026-10-28
+
+### Added (Hinzugefügt)
+
+- Vorschau-Toolbar (F19, Teil 1): Am unteren Rand der Vorschauspalte  
+läuft jetzt eine statische Toolbar (Gtk.ActionBar) mit eigener  
+Trennlinie über dem Inhaltsbereich – immer sichtbar, solange das  
+Panel aktiv ist (Nutzer-Entscheid: kein Ein-/Ausblenden je  
+Renderer; die Renderer-Aktionen F13/F20/F21/F24–F27 melden sich  
+später hier an). Rechts außen sitzt ein fester Einstellungs-Knopf  
+mit Zahnrad aus den Systemicons (preferences-system-symbolic,  
+Tooltip „Einstellungen"); im ersten Bauabschnitt bewusst ohne  
+Funktion – die Konfiguration (F12) dockt dort an, bis dahin  
+quittiert der Knopf Klicks nur im Terminal-Log
+
 ## \[0.10.4\] – 2026-10-28
 
 ### Fixed (Behoben)
