@@ -4,14 +4,9 @@
 Previewer – Renderer-Modul Dokumente (previewer_render_docs.py)
 ===============================================================
 
-STAND: Version 0.15.0 – Struktur-Release (F31): Die Renderer für
-PDF (Poppler, max. MAX_PDF_PAGES Seiten scrollbar, F14-Seitenanzeige)
-und Office-Dokumente (eingebettete ZIP-Miniaturansicht, Textauszug
-mit Deckeln, scharfe Hintergrundkonvertierung über LibreOffice mit
-Cache in ~/.cache/previewer) sind aus dem Panel-Kern in dieses
-Mixin-Modul gezogen; alle Lese- und Decode-Deckel (0.9.2) bleiben
-unverändert. Lange Kommentar- und Historienblöcke stehen als Marker
-in REFERENZ.md (F28).
+STAND: Version 0.16.0 – F24: Keine Änderungen an den Dokument-
+Renderern – nur Versions-Sync. (0.15.0/F31: aus dem Panel-Kern
+hierher gezogen; Lese- und Decode-Deckel 0.9.2 unverändert.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -515,7 +510,7 @@ class DocsRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.15.0"
+PREVIEWER_VERSION = "0.16.0"
 dbg("previewer_render_docs %s geladen (F31: PDF-/Office-Renderer; "
     "Lese-Deckel und LibreOffice-Cache bleiben)"
     % PREVIEWER_VERSION)
