@@ -6,6 +6,34 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.14.1\] – 2026-10-28
+
+### Fixed (Behoben)
+
+- Markdown-Tabellen waren so breit wie ihre längste Zelle und  
+zerfielen dann im TextView in wilden Umbruch (Feldtest 0.14.0  
+mit der Reihenfolge-Tabelle der planned.md): Tabellen halten  
+jetzt ein Gesamtbudget in Anzeigespalten – ausgelegt auf das  
+300-px-Standardpanel –, schmale Spalten behalten ihre volle  
+Breite, und überlange Zellen brechen mehrzeilig INNERHALB  
+ihrer Spalte um, wie im Browser. Die Spalten bleiben bündig,  
+Kopfzeile und graue Trennzeile laufen über alle Zeilen der  
+logischen Tabellenzeile. Zellen-Markup, das über einen  
+Zell-Umbruch hinwegläuft, wird bewusst nicht zusammengefügt –  
+gültiges Markup geht vor, der Rohtext-Fallback darf nie  
+wegen einer Tabelle greifen
+- Emoji-Breite: 🔴 ✅ ☑ und ähnliche Symbole belegen im TextView  
+zwei Anzeigespalten – die Breitenmessung der Tabellen zählt sie  
+jetzt doppelt (und den Variation-Selector FE0F gar nicht),  
+sonst standen Emoji-Zellen sichtbar daneben
+- Backslash-Escapes nach CommonMark (\[ wird zu \[) – 0.14.0  
+zeigte sie als Rohtext an, z.B. bei Überschriften wie
+  $$
+  0.14.0
+  $$
+- Maskierte Balken in Tabellen: `\|` ist in GFM ein literaler  
+Balken und kein Spaltentrenner
+
 ## \[0.14.0\] – 2026-10-28
 
 ### Changed (Geändert)
