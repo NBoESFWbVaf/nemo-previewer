@@ -4,10 +4,12 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.16.0 – F24: Zeilennummern für die reine Text-Vorschau
-(Schlüssel text_line_numbers, Default an; Zeichnung im linken Rand,
-nicht im kopierbaren Text; Rubrik „Textdateien“ im Toolbar-Modul).
-Der Kern aus dem Struktur-Release 0.15.0 bleibt sonst unverändert.
+STAND: Version 0.16.1 – F24-Feld-Fix: 0.16.0 maß die Randbreite
+mit Pango.Layout.get_pixel_width, das die GI-Bindung nicht anbietet
+(Testfeld: AttributeError bei jeder Text-Vorschau) – jetzt misst
+get_pixel_size(). Sonst unverändert: F24-Zeilennummern als
+Randzeichnung (nicht im kopierbaren Text), Schlüssel
+text_line_numbers, Rubrik „Textdateien“ im Toolbar-Modul.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -600,7 +602,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     probe.set_font_description(fd)
         except Exception:
             pass
-        view.set_left_margin(probe.get_pixel_width() + 16)
+        # 0.16.1: get_pixel_size() statt get_pixel_width() – die
+        # GI-Bindung bietet get_pixel_width nicht an (Testfeld:
+        # AttributeError im Moment der Randbreiten-Messung).
+        pw, _ph = probe.get_pixel_size()
+        view.set_left_margin(pw + 16)
 
         def _on_draw(view, cr):
             try:
@@ -617,7 +623,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     if y > vis.y + vis.height:
                         break
                     probe.set_text(str(it.get_line() + 1))
-                    pw = probe.get_pixel_width()
+                    pw, _ph = probe.get_pixel_size()
                     _x, wy = view.buffer_to_window_coords(
                         Gtk.TextWindowType.WIDGET, 0, y)
                     Gtk.render_layout(ctx, cr, margin - pw - 8,
@@ -864,7 +870,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.16.0"
+PREVIEWER_VERSION = "0.16.1"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
