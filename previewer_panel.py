@@ -4,12 +4,13 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.11.0 – aktuelle Fassung (F19 Teil 1: Toolbar am
-unteren Rand der Vorschauspalte, statisch laut Nutzer-Entscheid –
-immer sichtbar solange das Panel aktiv ist; rechts außen Einstellungs-
-Knopf mit Zahnrad-Systemicon, andockende Konfiguration folgt mit F12).
-Die R9-Bild-Fixes aus 0.10.3/0.10.4, B6-Systemschrift, F23-Sniffing
-und sämtliche Härtungs-Deckel bleiben.
+STAND: Version 0.12.0 – aktuelle Fassung (F12 Teil 1: Zahnrad-Knopf
+öffnet das Einstellungsfenster; Einstellungen werden sofort in
+~/.config/nemo-previewer/nemo-previewer.conf gespeichert (Gio.Keyfile)
+und bei jedem Start angewendet – erste Einstellung: Vorschauspalte
+beim Start anzeigen; Toolbar laut Nutzer-Wunsch ~5 px schmaler). Die
+R9-Bild-Fixes, B6-Systemschrift, F23-Sniffing und sämtliche Härtungs-
+Deckel bleiben.
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -264,6 +265,12 @@ _IMAGE_FILE_CAP = 64 * 1024 * 1024   # Bilddatei: Rohbytes vor Dekodierung
 _MEDIA_IMAGE_CAP = 32 * 1024 * 1024  # eingebettetes Cover aus Medien-Tags
 _OFFICE_THUMB_CAP = 16 * 1024 * 1024  # eingebettete Office-Miniatur
 _OFFICE_XML_CAP = 2 * 1024 * 1024     # content.xml / word/document.xml
+
+# F12 (0.12.0): Konfiguration der Vorschauspalte – Gio.Keyfile ist
+# GLib-natives INI-Format, braucht keine zusätzliche Abhängigkeit.
+# Verzeichnis wird beim ersten Speichern angelegt.
+CONF_DIR = os.path.expanduser("~/.config/nemo-previewer")
+CONF_FILE = os.path.join(CONF_DIR, "nemo-previewer.conf")
 
 
 # --- Markdown -> Pango-Markup (Vorschau-Qualität, kein voller Parser) ---
@@ -936,6 +943,13 @@ class PreviewPanel(Gtk.Box):
         # F14: Seitenanzeige der PDF-Vorschau + Gesamtzahl der Seiten
         self._pdf_page_label = None
         self._pdf_count = 0
+        # F12 (0.12.0): Konfiguration der Vorschauspalte – Werte aus
+        # ~/.config/nemo-previewer/nemo-previewer.conf, angewendet bei
+        # jedem Start (siehe _config_load/apply_start_settings).
+        # Defaults zuerst setzen, dann Datei drüberlesen.
+        self._conf_show_at_start = True
+        self._settings_win = None
+        self._config_load()
 
         # --- Kopfzeile ---
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
@@ -1009,6 +1023,19 @@ class PreviewPanel(Gtk.Box):
         self._btn_settings.connect("clicked", self._on_settings_clicked)
         self._toolbar.pack_end(self._btn_settings)
         self.pack_start(self._toolbar, False, False, 0)
+        # Nutzer-Wunsch (0.12.0): Leiste etwa 5 px schmaler – der
+        # Innenabstand oben/unten liegt unter dem Themen-Standard
+        # (Adwaita-Standard ist 6+6 px, hier 3+4 px). Kann ein Theme
+        # die Regel nicht, bleibt es einfach beim Standard – kein
+        # Fehler, kein Absturz.
+        try:
+            css = Gtk.CssProvider()
+            css.load_from_data(
+                b"actionbar { padding-top: 3px; padding-bottom: 4px; }")
+            self._toolbar.get_style_context().add_provider(
+                css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        except Exception:
+            pass
 
         self._show_placeholder()
 
@@ -2769,13 +2796,125 @@ class PreviewPanel(Gtk.Box):
 
     def _on_settings_clicked(self, button):
         """
-        F19/F12 (0.11.0): Einstellungs-Knopf der Toolbar. Im ersten
-        Bauabschnitt bewusst ohne Funktion – hier wird die Konfigura-
-        tionsdatei (F12: Panelbreite, Sichtbarkeit, MAX_PDF_PAGES,
-        Wasserfall-Probetext) andocken, bis dahin nur dbg, damit der
-        Knopf im Log nachvollziehbar bleibt.
+        F19/F12 (0.12.0): Einstellungs-Knopf der Toolbar öffnet das
+        Konfigurationsfenster. Dort sammeln sich künftig ALLE Einstel-
+        lungen der Vorschauspalte; Änderungen greifen sofort und
+        landen ohne Extra-Knopf in der Konfigurationsdatei.
         """
-        dbg("Einstellungs-Knopf geklickt – F12 (Konfiguration) folgt")
+        self._open_settings_window()
+
+    def _config_load(self):
+        """
+        F12 (0.12.0): Einstellungen aus CONF_FILE lesen. Ohne Datei
+        oder bei JEGLICHEM Fehler gelten die Defaults – eine kaputte
+        oder halb geschriebene Konfiguration darf Nemo niemals am
+        Start hindern. Neue Einstellungen docken als get_boolean/
+        get_string mit try/except hier an.
+        """
+        try:
+            kf = Gio.Keyfile()
+            kf.load_from_file(CONF_FILE, Gio.KeyfileFlags.NONE)
+            try:
+                self._conf_show_at_start = kf.get_boolean(
+                    "previewer", "show_at_start")
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _config_save(self):
+        """
+        F12 (0.12.0): Einstellungen sofort in CONF_FILE schreiben
+        (Verzeichnis bei Bedarf anlegen). Aufgerufen nach jeder
+        Änderung im Einstellungsfenster – ein separater Speichern-
+        Knopf ist damit unnötig.
+        """
+        try:
+            os.makedirs(CONF_DIR, exist_ok=True)
+            kf = Gio.Keyfile()
+            kf.set_boolean("previewer", "show_at_start",
+                           self._conf_show_at_start)
+            kf.save_to_file(CONF_FILE)
+        except Exception as exc:
+            dbg("Konfiguration nicht speicherbar: %s" % exc)
+
+    def apply_start_settings(self):
+        """
+        F12 (0.12.0): Geladene Konfiguration auf das Panel anwenden.
+        Wird vom Einstieg NACH dem show_all der Injizierung aufge-
+        rufen – sonst würde eine verlangte Unsichtbarkeit beim Start
+        sofort wieder überschrieben. Neue Start-Einstellungen docken
+        hier an.
+        """
+        if not self._conf_show_at_start:
+            self.hide()
+            dbg("Start-Einstellung: Vorschauspalte bleibt zu Beginn "
+                "ausgeblendet")
+
+    def _open_settings_window(self):
+        """
+        F12 (0.12.0): Konfigurationsfenster der Vorschauspalte. Der
+        Rahmen steht jetzt; hier sammeln sich künftig ALLE Einstel-
+        lungen (F12-Katalog: Panelbreite, MAX_PDF_PAGES, Wasserfall-
+        Probetext …) – jede mit sofortiger Speicherung via
+        _config_save. Nur EINE Instanz: ein erneuter Klick auf das
+        Zahnrad holt das bestehende Fenster nach vorn.
+        """
+        if self._settings_win is not None:
+            try:
+                self._settings_win.present()
+                return
+            except Exception:
+                self._settings_win = None
+        win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
+        win.set_title("Nemo-Previewer – Einstellungen")
+        try:
+            win.set_transient_for(self._window)
+        except Exception:
+            pass
+        win.set_default_size(420, -1)
+        win.set_border_width(12)
+        win.connect("destroy", self._on_settings_win_destroyed)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        win.add(box)
+
+        frame = Gtk.Frame(label="Allgemein")
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        row.set_border_width(8)
+        chk = Gtk.CheckButton(label="Vorschauspalte beim Start anzeigen")
+        chk.set_tooltip_text(
+            "Abhaken, damit die Vorschauspalte nach dem Start von "
+            "Nemo zunächst ausgeblendet bleibt (Strg+Alt+P blendet "
+            "sie jederzeit wieder ein)")
+        chk.set_active(self._conf_show_at_start)
+        chk.connect("toggled", self._on_show_at_start_toggled)
+        row.pack_start(chk, False, False, 0)
+        frame.add(row)
+        box.pack_start(frame, False, False, 0)
+
+        hint = Gtk.Label(
+            label="Weitere Einstellungen (Panelbreite, PDF-Seitenzahl,\n"
+                  "Wasserfall-Anzeige …) folgen hier in späteren "
+                  "Versionen.")
+        hint.get_style_context().add_class("dim-label")
+        hint.set_halign(Gtk.Align.START)
+        box.pack_start(hint, False, False, 0)
+
+        btn_close = Gtk.Button.new_with_label("Schließen")
+        btn_close.connect("clicked", lambda *a: win.destroy())
+        box.pack_start(btn_close, False, False, 0)
+
+        win.show_all()
+        self._settings_win = win
+
+    def _on_settings_win_destroyed(self, *a):
+        self._settings_win = None
+
+    def _on_show_at_start_toggled(self, chk):
+        # Sofort speichern – kein separater Speichern-Knopf nötig.
+        self._conf_show_at_start = chk.get_active()
+        self._config_save()
 
     def _on_toggle_accel(self, group, accelerable, key, mods):
         if self.get_visible():
@@ -2788,8 +2927,8 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.11.0"
-dbg("previewer_panel %s geladen (F19 Teil 1: statische Toolbar mit "
-    "Einstellungs-Knopf; R9-Bild-Fixes, B6/F23 und Härtungs-Deckel "
-    "bleiben)"
+PREVIEWER_VERSION = "0.12.0"
+dbg("previewer_panel %s geladen (F12 Teil 1: Einstellungsfenster + "
+    "Konfigurationsdatei + Start-Anwendung; Toolbar ~5 px schmaler; "
+    "R9-Bild-Fixes, B6/F23 und Härtungs-Deckel bleiben)"
     % PREVIEWER_VERSION)
