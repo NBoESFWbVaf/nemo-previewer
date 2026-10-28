@@ -4,8 +4,9 @@
 Previewer – Auswahl-Modul (previewer_select.py)
 ===============================================
 
-STAND: Version 0.14.1 – aktuelle Fassung (keine Änderungen in dieser
-Datei – nur Versions-Sync zum K4-Feld-Fix-Release).
+STAND: Version 0.15.0 – Struktur-Release (F28/F31): Keine Änderungen
+an der Auswahl-Logik – nur Versions-Sync; die langerklärten
+Kommentarblöcke stehen als Marker in REFERENZ.md (F28).
 
 Erkennt die in Nemo markierten Dateien – mehrstufig und defensiv:
 
@@ -225,18 +226,7 @@ def _read_size(addr, offset=0):
 
 # ---------------------------------------------------------------------------
 # Native Auswahl über den Klassen-VTable von NemoView (peek_selection).
-#
-# Auf Linux Mint 22 ist libnemo-private eine STATISCHE Bibliothek – es gibt
-# keine .so, deren Symbole man laden könnte (der dlopen-Versuch oben bleibt
-# als Fallback für ältere Systeme). Nemos Auswahl ist trotzdem erreichbar:
-# NemoView hält 'peek_selection' als Funktionszeiger im Klassen-VTable
-# (nemo-view.h, NemoViewClass: Index 12 nach GtkScrolledWindowClass), und
-# NemoFile implementiert das Interface NemoFileInfo, dessen VTable laut
-# nemo-file-info.h 'get_name' (Index 1) und 'get_uri' (Index 2) enthält.
-# Die Größe der Eltern-Klasse wird zur LAUFZEIT über GObject.type_query()
-# vom tatsächlich gelinkten GTK erfragt – nichts wird geraten. Die Indizes
-# sind aus den Mint-22- und Master-Zweigen von nemo-view.h verifiziert.
-# ----------------------------------------------------------------------------
+# → REF SEL-VTABLE-1
 
 _NATIVE_VTABLE_API = None
 _NATIVE_VTABLE_TRIED = False
@@ -253,12 +243,7 @@ def _native_vtable_api():
         return None if _NATIVE_VTABLE_BROKEN else _NATIVE_VTABLE_API
     _NATIVE_VTABLE_TRIED = True
     try:
-        # GType-IDs DIREKT über libgobject holen: PyGObject liefert bei
-        # type_from_name() neuerdings ein GType-OBJEKT, das ctypes nicht
-        # als Argument akzeptiert ('cannot be interpreted as an integer'
-        # – ArgumentError, der die ganze Route lautlos tötete). Der Weg
-        # über g_type_from_name aus libgobject liefert garantiert die
-        # rohe numerische ID aus derselben GLib-Laufzeit.
+        # → REF SEL-GTYPE-1
         gobj = ctypes.CDLL("libgobject-2.0.so.0")
         type_from_name = gobj.g_type_from_name
         type_from_name.argtypes = [ctypes.c_char_p]
@@ -310,15 +295,7 @@ def _native_vtable_api():
 
 
 # --- Wildcall-Schutz (0.9.2, Audit „Pufferüberlauf/OOM“) ------------------
-# Die ctypes-Routen lesen Funktionszeiger aus berechneten VTable-Offsets
-# (peek_selection, get_name, get_uri) und rufen sie auf. Verschiebt ein
-# Nemo-Update das Klassen-/Interface-Layout, könnte ein Slot auf einen
-# falschen, aber nicht-NULL Zeiger zeigen – sein Aufruf wäre ein
-# Wildcall und würde Nemo schlagartig beenden (try/except wirkt bei
-# Speicherzugriffsverletzungen nicht). Jedes Call-Ziel muss deshalb
-# innerhalb einer Nemo-Bibliothek liegen, bevor es gerufen wird;
-# andernfalls wird die Route abgeschaltet (fail-closed – die anderen
-# Auswahl-Strategien übernehmen).
+# → REF SEL-WILDCALL-1
 _NEMO_TEXT_RANGES = None
 
 
@@ -1279,5 +1256,5 @@ class SelectionReader:
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.14.1"
+PREVIEWER_VERSION = "0.15.0"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)
