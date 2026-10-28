@@ -287,9 +287,18 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
 ### Bedienung &amp; Komfort
 
-- [ ] **F12 – Konfigurationsdatei** (`~/.config/previewer/previewer.conf`):
+- [ ] **F12 – Konfiguration der Vorschauspalte** (Nutzer-Wunsch;
 
-  Panelbreite, Sichtbarkeit, MAX\_PDF\_PAGES, Wasserfall-Probetext. **M**
+  Pfad laut Nutzer-Entcheid: `~/.config/nemo-previewer/ nemo-previewer.conf`): Panelbreite, Sichtbarkeit, MAX\_PDF\_PAGES,  
+  Wasserfall-Probetext. **M**  
+  ✅ Teil 1 in 0.12.0: Zahnrad-Knopf öffnet das Einstellungsfenster  
+  (eine Instanz, wiederholter Klick holt es nach vorn); jede Änderung  
+  speichert sofort via Gio.Keyfile und wird bei jedem Start  
+  angewendet (apply\_start\_settings im Einstieg, NACH dem show\_all  
+  der Injizierung); erste Einstellung „Vorschauspalte beim Start  
+  anzeigen" läuft damit komplett durch (Fenster → conf → Start).  
+  Offen: die übrigen Einstellungen (Panelbreite, MAX\_PDF\_PAGES,  
+  Wasserfall-Probetext …) andocken.
 - [ ] **F13 – Knöpfe „Im Dateimanager zeigen" + „Pfad kopieren"** neben
 
   Öffnen. **S**
@@ -342,9 +351,11 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   verworfen. ✅ Teil 1 in 0.11.0: ActionBar-Fuß mit eigener  
   Trennlinie unter dem Inhaltsbereich, rechts außen fester  
   Einstellungs-Knopf (preferences-system-symbolic, Zahnrad aus den  
-  Systemicons, Tooltip „Einstellungen"; Klick bis F12 nur dbg im  
-  Log). Offen: Anmeldung der Renderer-Aktionen (Icon, Tooltip,  
-  Callback) inkl. Auswahlwechsel-Verwaltung.
+  Systemicons, Tooltip „Einstellungen"). 0.12.0: Der Knopf öffnet  
+  das F12-Einstellungsfenster; Leiste laut Nutzer-Wunsch \~5 px  
+  schmaler (CSS, 3+4 px Innenabstand). Offen: Anmeldung der  
+  Renderer-Aktionen (Icon, Tooltip, Callback) inkl.  
+  Auswahlwechsel-Verwaltung.
 - [ ] **F20 – OCR-Button bei PDFs** (in der Toolbar, F19)
 
   Bei PDF-Auswahl erscheint ein OCR-Knopf; Klick führt eine  
@@ -480,6 +491,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                                                                                                                                                                                                               | später                                                                |
 | 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + F24–F27 (Toolbar-Erweiterungen: Zeilennummern nicht kopierbar, Zeilenabstand, Bild→PNG-mit-Alpha, Mehrfachauswahl: PDFs zusammenfügen) + F29 (Toolbar ggf. als eigenes Modul previewer\_toolbar.py) + Neuversuch F22-Wiedergabe | später                                                                |
 | 12a     | F19 Teil 1 – Toolbar-Grundgerüst: statische ActionBar am unteren Rand, Einstellungs-Knopf (Zahnrad-Systemicon) rechts                                                                                                                                                                                                                                   | ✅ 0.11.0 (Minor)                                                      |
+| 12b     | F12 Teil 1 – Einstellungsfenster (öffnet über Zahnrad), Konfigurationsdatei \~/.config/nemo-previewer/nemo-previewer.conf mit sofortiger Speicherung + Anwendung bei jedem Start; erste Einstellung: Sichtbarkeit beim Start                                                                                                                            | ✅ 0.12.0 (Minor)                                                      |
 | 13      | F28 – Kommentar-Auslagerung (Marker + REFERENZ.md als laufend gepflegtes Projektdokument; Canvas-Soll-Zeilenzahlen danach neu vereinbaren)                                                                                                                                                                                                              | später (ruhiger Moment, nicht mit laufenden Fixes mischen)            |
 
 
