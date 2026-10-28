@@ -1,0 +1,769 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Previewer – Renderer-Modul Medien (previewer_render_media.py)
+=============================================================
+
+STAND: Version 0.15.0 – Struktur-Release (F31): Die Renderer für
+Bilder (inkl. EXIF-Ausrichtung, asynchrone Dekodierung R9 mit
+Dekodier-Deckel), SVG, Audio (mit Player) und Video (einschließlich
+Platzhalter-Cover F18) sind aus dem Panel-Kern in dieses Mixin-Modul
+gezogen; die Thread-Disziplinen (R1: Gdk-Objekte nur im GTK-Thread,
+R9/B7: Worker liest nur I/O) bleiben unverändert. Lange Kommentar-
+und Historienblöcke stehen als Marker in REFERENZ.md (F28).
+
+Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
+previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
+sein – der Einstieg prüft das beim Laden.
+"""
+
+import os
+import sys
+import math
+import threading
+import traceback
+
+import gi
+
+gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
+gi.require_version('Pango', '1.0')
+gi.require_version('GdkPixbuf', '2.0')
+
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+from previewer_util import (
+    dbg,
+    MAX_IMAGE_HEIGHT, format_seconds,
+    _pixbuf_from_bytes,
+)
+
+# --- Optionale Module (Fehlen ist kein Fehler, nur weniger Vorschau) ---
+
+# GStreamer für Audio-/Video-Metadaten (Discoverer) und Wiedergabe.
+HAVE_GST = False
+try:
+    gi.require_version('Gst', '1.0')
+    gi.require_version('GstPbutils', '1.0')
+    from gi.repository import Gst, GstPbutils
+    Gst.init(None)
+    HAVE_GST = True
+except Exception:
+    pass
+
+# librsvg für die SVG-Vorschau: GdkPixbuf bringt (seit gdk-pixbuf 2.42)
+# keinen eigenen SVG-Loader mehr mit.
+HAVE_RSVG = False
+try:
+    gi.require_version('Rsvg', '2.0')
+    from gi.repository import Rsvg
+    HAVE_RSVG = True
+except Exception:
+    pass
+
+# PangoCairo + pycairo, um das Platzhalter-Cover (F18) zu zeichnen.
+HAVE_PANGOCAIRO = False
+try:
+    import cairo  # pycairo
+    gi.require_version('PangoCairo', '1.0')
+    from gi.repository import PangoCairo
+    HAVE_PANGOCAIRO = True
+except Exception:
+    pass
+
+
+# Prozess-Zustand für die Medien-Erkundung (Konvention: Modul-Dict statt
+# global): wurde das GI-Warm-up bereits erledigt?
+_MEDIA_STATE = {"warmed": False}
+
+
+def _media_gi_warmup():
+    """
+    R1-Härtung: PyGObject erzeugt die Method-Tabellen von GI-Klassen
+    erst beim ERSTEN Attribut-Zugriff. Damit der Erkundungs-Worker
+    (der die Medien-Tags liest) stabile Verhältnisse vorfindet, wird
+    der Erstkontakt mit allen beteiligten Klassen einmalig im
+    GTK-THREAD erledigt (siehe _media_probe_async). Der Name
+    discover_uri_sync wird hier bewusst mit angefasst: Existiert er
+    im Binding nicht, ist das kein Fehler – dann greift die Erkundung
+    auf den korrekten Namen discover_uri zurück.
+    """
+    if _MEDIA_STATE["warmed"]:
+        return
+    _MEDIA_STATE["warmed"] = True
+
+    def _touch(base, dotted):
+        # Lazy Pfad-Auflösung: Ein fehlendes Symbol (z.B. Gst.PlayFlags
+        # ist im Mint-22-Binding NICHT vorhanden) darf hier NIE eine
+        # AttributeError werfen – sonst reißt der Warm-up die gesamte
+        # Medien-Vorschau mit (Lehre aus dem 0.6.0-Test).
+        try:
+            obj = base
+            for part in dotted.split("."):
+                obj = getattr(obj, part)
+        except Exception:
+            pass
+
+    for dotted in ("Discoverer.discover_uri",
+                   "Discoverer.discover_uri_sync",
+                   "DiscovererInfo.get_duration",
+                   "DiscovererInfo.get_tags"):
+        _touch(GstPbutils, dotted)
+    for dotted in ("TagList.get_string",
+                   "TagList.get_sample",
+                   "Sample.get_buffer",
+                   "Buffer.extract_dup",
+                   "ElementFactory",
+                   "State.PAUSED",
+                   "State.PLAYING",
+                   "State.NULL",
+                   "SeekFlags.FLUSH",
+                   "Format.TIME",
+                   "Element.set_state",
+                   "Element.get_state"):
+        _touch(Gst, dotted)
+
+
+# 0.9.2 (Audit „Pufferüberlauf/OOM“): Deckel gegen Dekompressions- und
+# Dekodierbomben – ein präpariertes Bild/PDF/EPUB/DOCX/EML darf Nemo
+# niemals durch Riesen-Allokationen abschießen.
+_IMAGE_FILE_CAP = 64 * 1024 * 1024   # Bilddatei: Rohbytes vor Dekodierung
+_MEDIA_IMAGE_CAP = 32 * 1024 * 1024  # eingebettetes Cover aus Medien-Tags
+
+# ========================== Renderer: Medien ================================
+
+
+class MediaRendererMixin:
+    """Mixin: Renderer für Bild (inkl. EXIF), SVG, Audio und Video."""
+
+    def _render_svg(self, path):
+        """SVG-Vorschau via librsvg: GdkPixbuf kann SVG nicht laden."""
+        if not HAVE_RSVG:
+            self._hint("SVG-Vorschau nicht verfügbar – "
+                       "Paket gir1.2-rsvg installieren.")
+            self._render_generic()
+            return
+        try:
+            handle = Rsvg.Handle.new_from_file(path)
+            pb = handle.get_pixbuf()
+        except Exception as e:
+            self._hint("Konnte SVG nicht lesen: %s" % e)
+            self._render_generic()
+            return
+        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
+        self._content.pack_start(scroll, True, True, 0)
+        try:
+            info = Gtk.Label(label="%d × %d px"
+                             % (pb.get_width(), pb.get_height()))
+            info.get_style_context().add_class("dim-label")
+            info.set_halign(Gtk.Align.START)
+            self._content.pack_start(info, False, False, 0)
+        except Exception:
+            pass
+
+    def _render_image(self, path):
+        """
+        R9 (0.10.2) mit Feld-Korrektur (0.10.3): Große Bilder
+        (typisch 20-MB-JPEGs mit 50–100 Megapixeln) blockierten den
+        GTK-Main-Loop – Lesen, Dekodieren und EXIF-Drehung liefen
+        synchron in einem Rutsch bei der Auswahl, die UI stand
+        still. Zweistufig wie bei den Medien (R1): (1) sofort
+        Hinweis zeigen, die UI bleibt bedienbar; (2) der Daemon-
+        Thread liest NUR die Datei (reines Python-I/O) und reicht
+        die Bytes per GLib.idle_add zurück. Dekodierung, EXIF-
+        Drehung und Skalierung laufen zurück im GTK-Thread – der
+        Feldtest von 0.10.2 zeigte: Gdk-Objekte (PixbufLoader) im
+        Worker scheitern still, das R1-Muster „keine Gdk-Objekte
+        im Worker" gilt auch hier.
+        Geschwindigkeitshebel bleibt der Decode-Deckel
+        max(2 × Panelbreite, 1024): Die Dekodierung wird um ein
+        Vielfaches billiger, die Live-Skalierung verliert nichts
+        (die Quelle bleibt breiter als jede Panelbreite, wie bei
+        PDF-R2 mit 2-facher Breite). Der Bomben-Schutz aus 0.9.2
+        bleibt vollständig erhalten. Schlägt der Thread-Start
+        ausnahmsweise fehl, läuft der alte synchrone Weg als
+        Rettungsanker.
+        """
+        self._hint("Lade Bild – einen Moment …")
+        try:
+            target_w = max(1024, self._preview_width() * 2)
+        except Exception:
+            target_w = 1024
+
+        def work():
+            data, err = None, None
+            try:
+                with open(path, "rb") as fh:
+                    data = fh.read(_IMAGE_FILE_CAP)
+                dbg("Bild gelesen: %s (%d Bytes)" % (path, len(data)))
+            except Exception as exc:
+                data, err = None, exc
+                dbg("Bild-Lesen fehlgeschlagen (%s): %s" % (path, exc))
+            try:
+                GLib.idle_add(self._image_probe_done,
+                              path, target_w, data, err)
+            except Exception as exc:
+                dbg("Bild-Rückgabe fehlgeschlagen (%s): %s"
+                    % (path, exc))
+
+        try:
+            threading.Thread(target=work, daemon=True).start()
+        except Exception:
+            # Rettungsanker: Thread nicht startbar → synchron lesen,
+            # die Dekodierung übernimmt _image_probe_done direkt.
+            data, err = None, None
+            try:
+                with open(path, "rb") as fh:
+                    data = fh.read(_IMAGE_FILE_CAP)
+            except Exception as exc:
+                data, err = None, exc
+            self._image_probe_done(path, target_w, data, err)
+
+    def _image_probe_done(self, path, target_w, data, err):
+        """
+        R9-Rückkehr (0.10.3/0.10.4): Dekodierung der im Worker
+        gelesenen Bytes HIER im GTK-Thread (gleiche Disziplin wie bei
+        den Medien-Covern in _media_probe_done – Gdk-Objekte entstehen
+        nur im GTK-Thread). Decode-Deckel target_w; bei weiterge-
+        wanderter Auswahl wird das Ergebnis still verworfen.
+        Schlägt die Dekodierung fehl, greift der synchrone
+        at_scale-Fallback (begrenzt die Dekodierung intern und ist
+        damit ebenfalls bombensicher); erst wenn auch der scheitert,
+        erscheint der generische Fehlerhinweis.
+        0.10.4: Alle hier gepackten Widgets liegen NACH dem
+        show_all() des Render-Durchlaufs – genau wie in
+        _media_probe_done braucht der Callback daher sein EIGENES
+        show_all, sonst bleibt die Vorschau unsichtbar (Feld-Ursache
+        der B7-Regression, in 0.10.2/0.10.3 übersehen).
+        """
+        if self._path != path:
+            dbg("Bild-Ergebnis verworfen, Auswahl wechselte: %s" % path)
+            return False      # Auswahl hat inzwischen gewechselt
+        self._clear_content()
+        pb, orig = None, {}
+        if data is not None:
+            try:
+                # Decode-Deckel (0.9.2) bleibt: set_size verkleinert
+                # zur DEKODIERzeit – Bomben-Bilder kosten nur die
+                # gedeckelte Fläche.
+                pb = _pixbuf_from_bytes(
+                    data, max_w=target_w, max_h=2 * MAX_IMAGE_HEIGHT,
+                    orig=orig)
+            except Exception as exc:
+                dbg("Bild-Dekodierung fehlgeschlagen (%s): %s"
+                    % (path, exc))
+        if pb is None:
+            try:
+                pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    path, 4096, 4096, True)
+            except Exception:
+                pb = None
+        if pb is None:
+            self._hint("Konnte Bild nicht laden: %s" % (err or "unbekannt"))
+            self._render_generic()
+            # Auch dieser Fallback packt NACH dem show_all() des
+            # Render-Durchlaufs – ohne eigenes show_all unsichtbar.
+            self._content.show_all()
+            return False
+        # EXIF-Ausrichtung anwenden: Fotos, die die Drehung nur im
+        # Orientation-Tag tragen (typisch bei Smartphone-Kameras),
+        # würden sonst quer oder auf dem Kopf liegen.
+        try:
+            pb = pb.apply_embedded_orientation()
+        except Exception:
+            pass
+        dbg("Bild dekodiert: %s (%d × %d px)" %
+            (path, pb.get_width(), pb.get_height()))
+        if pb.get_width() > 4096 or pb.get_height() > MAX_IMAGE_HEIGHT:
+            pb = self._scale_pixbuf(pb, 4096, MAX_IMAGE_HEIGHT)
+        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
+        self._content.pack_start(scroll, True, True, 0)
+        try:
+            # Maße: die ORIGINALMAßE aus dem Datei-Kopf (size-prepared,
+            # vor der Deckelung), nicht die gedeckelte Dekodiergröße –
+            # sonst hieße ein 50-MP-Foto plötzlich „1024 px". Das
+            # Hoch-/Querformat folgt dem orientierten Bild (EXIF).
+            w = orig.get("w", pb.get_width())
+            h = orig.get("h", pb.get_height())
+            if (w > h) != (pb.get_width() > pb.get_height()):
+                w, h = h, w
+            info = Gtk.Label(label="%d × %d px" % (w, h))
+            info.get_style_context().add_class("dim-label")
+            info.set_halign(Gtk.Align.START)
+            self._content.pack_start(info, False, False, 0)
+        except Exception:
+            pass
+        # → REF MED-B7-1
+        self._content.show_all()
+        return False
+
+    def _render_audio(self, path, uri):
+        """
+        Audio-Vorschau: Cover, Tags und Player-Leiste.
+        R1: Tags, Dauer und Cover werden im Hintergrund-Thread erkannt
+        (siehe _media_probe_async) – das Panel erscheint sofort mit
+        einem Lese-Hinweis und bleibt bedienbar, statt auf der Stelle
+        einzufrieren, wenn das Medium langsam erreichbar ist.
+        """
+        self._media_probe_async(path, uri, self._finish_audio)
+
+    def _media_probe_async(self, path, uri, finish, video=False):
+        """
+        R1: Medien-Erkundung ohne UI-Blockade. Der GStreamer-Discoverer
+        läuft in einem Daemon-Thread (Tags, Dauer, Bildbytes – KEIN
+        Pixbuf, Gdk-Objekte entstehen erst zurück im GTK-Thread) und
+        schwenkt das Ergebnis per GLib.idle_add in den Main-Loop;
+        finish ist die Fortsetzung (_finish_audio/_finish_video).
+
+        R1-Fix (0.5.0-Testergebnis): Die synchrone Erkundung heißt im
+        Python-Binding discover_uri() – der C-Name gst_discoverer_
+        discover_uri wird OHNE „_sync“ gebunden; ein discover_uri_sync
+        existiert nicht (AttributeError). Damit hatte die Tags/Dauer/
+        Cover-Erkundung noch NIE funktioniert – das Platzhalter-Cover
+        (F18) machte den Altfehler erstmals sichtbar. Zusätzlich werden
+        die GI-Klassen einmalig HIER im GTK-Thread warmgefahren
+        (PyGObject löst Method-Tabellen lazy auf) und die Erkundung
+        läuft im Worker als fertig aufgelöstes Callable.
+        """
+        self._hint("Lese Medien-Informationen – einen Moment …")
+        _media_gi_warmup()
+        try:
+            try:
+                disc = GstPbutils.Discoverer.new(10 * Gst.SECOND)
+            except (AttributeError, TypeError):
+                # Neuere PyGObject-Builds mappen gst_discoverer_new
+                # NICHT als Konstruktor – deshalb explizit .new(),
+                # mit Fallback für ältere Builds.
+                disc = GstPbutils.Discoverer(10 * Gst.SECOND)
+            # Attribut-Auflösung IM GTK-Thread; der Worker ruft nur das
+            # fertige Callable auf. discover_uri = korrekter Name,
+            # discover_uri_sync nur als Defensiv-Fallback.
+            probe = getattr(disc, "discover_uri", None)
+            if probe is None:
+                probe = disc.discover_uri_sync
+        except Exception as e:
+            dbg("Discoverer nicht anlegbar: %s" % e)
+            # Ohne Discoverer trotzdem die UI aufbauen (Platzhalter,
+            # Player) – nicht im Hinweis stecken bleiben.
+            GLib.idle_add(self._media_probe_done, path, uri, finish,
+                          {}, -1, None)
+            return
+
+        def work():
+            tags, duration, image_bytes = {}, -1, None
+            try:
+                info = probe(uri)
+                duration = info.get_duration() // Gst.SECOND
+                taglist = info.get_tags()
+                if taglist:
+                    for key, gst_tag in (("title", Gst.TAG_TITLE),
+                                         ("artist", Gst.TAG_ARTIST),
+                                         ("album", Gst.TAG_ALBUM)):
+                        ok, val = taglist.get_string(gst_tag)
+                        if ok and val:
+                            tags[key] = val
+                    # Bild-Bytes sammeln (nicht dekodieren – das passiert
+                    # erst im GTK-Thread). Videos: Standbild bevorzugt;
+                    # Audio: eingebettetes Cover bevorzugt.
+                    order = ((Gst.TAG_PREVIEW_IMAGE, Gst.TAG_IMAGE) if video
+                             else (Gst.TAG_IMAGE, Gst.TAG_PREVIEW_IMAGE))
+                    for gst_tag in order:
+                        ok, sample = taglist.get_sample(gst_tag)
+                        if ok and sample:
+                            buf = sample.get_buffer()
+                            # 0.9.2: Byte-Deckel – eingebettete Cover
+                            # können sonst beliebig groß sein.
+                            image_bytes = buf.extract_dup(
+                                0, min(buf.get_size(), _MEDIA_IMAGE_CAP))
+                            break
+            except Exception as e:
+                dbg("Discoverer-Fehler: %s" % e)
+            GLib.idle_add(self._media_probe_done, path, uri, finish,
+                          tags, duration, image_bytes)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _media_probe_done(self, path, uri, finish, tags, duration,
+                          image_bytes):
+        """R1: Rückkehr der Hintergrund-Erkundung in den GTK-Main-Loop."""
+        # Auswahl hat inzwischen gewechselt – Ergebnis verwerfen.
+        if self._path != path:
+            return False
+        pixbuf = None
+        if image_bytes:
+            try:
+                # 0.9.2: bewachter Loader mit Decode-Deckel (siehe
+                # _pixbuf_from_bytes) statt rohem PixbufLoader.
+                pixbuf = _pixbuf_from_bytes(image_bytes)
+            except Exception as exc:
+                dbg("Medien-Bild nicht darstellbar: %s" % exc)
+        # Lese-Hinweis entfernen und die eigentliche Vorschau aufbauen.
+        self._clear_content()
+        try:
+            finish(path, uri, tags, duration, pixbuf)
+        except Exception:
+            # Gleicher Schutz wie in _render: nie werfen, immer Fallback.
+            dbg("Fehler beim Aufbauen der Medien-Vorschau (%r):" % path)
+            traceback.print_exc()
+            try:
+                self._clear_content()
+                self._render_generic()
+            except Exception:
+                pass
+        # Erst hier gepackte Widgets liegen NACH dem show_all() des
+        # Render-Durchlaufs – sie brauchen daher ihr eigenes show_all.
+        self._content.show_all()
+        return False
+
+    def _media_cover_placeholder(self, glyph="♫",
+                                 fallback_icon="audio-x-generic",
+                                 grad=((0.145, 0.173, 0.216),
+                                       (0.251, 0.204, 0.322)),
+                                 perforations=False):
+        """
+        Generische Kachel für Medien ohne eingebettetes Bild: dunkle
+        Kachel mit diagonalem Farbverlauf, halbtransparentem Symbol und
+        abgerundeten Ecken – in doppelter Auflösung gezeichnet (640 px
+        für 320 px Anzeige), damit die Kachel auch auf HiDPI-Schirmen
+        scharf bleibt. Musik ohne Cover (F18) zeigt das Notensymbol,
+        Video ohne eingebettetes Vorschaubild (F22) das Abspiel-
+        Dreieck mit Filmperforation am oberen und unteren Rand.
+        Ohne PangoCairo (oder bei Zeichenfehlern) greift ein Icon-
+        Fallback auf dunklem Grund.
+        """
+        size = 640
+        try:
+            if not HAVE_PANGOCAIRO:
+                raise ValueError("PangoCairo nicht verfügbar")
+            surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
+            cr = cairo.Context(surf)
+            # Abgerundete Ecken als Beschneidungspfad; außerhalb bleibt
+            # die Fläche transparent – die Kachel wirkt auf jedem Theme.
+            r = 56.0
+            cr.new_sub_path()
+            cr.arc(size - r, r, r, -0.5 * math.pi, 0.0)
+            cr.arc(size - r, size - r, r, 0.0, 0.5 * math.pi)
+            cr.arc(r, size - r, r, 0.5 * math.pi, math.pi)
+            cr.arc(r, r, r, math.pi, 1.5 * math.pi)
+            cr.close_path()
+            cr.clip()
+            # Diagonaler Verlauf (Farbpaar je Medientyp)
+            pat = cairo.LinearGradient(0.0, 0.0, size, size)
+            pat.add_color_stop_rgba(0.0, grad[0][0], grad[0][1], grad[0][2],
+                                   1.0)
+            pat.add_color_stop_rgba(1.0, grad[1][0], grad[1][1], grad[1][2],
+                                   1.0)
+            cr.set_source(pat)
+            cr.paint()
+            # Filmperforation (nur Video-Kachel): halbtransparente
+            # Lochreihen am oberen und unteren Rand.
+            if perforations:
+                cr.set_source_rgba(1.0, 1.0, 1.0, 0.16)
+                for i in range(8):
+                    x = 23.0 + i * 80.0
+                    cr.rectangle(x, 20.0, 34.0, 26.0)
+                    cr.rectangle(x, size - 46.0, 34.0, 26.0)
+                cr.fill()
+            # Symbol halbtransparent weiß, mittig (Pango findet selbst
+            # eine Schrift mit dem Glyph – Serife zuerst).
+            layout = PangoCairo.create_layout(cr)
+            layout.set_text(glyph, -1)
+            font = Pango.FontDescription()
+            font.set_family("Serif")
+            font.set_absolute_size(320 * Pango.SCALE)
+            layout.set_font_description(font)
+            lw, lh = layout.get_pixel_size()
+            cr.move_to((size - lw) / 2.0, (size - lh) / 2.0)
+            cr.set_source_rgba(1.0, 1.0, 1.0, 0.82)
+            PangoCairo.update_layout(cr, layout)
+            PangoCairo.show_layout(cr, layout)
+            return Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
+        except Exception as exc:
+            dbg("Platzhalter-Cover nicht zeichenbar (%s) – Icon-Fallback"
+                % exc)
+        # Fallback: Datei-Icon auf dunklem, deckendem Grund
+        pb = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8,
+                                  size, size)
+        pb.fill(0x151a22ff)
+        try:
+            icon = Gtk.IconTheme.get_default().load_icon(
+                fallback_icon, 256, Gtk.IconLookupFlags.FORCE_SIZE)
+            icon.composite(pb,
+                           (size - icon.get_width()) // 2,
+                           (size - icon.get_height()) // 2,
+                           icon.get_width(), icon.get_height(),
+                           0, 0, 1, 1, GdkPixbuf.InterpType.BILINEAR, 255)
+        except Exception:
+            pass
+        return pb
+
+    def _finish_audio(self, path, uri, tags, duration, cover):
+        """R1-Fortsetzung: Cover, Infos und Player-Leiste aufbauen."""
+        # F18: Ohne eingebettetes Cover (oder wenn es nicht dekodierbar
+        # war) die Platzhalter-Kachel zeigen – Dateien mit und ohne Bild
+        # haben damit das gleiche, ruhige Erscheinungsbild.
+        if cover is None:
+            cover = self._media_cover_placeholder()
+        scroll = self._scaled_image(cover, 320, upscale=False,
+                                    keep_height=True)
+        self._content.pack_start(scroll, False, False, 0)
+
+        rows = []
+        if "title" in tags and tags["title"] != os.path.basename(path):
+            rows.append(("Titel", tags["title"]))
+        rows.append(("Datei", os.path.basename(path)))
+        if "artist" in tags:
+            rows.append(("Interpret", tags["artist"]))
+        if "album" in tags:
+            rows.append(("Album", tags["album"]))
+        if duration >= 0:
+            rows.append(("Länge", format_seconds(duration)))
+
+        # 0.9.1: Info-Tabelle über den zentralen Helfer (zuvor inline
+        # identisch gebaut – jetzt wie EML/E-Book einheitlich).
+        self._meta_grid(rows)
+
+        # --- Player-Leiste (mit _finish_video geteilt, F22) ---
+        self._playbin_set_uri(uri)
+        self._player_bar(duration)
+
+    def _playbin_set_uri(self, uri):
+        """
+        Playbin einmalig anlegen und die URI setzen. B2: Bus-Watch –
+        ohne ihn kennt der Player sein Trackende nicht (Pause-Icon
+        blieb stehen, Position fror ein) und Abspielfehler blieben
+        unsichtbar. Zentraler Baustein – ein späterer Neuversuch der
+        Video-Wiedergabe kann ihn unverändert wiederverwenden.
+        """
+        if self._playbin is None:
+            self._playbin = Gst.ElementFactory.make("playbin", "previewer-playbin")
+            bus = self._playbin.get_bus()
+            bus.add_signal_watch()
+            bus.connect("message::eos", self._on_player_eos)
+            bus.connect("message::error", self._on_player_error)
+        self._playbin.set_property("uri", uri)
+
+    def _player_bar(self, duration):
+        """
+        Player-Leiste (Play/Pause, Slider, Position) bauen und packen –
+        zentraler Baustein der Musik-Vorschau (B2/B3).
+        """
+        player_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self._btn_play = Gtk.Button.new_from_icon_name(
+            "media-playback-start-symbolic", Gtk.IconSize.BUTTON)
+        self._btn_play.connect("clicked", self._on_play_pause)
+        player_box.pack_start(self._btn_play, False, False, 0)
+
+        self._seek_scale = Gtk.Scale.new_with_range(
+            Gtk.Orientation.HORIZONTAL, 0, max(duration, 1), 1)
+        self._seek_scale.set_value(0)
+        self._seek_scale.set_draw_value(False)
+        self._seek_scale.set_hexpand(True)
+        self._seek_scale.connect("change-value", self._on_seek)
+        # Während der Nutzer am Slider zieht, darf der Timer den Slider
+        # nicht zurückschieben (sonst springt er unter der Hand weg).
+        self._seek_dragging = False
+        self._seek_scale.connect("button-press-event", self._on_seek_press)
+        self._seek_scale.connect("button-release-event",
+                                 self._on_seek_release)
+        player_box.pack_start(self._seek_scale, True, True, 0)
+
+        self._pos_label = Gtk.Label(label="0:00")
+        player_box.pack_start(self._pos_label, False, False, 0)
+        self._content.pack_start(player_box, False, False, 0)
+
+        self._ensure_progress_timer()
+
+    def _on_player_eos(self, bus, msg):
+        """Trackende: zurück an den Anfang, Icon zurück auf Play (B2)."""
+        try:
+            self._playbin.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, 0)
+            self._playbin.set_state(Gst.State.PAUSED)
+            if getattr(self, "_btn_play", None):
+                self._btn_play.set_image(Gtk.Image.new_from_icon_name(
+                    "media-playback-start-symbolic", Gtk.IconSize.BUTTON))
+            if getattr(self, "_pos_label", None):
+                self._pos_label.set_text("0:00")
+            if getattr(self, "_seek_scale", None):
+                self._seek_scale.set_value(0)
+        except Exception:
+            pass
+
+    def _on_player_error(self, bus, msg):
+        """Abspielfehler: still abstoppen und im Panel melden (B2)."""
+        try:
+            err, detail = msg.parse_error()
+            dbg("Abspielfehler: %s (%s)" % (err, detail))
+        except Exception:
+            err = "unbekannter Abspielfehler"
+        try:
+            self._playbin.set_state(Gst.State.NULL)
+            if getattr(self, "_btn_play", None):
+                self._btn_play.set_image(Gtk.Image.new_from_icon_name(
+                    "media-playback-start-symbolic", Gtk.IconSize.BUTTON))
+            self._hint("Abspielfehler – Datei über den Öffnen-Knopf "
+                       "mit einer anderen Anwendung betrachten.")
+        except Exception:
+            pass
+
+    def _ensure_progress_timer(self):
+        """Positionstimer anlegen, falls er gerade nicht läuft (B3)."""
+        if not self._progress_timer:
+            self._progress_timer = GLib.timeout_add(400, self._tick_player)
+
+    def _scale_pixbuf(self, pb, max_w, max_h):
+        w, h = pb.get_width(), pb.get_height()
+        if w <= max_w and h <= max_h:
+            return pb
+        scale = min(max_w / w, max_h / h)
+        return pb.scale_simple(max(1, int(w * scale)),
+                               max(1, int(h * scale)),
+                               GdkPixbuf.InterpType.BILINEAR)
+
+    def _render_video(self, path, uri):
+        """
+        Video-Vorschau: Kachel und Infos.
+        R1: Erkundung im Hintergrund-Thread (siehe _media_probe_async) –
+        UI bleibt sofort bedienbar. Ohne eingebettetes Vorschaubild
+        erscheint die generische Kachel wie bei Musik (F22). Die Panel-
+        Wiedergabe aus 0.7.0–0.7.2 ist in 0.8.0 wieder entfernt – zum
+        Abspielen der Öffnen-Knopf (Medienprogramm der Wahl).
+        """
+        self._media_probe_async(path, uri, self._finish_video, video=True)
+
+    def _finish_video(self, path, uri, tags, duration, image):
+        """R1-Fortsetzung: Kachel und Infos aufbauen."""
+        # F22: Ohne eingebettetes Vorschaubild die generische Kachel
+        # zeigen – Abspiel-Dreieck und Filmperforation statt Noten.
+        if image is None:
+            image = self._media_cover_placeholder(
+                glyph="▶", fallback_icon="video-x-generic",
+                grad=((0.086, 0.141, 0.180), (0.122, 0.322, 0.369)),
+                perforations=True)
+        scroll = self._scaled_image(image, 320, upscale=False,
+                                    keep_height=True)
+        self._content.pack_start(scroll, False, False, 0)
+
+        rows = [("Datei", os.path.basename(path))]
+        if "title" in tags:
+            rows.append(("Titel", tags["title"]))
+        if duration >= 0:
+            rows.append(("Länge", format_seconds(duration)))
+        # 0.9.1: Info-Tabelle über den zentralen Helfer (zuvor inline
+        # identisch gebaut – jetzt wie EML/E-Book/Audio einheitlich).
+        self._meta_grid(rows)
+
+    # --- Audio-Player-Logik -------------------------------------------------
+
+    def _on_play_pause(self, *a):
+        if self._playbin is None:
+            return
+        ok, state, pending = self._playbin.get_state(0)
+        if state == Gst.State.PLAYING:
+            self._playbin.set_state(Gst.State.PAUSED)
+            self._btn_play.set_image(Gtk.Image.new_from_icon_name(
+                "media-playback-start-symbolic", Gtk.IconSize.BUTTON))
+        else:
+            self._playbin.set_state(Gst.State.PLAYING)
+            self._btn_play.set_image(Gtk.Image.new_from_icon_name(
+                "media-playback-pause-symbolic", Gtk.IconSize.BUTTON))
+            # B3: Timer läuft nur, solange eine Wiedergabe existiert –
+            # nach Pause/Stop wird er im _tick_player bzw. beim Wechsel
+            # abgeräumt; hier wieder anlegen, falls er weg ist.
+            self._ensure_progress_timer()
+
+    def _on_seek(self, scale, scroll_type, value):
+        if self._playbin is None:
+            return False
+        try:
+            ok, dur = self._playbin.query_duration(Gst.Format.TIME)
+            if ok and dur > 0:
+                self._playbin.seek_simple(
+                    Gst.Format.TIME, Gst.SeekFlags.FLUSH,
+                    int(value / max(scale.get_adjustment().get_upper(), 1)
+                        * dur))
+        except Exception:
+            pass
+        return False
+
+    def _tick_player(self):
+        """Positionsanzeige aktualisieren (B3: nur während der Wiedergabe)."""
+        if self._playbin is None:
+            self._progress_timer = 0
+            return False
+        try:
+            ok, state, pending = self._playbin.get_state(0)
+            if (state != Gst.State.PLAYING
+                    and pending != Gst.State.PLAYING):
+                # Wiedergabe läuft (oder läuft an) nicht – Timer aus;
+                # _on_play_pause legt ihn bei erneutem Start wieder an.
+                self._progress_timer = 0
+                return False
+            ok, pos = self._playbin.query_position(Gst.Format.TIME)
+            ok2, dur = self._playbin.query_duration(Gst.Format.TIME)
+            if ok and pos >= 0:
+                self._pos_label.set_text(format_seconds(pos // Gst.SECOND))
+                if ok2 and dur > 0:
+                    # → REF MED-SEEK-1
+                    self._ensure_seek_range(dur)
+                    self._update_seek_pos(pos)
+        except Exception:
+            pass
+        return True  # weiterlaufen
+
+    def _ensure_seek_range(self, dur_ns):
+        """Slider-Bereich an die echte Dauer (ns) anpassen, falls nötig."""
+        scale = getattr(self, "_seek_scale", None)
+        if scale is None:
+            return
+        upper = max(1, int(dur_ns // Gst.SECOND))
+        adj = scale.get_adjustment()
+        if abs(adj.get_upper() - upper) > 1:
+            dbg("Slider-Bereich nachgezogen: 0–%d s (war 0–%d s)"
+                % (upper, int(adj.get_upper())))
+            adj.configure(0.0, 0.0, float(upper), 1.0, 10.0, 0.0)
+
+    def _update_seek_pos(self, pos_ns):
+        """Slider auf die aktuelle Position (ns) schieben."""
+        if getattr(self, "_seek_dragging", False):
+            return          # Nutzer zieht gerade – nicht reinschieben
+        scale = getattr(self, "_seek_scale", None)
+        if scale is None:
+            return
+        sec = pos_ns / Gst.SECOND
+        adj = scale.get_adjustment()
+        # Schwellwert klein genug für kurze Stücke, aber groß genug,
+        # dass der Slider nicht bei jedem Tick zittert.
+        if abs(adj.get_value() - sec) > 0.75:
+            scale.set_value(sec)
+
+    def _on_seek_press(self, widget, event):
+        self._seek_dragging = True
+        return False        # GTK soll das Event weiterverarbeiten
+
+    def _on_seek_release(self, widget, event):
+        self._seek_dragging = False
+        return False        # GTK soll das Event weiterverarbeiten
+
+    def _stop_playback(self):
+        # B3: Timer aufräumen (lief sonst ewig weiter, auch nach
+        # Fensterabbau) und Player sauber auf NULL legen.
+        if self._progress_timer:
+            GLib.source_remove(self._progress_timer)
+            self._progress_timer = 0
+        if self._playbin is not None:
+            try:
+                self._playbin.set_state(Gst.State.NULL)
+            except Exception:
+                pass
+
+
+
+PREVIEWER_VERSION = "0.15.0"
+dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
+    "Renderer; R9/B7-Disziplin und Deckel bleiben)"
+    % PREVIEWER_VERSION)
