@@ -4,7 +4,7 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.12.0 – aktuelle Fassung (F12-Konfigurations-Start:
+STAND: Version 0.12.1 – aktuelle Fassung (B8-Konfigurations-Fix:
 keine Änderungen in dieser Datei – nur Versions-Sync mit den drei
 anderen Modulen).
 
@@ -124,5 +124,5 @@ def content_type_description(mime):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.12.0"
+PREVIEWER_VERSION = "0.12.1"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
