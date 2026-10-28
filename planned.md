@@ -115,6 +115,33 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   (1) vier geladen/bereit-Zeilen mit gleicher Version, (2) „VTable-API  
   bereit" ODER Fallback-Meldung, (3) „Auswahl geändert: …"-Zeilen beim  
   Anklicken. Alles da → keine Handlung nötig.
+- [x] **R9 – Große Bilder blockieren die UI beim Laden**
+
+  (`_render_image`, panel; aus dem Testfeld gemeldet)  
+  20-MB-JPEGs (typisch 50–100 Megapixel) werden SYNCHRON im GTK-  
+  Main-Loop bearbeitet: Datei lesen, Dekodieren, EXIF-Drehung und  
+  Herunterskalieren laufen alle in einem Rutsch bei der Auswahl –  
+  die UI steht in der Zeit still („laggy", spürbar mehr Ladezeit).  
+  Erschwerend: Dekodiert wird bisher auf bis zu 4096 px Breite,  
+  obwohl das Panel nur einige hundert Pixel zeigt – der Löwenanteil  
+  der Dekodier-Arbeit ist verschenkt.  
+  **M** – *Skizze:* zweistufig wie R1 (Medien) und R2 (PDF):  
+  (1) sofort Hint „Lade Bild …" zeigen, (2) Lesen + Dekodieren +  
+  EXIF-Drehung in einen Daemon-Thread verlagern (Pixbuf ist ein  
+  reines Daten-Objekt ohne GTK-Bezug – die fertige Pixbuf per  
+  GLib.idle\_add zurückreichen und gegen die aktuelle Auswahl  
+  prüfen, veraltet = verwerfen). Zusätzlich Beschleunigung beim  
+  Dekodieren selbst: den size-prepared-Deckel statt stur 4096 px  
+  auf max(2 × Panelbreite, 1024) setzen – die Dekodierung wird  
+  damit um ein Vielfaches billiger, und die Live-Skalierung  
+  verliert nichts (Quelle bleibt größer als jede Panelbreite).  
+  Rettungsanker: Schlägt der Thread-Pfad fehl, bleibt der  
+  synchrone Weg als Fallback.  
+  ✅ 0.10.2: umgesetzt wie skizziert – GI-Warm-up im GTK-Thread  
+  (\_image\_gi\_warmup, wie R1), Dekodierung im Daemon-Thread mit  
+  Idle-Rückgabe und Auswahl-Abgleich, Originalmaße aus  
+  size-prepared fürs Info-Label (statt der Dekodiergröße); Thread-  
+  Start-Fehler fallen auf den synchronen Weg zurück.
 
 ### ⚪ Kosmetik
 
@@ -296,6 +323,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 8b      | Audit 2 „Pufferüberlauf/OOM“ (Decode-/Lese-Deckel gegen Bild-/PDF-/EPUB-/DOCX-/EML-Bomben, Wildcall-Schutz für VTable-Funktionszeiger)                           | ✅ 0.9.2 (Patch)                                                       |
 | 8c      | F23 – Text-Vorschau für endungslose Dateien (Inhalts-Sniffing, vorgezogen)                                                                                       | ✅ 0.10.0 (Minor)                                                      |
 | 8d      | B6 – Markdown in System-Schriftgröße (aus dem Testfeld gemeldet)                                                                                                 | ✅ 0.10.1 (Patch)                                                      |
+| 8e      | R9 – Große Bilder asynchron dekodieren + Dekodierung auf Anzeigegröße (vorgezogen, aus dem Testfeld gemeldet)                                                    | ✅ 0.10.2 (Patch)                                                      |
 | 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                     | später (vorher 0.10.0)                                                |
 | 10      | F4, F6–F11 nach Bedarf                                                                                                                                           | später                                                                |
 | 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                        | später                                                                |
