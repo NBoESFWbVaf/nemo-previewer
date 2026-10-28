@@ -312,7 +312,14 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   angewendet (apply\_start\_settings im Einstieg, NACH dem show\_all  
   der Injizierung); erste Einstellung „Vorschauspalte beim Start  
   anzeigen" läuft damit komplett durch (Fenster → conf → Start).  
-  Offen: die übrigen Einstellungen (Panelbreite, MAX\_PDF\_PAGES,  
+  ✅ Teil 2 in 0.13.0: „Standardbreite beim Start" – Default 300 px  
+  (zuvor hart 340), SpinButton trägt den aktuellen Wert vorab  
+  (gezogene Breite inklusive), „Standard: … · aktuell: …"-Zeile,  
+  Ziehen am Trenner übernimmt die Breite als künftige Startbreite  
+  (entprellt in der conf, Einstieg wendet sie beim ersten  
+  size-allocate an), Spin-Änderungen greifen sofort live. Der  
+  B8-Fix (GLib.KeyFile) steckt in 0.12.1.  
+  Offen: die übrigen Einstellungen (MAX\_PDF\_PAGES,  
   Wasserfall-Probetext …) andocken.
 - [ ] **F13 – Knöpfe „Im Dateimanager zeigen" + „Pfad kopieren"** neben
 
@@ -508,6 +515,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 12a     | F19 Teil 1 – Toolbar-Grundgerüst: statische ActionBar am unteren Rand, Einstellungs-Knopf (Zahnrad-Systemicon) rechts                                                                                                                                                                                                                                   | ✅ 0.11.0 (Minor)                                                      |
 | 12b     | F12 Teil 1 – Einstellungsfenster (öffnet über Zahnrad), Konfigurationsdatei \~/.config/nemo-previewer/nemo-previewer.conf mit sofortiger Speicherung + Anwendung bei jedem Start; erste Einstellung: Sichtbarkeit beim Start                                                                                                                            | ✅ 0.12.0 (Minor)                                                      |
 | 12c     | B8 – F12-Feld-Fix: GLib.KeyFile statt Gio.Keyfile (Persistenz war wirkungslos)                                                                                                                                                                                                                                                                          | ✅ 0.12.1 (Patch)                                                      |
+| 12d     | F12 Teil 2 – „Standardbreite beim Start": Default 300 px, Zieh-Breite wird Startbreite (entprellt in conf), sofortige Live-Anwendung                                                                                                                                                                                                                    | ✅ 0.13.0 (Minor)                                                      |
 | 13      | F28 – Kommentar-Auslagerung (Marker + REFERENZ.md als laufend gepflegtes Projektdokument; Canvas-Soll-Zeilenzahlen danach neu vereinbaren)                                                                                                                                                                                                              | später (ruhiger Moment, nicht mit laufenden Fixes mischen)            |
 
 
