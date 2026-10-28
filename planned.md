@@ -76,7 +76,19 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   reicht die Bytes per GLib.idle\_add zurück; Dekodierung, EXIF-  
   Drehung und Skalierung laufen im GTK-Thread (wie bei den  
   Medien-Covern); \_image\_gi\_warmup/\_IMAGE\_STATE entfernen.  
-  ✅ 0.10.3: umgesetzt wie skizziert.
+  ✅ 0.10.3: umgesetzt wie skizziert – aber im Feldtest blieb die  
+  Vorschau unsichtbar. Zweite, eigentliche Ursache (seit 0.10.2):  
+  Die im Idle-Callback gepackten Widgets liegen NACH dem show\_all()  
+  des Render-Durchlaufs und wurden nie sichtbar – das R1-Muster  
+  \_media\_probe\_done endet genau deshalb mit einem eigenen  
+  show\_all (mit Kommentar!), im R9-Umbau aber übersehen. Symptom  
+  passte perfekt: kein Traceback, kein Fehlerhinweis, der  
+  „Lade Bild"-Zettel blieb stehen, der Fehler-Fallback wäre  
+  ebenso unsichtbar gewesen.  
+  ✅ 0.10.4: show\_all am Ende von \_image\_probe\_done an BEIDEN  
+  Exit-Pfaden (Vorschau und Fehler-Fallback); zusätzlich dbg-  
+  Diagnosezeilen (Bild gelesen/dekodiert/verworfen), damit der  
+  Log den Bild-Weg ab jetzt nachvollziehbar zeigt.
 
 ### 🟡 Risiken
 
@@ -166,7 +178,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ✅ 0.10.3 korrigiert auf das R1-Muster: Der Thread liest NUR die  
   Datei (reines I/O), Dekodierung/EXIF/Skalierung laufen zurück im  
   GTK-Thread; \_image\_gi\_warmup entfiel komplett (Quelle der  
-  GdkPixbuf-Warnung). Details siehe B7.
+  GdkPixbuf-Warnung). Details siehe B7.  
+  ⚠️ Feldtest 0.10.3: Vorschau blieb UNSICHTBAR – die eigentliche  
+  Ursache war ein zweiter, seit 0.10.2 wirksamer Fehler (fehlendes  
+  show\_all im Idle-Callback, siehe B7); ob die Worker-Dekodierung  
+  zusätzlich scheiterte, war ohne Anzeige nicht unterscheidbar.  
+  Die R1-Struktur (nur I/O im Thread) bleibt trotzdem die richtige  
+  Basis. ✅ 0.10.4 zeigt das Ergebnis an.
 
 ### ⚪ Kosmetik
 
@@ -349,7 +367,8 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 8c      | F23 – Text-Vorschau für endungslose Dateien (Inhalts-Sniffing, vorgezogen)                                                                                       | ✅ 0.10.0 (Minor)                                                      |
 | 8d      | B6 – Markdown in System-Schriftgröße (aus dem Testfeld gemeldet)                                                                                                 | ✅ 0.10.1 (Patch)                                                      |
 | 8e      | R9 – Große Bilder asynchron dekodieren + Dekodierung auf Anzeigegröße (vorgezogen, aus dem Testfeld gemeldet)                                                    | ✅ 0.10.2 (Patch)                                                      |
-| 8f      | B7 – R9-Regression: Dekodierung zurück in den GTK-Thread (Feldtest 0.10.2)                                                                                       | ✅ 0.10.3 (Patch)                                                      |
+| 8f      | B7 – R9-Regression: Dekodierung zurück in den GTK-Thread (Feldtest 0.10.2)                                                                                       | ✅ 0.10.3 (Patch; Teil des Fixes)                                      |
+| 8g      | B7 – fehlendes show\_all im Bild-Idle-Callback: eigentliche Feld-Ursache (R1-Muster nachgezogen)                                                                 | ✅ 0.10.4 (Patch)                                                      |
 | 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                     | später (vorher 0.10.0)                                                |
 | 10      | F4, F6–F11 nach Bedarf                                                                                                                                           | später                                                                |
 | 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                        | später                                                                |
