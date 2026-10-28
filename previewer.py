@@ -4,8 +4,8 @@
 Previewer
 =========
 
-STAND: Version 0.12.0 – aktuelle Fassung (F12 Teil 1: Einstieg wendet
-die geladene Konfiguration nach der Panel-Injektion an –
+STAND: Version 0.12.1 – aktuelle Fassung (F12-Feld-Fix B8: Einstieg
+wendet die geladene Konfiguration nach der Panel-Injektion an –
 apply_start_settings, mit getattr-Schutz gegen gemischte Versionen).
 Dies ist die EINSTIEGS-Datei der
 vier zusammengehörigen Dateien (previewer.py, previewer_panel.py,
@@ -117,7 +117,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN vier Dateien identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.12.0"
+PREVIEWER_VERSION = "0.12.1"
 import previewer_util
 import previewer_select
 import previewer_panel
