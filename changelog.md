@@ -6,6 +6,34 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.12.0\] – 2026-10-28
+
+### Added (Hinzugefügt)
+
+- Einstellungsfenster (F12, Teil 1): Der Zahnrad-Knopf der Toolbar  
+öffnet jetzt das Konfigurationsfenster „Nemo-Previewer –  
+Einstellungen" – hier sammeln sich künftig ALLE Einstellungen der  
+Vorschauspalte. Erste funktionierende Einstellung: „Vorschauspalte  
+beim Start anzeigen" (abgehakt bleibt die Spalte nach dem Start von  
+Nemo zunächst unsichtbar; Strg+Alt+P blendet sie jederzeit wieder  
+ein). Jede Änderung wird sofort in  
+\~/.config/nemo-previewer/nemo-previewer.conf gespeichert (GLib-  
+natives INI-Format via Gio.Keyfile, keine neue Abhängigkeit,  
+Verzeichnis wird bei Bedarf angelegt) und bei jedem Start von Nemo  
+angewendet – der Einstieg wendet die Konfiguration erst NACH dem  
+Einblenden des Panels an, sonst würde eine verlangte Unsichtbarkeit  
+sofort wieder überschrieben. Kaputte oder halb geschriebene  
+Konfigurationen fallen still auf die Defaults zurück und hindern  
+Nemo nie am Start. Wiederholter Zahnrad-Klick holt das bestehende  
+Fenster nach vorn statt ein zweites zu öffnen
+
+### Changed (Geändert)
+
+- Vorschau-Toolbar \~5 px schmaler (Nutzer-Wunsch): Der Innenabstand  
+oben/unten der ActionBar liegt mit 3+4 px unter dem Adwaita-  
+Standard von 6+6 px; kann ein Theme die Regel nicht umsetzen,  
+bleibt es ohne Fehler beim Theme-Standard
+
 ## \[0.11.0\] – 2026-10-28
 
 ### Added (Hinzugefügt)
