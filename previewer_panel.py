@@ -4,15 +4,10 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.15.0 – Struktur-Release (F28/F29/F31): Dieses
-Modul ist der KERN des Panels geblieben – Kopfzeile, Auswahl-
-Dispatch, skalierbare Bilder, TextView-/Meta-Helfer, Ordner- und
-Konfigurations-Logik (F12) –; die Renderer sind als Mixin-Module
-ausgelagert (previewer_render_media/docs/text), die Toolbar samt
-Einstellungsfenster lebt im Toolbar-Modul (F29). Lange Kommentar-
-und Historienblöcke sind als Marker nach REFERENZ.md ausgelagert
-(F28). Alle Deckel, Fixes und Thread-Disziplinen (R1/B7, 0.9.2)
-bleiben unverändert wirksam.
+STAND: Version 0.16.0 – F24: Zeilennummern für die reine Text-Vorschau
+(Schlüssel text_line_numbers, Default an; Zeichnung im linken Rand,
+nicht im kopierbaren Text; Rubrik „Textdateien“ im Toolbar-Modul).
+Der Kern aus dem Struktur-Release 0.15.0 bleibt sonst unverändert.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -136,6 +131,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._pdf_count = 0
         # → REF PAN-F12-1
         self._conf_show_at_start = True
+        # F24 (0.16.0): Zeilennummern in der reinen Text-Vorschau –
+        # Default laut Nutzer-Wunsch AN, umschaltbar im Einstellungs-
+        # fenster (Rubrik „Textdateien“).
+        self._conf_text_linenumbers = True
+        # Merker: Zeigt die AKTUELLE Vorschau Zeilennummern? (Damit
+        # der Einstellungs-Toggle nur Textvorschauen neu rendert,
+        # statt z.B. Audio-Player oder Office-Konvertierung.)
+        self._last_textish = False
         # Standardbreite beim Start: Default PANEL_WIDTH (300 px,
         # Nutzer-Wunsch). Eine per Ziehen gewählte Breite wird zur
         # künftigen Startbreite und landet entprellt in der conf;
@@ -252,6 +255,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._pdf_page_label = None
         self._pdf_count = 0
         self._pdf_gen += 1
+        # F24: War die gerade abgebaute Vorschau eine Text-Vorschau?
+        self._last_textish = False
 
     def _show_placeholder(self):
         self._name_label.set_text("Keine Datei ausgewählt")
@@ -534,14 +539,18 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             pass
         return PANEL_WIDTH - 40
 
-    def _text_view(self, text, font="9", markup=None):
+    def _text_view(self, text, font="9", markup=None, linenumbers=False):
         """
         Fertig konfigurierter TextView im ScrolledWindow, gepackt in
         self._content. font: Pango-Beschreibung; None belässt die
         System-Schrift des GTK-Themes (also die Schriftgröße des
         Systems) und ruft override_font gar nicht erst auf. markup:
         optionaler Pango-Markup-String (muss vorher validiert sein);
-        ohne Markup wird der Rohtext gesetzt.
+        ohne Markup wird der Rohtext gesetzt. linenumbers (F24):
+        Zeilennummern am linken Rand – nur von _render_text gesetzt
+        (Textdateien und endungslose Textdateien), gerenderte
+        Vorschauen (Markdown, E-Mail, E-Book, Font-Wasserfall)
+        bleiben ohne.
         """
         view = Gtk.TextView()
         view.set_editable(False)
@@ -554,6 +563,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         view.set_right_margin(10)
         view.set_top_margin(8)
         view.set_bottom_margin(8)
+        if linenumbers:
+            self._install_line_numbers(view, font)
         buf = view.get_buffer()
         if markup is not None:
             buf.insert_markup(buf.get_end_iter(), markup, -1)
@@ -564,7 +575,60 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         scroll.set_shadow_type(Gtk.ShadowType.IN)
         scroll.add(view)
         self._content.pack_start(scroll, True, True, 0)
+        self._last_textish = linenumbers
         return view
+
+    def _install_line_numbers(self, view, font=None):
+        """
+        F24 (0.16.0): Zeilennummern in den linken Rand des TextView
+        zeichnen – nicht in den Textbuffer. Damit sind sie von der
+        Auswahl ausgeschlossen und landen NIE im kopierten Text
+        (Nutzer-Wunsch: Nummern nicht kopierbar, Text schon), während
+        der Text selbst normal selektier- und kopierbar bleibt. Der
+        draw-Handler feuert bei jedem Neuzeichnen (auch beim
+        Scrollen) und zeichnet nur die sichtbaren Zeilen; umgebrochene
+        Zeilen bekommen ihre Nummer an der ersten visuellen Zeile.
+        """
+        ctx = view.get_style_context()
+        probe = view.create_pango_layout("00000")
+        try:
+            if font is not None:
+                probe.set_font_description(Pango.FontDescription(font))
+            else:
+                fd = view.get_pango_context().get_font_description()
+                if fd is not None:
+                    probe.set_font_description(fd)
+        except Exception:
+            pass
+        view.set_left_margin(probe.get_pixel_width() + 16)
+
+        def _on_draw(view, cr):
+            try:
+                vis = view.get_visible_rect()
+                it, _top = view.get_line_at_y(vis.y)
+                if it is None:
+                    return False
+                color = ctx.get_color(view.get_state_flags())
+                cr.set_source_rgba(color.red, color.green, color.blue,
+                                   color.alpha * 0.6)
+                margin = view.get_left_margin()
+                while True:
+                    y, _h = view.get_line_yrange(it)
+                    if y > vis.y + vis.height:
+                        break
+                    probe.set_text(str(it.get_line() + 1))
+                    pw = probe.get_pixel_width()
+                    _x, wy = view.buffer_to_window_coords(
+                        Gtk.TextWindowType.WIDGET, 0, y)
+                    Gtk.render_layout(ctx, cr, margin - pw - 8,
+                                      wy + 1, probe)
+                    if not it.forward_line():
+                        break
+            except Exception:
+                pass
+            return False
+
+        view.connect("draw", _on_draw)
 
     # --- E-Books: EPUB, FictionBook, MOBI -----------------------------------
 
@@ -689,6 +753,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             except Exception:
                 pass
             try:
+                self._conf_text_linenumbers = kf.get_boolean(
+                    "previewer", "text_line_numbers")
+            except Exception:
+                pass
+            try:
                 w = kf.get_integer("previewer", "panel_width")
                 if PANEL_MIN_WIDTH <= w <= 2400:
                     self._panel_width = int(w)
@@ -714,6 +783,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             kf = _KEYFILE_CLS()
             kf.set_boolean("previewer", "show_at_start",
                            self._conf_show_at_start)
+            kf.set_boolean("previewer", "text_line_numbers",
+                           self._conf_text_linenumbers)
             kf.set_integer("previewer", "panel_width",
                            int(self._panel_width))
             kf.save_to_file(CONF_FILE)
@@ -793,7 +864,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.15.0"
+PREVIEWER_VERSION = "0.16.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
