@@ -4,9 +4,9 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.12.1 – aktuelle Fassung (B8-Konfigurations-Fix:
-keine Änderungen in dieser Datei – nur Versions-Sync mit den drei
-anderen Modulen).
+STAND: Version 0.13.0 – aktuelle Fassung (F12 Teil 2:
+PANEL_WIDTH-Default laut Nutzer-Wunsch von 340 auf 300 px geändert
+und als konfigurierbare Standardbreite beim Start dokumentiert).
 
 Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
 Hilfsfunktionen und die zentralen Konfigurations-Konstanten. Teil der
@@ -25,7 +25,11 @@ gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, Gio, GLib
 
 # ------------------------------ Konfiguration ------------------------------
-PANEL_WIDTH = 340          # Startbreite des Panels in Pixeln
+# F12 (0.13.0): Startbreite laut Nutzer-Wunsch per Default 300 px –
+# konfigurierbar im Einstellungsfenster („Standardbreite beim Start")
+# und in ~/.config/nemo-previewer/nemo-previewer.conf; eine per Ziehen
+# gewählte Breite wird dort automatisch zur künftigen Startbreite.
+PANEL_WIDTH = 300          # Standard-Startbreite des Panels in Pixeln
 PANEL_MIN_WIDTH = 260      # kleinste erlaubte Breite (durch Ziehen)
 POLL_MS = 500              # Timer für Auswahl-Abgleich (Sicherheitsnetz)
 MAX_TEXT_BYTES = 256 * 1024
@@ -124,5 +128,5 @@ def content_type_description(mime):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.12.1"
+PREVIEWER_VERSION = "0.13.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
