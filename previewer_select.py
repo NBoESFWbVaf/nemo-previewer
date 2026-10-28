@@ -4,8 +4,8 @@
 Previewer – Auswahl-Modul (previewer_select.py)
 ===============================================
 
-STAND: Version 0.12.1 – aktuelle Fassung (keine Änderungen in dieser
-Datei – nur Versions-Sync zum B8-Konfigurations-Fix).
+STAND: Version 0.13.0 – aktuelle Fassung (keine Änderungen in dieser
+Datei – nur Versions-Sync zum F12-Teil-2-Breiten-Release).
 
 Erkennt die in Nemo markierten Dateien – mehrstufig und defensiv:
 
@@ -1279,5 +1279,5 @@ class SelectionReader:
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.12.1"
+PREVIEWER_VERSION = "0.13.0"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)
