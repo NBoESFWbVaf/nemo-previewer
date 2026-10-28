@@ -218,10 +218,25 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
   DPI-Rendern); `Rsvg.Handle.get_pixbuf()` ist in neuerem librsvg  
   deprecated. **S–M**
-- [ ] **K4** – Markdown: Tabellen, Setext-Überschriften, Task-Listen,
+- [x] **K4** – Markdown: Tabellen, Setext-Überschriften, Task-Listen,
 
   tiefe Inline-Verschachtelungen; Links mit Klammern brechen die Regex.  
-  **S–M**, priorisieren nach Bedarf.
+  **S–M**, priorisieren nach Bedarf.  
+  ✅ 0.14.0 (Nutzer-Wunsch: planned.md erschien im Panel nicht  
+  annähernd so schön wie im Browser): `_markdown_to_pango` +  
+  `_md_inline` komplett neu – GFM-Tabellen (Kopf fett, graue  
+  Trennzeile, Rechtsausrichtung bei `---:`, Breiten an der rohen  
+  Zelle messen und vor dem Escapen polstern), Task-Listen (☑/☐,  
+  erledigte Punkte durchgestrichen), sortierte + eingerückte  
+  Listen (•/◦/▪ je Ebene), Setext-Überschriften (===/---),  
+  fett+kursiv, ~~Durchstreichen~~, verschachtelte Zitate, Autolinks,  
+  Trennlinien mit Leerzeichen, Links mit runden Klammern in der  
+  URL (ein Ebenen tief), H1/H2 mit Unterstrich, Luft um  
+  Überschriften/Linien/Tabellen. Bewusst weg: 4-Spaces-Codeblöcke  
+  (kollidiert mit Listeneinrückungen), Webview, neue Pakete;  
+  breite Tabellen brechen im Panel um statt zu scrollen. Tiefe  
+  Inline-Verschachtelungen weiterhin nur teilweise (`***…***` ja,  
+  beliebig tief nein) – Rest bei Bedarf.
 - [ ] **K5** – `Gst.init(None)` beim Import verlangsamt den Nemo-Start
 
   minimal → GStreamer erst beim ersten Audio/Video-Rendering anfassen  
@@ -489,6 +504,48 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
 ---
 
+## Teil 3: Nach dem ersten Release (1.0.0)
+
+> Nutzer-Entscheid (2026-10-28): Alles in diesem Teil wird erst  
+> NACH einem ersten Release (1.0.0) angefasst – und dann aus-  
+> schließlich in einem eigenen Branch erprobt (z. B.  
+> `feature/dual-pane`); Merge in die Hauptlinie erst nach  
+> bestandenem Feldtest. Die stabile Hauptlinie ist zu wertvoll,  
+> um an ihr zu experimentieren („Wir sind zu weit vorangekommen,  
+> als dass wir hier unseren Code zerschießen.").
+
+- [ ] \*\*F30 – Dual-Pane-Ansicht (F3): Vorschau folgt der aktiven
+
+  Spalte\*\* (Feldbeobachtung des Nutzers)  
+  In Nemos 2-Spalten-Ansicht zeigen Dateiauswahl in der LINKEN  
+  Spalte Vorschauen, Auswahl in der RECHTEN bleibt wirkungslos.  
+  KEIN klassischer Bug, sondern die implizite Annahme der Extension  
+  „ein Fenster = eine Dateiansicht": find\_view liefert nur die  
+  ERSTE gemappte Ansicht zurück, \_view\_ok hookt genau eine Ansicht  
+  pro PanelState, und der 500-ms-Poll liest ebenfalls nur diese –  
+  die rechte Spalte wird nie angekoppelt und bleibt komplett  
+  stumm (nicht mal ein Log-Hinweis, daher wirkt es wie ein Bug).  
+  **M–L** – *Skizze:* Option A (empfohlen): find\_views(window)  
+  liefert ALLE gemappten Dateiansichten; PanelState hookt jede  
+  (Signals + VTable-Peek arbeiten pro Ansichts-Objekt – gleiche  
+  Klasse, gleicher Peek-Offset, keine neue Crowbar-Adresse); die  
+  Vorschau folgt der Spalte mit dem letzten Auswahlwechsel bzw.  
+  Fokus (Stale-Schutz wie bei R1/R9, Wechsel rendert neu).  
+  Injection/Toolbar bleiben unverändert – die Vorschauspalte  
+  steht ohnehin am rechten Rand ÜBER beiden Spalten.  
+  Vorab zwingend: Feld-Log einer Dual-Pane-Sitzung (feuert  
+  get\_widget auch für die rechte Spalte/ihre URIs? kommen  
+  treeview-Events? wo hängt die zweite Ansicht im Widget-Baum?).  
+  Option B (Nutzer-Idee, verworfen): Vorschauspalte in Dual-Pane  
+  deaktivieren – opfert auch die funktionierende linke Vorschau;  
+  Verlust statt Gewinn. Option C (Interims-Patch, **S**): dbg-  
+  Hinweis „Dual-Pane erkannt – Vorschau folgt der linken Spalte"  
+  beim ersten Erkennen einer zweiten Ansicht, bis A umgesetzt  
+  ist – aus der stillen Verwirrung wird eine ehrliche Meldung.  
+  Auch C erst nach dem Release angehen (stört nicht dringend).
+
+---
+
 ## Empfohlene Reihenfolge
 
 
@@ -517,6 +574,8 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 12c     | B8 – F12-Feld-Fix: GLib.KeyFile statt Gio.Keyfile (Persistenz war wirkungslos)                                                                                                                                                                                                                                                                          | ✅ 0.12.1 (Patch)                                                      |
 | 12d     | F12 Teil 2 – „Standardbreite beim Start": Default 300 px, Zieh-Breite wird Startbreite (entprellt in conf), sofortige Live-Anwendung                                                                                                                                                                                                                    | ✅ 0.13.0 (Minor)                                                      |
 | 13      | F28 – Kommentar-Auslagerung (Marker + REFERENZ.md als laufend gepflegtes Projektdokument; Canvas-Soll-Zeilenzahlen danach neu vereinbaren)                                                                                                                                                                                                              | später (ruhiger Moment, nicht mit laufenden Fixes mischen)            |
+| 14      | F30 – Dual-Pane (F3): Vorschau folgt der aktiven Spalte (zuerst Feld-Log, dann Option A; ggf. Interims-Hinweis Option C)                                                                                                                                                                                                                                | nach erstem Release (1.0.0); Erprobung ausschließlich im Branch       |
+| 15      | K4 – Markdown-Vorschau: GFM-Varianten (Tabellen, Task-Listen, sortierte/verschachtelte Listen, Durchstreichen, Setext, Links mit Klammern)                                                                                                                                                                                                              | ✅ 0.14.0 (Minor; Nutzer-Priorisierung)                                |
 
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
