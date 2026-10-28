@@ -4,11 +4,12 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.10.4 – aktuelle Fassung (R9-Feld-Fix komplett: Der
-Bild-Callback zeigt sein Ergebnis jetzt mit eigenem show_all – ohne das
-bleiben die im Idle gepackten Widgets unsichtbar, die eigentliche Feld-
-Ursache der B7-Regression aus 0.10.2/0.10.3; plus dbg-Diagnosezeilen
-für Bild gelesen/dekodiert/verworfen).
+STAND: Version 0.11.0 – aktuelle Fassung (F19 Teil 1: Toolbar am
+unteren Rand der Vorschauspalte, statisch laut Nutzer-Entscheid –
+immer sichtbar solange das Panel aktiv ist; rechts außen Einstellungs-
+Knopf mit Zahnrad-Systemicon, andockende Konfiguration folgt mit F12).
+Die R9-Bild-Fixes aus 0.10.3/0.10.4, B6-Systemschrift, F23-Sniffing
+und sämtliche Härtungs-Deckel bleiben.
 
 Das angedockte Vorschau-Panel samt allen Renderern: Bilder (inkl.
 EXIF-Ausrichtung), Text, Markdown (gerendert), E-Mail-Dateien, E-Books
@@ -989,6 +990,25 @@ class PreviewPanel(Gtk.Box):
         # änderung.
         self._content.connect("size-allocate",
                               self._on_content_size_allocate)
+
+        # --- F19: Toolbar am unteren Rand der Vorschauspalte (0.11.0) ---
+        # Statisch laut Nutzer-Entscheid: Sie ist IMMER zu sehen, solange
+        # das Panel aktiv ist – kein Ein-/Ausblenden je Renderer. Die
+        # Renderer-Aktionen (F13, F20, F21, F24–F27) melden sich später
+        # per pack_start hier an; rechts außen sitzt bereits fest der
+        # Einstellungs-Knopf (Zahnrad aus den Systemicons), an dem die
+        # Konfiguration (F12) andocken wird.
+        self._toolbar_sep = Gtk.Separator(
+            orientation=Gtk.Orientation.HORIZONTAL)
+        self.pack_start(self._toolbar_sep, False, False, 0)
+        self._toolbar = Gtk.ActionBar()
+        self._btn_settings = Gtk.Button.new_from_icon_name(
+            "preferences-system-symbolic", Gtk.IconSize.BUTTON)
+        self._btn_settings.set_tooltip_text("Einstellungen")
+        self._btn_settings.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_settings.connect("clicked", self._on_settings_clicked)
+        self._toolbar.pack_end(self._btn_settings)
+        self.pack_start(self._toolbar, False, False, 0)
 
         self._show_placeholder()
 
@@ -2747,6 +2767,16 @@ class PreviewPanel(Gtk.Box):
         except Exception as e:
             dbg("Öffnen fehlgeschlagen: %s" % e)
 
+    def _on_settings_clicked(self, button):
+        """
+        F19/F12 (0.11.0): Einstellungs-Knopf der Toolbar. Im ersten
+        Bauabschnitt bewusst ohne Funktion – hier wird die Konfigura-
+        tionsdatei (F12: Panelbreite, Sichtbarkeit, MAX_PDF_PAGES,
+        Wasserfall-Probetext) andocken, bis dahin nur dbg, damit der
+        Knopf im Log nachvollziehbar bleibt.
+        """
+        dbg("Einstellungs-Knopf geklickt – F12 (Konfiguration) folgt")
+
     def _on_toggle_accel(self, group, accelerable, key, mods):
         if self.get_visible():
             self.hide()
@@ -2758,8 +2788,8 @@ class PreviewPanel(Gtk.Box):
 # Version: Der Einstieg (previewer.py) prüft beim Laden, ob alle Module
 # diese Version tragen – veraltete Dateien im Extension-Ordner werden
 # so im Terminal-Log sofort sichtbar.
-PREVIEWER_VERSION = "0.10.4"
-dbg("previewer_panel %s geladen (R9-Fix komplett: Bild-Lesen im "
-    "Hintergrund, Dekodierung im GTK-Thread, Anzeige per show_all; "
-    "B6/F23 und Härtungs-Deckel bleiben)"
+PREVIEWER_VERSION = "0.11.0"
+dbg("previewer_panel %s geladen (F19 Teil 1: statische Toolbar mit "
+    "Einstellungs-Knopf; R9-Bild-Fixes, B6/F23 und Härtungs-Deckel "
+    "bleiben)"
     % PREVIEWER_VERSION)
