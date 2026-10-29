@@ -292,6 +292,21 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # der String-Anfang („2020-…“). Das erste echte Jahr gewinnt.
 ```
 
+### MED-COVER-1 – Cover-Rundung und Schatten ohne Blur (F34)
+
+- **Modul:** previewer\_render\_media.py
+- **Ort:** `_cover_shadowed` (Helfer `_cover_round_path`), aufgerufen aus `_finish_audio`
+- **Anlass:** Cairo hat keinen Blur-Filter. Der Schatten entsteht deshalb aus sechs gestapelten, nach außen wachsenden Kacheln à 5,5 % Deckkraft (Kern ≈ 30 %, weicher Saum). Der Radius folgt der Platzhalter-Kachel (56/640 der Kantenlänge), damit eingebettete Cover und Platzhalter deckungsgleich aussehen und beides mit der Live-Skalierung mitwächst.
+
+```text
+        # F34: Gleiche Rundung wie die Platzhalter-Kachel: 56/640 der
+        # Kantenlänge (min(w, h), damit Hochformat nicht überdrehen),
+        # skaliert mit, weil das gepaddete Pixbuf durch dieselbe
+        # Live-Skalierung geht. Cairo kennt keinen Blur – der Schatten
+        # entsteht aus sechs gestapelten, wachsenden Kacheln. Ohne
+        # PangoCairo bleibt das Cover ungerahmt, die Vorschau läuft.
+```
+
 ---
 
 ## Dokumente (DOC)
