@@ -6,6 +6,21 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.16.3\] – 2026-10-29
+
+### Changed (Geändert)
+
+- F24-Optik (Nutzer-Wunsch „zur besseren Unterscheidbarkeit“): Die  
+Zeilennummern erscheinen jetzt etwas dunkler und kleiner. Die  
+Deckkraft steigt von 60 % auf 75 % der Theme-Textfarbe – auf  
+hellem Grund waren die Nummern zu verwaschen –, und die Nummern-  
+schchrift skaliert auf 80 % der Textschriftgröße (mit Floor auf  
+1 pt, damit winzige Größenangaben nicht auf 0 rutschen). Die  
+gleiche verkleinerte Probe misst die Randbreite, sodass Rand  
+und Nummern-Schrift zusammenpassen; Kopier-Verhalten und alle  
+übrigen F24-Eigenschaften (Randzeichnung außerhalb des Buffers,  
+nur sichtbare Zeilen, Live-Toggle) bleiben unverändert
+
 ## \[0.16.2\] – 2026-10-28
 
 ### Fixed (Behoben)
