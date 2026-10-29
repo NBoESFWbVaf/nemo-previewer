@@ -4,14 +4,16 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.17.0 – Bild-Vorschau (Raster UND SVG) füllt
-höchstens 60 % der Spaltenhöhe: Neuer Pack-Helfer _pack_image_capped
-packt das Bild nicht expandiert (keep_height + frac_h=0.6 im
-_scaled_image-Aufruf) und setzt darunter einen Trenner mit Abstand –
-unterhalb entsteht später der Infobereich (Nutzer-Wunsch). Eingebettete
-Bilder (Audio-Cover, Video-Frame) bleiben unberührt; R1/R9/B7-
-Disziplinen und Deckel unverändert. (0.15.0/F31: aus dem Panel-Kern
-hierher gezogen.)
+STAND: Version 0.18.0 – F33 (Nutzer-Wunsch): Audio-Vorschau umgeordnet
+und erweitert. Die Abspielleiste (Play/Pause, Slider, Position) sitzt
+mit etwas Abstand UNTER dem Cover, die Informationen folgen darunter:
+Titel, Interpret, Länge, Titelnummer („x von y“), Album mit Jahr
+(Originalveröffentlichung bevorzugt, sonst Datums-Tag als Jahr),
+Albuminterpret, CD-Nummer („x von y“) und Codec – jede Zeile nur bei
+Verfügbarkeit. Tag-Besonderheiten der Codecs (ID3, Vorbis, MP4) über
+defensive Fallbacks; Bild-Vorschau (F32, Bauabschnitt 1) sowie R1/R9/
+B7-Disziplinen und Deckel unverändert. (0.15.0/F31: aus dem Panel-
+Kern hierher gezogen.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -386,6 +388,40 @@ class MediaRendererMixin:
                         ok, val = taglist.get_string(gst_tag)
                         if ok and val:
                             tags[key] = val
+                    # F33: erweiterte Musik-Tags in eigener Klammern –
+                    # ein Fehler hier darf nie auch noch das Cover
+                    # kosten. Konstanten per getattr mit String-Fallback
+                    # (der kanonische GStreamer-Tag-Name ist beides).
+                    try:
+                        for key, gst_tag in (
+                                ("album_artist",
+                                 getattr(Gst, "TAG_ALBUM_ARTIST",
+                                         "album-artist")),
+                                ("codec",
+                                 getattr(Gst, "TAG_AUDIO_CODEC",
+                                         "audio-codec"))):
+                            ok, val = taglist.get_string(gst_tag)
+                            if ok and val:
+                                tags[key] = val
+                        # Codec-Fallback: der Container (z. B. „Ogg“),
+                        # wenn der Audio-Codec selbst fehlt.
+                        if "codec" not in tags:
+                            ok, val = taglist.get_string(
+                                getattr(Gst, "TAG_CONTAINER_FORMAT",
+                                        "container-format"))
+                            if ok and val:
+                                tags["codec"] = val
+                        tags["track"], tags["track_total"] = (
+                            self._tag_number_pair(
+                                taglist, Gst.TAG_TRACK_NUMBER,
+                                Gst.TAG_TRACK_COUNT))
+                        tags["disc"], tags["disc_total"] = (
+                            self._tag_number_pair(
+                                taglist, Gst.TAG_ALBUM_VOLUME_NUMBER,
+                                Gst.TAG_ALBUM_VOLUME_COUNT))
+                        tags["year"] = self._tag_year(taglist)
+                    except Exception as e:
+                        dbg("Tag-Erweiterung (F33) fehlgeschlagen: %s" % e)
                     # Bild-Bytes sammeln (nicht dekodieren – das passiert
                     # erst im GTK-Thread). Videos: Standbild bevorzugt;
                     # Audio: eingebettetes Cover bevorzugt.
@@ -521,8 +557,81 @@ class MediaRendererMixin:
             pass
         return pb
 
+    def _tag_number_pair(self, taglist, num_tag, count_tag):
+        """
+        F33: (Nummer, Gesamtzahl) aus der Tag-Liste lesen – Titelnummer
+        und CD-Nummer je nach Codec anders verpackt.
+        """
+        # → REF MED-AUDTAG-1
+        num = total = None
+        try:
+            ok, val = taglist.get_uint(num_tag)
+            if ok and val and int(val) > 0:
+                num = int(val)
+        except Exception:
+            num = None
+        try:
+            ok, val = taglist.get_uint(count_tag)
+            if ok and val and int(val) > 0:
+                total = int(val)
+        except Exception:
+            total = None
+        if num is None:
+            # String-Fallback: „3/12“ trägt die Gesamtzahl gleich mit.
+            tail = ""
+            try:
+                ok, val = taglist.get_string(num_tag)
+                if ok and val:
+                    head, _, tail = val.strip().partition("/")
+                    num = int(head)
+            except Exception:
+                num = None
+            if num is not None and num > 0 and total is None and tail:
+                try:
+                    total = int(tail)
+                except ValueError:
+                    pass
+        return num, total
+
+    def _tag_year(self, taglist):
+        """
+        F33: Veröffentlichungs-Jahr – die Originalveröffentlichung hat
+        Vorrang, sonst wird das Datums-Tag als Jahr gelesen.
+        """
+        # → REF MED-AUDTAG-2
+        for name in ("original-date", "datetime", "date"):
+            try:
+                ok, dt = taglist.get_date_time(name)
+                if ok and dt:
+                    year = dt.get_year()
+                    if year and year > 0:
+                        return year
+            except Exception:
+                pass
+            try:
+                ok, gd = taglist.get_date(name)
+                if ok and gd:
+                    year = gd.get_year()
+                    if year and year > 0:
+                        return year
+            except Exception:
+                pass
+            try:
+                ok, val = taglist.get_string(name)
+                if ok and val:
+                    head = str(val).strip()[:4]
+                    if head.isdigit():
+                        return int(head)
+            except Exception:
+                pass
+        return None
+
     def _finish_audio(self, path, uri, tags, duration, cover):
-        """R1-Fortsetzung: Cover, Infos und Player-Leiste aufbauen."""
+        """
+        R1-Fortsetzung: Cover, Abspielleiste und Infos aufbauen. F33
+        (Nutzer-Wunsch): Die Leiste sitzt mit etwas Abstand UNTER dem
+        Cover, die Informationen folgen darunter – nicht mehr darüber.
+        """
         # F18: Ohne eingebettetes Cover (oder wenn es nicht dekodierbar
         # war) die Platzhalter-Kachel zeigen – Dateien mit und ohne Bild
         # haben damit das gleiche, ruhige Erscheinungsbild.
@@ -530,26 +639,48 @@ class MediaRendererMixin:
             cover = self._media_cover_placeholder()
         scroll = self._scaled_image(cover, 320, upscale=False,
                                     keep_height=True)
+        # F33: Abstand zwischen Cover und Abspielleiste.
+        scroll.set_margin_bottom(10)
         self._content.pack_start(scroll, False, False, 0)
 
+        # --- Abspielleiste (F33: zwischen Cover und Informationen) ---
+        self._playbin_set_uri(uri)
+        self._player_bar(duration)
+
+        def _num_row(label, num, total):
+            # F33: „x von y“ – erst die Gesamtzahl, sonst nur die Zahl.
+            if num:
+                rows.append((label, ("%d von %d" % (num, total))
+                             if total else str(num)))
+
         rows = []
-        if "title" in tags and tags["title"] != os.path.basename(path):
+        if "title" in tags:
             rows.append(("Titel", tags["title"]))
-        rows.append(("Datei", os.path.basename(path)))
         if "artist" in tags:
             rows.append(("Interpret", tags["artist"]))
-        if "album" in tags:
-            rows.append(("Album", tags["album"]))
         if duration >= 0:
             rows.append(("Länge", format_seconds(duration)))
+        _num_row("Titelnummer", tags.get("track"),
+                 tags.get("track_total"))
+        # F33: Jahr zur Veröffentlichung in die Album-Zeile; fehlt das
+        # Album, steht das Jahr allein. Original vor Datums-Jahr.
+        if "album" in tags and tags.get("year"):
+            rows.append(("Album", "%s (%d)" % (tags["album"],
+                                               tags["year"])))
+        elif "album" in tags:
+            rows.append(("Album", tags["album"]))
+        elif tags.get("year"):
+            rows.append(("Jahr", str(tags["year"])))
+        if "album_artist" in tags:
+            rows.append(("Albuminterpret", tags["album_artist"]))
+        _num_row("CD-Nummer", tags.get("disc"),
+                 tags.get("disc_total"))
+        if "codec" in tags:
+            rows.append(("Codec", tags["codec"]))
 
         # 0.9.1: Info-Tabelle über den zentralen Helfer (zuvor inline
         # identisch gebaut – jetzt wie EML/E-Book einheitlich).
         self._meta_grid(rows)
-
-        # --- Player-Leiste (mit _finish_video geteilt, F22) ---
-        self._playbin_set_uri(uri)
-        self._player_bar(duration)
 
     def _playbin_set_uri(self, uri):
         """
@@ -594,6 +725,8 @@ class MediaRendererMixin:
 
         self._pos_label = Gtk.Label(label="0:00")
         player_box.pack_start(self._pos_label, False, False, 0)
+        # F33: etwas Abstand zwischen Abspielleiste und Informationen.
+        player_box.set_margin_bottom(6)
         self._content.pack_start(player_box, False, False, 0)
 
         self._ensure_progress_timer()
@@ -783,7 +916,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.17.0"
+PREVIEWER_VERSION = "0.18.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)
