@@ -262,6 +262,36 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
                     # aus der echten Abspiel-Dauer einmalig nachgezogen.
 ```
 
+### MED-AUDTAG-1 – Titel-/CD-Nummern in UINT und String „n/m“ (F33)
+
+- **Modul:** previewer\_render\_media.py
+- **Ort:** `_tag_number_pair`, aufgerufen aus `_media_probe_async`
+- **Anlass:** Je Codec laufen Nummern-Tags unterschiedlich auf: ID3 (MP3) und MP4 zerlegen TRCK/TPOS bzw. trkn/disk in getrennte UINTs (track-number/track-count, album-volume-number/-count); Vorbis-Kommentare (FLAC, Ogg) tragen „3/12“ gern als EINEN String, teils ganz ohne eigenen Gesamtzahl-Tag.
+
+```text
+        # F33: Zahlen-Paar aus der Tag-Liste – UINTs sind der Normalfall
+        # (GStreamers ID3-/MP4-Mapper liefern Nummer und Gesamtzahl
+        # getrennt), aber Vorbis-Fassungen melden die Zahl als String
+        # „n/m“, teils ohne eigenen Gesamtzahl-Tag: partition("/") holt
+        # dann beides aus einem Wert. Jede Lesart einzeln gekapselt –
+        # ein Ausreißer-Tag versteckt nur seine Zeile, nie das Cover.
+```
+
+### MED-AUDTAG-2 – Veröffentlichungs-Jahr über drei Datums-Formen (F33)
+
+- **Modul:** previewer\_render\_media.py
+- **Ort:** `_tag_year`, aufgerufen aus `_media_probe_async`
+- **Anlass:** Originalveröffentlichung vor Datums-Jahr (Nutzer-Wunsch): original-date hat Vorrang, sonst datetime bzw. date als Jahr. Der Wert-Typ hängt am Codec – Gst.DateTime, GDate oder String –, deshalb je Kandidat drei Lesarten in eigener Kapselung.
+
+```text
+        # F33: Jahr – Kandidaten sind original-date (Originalver-
+        # öffentlichung), dann datetime (z. B. ID3v2.4 TDRC, Gst.DateTime)
+        # und date (älterer GDate-Tag, z. B. ID3v2.3 TYER). Jeder Codec
+        # meldet einen anderen Typ, je Kandidat werden deshalb alle drei
+        # Lesarten probiert: DateTime.get_year(), GDate.get_year() und
+        # der String-Anfang („2020-…“). Das erste echte Jahr gewinnt.
+```
+
 ---
 
 ## Dokumente (DOC)
