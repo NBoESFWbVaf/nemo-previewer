@@ -4,13 +4,12 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.17.0 – Bild-Vorschau mit Höhenkappe (Nutzer-Wunsch):
-Bilder füllen höchstens 60 % der Spaltenhöhe – frac_h im _scaled_image-
-Aufruf, live bei Fenster-Resize über _preview_height; der Renderer packt
-daruunter einen Trenner mit Abstand, der Bereich darunter ist für
-zusätzliche Informationen reserviert. Eingebettete Bilder (Cover,
-Office-Miniatur, Video-Frame) bleiben unberührt. Sonstiger Stand:
-Zeilennummern als Randzeichnung – dunkler (Alpha 0.75) und in 80 %
+STAND: Version 0.18.0 – F33: Erweiterte Musik-Informationen im
+Medien-Renderer (Titelnummer „x von y“, Album mit Jahr, Albuminterpret,
+CD-Nummer „x von y“, Codec; Abspielleiste unter dem Cover). Im Panel-
+Kern keine Änderung – nur Versions-Sync; Bild-Höhenkappe (F32,
+Bauabschnitt 1) unverändert. Sonstiger Stand: Zeilennummern als
+Randzeichnung – dunkler (Alpha 0.75) und in 80 %
 der Textschriftgröße –, connect_after-Draw, Merker _last_textish
 markiert TextView-basierte Vorschauen. Schlüssel text_line_numbers,
 Rubrik „Textdateien“ im Toolbar-Modul.
@@ -948,7 +947,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.17.0"
+PREVIEWER_VERSION = "0.18.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
