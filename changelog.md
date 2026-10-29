@@ -6,6 +6,28 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.18.0\] – 2026-10-29
+
+### Added (Hinzugefügt)
+
+- Erweiterte Musik-Informationen (F33, Nutzer-Wunsch): Die Audio-  
+Vorschau ermittelt jetzt Titel, Interpret, Länge, Titelnummer  
+(„x von y“), Album mit Jahr, Albuminterpret, CD-Nummer („x von y“)  
+und Codec und zeigt jede Zeile nur bei Verfügbarkeit. Beim Jahr hat  
+die Originalveröffentlichung Vorrang (original-date), sonst wird das  
+Datums-Tag als Jahr gelesen. Besonderheiten der Tag-Formate werden  
+defensiv abgefangen: ID3 (MP3) und MP4 melden Titel-/CD-Nummern als  
+Zahlenpaar, Vorbis-Kommentare (FLAC, Ogg) teils als String „n/m“ –  
+beides wird verstanden; der Codec kommt aus dem Audio-Codec-Tag,  
+notfalls aus dem Container-Format
+
+### Changed (Geändert)
+
+- Audio-Vorschau umgeordnet: Die Abspielleiste (Play/Pause, Slider,  
+Position) sitzt mit etwas Abstand UNTER dem Cover, die Informationen  
+folgen darunter. Die bisherige Datei-Zeile entfällt – der Dateiname  
+steht im Nemo ohnehin nebenan
+
 ## \[0.17.0\] – 2026-10-29
 
 ### Changed (Geändert)
