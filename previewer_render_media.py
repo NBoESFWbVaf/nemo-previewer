@@ -4,16 +4,13 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.18.0 – F33 (Nutzer-Wunsch): Audio-Vorschau umgeordnet
-und erweitert. Die Abspielleiste (Play/Pause, Slider, Position) sitzt
-mit etwas Abstand UNTER dem Cover, die Informationen folgen darunter:
-Titel, Interpret, Länge, Titelnummer („x von y“), Album mit Jahr
-(Originalveröffentlichung bevorzugt, sonst Datums-Tag als Jahr),
-Albuminterpret, CD-Nummer („x von y“) und Codec – jede Zeile nur bei
-Verfügbarkeit. Tag-Besonderheiten der Codecs (ID3, Vorbis, MP4) über
-defensive Fallbacks; Bild-Vorschau (F32, Bauabschnitt 1) sowie R1/R9/
-B7-Disziplinen und Deckel unverändert. (0.15.0/F31: aus dem Panel-
-Kern hierher gezogen.)
+STAND: Version 0.19.0 – F34 (Nutzer-Wunsch): Cover in der Audio-Vorschau
+sehen jetzt alle gleich aus: Eingebettete Cover bekommen die Rundung der
+Platzhalter-Kachel (56/640 der Kantenlänge, skaliert mit der Anzeige),
+und jeder Cover – eingebettet wie Platzhalter – trägt einen kleinen
+Schlagschatten (in Cairo geschichtet, kein Blur-Filter). F33-Tag-
+Informationen, Bild-Vorschau (F32) sowie R1/R9/B7-Disziplinen und
+Deckel unverändert. (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -626,6 +623,55 @@ class MediaRendererMixin:
                 pass
         return None
 
+    @staticmethod
+    def _cover_round_path(cr, x, y, w, h, r):
+        """F34: Rechteck mit runden Ecken als aktuellen Cairo-Pfad."""
+        r = min(r, w / 2.0, h / 2.0)
+        cr.new_sub_path()
+        cr.arc(x + w - r, y + r, r, -0.5 * math.pi, 0.0)
+        cr.arc(x + w - r, y + h - r, r, 0.0, 0.5 * math.pi)
+        cr.arc(x + r, y + h - r, r, 0.5 * math.pi, math.pi)
+        cr.arc(x + r, y + r, r, math.pi, 1.5 * math.pi)
+        cr.close_path()
+
+    def _cover_shadowed(self, pb):
+        """
+        F34: Cover mit Platzhalter-Ecken und kleinem Schlagschatten.
+        """
+        # → REF MED-COVER-1
+        if not HAVE_PANGOCAIRO:
+            return pb
+        try:
+            w, h = pb.get_width(), pb.get_height()
+            if w < 8 or h < 8:
+                return pb
+            # Gleiche Rundung wie die Platzhalter-Kachel: 56/640 der
+            # Kantenlänge (min(w, h)), mit der Anzeige skaliert.
+            r = max(2.0, min(w, h) * 56.0 / 640.0)
+            pad = max(6, int(min(w, h) * 0.02))
+            ow, oh = w + 2 * pad, h + 2 * pad
+            dy = max(2, pad // 2)
+            surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, ow, oh)
+            cr = cairo.Context(surf)
+            # Schatten: sechs gestapelte, nach außen wachsende Kacheln.
+            for i in range(6, 0, -1):
+                cr.set_source_rgba(0.0, 0.0, 0.0, 0.055)
+                self._cover_round_path(cr, pad - i, pad + dy - i,
+                                       w + 2 * i, h + 2 * i, r + i)
+                cr.fill()
+            # Kachel: Ecken-Beschneidung, dann das Cover hinein.
+            cr.save()
+            self._cover_round_path(cr, pad, pad, w, h, r)
+            cr.clip()
+            Gdk.cairo_set_source_pixbuf(cr, pb, pad, pad)
+            cr.paint()
+            cr.restore()
+            out = Gdk.pixbuf_get_from_surface(surf, 0, 0, ow, oh)
+            return out if out is not None else pb
+        except Exception as e:
+            dbg("Cover-Rahmen (F34) fehlgeschlagen: %s" % e)
+            return pb
+
     def _finish_audio(self, path, uri, tags, duration, cover):
         """
         R1-Fortsetzung: Cover, Abspielleiste und Infos aufbauen. F33
@@ -637,6 +683,9 @@ class MediaRendererMixin:
         # haben damit das gleiche, ruhige Erscheinungsbild.
         if cover is None:
             cover = self._media_cover_placeholder()
+        # F34: Ecken wie die Platzhalter-Kachel, dazu ein kleiner
+        # Schatten – Datei-Cover und Platzhalter sehen gleich aus.
+        cover = self._cover_shadowed(cover)
         scroll = self._scaled_image(cover, 320, upscale=False,
                                     keep_height=True)
         # F33: Abstand zwischen Cover und Abspielleiste.
@@ -916,7 +965,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.18.0"
+PREVIEWER_VERSION = "0.19.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)
