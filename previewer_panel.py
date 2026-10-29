@@ -4,16 +4,17 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.16.2 – F24-Feld-Fix 2: Zwei Testfeld-Befunde.
-Erstens blieben die Nummern unsichtbar, obwohl der Platz da war:
-„draw“ ist ein RUN_LAST-Signal, der per connect() angemeldete
-Handler lief VOR der TextView-Standardzeichnung, die die Nummern
-übermalte – jetzt connect_after(). Zweitens wirkte das Re-Aktivieren
-des Einstellungs-Toggles nicht: _last_textish speicherte den
-linenumbers-Schalter, stand nach dem Deaktivieren also auf False –
-jetzt markiert der Merker TextView-basierte Vorschauen generell.
-Zeilennummern als Randzeichnung – nicht im kopierbaren Text –,
-Schlüssel text_line_numbers, Rubrik „Textdateien“ im Toolbar-Modul.
+STAND: Version 0.16.3 – F24-Optik (Nutzer-Wunsch): Die Zeilen-
+nummern erscheinen jetzt etwas dunkler (Alpha 0.6 → 0.75 – auf
+hellem Grund waren sie zu verwaschen) und in 80 % der Text-
+schriftgröße, gut lesbar, aber klar vom Text unterscheidbar;
+die Randbreite misst die verkleinerte Nummernschrift mit. Der
+0.16.2-Feld-Fix bleibt erhalten: draw-Handler per connect_after
+(sonst übermalt die TextView-Standardzeichnung die Nummern –
+RUN_LAST), Merker _last_textish markiert TextView-basierte
+Vorschauen generell. Zeilennummern als Randzeichnung – nicht im
+kopierbaren Text –, Schlüssel text_line_numbers, Rubrik
+„Textdateien“ im Toolbar-Modul.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -603,13 +604,22 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         """
         ctx = view.get_style_context()
         probe = view.create_pango_layout("00000")
+        # 0.16.3 (Nutzer-Wunsch): Die Nummern zeichnen sich etwas
+        # KLEINER als der Text – Grundgröße (Parameter oder Theme-
+        # Schrift) holen und auf 80 % skalieren. Die gleiche
+        # verkleinerte Probe misst unten die Randbreite, sodass
+        # Rand und Nummern-Schrift zusammenpassen. Floor auf 1 pt,
+        # damit winzige Größenangaben nicht auf 0 rutschen.
         try:
             if font is not None:
-                probe.set_font_description(Pango.FontDescription(font))
+                fd = Pango.FontDescription(font)
             else:
                 fd = view.get_pango_context().get_font_description()
-                if fd is not None:
-                    probe.set_font_description(fd)
+            if fd is not None:
+                size = fd.get_size()
+                if size > 0:
+                    fd.set_size(max(int(size * 0.8), Pango.SCALE))
+                probe.set_font_description(fd)
         except Exception:
             pass
         # 0.16.1: get_pixel_size() statt get_pixel_width() – die
@@ -629,8 +639,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 if it is None:
                     return False
                 color = ctx.get_color(view.get_state_flags())
+                # 0.16.3 (Nutzer-Wunsch): Alpha 0.6 → 0.75 – auf
+                # hellem Grund waren die Nummern zu verwaschen;
+                # etwas dunkler, gut lesbar, aber klar kleiner
+                # als der Text und so unterscheidbar.
                 cr.set_source_rgba(color.red, color.green, color.blue,
-                                   color.alpha * 0.6)
+                                   color.alpha * 0.75)
                 margin = view.get_left_margin()
                 while True:
                     y, _h = view.get_line_yrange(it)
@@ -890,7 +904,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.16.2"
+PREVIEWER_VERSION = "0.16.3"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
