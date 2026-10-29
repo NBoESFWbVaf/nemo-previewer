@@ -6,6 +6,28 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.17.0\] – 2026-10-29
+
+### Changed (Geändert)
+
+- Bild-Vorschau mit Höhenkappe (F32, Bauabschnitt 1, Nutzer-  
+Wunsch): Bild-Vorschauen – Rasterbilder wie SVG – füllen  
+höchstens noch 60 % der Spaltenhöhe. Die Anzeige-Höhe koppelt  
+live an die aktuelle Spaltenhöhe: Beim Fenster-Resize zieht die  
+Live-Skalierung die Kappe nach (neues Höhen-Tracking im  
+size-allocate plus \_preview\_height). Das Bild wird nicht mehr  
+expandiert gepackt; der Container hält über keep\_height exakt  
+die (gekappelte) Bildhöhe. Direkt unter dem Bild sitzt ein  
+horizontaler Trenner mit 8 px Abstand oben und unten – der  
+Bereich darunter ist für zusätzliche Informationen zum Bild  
+reserviert und bleibt vorerst leer; das bestehende Maße-Label  
+(„W × H px") steht nun unter dem Trenner. Eingebettete Bilder  
+(Audio-Cover, Office-Miniaturansicht, Video-Frame) und alle  
+übrigen Vorschauen sind unberührt. Umgesetzt im Medien-Renderer  
+mit dem neuen Pack-Helfer \_pack\_image\_capped; die Erweiterung  
+\_scaled\_image um frac\_h sitzt im Panel-Kern und steht damit  
+allen Renderern offen
+
 ## \[0.16.3\] – 2026-10-29
 
 ### Changed (Geändert)
