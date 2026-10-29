@@ -4,17 +4,16 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.16.3 – F24-Optik (Nutzer-Wunsch): Die Zeilen-
-nummern erscheinen jetzt etwas dunkler (Alpha 0.6 → 0.75 – auf
-hellem Grund waren sie zu verwaschen) und in 80 % der Text-
-schriftgröße, gut lesbar, aber klar vom Text unterscheidbar;
-die Randbreite misst die verkleinerte Nummernschrift mit. Der
-0.16.2-Feld-Fix bleibt erhalten: draw-Handler per connect_after
-(sonst übermalt die TextView-Standardzeichnung die Nummern –
-RUN_LAST), Merker _last_textish markiert TextView-basierte
-Vorschauen generell. Zeilennummern als Randzeichnung – nicht im
-kopierbaren Text –, Schlüssel text_line_numbers, Rubrik
-„Textdateien“ im Toolbar-Modul.
+STAND: Version 0.17.0 – Bild-Vorschau mit Höhenkappe (Nutzer-Wunsch):
+Bilder füllen höchstens 60 % der Spaltenhöhe – frac_h im _scaled_image-
+Aufruf, live bei Fenster-Resize über _preview_height; der Renderer packt
+daruunter einen Trenner mit Abstand, der Bereich darunter ist für
+zusätzliche Informationen reserviert. Eingebettete Bilder (Cover,
+Office-Miniatur, Video-Frame) bleiben unberührt. Sonstiger Stand:
+Zeilennummern als Randzeichnung – dunkler (Alpha 0.75) und in 80 %
+der Textschriftgröße –, connect_after-Draw, Merker _last_textish
+markiert TextView-basierte Vorschauen. Schlüssel text_line_numbers,
+Rubrik „Textdateien“ im Toolbar-Modul.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -115,6 +114,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._playbin = None
         self._progress_timer = 0
         self._render_width = 0
+        # 0.17.0: Spaltenhöhe für die Bild-Höhenkappe mitverfolgen
+        # (max. 60 % der Spalte, Nutzer-Wunsch).
+        self._render_height = 0
         # Skalierbare Vorschauen (R3): JEDES Bild bringt seine Parameter
         # als eigenen Dict-Eintrag mit (siehe _scaled_image) – so sind
         # beliebig viele live-skalierte Bilder pro Vorschau möglich,
@@ -431,10 +433,19 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         """
         try:
             width = allocation.width
+            height = allocation.height
             if (width >= PANEL_MIN_WIDTH
                     and width != self._panel_width):
                 self._panel_width = width
                 self._panel_width_schedule_save()
+            # 0.17.0: Höhenänderungen (Fenster-Resize) lösen ebenfalls
+            # eine Live-Anpassung aus – die Bild-Höhenkappe koppelt an
+            # die aktuelle Spaltenhöhe. Vor dem 12-px-Filter, sonst
+            # bliebe die Kappe bei kleineren Fensterzügen stehen.
+            if (height > 100
+                    and abs(height - self._render_height) >= 12):
+                self._render_height = height
+                self._apply_scale()
             if abs(width - self._render_width) < 12:
                 return
             self._render_width = width
@@ -444,7 +455,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             pass
 
     def _scaled_image(self, src, max_h, upscale=False, keep_height=False,
-                      max_upscale=1.0):
+                      max_upscale=1.0, frac_h=None):
         """
         Gtk.Image, das mit der Panelbreite lebt. Die Quelle (src) bleibt
         in voller Auflösung im Speicher; die angezeigte Pixbuf wird bei
@@ -458,9 +469,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         keep_height=True nur bei nicht-expandiertem Packen (Office,
         Cover, Video-Frame): hält die Containerhöhe auf Bildhöhe, damit
         das Bild unter Platzdruck nicht unten abgeschnitten wird. Bei
-        expandiertem Packen (Bild, PDF) darf KEINE Mindesthöhe gesetzt
-        werden – hochkantige Bilder würden sonst dem Fenster ihre Höhe
+        expandiertem Packen (PDF) darf KEINE Mindesthöhe gesetzt werden
+        – hochkantige Bilder würden sonst dem Fenster ihre Höhe
         aufzwingen.
+        0.17.0: frac_h (z. B. 0.6) begrenzt die Anzeige-Höhe auf diesen
+        Bruchteil der SPALTENHÖHE – live, weil _apply_scale bei jedem
+        Fenster-Resize neu heranzieht. Nutzt die Bild-Vorschau
+        (Nutzer-Wunsch: max. 60 % der Spalte, darunter ein Trenner und
+        später zusätzliche Informationen); eingebettete Bilder (Cover,
+        Office-Miniatur, Video-Frame) bleiben ohne frac.
         R3: Skalier-Parameter liegen als Python-Daten-Dict JEWEILS am
         Bild-Eintrag in self._scale_items statt in Panel-Einzelattributen
         – mehrere live-skalierte Bilder pro Vorschau (Cover +
@@ -482,7 +499,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         scroll.add(img)
         item = {"img": img, "scroll": scroll, "src": src, "maxh": max_h,
                 "upscale": upscale, "maxup": max_upscale,
-                "keeph": keep_height, "lastw": 0}
+                "keeph": keep_height, "frac": frac_h, "lastw": 0}
         if self._scale_items is None:
             self._scale_items = []
         self._scale_items.append(item)
@@ -503,6 +520,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 sw, sh = src.get_width(), src.get_height()
                 if sw <= 0 or sh <= 0:
                     continue
+                maxh = item["maxh"]
+                if item["frac"]:
+                    # 0.17.0: Höhenkappe – Bruchteil der SPALTENHÖHE
+                    # (Bild-Vorschau: 60 %), live bei Fenster-Resize.
+                    maxh = min(maxh, max(1, int(item["frac"] *
+                                                 self._preview_height())))
                 target = self._preview_width()
                 f = float(target) / sw
                 if f > 1.0:
@@ -512,13 +535,18 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                         f = min(f, item["maxup"])
                     else:
                         f = 1.0      # kleine Bilder nicht unscharf aufblasen
-                if f * sh > item["maxh"]:
-                    f = float(item["maxh"]) / sh
+                if f * sh > maxh:
+                    f = float(maxh) / sh
                 w = max(1, int(sw * f))
                 h = max(1, int(sh * f))
-                if abs(w - item["lastw"]) < 4:
+                # 0.17.0: Zusätzlich HÖHE vergleichen – die Höhenkappe
+                # kann sich bei gleichbleibender Breite ändern (Fenster
+                # höher/niedriger gezogen).
+                if (abs(w - item["lastw"]) < 4
+                        and abs(h - item.get("lasth", -1)) < 4):
                     continue
                 item["lastw"] = w
+                item["lasth"] = h
                 # Beim Hochskalieren qualitativ besser interpolieren
                 interp = (GdkPixbuf.InterpType.HYPER if f > 1.0
                           else GdkPixbuf.InterpType.BILINEAR)
@@ -546,6 +574,22 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         except Exception:
             pass
         return PANEL_WIDTH - 40
+
+    def _preview_height(self):
+        """
+        0.17.0: Höhe des Inhaltsbereichs – Basis für die Höhenkappe
+        der Bild-Vorschau (max. 60 % der Spaltenhöhe, Nutzer-Wunsch:
+        unter dem Bild bleibt Platz für einen Trenner und zusätzliche
+        Informationen). Live aus der aktuellen Fläche, Fallback
+        solange noch keine Größenzuweisung erfolgt ist.
+        """
+        try:
+            h = self._content.get_allocated_height()
+            if h > 100:
+                return h
+        except Exception:
+            pass
+        return 600
 
     def _text_view(self, text, font="9", markup=None, linenumbers=False):
         """
@@ -904,7 +948,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.16.3"
+PREVIEWER_VERSION = "0.17.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
