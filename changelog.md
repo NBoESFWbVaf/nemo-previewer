@@ -6,6 +6,19 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.19.0\] – 2026-10-29
+
+### Added (Hinzugefügt)
+
+- Cover-Rahmen in der Musik-Vorschau (F34, Nutzer-Wunsch): Eingebettete  
+Cover bekommen dieselben abgerundeten Ecken wie die Platzhalter-  
+Kachel (56/640 der Kantenlänge – die Rundung skaliert mit der Anzeige  
+mit), und jeder Cover – eingebettet wie Platzhalter – trägt einen  
+kleinen Schlagschatten. Der Schatten entsteht gestapelt in Cairo aus  
+sechs halbtransparenten Kacheln, ohne Blur-Filter; ohne PangoCairo  
+bleibt das Cover ungerahmt. Video-Kacheln und Bild-Vorschauen sind  
+unberührt
+
 ## \[0.18.0\] – 2026-10-29
 
 ### Added (Hinzugefügt)
