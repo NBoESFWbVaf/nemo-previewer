@@ -4,7 +4,7 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.16.2 – F24-Feld-Fix 2, hier nur Präzisierung des
+STAND: Version 0.16.3 – F24-Feld-Fix 2, hier nur Präzisierung des
 Toggle-Docstrings: Neu aufgebaut werden TextView-basierte Vorschauen
 generell (nicht nur „reine Textvorschau mit Nummern“), damit der
 Toggle in beide Richtungen wirkt. Die ActionBar (F19), Strg+Alt+P
@@ -254,7 +254,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.16.2"
+PREVIEWER_VERSION = "0.16.3"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)
