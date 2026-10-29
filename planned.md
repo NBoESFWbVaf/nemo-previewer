@@ -666,6 +666,20 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Abspielleiste steht mit Abstand UNTER dem Cover, die Datei-Zeile  
   ist entfallen.
 
+- [x] **F34 – Audio: Cover-Ecken und Schlagschatten**
+
+  (Nutzer-Wunsch 2026-10-29) Alle eingebetteten Coverbilder sollen  
+  denselben Randradius wie das Platzhalterbild tragen; jedes Cover  
+  bekommt zusätzlich einen kleinen Schlagschatten. **M** – *Skizze:*  
+  Helfer \_cover\_shadowed zeichnet das Cover auf eine gepaddete  
+  Cairo-Fläche: sechs wachsende, halbtransparente Kacheln als  
+  Schatten, darüber die Beschneidung mit \_cover\_round\_path (Radius  
+  56/640 der Kantenlänge).  
+  ✅ 0.19.0 – \_cover\_round\_path und \_cover\_shadowed im Medien-  
+  Renderer; \_finish\_audio wendet sie auf eingebettete Cover UND  
+  Platzhalter an; ohne PangoCairo oder bei Cairo-Fehlern bleibt das  
+  Cover ungerahmt (Fehlertoleranz).
+
 ---
 
 ## Empfohlene Reihenfolge
