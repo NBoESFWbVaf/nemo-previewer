@@ -4,9 +4,14 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.16.3 – F24: Keine Änderungen an den Medien-
-Renderern – nur Versions-Sync. (0.15.0/F31: aus dem Panel-Kern
-hierher gezogen; R1/R9/B7-Disziplinen und Deckel unverändert.)
+STAND: Version 0.17.0 – Bild-Vorschau (Raster UND SVG) füllt
+höchstens 60 % der Spaltenhöhe: Neuer Pack-Helfer _pack_image_capped
+packt das Bild nicht expandiert (keep_height + frac_h=0.6 im
+_scaled_image-Aufruf) und setzt darunter einen Trenner mit Abstand –
+unterhalb entsteht später der Infobereich (Nutzer-Wunsch). Eingebettete
+Bilder (Audio-Cover, Video-Frame) bleiben unberührt; R1/R9/B7-
+Disziplinen und Deckel unverändert. (0.15.0/F31: aus dem Panel-Kern
+hierher gezogen.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -136,6 +141,23 @@ _MEDIA_IMAGE_CAP = 32 * 1024 * 1024  # eingebettetes Cover aus Medien-Tags
 class MediaRendererMixin:
     """Mixin: Renderer für Bild (inkl. EXIF), SVG, Audio und Video."""
 
+    def _pack_image_capped(self, scroll):
+        """
+        0.17.0 (Nutzer-Wunsch): Die Bild-Vorschau füllt höchstens
+        60 % der Spaltenhöhe (frac_h im _scaled_image-Aufruf) und wird
+        nicht expandiert gepackt – der Container hält via keep_height
+        exakt die (gekappelte) Bildhöhe. Direkt darunter sitzt ein
+        Trenner mit etwas Abstand; der Bereich unter dem Trenner ist
+        für zusätzliche Informationen reserviert (folgt später).
+        fill=True in der Breite, damit der Trenner über die ganze
+        Spaltenbreite läuft.
+        """
+        self._content.pack_start(scroll, False, True, 0)
+        sep = Gtk.Separator.new(Gtk.Orientation.HORIZONTAL)
+        sep.set_margin_top(8)
+        sep.set_margin_bottom(8)
+        self._content.pack_start(sep, False, True, 0)
+
     def _render_svg(self, path):
         """SVG-Vorschau via librsvg: GdkPixbuf kann SVG nicht laden."""
         if not HAVE_RSVG:
@@ -150,8 +172,9 @@ class MediaRendererMixin:
             self._hint("Konnte SVG nicht lesen: %s" % e)
             self._render_generic()
             return
-        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
-        self._content.pack_start(scroll, True, True, 0)
+        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False,
+                                    keep_height=True, frac_h=0.6)
+        self._pack_image_capped(scroll)
         try:
             info = Gtk.Label(label="%d × %d px"
                              % (pb.get_width(), pb.get_height()))
@@ -276,8 +299,9 @@ class MediaRendererMixin:
             (path, pb.get_width(), pb.get_height()))
         if pb.get_width() > 4096 or pb.get_height() > MAX_IMAGE_HEIGHT:
             pb = self._scale_pixbuf(pb, 4096, MAX_IMAGE_HEIGHT)
-        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
-        self._content.pack_start(scroll, True, True, 0)
+        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False,
+                                    keep_height=True, frac_h=0.6)
+        self._pack_image_capped(scroll)
         try:
             # Maße: die ORIGINALMAßE aus dem Datei-Kopf (size-prepared,
             # vor der Deckelung), nicht die gedeckelte Dekodiergröße –
@@ -759,7 +783,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.16.3"
+PREVIEWER_VERSION = "0.17.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)
