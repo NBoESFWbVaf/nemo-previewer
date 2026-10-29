@@ -1,4 +1,4 @@
-# Nemo Previewer – Planung ([planned.md](http://planned.md))
+# Nemo Previewer – Planung (planned.md)
 
 Arbeitsdatei zur systematischen Ablage. Stand der Analyse: **Version 0.4.1**,  
 2026-10-27. Abgearbeitetes wird abgehakt; erledigte Punkte wandern mit der  
@@ -631,6 +631,22 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   beim ersten Erkennen einer zweiten Ansicht, bis A umgesetzt  
   ist – aus der stillen Verwirrung wird eine ehrliche Meldung.  
   Auch C erst nach dem Release angehen (stört nicht dringend).
+- [ ] **F32 – Zusätzliche Informationen unterhalb des Bildes**
+
+  (Nutzer-Wunsch 2026-10-29) Bild-Vorschauen jeglicher Art – AUS-  
+  GENOMMEN eingebettete Bilder (Cover, Office-Miniatur, Video-Frame)  
+  – dürfen nur max. 60 % der Spaltenhöhe einnehmen; unterhalb eines  
+  Trenners sollen zusätzliche Informationen zum Bild erscheinen.  
+  **M** – *Skizze:* Bauabschnitt 1 (Höhenkappe + Trenner) umgesetzt;  
+  der Infobereich unter dem Trenner folgt in einem späteren  
+  Bauabschnitt. Maße-Label (W × H px) sitzt bereits unter dem  
+  Trenner.  
+  ✅ 0.17.0 – Bauabschnitt 1: \_scaled\_image kennt frac\_h (Bruchteil  
+  der SPALTENhöhe, live bei Fenster-Resize über \_preview\_height und  
+  Höhen-Tracking im size-allocate); Raster- und SVG-Vorschau packen  
+  über den neuen Helfer \_pack\_image\_capped nicht expandiert  
+  (keep\_height hält die gekappelte Bildhöhe) und setzen darunter  
+  einen Trenner mit je 8 px Abstand. Eingebettete Bilder unberührt.
 
 ---
 
