@@ -507,7 +507,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   TextView-basiert“ – jetzt markiert der Merker TextView-basierte  
   Vorschauen generell, der Toggle rendert live in beide Richtungen.  
   Zusätzlich loggt der draw-Handler Fehler einmalig per dbg statt  
-  still zu bleiben (Closure-Flag gegen Log-Spam).
+  still zu bleiben (Closure-Flag gegen Log-Spam).  
+  ✅ 0.16.3 – Optik (Nutzer-Wunsch „zur besseren Unterscheidbarkeit“):  
+  Nummern etwas dunkler (Alpha 0.6 → 0.75) und in 80 % der Text-  
+  schriftgröße; die Randbreite misst die verkleinerte Nummernschrift.
 - [ ] **F25 – Zeilenabstand einstellen** (Text-Toolbar, F19)
 
   Knopf „Zeilenabstand" in der Text-Toolbar, z. B. Durchschalten  
