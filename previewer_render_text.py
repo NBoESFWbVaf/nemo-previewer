@@ -4,10 +4,11 @@
 Previewer – Renderer-Modul Text (previewer_render_text.py)
 ==========================================================
 
-STAND: Version 0.17.0 – F24: _render_text reicht die Zeilennummern-
-Einstellung an den TextView weiter (Rubrik „Textdateien“, Default
-an; die Nummern sind nicht kopierbar, der Text schon). Markdown,
-EML, E-Books und Font-Wasserfall bleiben ohne Nummern.
+STAND: Version 0.18.0 – F33: Nur Versions-Sync. _render_text reicht
+die Zeilennummern-Einstellung an den TextView weiter (Rubrik
+„Textdateien“, Default an; die Nummern sind nicht kopierbar, der
+Text schon). Markdown, EML, E-Books und Font-Wasserfall bleiben
+ohne Nummern.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -1197,7 +1198,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.17.0"
+PREVIEWER_VERSION = "0.18.0"
 dbg("previewer_render_text %s geladen (F31: Text/Markdown/EML/"
     "E-Book/Schrift-Renderer; K4-Markdown und Lese-Deckel bleiben)"
     % PREVIEWER_VERSION)
