@@ -1,4 +1,4 @@
-# Nemo Previewer – Planung (planned.md)
+# Nemo Previewer – Planung ([planned.md](http://planned.md))
 
 Arbeitsdatei zur systematischen Ablage. Stand der Analyse: **Version 0.4.1**,  
 2026-10-27. Abgearbeitetes wird abgehakt; erledigte Punkte wandern mit der  
@@ -647,6 +647,24 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   über den neuen Helfer \_pack\_image\_capped nicht expandiert  
   (keep\_height hält die gekappelte Bildhöhe) und setzen darunter  
   einen Trenner mit je 8 px Abstand. Eingebettete Bilder unberührt.
+
+- [x] **F33 – Audio: erweiterte Musik-Informationen**
+
+  (Nutzer-Wunsch 2026-10-29) Abspielleiste mit etwas Abstand unter dem  
+  Cover, danach Informationen: Titel, Interpret, Länge, Titelnummer  
+  „x von y“, Album mit Jahr (Originalveröffentlichung bevorzugt, sonst  
+  Datums-Tag als Jahr), Albuminterpret, CD-Nummer „x von y“, Codec –  
+  je bei Verfügbarkeit; Tag-Besonderheiten der Codecs (ID3/Vorbis/MP4)  
+  defensiv abfangen. **M** – *Skizze:* Tag-Sammlung im Discoverer-Worker  
+  erweitern (Zahlen-Tags als UINT und als String „n/m“; Jahr über  
+  original-date → datetime → date), \_finish\_audio packt Cover →  
+  Abspielleiste → Info-Tabelle.  
+  ✅ 0.18.0 – \_tag\_number\_pair und \_tag\_year lesen UINT- und  
+  „n/m“-String-Fassungen der Titel-/CD-Nummern sowie das Jahr aus  
+  allen drei Datums-Formen; Albuminterpret (album-artist) und Codec  
+  (audio-codec, Fallback container-format) kommen hinzu. Die  
+  Abspielleiste steht mit Abstand UNTER dem Cover, die Datei-Zeile  
+  ist entfallen.
 
 ---
 
