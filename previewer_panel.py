@@ -4,11 +4,11 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.18.0 – F33: Erweiterte Musik-Informationen im
-Medien-Renderer (Titelnummer „x von y“, Album mit Jahr, Albuminterpret,
-CD-Nummer „x von y“, Codec; Abspielleiste unter dem Cover). Im Panel-
-Kern keine Änderung – nur Versions-Sync; Bild-Höhenkappe (F32,
-Bauabschnitt 1) unverändert. Sonstiger Stand: Zeilennummern als
+STAND: Version 0.19.0 – F34: Cover-Rahmen im Medien-Renderer (gleiche
+Ecken wie die Platzhalter-Kachel, kleiner Schlagschatten für Musik-
+Cover). Im Panel-Kern keine Änderung – nur Versions-Sync; Bild-
+Höhenkappe (F32, Bauabschnitt 1) unverändert. Sonstiger Stand:
+Zeilennummern als
 Randzeichnung – dunkler (Alpha 0.75) und in 80 %
 der Textschriftgröße –, connect_after-Draw, Merker _last_textish
 markiert TextView-basierte Vorschauen. Schlüssel text_line_numbers,
@@ -947,7 +947,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.18.0"
+PREVIEWER_VERSION = "0.19.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
