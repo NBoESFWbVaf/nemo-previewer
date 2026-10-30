@@ -339,6 +339,23 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # (SVG, PNG ohne eXIf) bleibt die Tabelle bei Höhe/Breite.
 ```
 
+### MED-SPLIT-1 – Spalten-Aufteilung 60/40 mit Live-Nachzug (F38)
+
+- **Modul:** previewer\_render\_media.py
+- **Ort:** `_pack_image_capped` mit Helfer `_image_split_sync`, genutzt von `_render_image` und `_render_svg`
+- **Anlass:** Gtk.Box kennt keine Prozent-Aufteilung – expand ist ein Schalter, kein Verhältnis. Der Bildbereich trägt deshalb 60 % der Spaltenhöhe als Größenanforderung; ein size-allocate-Nachzug hält die Aufteilung beim Fenster-Resize aktuell. Mittig-Position des Bilds macht halign/valign CENTER am ScrolledWindow (align schlägt fill), der Info-Bereich expandiert und füllt den Rest (≈ 40 %).
+
+```text
+        # Gtk.Box teilt extra Raum nur gleichmäßig unter expandierenden
+        # Kindern – 60/40 gibt es nicht als Schalter. Der Bildbereich
+        # trägt deshalb 60 % der Spaltenhöhe als Request und zieht den
+        # in size-allocate nach (nur bei relevanter Änderung, sonst
+        # reißt der Anforderungs-Loop das Layout in Endlos-Schleifen).
+        # Mittig-Position des Bilds macht halign/valign CENTER am
+        # ScrolledWindow – align schlägt fill, das Bild wird also nie
+        # verzerrt oder gestreckt, nur zentriert.
+```
+
 ---
 
 ## Dokumente (DOC)
