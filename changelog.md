@@ -6,6 +6,23 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.27.0\] – 2026-10-30
+
+### Added (Hinzugefügt)
+
+- Einstellbarer Dokument-Deckel (F12 Teil 3, Nutzer-Wunsch): In der  
+neuen Rubrik „Dokumente“ des Einstellungsfensters festlegen, ob PDF-  
+und Office-Vorschauen begrenzt werden (Performance) oder unbegrenzt  
+alle Seiten zeigen; die maximale Seitenzahl ist frei wählbar (1–999,  
+Standard 20 wie bisher), Änderungen greifen sofort – auch auf das  
+gerade angezeigte Dokument  
+- Seitenanzeige über jedem Dokument (F14, Nutzer-Wunsch): Auch  
+einseitige PDF- und Office-Dokumente zeigen „Seite 1 von 1“
+
+### Changed (Geändert)
+
+- Seitenanzeige einheitlich als „Seite X von Y“ (zuvor „Seite X/Y“)
+
 ## \[0.26.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)

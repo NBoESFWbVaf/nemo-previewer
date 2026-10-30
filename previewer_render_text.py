@@ -4,7 +4,7 @@
 Previewer – Renderer-Modul Text (previewer_render_text.py)
 ==========================================================
 
-STAND: Version 0.26.0 – F7-Formate (Nutzer-Wunsch): LDIF-Adressbücher
+STAND: Version 0.27.0 – F7-Formate (Nutzer-Wunsch): LDIF-Adressbücher
 (.ldif) und Windows-Kontakte (.contact, XML) rendern ebenfalls als
 Visitenkarte; Karten-Deckel ENTFERNT – alle Kontakte erscheinen
 scrollbar. Dezenz in 0.25.1: transparente Karten, Eckenradius um
@@ -1884,7 +1884,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.26.0"
+PREVIEWER_VERSION = "0.27.0"
 dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F31: "
     "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "
     "Lese-Deckel bleiben)"

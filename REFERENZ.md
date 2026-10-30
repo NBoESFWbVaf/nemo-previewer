@@ -112,7 +112,7 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
 
 - **Modul:** previewer\_panel.py
 - **Ort:** `__init__`, über `self._conf_show_at_start = True`
-- **Anlass:** F12 (0.12.0/0.13.0): Defaults zuerst setzen, dann conf-Datei drüberlesen; angewendet bei jedem Start.
+- **Anlass:** F12 (0.12.0/0.13.0): Defaults zuerst setzen, dann conf-Datei drüberlesen; angewendet bei jedem Start. 0.27.0 (F12 Teil 3): dockt hier an – Schlüssel doc\_page\_limit (Begrenzung ja/nein) und doc\_max\_pages (1–999, Default 20 = bisheriges MAX\_PDF\_PAGES); der Merker \_last\_docview lässt Änderungen live auf die angezeigte Dokument-Vorschau wirken.
 
 ```text
         # F12 (0.12.0/0.13.0): Konfiguration der Vorschauspalte –
@@ -501,7 +501,7 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
 
 - **Modul:** previewer\_render\_docs.py
 - **Ort:** `_render_pdf`, über `self._content.show_all()`
-- **Anlass:** Das Seiten-Label zeigt die Seitenzahl inzwischen selbst; der Office-Rückruf ruft \_render\_pdf direkt und braucht deshalb eigenes show\_all.
+- **Anlass:** Das Seiten-Label zeigt die Seitenzahl inzwischen selbst; der Office-Rückruf ruft \_render\_pdf direkt und braucht deshalb eigenes show\_all. 0.27.0 (Nutzer-Wunsch): Das Label steht jetzt über JEDEM Dokument – auch einseitige zeigen „Seite 1 von 1“ – und zählt einheitlich im Format „Seite X von Y“; der Deckel selbst ist einstellbar (F12 Teil 3).
 
 ```text
         # F14: Das Seiten-Label zeigt die Seitenzahl inzwischen selbst –

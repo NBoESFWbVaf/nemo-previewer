@@ -417,8 +417,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   (entprellt in der conf, Einstieg wendet sie beim ersten  
   size-allocate an), Spin-Änderungen greifen sofort live. Der  
   B8-Fix (GLib.KeyFile) steckt in 0.12.1.  
-  Offen: die übrigen Einstellungen (MAX\_PDF\_PAGES,  
-  Wasserfall-Probetext …) andocken.
+  ✅ Teil 3 in 0.27.0: Rubrik „Dokumente" – Vorschauseiten von PDF/  
+  Office begrenzen (Performance) oder unbegrenzt anzeigen, maximale  
+  Seitenzahl 1–999 frei wählbar (conf-Schlüssel doc\_page\_limit/  
+  doc\_max\_pages, Default wie bisher: Begrenzung mit 20 Seiten);  
+  Änderungen greifen live über den Merker \_last\_docview.  
+  Offen: die übrigen Einstellungen (Wasserfall-Probetext …)  
+  andocken.
 - [ ] **F13 – Knöpfe „Im Dateimanager zeigen" + „Pfad kopieren"** neben
 
   Öffnen. **S**
@@ -428,7 +433,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Scrollen zählt es die Seite nach, deren Unterkante den oberen Rand  
   des Sichtfensters überschreitet; einseitige PDFs ohne Anzeige;  
   der frühere Hinweis „N Seiten – Vorschau nach unten scrollen."  
-  entfiel als redundant.
+  entfiel als redundant.  
+  ✅ 0.27.0 (Nutzer-Wunsch): Anzeige jetzt IMMER – auch einseitige  
+  Dokumente zeigen „Seite 1 von 1", Format einheitlich „Seite X von  
+  Y"; der Deckel selbst ist einstellbar (F12 Teil 3).
 - [ ] \*\*F15 – Audio: Lautstärke-Slider; bei Mehrfachauswahl Titel
 
   vor/zurück.\*\* **S–M**

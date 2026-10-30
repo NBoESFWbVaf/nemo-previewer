@@ -4,8 +4,12 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.26.0 – F38/F43: Nur Versions-Sync; die ActionBar (F19),
-Strg+Alt+P und der 0.15.0-Stand (F29: Mixin-Modul) bleiben unverändert.
+STAND: Version 0.27.0 – F12 Teil 3 (Nutzer-Wunsch): Neue Rubrik
+„Dokumente“ – Vorschauseiten von PDF- und Office-Dokumenten begrenzen
+(Performance) oder unbegrenzt anzeigen, maximale Seitenzahl 1–999 frei
+wählbar; Änderungen speichern sofort und wirken live über den Merker
+_last_docview. Die ActionBar (F19), Strg+Alt+P und der 0.15.0-Stand
+(F29: Mixin-Modul) bleiben unverändert.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -84,8 +88,8 @@ class PreviewToolbarMixin:
         """
         F12 (0.12.0): Konfigurationsfenster der Vorschauspalte. Der
         Rahmen steht jetzt; hier sammeln sich künftig ALLE Einstel-
-        lungen (F12-Katalog: Panelbreite, MAX_PDF_PAGES, Wasserfall-
-        Probetext …) – jede mit sofortiger Speicherung via
+        lungen (F12-Katalog: Panelbreite, Dokument-Deckel, Wasser-
+        fall-Probetext …) – jede mit sofortiger Speicherung via
         _config_save. Nur EINE Instanz: ein erneuter Klick auf das
         Zahnrad holt das bestehende Fenster nach vorn.
         """
@@ -167,10 +171,43 @@ class PreviewToolbarMixin:
         tfbox.pack_start(ln, False, False, 0)
         box.pack_start(tframe, False, False, 0)
 
+        # --- F12 Teil 3 (0.27.0): Rubrik „Dokumente“ (PDF/Office) ----
+        dframe = Gtk.Frame(label="Dokumente (PDF und Office)")
+        dfbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        dfbox.set_border_width(8)
+        dframe.add(dfbox)
+        lim = Gtk.CheckButton(
+            label="Vorschauseiten begrenzen (Performance)")
+        lim.set_tooltip_text(
+            "Abhaken, damit PDF- und Office-Dokumente ohne Begrenzung "
+            "komplett angezeigt werden – bei sehr großen Dokumenten "
+            "kostet das mehr Speicher und Zeit.")
+        lim.set_active(self._conf_doc_page_limit)
+        lim.connect("toggled", self._on_doc_limit_toggled)
+        dfbox.pack_start(lim, False, False, 0)
+        prow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        lbl_pages = Gtk.Label(label="Maximale Seitenzahl")
+        lbl_pages.set_halign(Gtk.Align.START)
+        prow.pack_start(lbl_pages, False, False, 0)
+        padj = Gtk.Adjustment(value=self._conf_doc_max_pages,
+                              lower=1, upper=999,
+                              step_increment=1, page_increment=10)
+        self._settings_pages_spin = Gtk.SpinButton.new(padj, 1.0, 0)
+        self._settings_pages_spin.set_value(self._conf_doc_max_pages)
+        self._settings_pages_spin.set_sensitive(self._conf_doc_page_limit)
+        self._settings_pages_spin.set_tooltip_text(
+            "Anzahl der Seiten, die PDF- und Office-Vorschauen höchstens "
+            "untereinander zeigen – greift live, auch für das gerade "
+            "angezeigte Dokument.")
+        self._settings_pages_spin.connect(
+            "value-changed", self._on_doc_max_pages_changed)
+        prow.pack_start(self._settings_pages_spin, False, False, 0)
+        dfbox.pack_start(prow, False, False, 0)
+        box.pack_start(dframe, False, False, 0)
+
         hint = Gtk.Label(
-            label="Weitere Einstellungen (PDF-Seitenzahl,\n"
-                  "Wasserfall-Anzeige …) folgen hier in späteren "
-                  "Versionen.")
+            label="Weitere Einstellungen (Wasserfall-Probetext …)\n"
+                  "folgen hier in späteren Versionen.")
         hint.get_style_context().add_class("dim-label")
         hint.set_halign(Gtk.Align.START)
         box.pack_start(hint, False, False, 0)
@@ -186,6 +223,7 @@ class PreviewToolbarMixin:
         self._settings_win = None
         self._settings_spin = None
         self._settings_width_label = None
+        self._settings_pages_spin = None
 
     def _on_show_at_start_toggled(self, chk):
         # Sofort speichern – kein separater Speichern-Knopf nötig.
@@ -206,6 +244,44 @@ class PreviewToolbarMixin:
         self._conf_text_linenumbers = chk.get_active()
         self._config_save()
         if self._last_textish and self._path:
+            self._render()
+
+    def _on_doc_limit_toggled(self, chk):
+        """
+        F12 Teil 3 (0.27.0): Dokument-Deckel an/aus – sofort speichern
+        und live anwenden. Der SpinButton zur Seitenzahl ist nur bei
+        aktivem Deckel bedienbar; eine angezeigte Dokument-Vorschau
+        baut sich über den Merker _last_docview sofort neu auf.
+        """
+        self._conf_doc_page_limit = chk.get_active()
+        self._config_save()
+        if self._settings_pages_spin is not None:
+            self._settings_pages_spin.set_sensitive(chk.get_active())
+        self._rerender_docs()
+
+    def _on_doc_max_pages_changed(self, spin):
+        """
+        F12 Teil 3 (0.27.0): Maximale Seitenzahl (1–999) – sofort
+        speichern und live anwenden, wie der Zeilennummern-Toggle.
+        """
+        try:
+            value = max(1, min(999, int(spin.get_value())))
+            if value == self._conf_doc_max_pages:
+                return
+            self._conf_doc_max_pages = value
+            self._config_save()
+            self._rerender_docs()
+        except Exception:
+            pass
+
+    def _rerender_docs(self):
+        """
+        F12 Teil 3 (0.27.0): Aktuelle PDF-/Office-Seitenansicht live
+        neu aufbauen – das Gegenstück zum Merker _last_textish der
+        Zeilennummern: Nur Dokument-Vorschauen reagieren, alles andere
+        (Bild, Audio, Text …) bleibt unberührt.
+        """
+        if self._last_docview and self._path:
             self._render()
 
     def _on_start_width_changed(self, spin):
@@ -251,7 +327,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.26.0"
+PREVIEWER_VERSION = "0.27.0"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)

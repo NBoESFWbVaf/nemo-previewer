@@ -4,17 +4,21 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.26.0 – F7 (Nutzer-Wunsch): Visitenkartenformate –
-vCard (.vcf/.vcard), LDIF (.ldif), Windows-Contact (.contact) –
-rendert die Visitenkarte aus dem Text-Modul (→ REF PAN-VCARD-1).
-F43: Ordner-Vorschau zeigt den Inhalt als Liste statt
-nur eines Ordner-Icons (→ REF PAN-FOLDER-1). F40: Kopfzeile trägt
-nur noch den Öffnen-Knopf (Stift-Symbol document-edit) – der
-Ausblenden-Knopf ist in Nemos Werkzeugleiste gewandert. F38:
-_meta_grid bekommt einen optionalen container – die EXIF-Tabelle
-der Bild-Vorschau packt in den 40-%-Info-Bereich der neuen Auf-
-teilung. Sonstiger Stand: Zeilennummern als Randzeichnung – dunkler
-(Alpha 0.75) und in 80 % der Textschriftgröße –, connect_after-
+STAND: Version 0.27.0 – F12 Teil 3/F14 (Nutzer-Wunsch): Der Seiten-
+Deckel für PDF- und Office-Dokumente ist EINSTELLBAR – conf-Schlüssel
+doc_page_limit/doc_max_pages, Defaults wie bisher (Begrenzung an,
+20 Seiten); Merker _last_docview lässt Deckel-Änderungen live auf
+die aktuelle Dokument-Vorschau wirken (→ REF PAN-F12-1).
+F7 (0.26.0): Visitenkartenformate – vCard (.vcf/.vcard), LDIF
+(.ldif), Windows-Contact (.contact) – rendert die Visitenkarte aus
+dem Text-Modul (→ REF PAN-VCARD-1). F43: Ordner-Vorschau zeigt den
+Inhalt als Liste statt nur eines Ordner-Icons (→ REF PAN-FOLDER-1).
+F40: Kopfzeile trägt nur noch den Öffnen-Knopf (Stift-Symbol
+document-edit) – der Ausblenden-Knopf ist in Nemos Werkzeugleiste
+gewandert. F38: _meta_grid bekommt einen optionalen container – die
+EXIF-Tabelle der Bild-Vorschau packt in den 40-%-Info-Bereich der
+neuen Aufteilung. Sonstiger Stand: Zeilennummern als Randzeichnung –
+dunkler (Alpha 0.75) und in 80 % der Textschriftgröße –, connect_after-
 Draw, Merker _last_textish markiert TextView-basierte Vorschauen.
 Schlüssel text_line_numbers, Rubrik „Textdateien“ im Toolbar-Modul.
 
@@ -150,6 +154,17 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Default laut Nutzer-Wunsch AN, umschaltbar im Einstellungs-
         # fenster (Rubrik „Textdateien“).
         self._conf_text_linenumbers = True
+        # F12 Teil 3 (0.27.0): Dokument-Deckel einstellbar – PDF- und
+        # Office-Vorschauen begrenzen (Performance) oder komplett
+        # anzeigen. Defaults: Begrenzung AN mit 20 Seiten – genau das
+        # bis dahin fest verdrahtete Verhalten (MAX_PDF_PAGES im
+        # Docs-Modul).
+        self._conf_doc_page_limit = True
+        self._conf_doc_max_pages = 20
+        # F12 Teil 3: Merker – ist die AKTUELLE Vorschau eine PDF-/Office-
+        # Seitenansicht? Dann wirken Deckel-Änderungen sofort (Gegen-
+        # stück zu _last_textish der Zeilennummern).
+        self._last_docview = False
         # Merker: Ist die AKTUELLE Vorschau TextView-basiert, der
         # Zeilennummern-Toggle also billig anwendbar? (Damit der
         # Einstellungs-Toggle nur solche Vorschauen neu rendert,
@@ -165,6 +180,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._settings_win = None
         self._settings_spin = None
         self._settings_width_label = None
+        self._settings_pages_spin = None
         self._config_load()
 
         # --- Kopfzeile (F35: nur noch Bedienelemente – Icon, Name,
@@ -255,6 +271,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._pdf_gen += 1
         # F24: War die gerade abgebaute Vorschau eine Text-Vorschau?
         self._last_textish = False
+        # F12 Teil 3: War sie eine Dokument-Seitenansicht (PDF/Office)?
+        self._last_docview = False
 
     def _show_placeholder(self):
         # F35: Die frühere Kopfzeile ist entfallen – der Platzhalter-
@@ -870,6 +888,19 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     "previewer", "text_line_numbers")
             except Exception:
                 pass
+            # F12 Teil 3 (0.27.0): Dokument-Deckel (PDF/Office) –
+            # Begrenzung ja/nein und maximale Seitenzahl (1–999).
+            try:
+                self._conf_doc_page_limit = kf.get_boolean(
+                    "previewer", "doc_page_limit")
+            except Exception:
+                pass
+            try:
+                p = kf.get_integer("previewer", "doc_max_pages")
+                if 1 <= p <= 999:
+                    self._conf_doc_max_pages = int(p)
+            except Exception:
+                pass
             try:
                 w = kf.get_integer("previewer", "panel_width")
                 if PANEL_MIN_WIDTH <= w <= 2400:
@@ -898,6 +929,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                            self._conf_show_at_start)
             kf.set_boolean("previewer", "text_line_numbers",
                            self._conf_text_linenumbers)
+            # F12 Teil 3 (0.27.0): Dokument-Deckel mitspeichern.
+            kf.set_boolean("previewer", "doc_page_limit",
+                           self._conf_doc_page_limit)
+            kf.set_integer("previewer", "doc_max_pages",
+                           int(self._conf_doc_max_pages))
             kf.set_integer("previewer", "panel_width",
                            int(self._panel_width))
             kf.save_to_file(CONF_FILE)
@@ -977,7 +1013,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.26.0"
+PREVIEWER_VERSION = "0.27.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "

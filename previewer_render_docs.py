@@ -4,12 +4,17 @@
 Previewer – Renderer-Modul Dokumente (previewer_render_docs.py)
 ===============================================================
 
-STAND: Version 0.26.0 – F39 (Nutzer-Wunsch): Ältere Office-Formate ohne
-ZIP-Anteil (.doc/.xls/.ppt, RTF) werden über die LibreOffice-
-Konvertierung scharf gerendert; die Übergangsansicht zeigt saubere
-Hinweise (→ REF DOC-LEGACY-1). K2: Kaputtes Office-ZIP zeigt das
-Datei-Icon neben der Fehlermeldung. (0.15.0/F31: aus dem Panel-Kern
-hierher gezogen; Lese- und Decode-Deckel 0.9.2 unverändert.)
+STAND: Version 0.27.0 – F12 Teil 3/F14 (Nutzer-Wunsch): Der Seiten-
+Deckel ist einstellbar – ausgeschaltet zeigt die Vorschau ALLE
+Seiten, eingeschaltet die konfigurierte Anzahl (Default 20, wie
+bisher MAX_PDF_PAGES); das Seiten-Label steht jetzt über jedem
+Dokument – auch einseitige zeigen „Seite 1 von 1“ – und zählt im
+Format „Seite X von Y“. F39: Ältere Office-Formate ohne ZIP-Anteil
+(.doc/.xls/.ppt, RTF) werden über die LibreOffice-Konvertierung
+scharf gerendert; die Übergangsansicht zeigt saubere Hinweise
+(→ REF DOC-LEGACY-1). K2: Kaputtes Office-ZIP zeigt das Datei-Icon
+neben der Fehlermeldung. (0.15.0/F31: aus dem Panel-Kern hierher
+gezogen; Lese- und Decode-Deckel 0.9.2 unverändert.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -138,7 +143,9 @@ def _extract_office_text(zf, names):
     return text.strip()[:_OFFICE_MAX_TEXT_CHARS]
 
 
-# PDF: alle Seiten bis zu dieser Obergrenze scrollbar untereinander
+# PDF: alle Seiten bis zu dieser Obergrenze scrollbar untereinander –
+# seit 0.27.0 (F12 Teil 3) nur noch der DEFAULT: Wirksam ist die
+# Einstellung doc_max_pages (doc_page_limit aus = unbegrenzt).
 MAX_PDF_PAGES = 20
 # 0.9.2 (Audit „Pufferüberlauf/OOM“): Deckel gegen Dekompressions- und
 # Dekodierbomben – ein präpariertes Bild/PDF/EPUB/DOCX/EML darf Nemo
@@ -178,16 +185,32 @@ class DocsRendererMixin:
         page.render(cr)
         return Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
 
+    def _pdf_page_cap(self):
+        """
+        F12 Teil 3 (0.27.0): Wirksamer Deckel für die Dokument-Vorschau
+        – 0 heißt unbegrenzt, sonst die Anzahl anzeigbarer Seiten.
+        Einstellbar im Einstellungsfenster (Performance); fehlen die
+        Konfig-Werte (alte conf, fremdes Binding), gilt der bisherige
+        Zustand: Begrenzung mit MAX_PDF_PAGES.
+        """
+        try:
+            if not self._conf_doc_page_limit:
+                return 0
+            return max(1, min(int(self._conf_doc_max_pages), 999))
+        except Exception:
+            return MAX_PDF_PAGES
+
     def _render_pdf(self, path):
         """
-        PDF-Vorschau scrollbar: alle Seiten (bis MAX_PDF_PAGES) werden
-        untereinander in einem scrollbaren Bereich gestapelt. Jede Seite
-        wird in doppelter Panelbreite gerendert und bei Breitenänderung
-        – wie bei der Bild-Vorschau – nur neu skaliert, nicht neu
-        gerendert.
-        F14: Über dem Bereich zeigt ein dezentes Label „Seite X/Y",
+        PDF-Vorschau scrollbar: alle Seiten (bis zum eingestellten
+        Deckel, sonst alle) werden untereinander in einem scrollbaren
+        Bereich gestapelt. Jede Seite wird in doppelter Panelbreite
+        gerendert und bei Breitenänderung – wie bei der Bild-Vorschau –
+        nur neu skaliert, nicht neu gerendert.
+        F14: Über dem Bereich zeigt ein dezentes Label „Seite X von Y“,
         das beim Scrollen auf die Seite am oberen Sichtfensterrand
-        nachführt (nur bei mehr als einer Seite).
+        nachführt – seit 0.27.0 IMMER, auch einseitige Dokumente
+        zeigen „Seite 1 von 1“ (Nutzer-Wunsch).
         R2: Seite 1 wird sofort synchron gerendert, die übrigen Seiten
         piecewise im GLib-Idle nachgeschoben – das Panel steht auch bei
         großen/gescannten PDFs augenblicklich, die UI friert nicht ein.
@@ -197,10 +220,16 @@ class DocsRendererMixin:
         if n == 0:
             self._hint("PDF enthält keine Seiten.")
             return
-        count = min(n, MAX_PDF_PAGES)
+        cap = self._pdf_page_cap()
+        count = n if cap == 0 else min(n, cap)
         self._pdf_count = count
-        dbg("PDF geöffnet: %d Seite(n), zeige %d untereinander (scrollbar)"
-            % (n, count))
+        # F12 Teil 3: Die aktuelle Vorschau ist eine Dokument-Seiten-
+        # ansicht – Deckel-Änderungen aus den Einstellungen wirken
+        # live darauf (Merker _last_docview).
+        self._last_docview = True
+        dbg("PDF geöffnet: %d Seite(n), zeige %d untereinander "
+            "(scrollbar; Deckel %s)"
+            % (n, count, ("%d Seiten" % cap) if cap else "aus"))
         src_w = max(300, self._preview_width() * 2)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self._pdf_src = []
@@ -221,12 +250,12 @@ class DocsRendererMixin:
             self._hint("PDF konnte nicht gerendert werden.")
             self._pdf_box = None
             return
-        # F14: Seitenanzeige über dem scrollbaren Bereich – nur bei
-        # mehr als einer Seite; beim Scrollen zählt sie nach.
-        if count > 1:
-            self._pdf_page_label = Gtk.Label(label="Seite 1/%d" % count)
-            self._pdf_page_label.get_style_context().add_class("dim-label")
-            self._content.pack_start(self._pdf_page_label, False, False, 0)
+        # F14 (0.27.0, Nutzer-Wunsch): Seitenanzeige über dem
+        # scrollbaren Bereich – IMMER, auch einseitige Dokumente zeigen
+        # „Seite 1 von 1“; beim Scrollen zählt sie nach.
+        self._pdf_page_label = Gtk.Label(label="Seite 1 von %d" % count)
+        self._pdf_page_label.get_style_context().add_class("dim-label")
+        self._content.pack_start(self._pdf_page_label, False, False, 0)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.add(box)
@@ -297,7 +326,7 @@ class DocsRendererMixin:
                 page = i + 1
                 break
         self._pdf_page_label.set_text(
-            "Seite %d/%d" % (page, max(1, self._pdf_count)))
+            "Seite %d von %d" % (page, max(1, self._pdf_count)))
         return False
 
     def _pdf_scale_one(self, src, img, target):
@@ -541,7 +570,7 @@ class DocsRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.26.0"
+PREVIEWER_VERSION = "0.27.0"
 dbg("previewer_render_docs %s geladen (F31: PDF-/Office-Renderer; "
     "Lese-Deckel und LibreOffice-Cache bleiben)"
     % PREVIEWER_VERSION)
