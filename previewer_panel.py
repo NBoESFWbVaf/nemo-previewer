@@ -4,8 +4,10 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.22.0 – F40: Kopfzeile trägt nur noch den Öffnen-Knopf
-(Stift-Symbol document-edit) – der Ausblenden-Knopf ist in Nemos Werkzeug-
+STAND: Version 0.23.0 – F43 (Nutzer-Wunsch): Ordner-Vorschau zeigt
+den Inhalt als Liste statt nur eines Ordner-Icons (→ REF PAN-
+FOLDER-1). F40: Kopfzeile trägt nur noch den Öffnen-Knopf (Stift-
+Symbol document-edit) – der Ausblenden-Knopf ist in Nemos Werkzeug-
 leiste gewandert. F38: _meta_grid bekommt einen optionalen
 container – die EXIF-Tabelle der Bild-Vorschau packt in den 40-%-
 Info-Bereich der neuen Aufteilung. Sonstiger Stand: Zeilennummern als
@@ -41,6 +43,7 @@ from previewer_util import (
     PANEL_WIDTH, PANEL_MIN_WIDTH,
     query_file_info,
     pick_icon,
+    human_size,
 )
 from previewer_render_media import MediaRendererMixin, HAVE_GST
 from previewer_render_docs import (
@@ -711,38 +714,86 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     def _render_folder(self, path):
         """
-        Ordner-Vorschau: Ordner-Icon plus Anzahl der Einträge.
-        K1 (Kompromiss statt nur-sichtbar-zählen): Es wird ALLES
-        gezählt, der Nutzer aber informiert – versteckte Einträge
-        werden separat ausgewiesen: „Der Ordner enthält X Dateien,
-        davon X versteckt." So stimmt die Zahl mit `ls -A` überein,
-        ohne dass versteckte Dateien stillschweigend fehlen.
+        F43 (Nutzer-Wunsch): Die Ordner-Vorschau zeigt den Inhalt als
+        Liste statt nur eines Ordner-Icons – Ordner zuerst (fett),
+        dann Dateien, je alphabetisch; pro Zeile Name plus „Ordner“
+        bzw. Größe. K1 bleibt: ALLE Einträge zählen, versteckte
+        separat ausweisen – sie stehen gedimmt MIT in der Liste,
+        nichts fehlt stillschweigend. Riesige Ordner: die ersten
+        300 Zeilen im Scroll-Fenster, Rest als Fußzeile – sonst
+        baute ein Ordner mit zehntausend Einträgen ebensoviele
+        Label-Widgets.
         """
-        total = hidden = 0
-        ok = False
+        # → REF PAN-FOLDER-1
+        dirs, files = [], []
         try:
             with os.scandir(path) as it:
                 for entry in it:
-                    total += 1
-                    if entry.name.startswith("."):
-                        hidden += 1
-            ok = True
+                    (dirs if entry.is_dir() else files).append(
+                        entry.name)
         except Exception:
-            pass
-        if not ok:
             self._hint("Ordner")
-        elif total == 0:
+            return
+        total = len(dirs) + len(files)
+        if total == 0:
             self._hint("Der Ordner ist leer.")
+            return
+        hidden = sum(1 for n in dirs + files if n.startswith("."))
+        unit = "Datei" if total == 1 else "Dateien"
+        if hidden > 0:
+            self._hint("Der Ordner enthält %d %s, davon %d versteckt."
+                       % (total, unit, hidden))
         else:
-            unit = "Datei" if total == 1 else "Dateien"
-            if hidden > 0:
-                self._hint("Der Ordner enthält %d %s, davon %d versteckt."
-                           % (total, unit, hidden))
+            self._hint("Der Ordner enthält %d %s." % (total, unit))
+        # F43: Anzeige-Reihenfolge – Ordner vor Dateien, je alphabet-
+        # isch (case-insensitiv). Versteckte Einträge stehen an ihrer
+        # alphabetischen Position, nur gedimmt – so liest sich der
+        # Ordner wie in `ls -A`.
+        shown = ([(n, True) for n in sorted(dirs, key=str.lower)]
+                 + [(n, False) for n in sorted(files, key=str.lower)])
+        rest = max(0, len(shown) - 300)
+        box = Gtk.ListBox()
+        box.set_selection_mode(Gtk.SelectionMode.NONE)
+        for name, is_dir in shown[:300]:
+            nm = Gtk.Label()
+            if is_dir:
+                nm.set_markup("<b>%s</b>"
+                              % GLib.markup_escape_text(name))
             else:
-                self._hint("Der Ordner enthält %d %s." % (total, unit))
-        big = Gtk.Image.new_from_icon_name("folder", Gtk.IconSize.DIALOG)
-        big.set_pixel_size(128)
-        self._content.pack_start(big, True, True, 0)
+                nm.set_text(name)
+            nm.set_halign(Gtk.Align.START)
+            nm.set_hexpand(True)
+            nm.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+            nm.set_tooltip_text(name)
+            if name.startswith("."):
+                nm.get_style_context().add_class("dim-label")
+            side = Gtk.Label(label="Ordner" if is_dir else "")
+            if not is_dir:
+                try:
+                    side.set_text(human_size(
+                        os.stat(os.path.join(path, name)).st_size))
+                except Exception:
+                    pass
+            side.get_style_context().add_class("dim-label")
+            side.set_halign(Gtk.Align.END)
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                           spacing=6)
+            hbox.pack_start(nm, True, True, 0)
+            hbox.pack_start(side, False, False, 0)
+            box.add(hbox)
+        if rest > 0:
+            more = Gtk.Label(label="… und %d weitere" % rest)
+            more.get_style_context().add_class("dim-label")
+            more.set_halign(Gtk.Align.START)
+            box.add(more)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                          Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        scroll.add(box)
+        self._content.pack_start(scroll, True, True, 0)
+        dbg("Ordner-Liste: %d Einträge, %d Zeilen gebaut"
+            % (total, min(300, len(shown))))
 
     def _render_generic(self):
         mime, size, mtime = query_file_info(self._path)
@@ -918,7 +969,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.22.0"
+PREVIEWER_VERSION = "0.23.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "

@@ -803,6 +803,16 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   RAW-Zweig im Bild-Fallback, HEIC-Endungen als Bild-Dispatch-  
   Backup (→ REF MED-EXIF-3).
 
+- [x] **F43 – Ordner-Vorschau: Inhalts-Liste statt Icon**
+
+  (Nutzer-Wunsch 2026-10-30) Statt eines Ordner-Icons eine Vorschau  
+  des Inhalts in Listenform. **M** – *Skizze:* os.scandir trennt  
+  Ordner/Dateien; ListBox im ScrolledWindow – Ordner zuerst (fett,  
+  rechts „Ordner“), dann Dateien (rechts Größe über human\_size), je  
+  alphabetisch; versteckte gedimmt dabei (K1 bleibt), 300-Zeilen-  
+  Deckel mit „… und N weitere“.  
+  ✅ 0.23.0 – \_render\_folder komplett umgebaut (→ REF PAN-FOLDER-1).
+
 ---
 
 ## Empfohlene Reihenfolge

@@ -150,6 +150,23 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
                 # Zurückschieben-Zyklus stünde das Bild sonst versetzt.
 ```
 
+### PAN-FOLDER-1 – Ordner-Vorschau als Inhalts-Liste (F43)
+
+- **Modul:** previewer\_panel.py
+- **Ort:** `_render_folder`
+- **Anlass:** Nutzer-Wunsch: Statt eines Ordner-Icons zeigt die Vorschau den Inhalt in Listenform. os.scandir trennt Ordner und Dateien; angezeigt werden Ordner zuerst (fett, rechte Spalte „Ordner“), dann Dateien (rechte Spalte Größe via human\_size), je alphabetisch case-insensitiv. K1 bleibt: ALLE Einträge zählen, versteckte separat ausgewiesen – sie stehen zusätzlich gedimmt an ihrer alphabetischen Position in der Liste (nichts fehlt stillschweigend, es liest sich wie `ls -A`). Deckel: Nur die ersten 300 Zeilen werden als Widgets gebaut (Gtk.ListBox im ScrolledWindow), der Rest als dim-Fußzeile „… und N weitere“. Namen mit MIDDLE-Ellipsize plus Tooltip; Ordner-Namen via markup\_escape\_text fett gesetzt.
+
+```text
+        # Gtk.ListBox ist nicht selbst scrollbar – ScrolledWindow.add
+        # legt in GTK3 automatisch einen Viewport darunter. Selection
+        # NONE: Die Liste ist eine Vorschau, kein Navigator – Klicks
+        # bleiben bei Nemos Dateiansicht, nicht im Panel.
+        # Die 300-Zeilen-Grenze ist ein reiner Widget-Deckel: Sortier-
+        # reihenfolge und Zählung (K1) erfassen ALLE Einträge, nur
+        # der Widget-Bau stoppt – dieselbe Disziplin wie der Bomben-
+        # Deckel bei Bildern.
+```
+
 ---
 
 ## Auswahl (SEL)

@@ -6,6 +6,16 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.23.0\] – 2026-10-30
+
+### Added (Hinzugefügt)
+
+- Ordner-Vorschau als Inhalts-Liste (F43, Nutzer-Wunsch): Statt des  
+Ordner-Icons zeigt das Panel den Inhalt – Ordner zuerst (fett),  
+dann Dateien mit Größe, je alphabetisch; versteckte Einträge  
+gedimmt dabei, riesige Ordner die ersten 300 Zeilen mit Rest-  
+Hinweis
+
 ## \[0.22.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)
