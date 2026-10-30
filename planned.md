@@ -1,4 +1,4 @@
-# Nemo Previewer – Planung ([planned.md](http://planned.md))
+# Nemo Previewer – Planung (planned.md)
 
 Arbeitsdatei zur systematischen Ablage. Stand der Analyse: **Version 0.4.1**,  
 2026-10-27. Abgearbeitetes wird abgehakt; erledigte Punkte wandern mit der  
@@ -730,11 +730,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ✅ 0.22.0 – top/bottom-Boxen mit Trenner, \_image\_split\_sync  
   (Nachzug nur bei Änderung &gt; 2 px, kein Loop); \_image\_info\_box in  
   \_\_init\_\_ und \_clear\_content gepflegt; SVG-Maße ebenfalls im  
-  Info-Bereich. Nach Streifen-Bug im Test: Bildbereich mit fill=True  
-  über die volle Spaltenbreite gepackt. Ergänzt (Nutzer-Wunsch,  
-  2026-10-30): „Location“ (XMP/IPTC Core) und benutzerdefinierte  
-  XMP-Felder aus nicht-standardisierten Namensräumen (bis 10 Zusatz-  
-  zeilen) in der Info-Tabelle via \_xmp\_parse.
+  Info-Bereich. Nach Streifen-Bug im Test: Mittig-Zentrierung am  
+  BILD (halign/valign CENTER am Gtk.Image), NICHT am Scrolled-  
+  Window – align=CENTER schrumpft Scrollbares auf die natürliche  
+  Breite \~0 (→ MED-SPLIT-1). Ergänzt (Nutzer-Wunsch, 2026-10-30):  
+  „Location“ (XMP/IPTC Core) und benutzerdefinierte XMP-Felder aus  
+  nicht-standardisierten Namensräumen (bis 10 Zusatzzeilen) in der  
+  Info-Tabelle via \_xmp\_parse.
 
 ---
 
