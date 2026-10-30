@@ -680,6 +680,21 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Platzhalter an; ohne PangoCairo oder bei Cairo-Fehlern bleibt das  
   Cover ungerahmt (Fehlertoleranz).
 
+- [x] **F35 – Audio: Feinschliff und schlanker Kopf**
+
+  (Nutzer-Wunsch 2026-10-29) Schatten nur rechts und unten, dort  
+  3 px mehr und transparenter; Jahr als eigene Zeile UNTER dem  
+  Album („Zuerst erschienen“); Genre anzeigen; alle Bezeichnungen  
+  mit Doppelpunkt; Kopfbereich der Spalte ohne Dopplungen zur  
+  Nemo-Liste. **M** – *Skizze:* \_cover\_shadowed-Geometrie  
+  verschieben (Fläche +3 px rechts/unten), Genre-Tag im Probe-  
+  Worker, Doppelpunkt zentral in \_meta\_grid, Kopfzeilen-Widgets  
+  (Icon/Name/Meta) aus dem Panel-Kern entfernen.  
+  ✅ 0.20.0 – Schattenkacheln um dx/dy versetzt bei 4 % Deckkraft;  
+  Genre-Zeile nur bei vorhandenem Tag; \_meta\_grid hängt „:“ an;  
+  Kopfzeile trägt nur noch Öffnen-/Ausblenden-Knöpfe, der  
+  Nicht-gefunden-Hinweis steht im Inhaltsbereich.
+
 ---
 
 ## Empfohlene Reihenfolge
