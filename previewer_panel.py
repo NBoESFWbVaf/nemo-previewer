@@ -4,9 +4,10 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.25.1 – F7 (Nutzer-Wunsch): vCard-Dateien (.vcf/
-.vcard) rendert die Visitenkarte aus dem Text-Modul (→ REF PAN-
-VCARD-1). F43: Ordner-Vorschau zeigt den Inhalt als Liste statt
+STAND: Version 0.26.0 – F7 (Nutzer-Wunsch): Visitenkartenformate –
+vCard (.vcf/.vcard), LDIF (.ldif), Windows-Contact (.contact) –
+rendert die Visitenkarte aus dem Text-Modul (→ REF PAN-VCARD-1).
+F43: Ordner-Vorschau zeigt den Inhalt als Liste statt
 nur eines Ordner-Icons (→ REF PAN-FOLDER-1). F40: Kopfzeile trägt
 nur noch den Öffnen-Knopf (Stift-Symbol document-edit) – der
 Ausblenden-Knopf ist in Nemos Werkzeugleiste gewandert. F38:
@@ -358,8 +359,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._render_markdown(path)
         elif lower.endswith(".eml") or mime == "message/rfc822":
             self._render_eml(path)
-        elif lower.endswith((".vcf", ".vcard")) or mime == "text/vcard":
-            # F7: vCard-Visitenkarte (Renderer im Text-Modul).
+        elif (lower.endswith((".vcf", ".vcard", ".ldif", ".contact"))
+              or mime == "text/vcard"):
+            # F7: Visitenkartenformate – vCard, LDIF, Windows-Contact
+            # (Renderer im Text-Modul).
             # → REF PAN-VCARD-1
             self._render_vcard(path)
         elif mime == "application/epub+zip" or lower.endswith(".epub"):
@@ -974,7 +977,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.25.1"
+PREVIEWER_VERSION = "0.26.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "

@@ -6,6 +6,23 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.26.0\] – 2026-10-30
+
+### Added (Hinzugefügt)
+
+- LDIF-Adressbücher und Windows-Kontakte als Visitenkarte (F7,  
+Nutzer-Wunsch): .ldif-Dateien (Thunderbird-/Mozilla-/Outlook-  
+Exporte, RFC 2849 mit Base64-Werten und jpegPhoto) und .contact-  
+Dateien (Windows-XML, namensraum-agnostisch) rendern dieselbe  
+Visitenkarte wie .vcf/.vcard
+
+### Changed (Geändert)
+
+- Visitenkarten ohne Mengenbegrenzung (F7, Nutzer-Wunsch): Der  
+50-Karten-Deckel ist entfallen – alle Kontakte der Datei werden  
+gebaut und scrollbar angezeigt; bei einem einzelnen Kontakt zeigt  
+sich kein Scrollbalken
+
 ## \[0.25.1\] – 2026-10-30
 
 ### Changed (Geändert)

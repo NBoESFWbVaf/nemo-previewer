@@ -4,13 +4,14 @@
 Previewer – Renderer-Modul Text (previewer_render_text.py)
 ==========================================================
 
-STAND: Version 0.25.1 – Dezenz (Nutzer-Wunsch): Visitenkarten ohne
-Karten-Füllung – transparent statt weißem Grund, Schatten und
-Haarlinien-Rand bleiben; Cover-Eckenradius überall um ein Drittel
-reduziert (56/960 statt 56/640). F7-Feinschliff in 0.25.1: Rahmen
-mit Cover-Eckenradius, ALLE Karten scrollbar. F7-Grundstock in
-0.24.0: .vcf/.vcard als Karte mit rundem Foto (inline Base64 oder
-lokale URI), sonst runder Platzhalter (→ REF TXT-VCARD-1).
+STAND: Version 0.26.0 – F7-Formate (Nutzer-Wunsch): LDIF-Adressbücher
+(.ldif) und Windows-Kontakte (.contact, XML) rendern ebenfalls als
+Visitenkarte; Karten-Deckel ENTFERNT – alle Kontakte erscheinen
+scrollbar. Dezenz in 0.25.1: transparente Karten, Eckenradius um
+ein Drittel dezenter (56/960 statt 56/640). F7-Feinschliff in
+0.25.0: Rahmen im Cover-Stil, ALLE Karten scrollbar. F7-Grundstock
+in 0.24.0: .vcf/.vcard als Karte mit rundem Foto (inline Base64
+oder lokale URI), sonst runder Platzhalter (→ REF TXT-VCARD-1).
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -1179,6 +1180,234 @@ def _vcard_placeholder(size=160):
         return None
 
 
+# --- LDIF (F7): Adressbuch-Exporte als Visitenkarten ---------------------
+
+def _ldif_unfold(text):
+    """LDIF-Zeilenfortsetzung (Zeile beginnt mit Leerzeichen, RFC 2849)."""
+    out = []
+    for line in text.split("\n"):
+        line = line.rstrip("\r")
+        if not out:
+            out.append(line)
+        elif line[:1] == " ":
+            out[-1] += line[1:]
+        else:
+            out.append(line)
+    return out
+
+
+def _ldif_record(attrs):
+    """
+    Einen LDIF-Satz in Karten-Tupel überführen – None, wenn der Satz
+    keine Kontakt-Felder trägt (Organisations-Container, Gruppen).
+    """
+    def vals(key):
+        return [v for (k, v) in attrs if k == key]
+
+    fn = (vals("cn") + vals("displayname") + vals("fullname"))[:1]
+    given = vals("givenname")[:1]
+    family = vals("sn")[:1]
+    if not (fn or given or family or vals("mail")):
+        return None
+    card = []
+    if fn:
+        card.append(("FN", {}, fn[0]))
+    elif given or family:
+        card.append(("FN", {},
+                     " ".join(x for x in (given[0] if given else "",
+                                         family[0] if family else "")
+                              if x)))
+    org = (vals("o") + vals("organization") + vals("company"))[:1]
+    if org:
+        card.append(("ORG", {}, org[0]))
+    title = vals("title")[:1]
+    if title:
+        card.append(("TITLE", {}, title[0]))
+    for v in vals("mail"):
+        card.append(("EMAIL", {}, v))
+    for v in vals("telephonenumber"):
+        card.append(("TEL", {}, v))
+    for v in vals("mobile"):
+        card.append(("TEL", {"TYPE": ["CELL"]}, v))
+    for v in vals("homephone"):
+        card.append(("TEL", {"TYPE": ["HOME"]}, v))
+    for v in vals("facsimiletelephonenumber"):
+        card.append(("TEL", {"TYPE": ["FAX"]}, v))
+    for v in (vals("labeleduri") + vals("url") + vals("mozillaworkurl")
+              + vals("mozillahomeurl")):
+        card.append(("URL", {}, v))
+    for v in (vals("homepostaladdress") + vals("postaladdress")
+              + vals("mozillahomepostaladdress")
+              + vals("mozillaworkpostaladdress")):
+        card.append(("ADR", {}, ";" + v.replace("$", ", ")))
+    for v in vals("description") + vals("notes"):
+        card.append(("NOTE", {}, v))
+    for v in vals("nickname") + vals("mozillanickname"):
+        card.append(("NICKNAME", {}, v))
+    for v in vals("birthday"):
+        card.append(("BDAY", {}, v))
+    # jpegPhoto: LDIF-Wert ist Base64 und bleibt ROHER Text – das
+    # Karten-Foto dekodiert (ENCODING=B wie bei vCard inline).
+    for v in vals("jpegphoto"):
+        card.append(("PHOTO", {"ENCODING": ["B"]}, v))
+    return card or None
+
+
+def _ldif_parse(text):
+    """
+    LDIF-Adressbuch (Thunderbird-/Mozilla-/Outlook-Exporte): Sätze
+    sind durch Leerzeilen getrennt; Base64-Werte (Doppel-Doppelpunkt)
+    werden dekodiert, jpegPhoto bleibt roh. Jeder Satz läuft über
+    _ldif_record in dieselbe Karten-Struktur wie vCard.
+    """
+    cards, attrs = [], []
+
+    def flush():
+        if attrs:
+            card = _ldif_record(attrs)
+            if card is not None:
+                cards.append(card)
+            del attrs[:]
+
+    for line in _ldif_unfold(text):
+        s = line.strip()
+        if not s or s == "-":
+            # Leerzeile oder LDIF-Änderungstrenner: Satzgrenze
+            flush()
+            continue
+        if s.startswith("#") or s.lower().startswith("version:"):
+            continue
+        idx = s.find(":")
+        if idx < 0:
+            continue
+        attr = s[:idx].strip().lower()
+        rest = s[idx:]
+        double = rest.startswith("::")
+        value = rest[2:] if double else rest[1:]
+        if double and attr != "jpegphoto":
+            try:
+                value = base64.b64decode(value.strip()).decode(
+                    "utf-8", "replace")
+            except Exception:
+                pass
+        value = value.strip()
+        if value:
+            attrs.append((attr, value))
+    flush()
+    return cards
+
+
+# --- Windows-Kontakte (F7): .contact-XML als Visitenkarten ----------------
+
+_CONTACT_ADDR_TAGS = ("street", "city", "locality", "state", "region",
+                      "postalcode", "zip", "countryregion", "country")
+
+_CONTACT_ADDR_KEYS = {"region": "state", "country": "countryregion",
+                      "locality": "city", "zip": "postalcode"}
+
+_CONTACT_TEL_TYPES = {"mobile": "CELL", "cell": "CELL", "home": "HOME",
+                       "business": "WORK", "work": "WORK", "fax": "FAX"}
+
+
+def _contact_one(node):
+    """
+    EIN Kontakt-Knoten als Karten-Tupel. Attribute werden über die
+    LOKALEN Element-Namen erkannt – der Microsoft-Namensraum wechselt
+    je nach Windows-Fassung. Werte stehen im Element-Text oder im
+    Value-Attribut; Fotos bleiben außen vor (das Format bettet sie
+    uneinheitlich ein), es greift der Platzhalter.
+    """
+    card, addr, name = [], {}, {}
+
+    def flush_addr():
+        if addr:
+            value = ";".join(["", addr.get("street", ""), "",
+                              addr.get("city", ""),
+                              addr.get("state", ""),
+                              addr.get("postalcode", ""),
+                              addr.get("countryregion", "")])
+            if value.strip(";"):
+                card.append(("ADR", {}, value))
+            addr.clear()
+
+    for el in node.iter():
+        tag = (el.tag.rsplit("}", 1)[-1]
+               if isinstance(el.tag, str) else "").lower()
+        value = el.get("Value") or (el.text or "").strip()
+        if not tag or not value:
+            continue
+        if tag in _CONTACT_ADDR_TAGS:
+            if tag == "street" and addr:
+                flush_addr()
+            addr[_CONTACT_ADDR_KEYS.get(tag, tag)] = value
+            continue
+        flush_addr()
+        if tag == "formattedname":
+            card.append(("FN", {}, value))
+        elif tag == "familyname":
+            name["family"] = value
+        elif tag == "givenname":
+            name["given"] = value
+        elif tag == "middlename":
+            name["middle"] = value
+        elif tag == "nameprefix":
+            name["prefix"] = value
+        elif tag == "namesuffix":
+            name["suffix"] = value
+        elif tag == "nickname":
+            card.append(("NICKNAME", {}, value))
+        elif tag in ("company", "companyname"):
+            card.append(("ORG", {}, value))
+        elif tag == "title":
+            card.append(("TITLE", {}, value))
+        elif tag in ("emailaddress", "email"):
+            card.append(("EMAIL", {}, value))
+        elif tag in ("phonenumber", "phone"):
+            ptype = _CONTACT_TEL_TYPES.get(
+                (el.get("Type") or "").lower(), "")
+            card.append(("TEL", {"TYPE": [ptype]} if ptype else {},
+                         value))
+        elif tag == "webaddress":
+            card.append(("URL", {}, value))
+        elif tag in ("birthdate", "birthday"):
+            card.append(("BDAY", {}, value))
+        elif tag in ("notes", "note"):
+            card.append(("NOTE", {}, value))
+    flush_addr()
+    if (not any(prop[0] == "FN" for prop in card)
+            and (name.get("given") or name.get("family"))):
+        card.insert(0, ("FN", {},
+                       " ".join(x for x in (name.get("prefix", ""),
+                                           name.get("given", ""),
+                                           name.get("family", ""))
+                                if x)))
+    return card
+
+
+def _contact_parse(text):
+    """
+    Windows-Kontakt-Datei (.contact, XML): Meist trägt WURZEL schon
+    den Kontakt; Dateien mit mehreren contact-Knoten (Kollektion)
+    bekommen alle. Ohne erkennbaren Kontakt: leere Liste – der
+    Aufrufer zeigt dann den Öffnen-Hinweis.
+    """
+    try:
+        root = ElementTree.fromstring(text)
+    except Exception:
+        return []
+    nodes = [el for el in root.iter()
+             if isinstance(el.tag, str)
+             and el.tag.rsplit("}", 1)[-1].lower() == "contact"]
+    if not nodes:
+        nodes = [root]
+    cards = []
+    for node in nodes:
+        card = _contact_one(node)
+        if card:
+            cards.append(card)
+    return cards
+
+
 class TextRendererMixin:
     """Mixin: Renderer für Text, Markdown, EML, E-Book, Schrift, vCard."""
 
@@ -1320,15 +1549,17 @@ class TextRendererMixin:
 
     def _render_vcard(self, path):
         """
-        F7 (Nutzer-Wunsch): vCard als Visitenkarte – .vcf/.vcard in
-        allen gängigen Dialekten (vCard 2.1, 3.0, 4.0). Jede Karte
-        trägt einen rechteckigen Rahmen mit dem Eckenradius der
-        Musikcover (F34-Formel) samt gleichem Schlagschatten. Kopf
-        der Karte: rundes Foto (inline Base64 oder lokale URI, sonst
-        der gezeichnete Platzhalter-Kreis), darunter Name groß,
-        Position und Firma, dann die Kontaktdaten als gewohnte
-        Tabelle. Dateien mit mehreren Kontakten zeigen ALLE Karten
-        untereinander, scrollbar.
+        F7 (Nutzer-Wunsch): Visitenkartenformate als Visitenkarte –
+        vCard (.vcf/.vcard, Dialekte 2.1, 3.0, 4.0), LDIF-Adress-
+        bücher (.ldif) und Windows-Kontakte (.contact, XML). Jede
+        Karte trägt einen rechteckigen Rahmen mit dem Eckenradius
+        der Musikcover (F34-Formel) samt gleichem Schlagschatten.
+        Kopf der Karte: rundes Foto (inline Base64 oder lokale URI,
+        sonst der gezeichnete Platzhalter-Kreis), darunter Name
+        groß, Position und Firma, dann die Kontaktdaten als gewohnte
+        Tabelle. ALLE Karten der Datei erscheinen untereinander in
+        einem Scrollbereich; bei einem einzigen Kontakt zeigt sich
+        naturgemäß kein Scrollbalken.
         """
         # → REF TXT-VCARD-1
         try:
@@ -1341,38 +1572,40 @@ class TextRendererMixin:
             self._hint("Visitenkarte konnte nicht geöffnet werden: %s"
                        % e)
             return
-        cards = _vcard_parse(raw.decode("utf-8", "replace"))
+        text = raw.decode("utf-8", "replace")
+        lower = path.lower()
+        # Format nach Endung – alle drei Parser liefern dieselbe
+        # Karten-Struktur (→ REF TXT-VCARD-1).
+        if lower.endswith(".ldif"):
+            cards = _ldif_parse(text)
+        elif lower.endswith(".contact"):
+            cards = _contact_parse(text)
+        else:
+            cards = _vcard_parse(text)
         if not cards:
-            self._hint("Kein vCard-Kontakt gefunden – Datei über den "
+            self._hint("Kein Kontakt gefunden – Datei über den "
                        "Öffnen-Knopf betrachten.")
             self._render_generic()
             return
-        # Widget-Deckel: Adressbuch-Exporte tragen Tausende Kontakte –
-        # die ersten 50 Karten werden gebaut, der Rest gemeldet.
-        shown = cards[:50]
+        # Kein Karten-Deckel (Nutzer-Wunsch): ALLE Kontakte werden
+        # gebaut und erscheinen untereinander scrollbar; die einzige
+        # Grenze bleibt der Lese-Deckel über der Datei selbst.
         stack = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         stack.set_margin_start(6)
         stack.set_margin_end(6)
         stack.set_margin_top(6)
         stack.set_margin_bottom(6)
         fotos = 0
-        for card in shown:
+        for card in cards:
             widget, has_photo = self._vcard_card_widget(card)
             if has_photo:
                 fotos += 1
             stack.pack_start(widget, False, False, 0)
-        if len(cards) > 50:
-            rest = Gtk.Label(label="… und %d weitere Kontakte"
-                             % (len(cards) - 50))
-            rest.get_style_context().add_class("dim-label")
-            rest.set_halign(Gtk.Align.CENTER)
-            stack.pack_start(rest, False, False, 0)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.add(stack)
         self._content.pack_start(scroll, True, True, 0)
-        dbg("Visitenkarten: %d gebaut, %d mit Foto (%d Kontakt(e) in "
-            "der Datei)" % (len(shown), fotos, len(cards)))
+        dbg("Visitenkarten: %d gebaut, %d mit Foto" % (len(cards), fotos))
 
     def _vcard_card_widget(self, card):
         """
@@ -1651,7 +1884,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.25.1"
+PREVIEWER_VERSION = "0.26.0"
 dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F31: "
     "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "
     "Lese-Deckel bleiben)"

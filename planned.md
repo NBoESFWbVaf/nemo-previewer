@@ -368,14 +368,14 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 - [ ] **F6 – SQLite-Datenbanken** (.db/.sqlite): Tabellenliste +
 
   Zeilenanzahl (stdlib `sqlite3`). **S**
-- [ ] **F7 – vCard/ICS**: vCard-Visitenkarte, ICS-Tabelle
+- [ ] **F7 – Visitenkarten: vCard/LDIF/Contact, ICS-Tabelle**
 
   (Nutzer-Wunsch 2026-10-30) Alle gängigen Visitenkartenformate  
-  (.vcf/.vcard, vCard 2.1/3.0/4.0) werden als echte Visitenkarte  
-  gerendert: Kontaktbild kreisförmig – ist keins enthalten, zeigt  
-  die Vorschau ein kreisförmiges Platzhalterbild –, darunter Name,  
-  Position/Firma und Kontaktdaten (Telefon, E-Mail, Web, Adresse,  
-  Geburtstag) als Tabelle. **M**  
+  (.vcf/.vcard, vCard 2.1/3.0/4.0; .ldif; .contact) werden als  
+  echte Visitenkarte gerendert: Kontaktbild kreisförmig – ist  
+  keins enthalten, zeigt die Vorschau ein kreisförmiges Platz-  
+  halterbild –, darunter Name, Position/Firma und Kontaktdaten  
+  (Telefon, E-Mail, Web, Adresse, Geburtstag) als Tabelle. **M**  
   ✅ Teil 1 in 0.24.0 – vCard-Visitenkarte umgesetzt (→ REF  
   TXT-VCARD-1 und PAN-VCARD-1): Foto inline Base64 oder lokale URI,  
   sonst runder Platzhalter.  
@@ -387,6 +387,9 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ✅ Feinschliff 0.25.1 (Nutzer-Wunsch): Karten-Hintergrund  
   transparent statt weiß (Darkmode), Eckenradius überall um ein  
   Drittel dezenter (56/960 statt 56/640 – auch Musikcover).  
+  ✅ Teil 3 in 0.26.0 – (Nutzer-Hinweis): Karten-Deckel entfallen,  
+  ALLE Kontakte erscheinen scrollbar; LDIF (.ldif) und Windows-  
+  Contact (.contact) als weitere Formate (→ REF TXT-VCARD-1).  
   Offen: ICS – Termine als Tabelle (wie EML-Kopf). **S**
 - [ ] **F8 – CSV als echte Tabelle** (Gtk.TreeView). **M**
 - [ ] **F9 – EXIF-Tabelle für Fotos** (Kamera, Datum, Belichtung). **M**

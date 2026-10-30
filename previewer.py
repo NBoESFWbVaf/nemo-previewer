@@ -4,7 +4,7 @@
 Previewer
 =========
 
-STAND: Version 0.25.1 – F40 (Nutzer-Wunsch): Umschalt-Knopf für die
+STAND: Version 0.26.0 – F40 (Nutzer-Wunsch): Umschalt-Knopf für die
 Vorschau-Seitenleiste in Nemos Werkzeugleiste (rechts, neben der
 Ansichtenauswahl; CSD-Titelleiste oder klassische Toolbar),
 synchron mit Strg+Alt+P (→ REF ENT-TOGGLE-1).
@@ -121,7 +121,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.25.1"
+PREVIEWER_VERSION = "0.26.0"
 import previewer_util
 import previewer_select
 import previewer_panel

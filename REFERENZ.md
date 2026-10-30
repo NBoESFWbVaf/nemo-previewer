@@ -167,15 +167,17 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # Deckel bei Bildern.
 ```
 
-### PAN-VCARD-1 – vCard-Dispatch (F7)
+### PAN-VCARD-1 – Visitenkarten-Dispatch (F7)
 
 - **Modul:** previewer\_panel.py
 - **Ort:** Typ-Kette in `_render`, direkt nach dem `.eml`-Zweig
-- **Anlass:** Nutzer-Wunsch: Visitenkartenformate (.vcf/.vcard, MIME text/vcard) werden als Visitenkarte gerendert, nicht als Textdatei. Der Renderer \_render\_vcard lebt im Text-Modul; der Dispatch zweigt VOR dem generischen text/-Zweig ab, damit die MIME-Erkennung die Karte nicht als Klartext wegschluckt.
+- **Anlass:** Nutzer-Wunsch: ALLE bekannten Visitenkartenformate werden als Visitenkarte gerendert, nicht als Textdatei – vCard (.vcf/.vcard, MIME text/vcard), LDIF (.ldif) und Windows-Contact (.contact); die Endungs-Prüfung fängt auch die Formate ab, die shared-mime-info nur als text/plain bzw. XML einstufen würde. Der Renderer \_render\_vcard lebt im Text-Modul; der Dispatch zweigt VOR dem generischen text/-Zweig ab, damit die MIME-Erkennung die Karte nicht als Klartext wegschluckt.
 
 ```text
-        elif lower.endswith((".vcf", ".vcard")) or mime == "text/vcard":
-            # F7: vCard-Visitenkarte (Renderer im Text-Modul).
+        elif (lower.endswith((".vcf", ".vcard", ".ldif", ".contact"))
+              or mime == "text/vcard"):
+            # F7: Visitenkartenformate – vCard, LDIF, Windows-Contact
+            # (Renderer im Text-Modul).
             # → REF PAN-VCARD-1
             self._render_vcard(path)
 ```
@@ -633,11 +635,11 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # Markup nur übernehmen, wenn es validiert wurde – sonst Rohtext.
 ```
 
-### TXT-VCARD-1 – vCard-Visitenkarte (F7)
+### TXT-VCARD-1 – Visitenkarten-Renderer (F7)
 
 - **Modul:** previewer\_render\_text.py
-- **Ort:** `_render_vcard`, \_vcard\_card\_widget und \_vcard\_card\_draw samt Parse-Helfern (\_vcard\_unfold bis \_vcard\_placeholder, \_vcard\_circle)
-- **Anlass:** Nutzer-Wunsch: Alle gängigen Visitenkartenformate als Karte rendern – Kontakt-Foto kreisförmig, sonst ein kreisförmiger Platzhalter. Feinschliff 0.25.0 (Nutzer-Wunsch): Jede Karte trägt einen rechteckigen Rahmen mit dem Eckenradius der Musikcover samt gleichem Schlagschatten (F34/F35) – gezeichnet im draw-Signal HINTER die Widgets (Rundungspfad via \_cover\_round\_path aus dem Media-Modul); Dateien mit mehreren Kontakten zeigen alle Karten untereinander scrollbar in einem ScrolledWindow (50-Karten-Deckel mit Rest-Hinweis). Dezenz 0.25.1 (Nutzer-Wunsch): KEINE Füllung – die Karte bleibt transparent (weißer Grund schmerzt im Darkmode), Schatten und Haarlinien-Rand bleiben; Eckenradius um ein Drittel dezenter (56/960 statt 56/640 der kleineren Kante). Parsing mit Bordmitteln (RFC-6350-Folding, 2.1-Quoted-Printable, Nackt-Parameter, Gruppenpräfix); Fotos nur inline Base64 oder lokale URI – Netz-URIs bleiben unbefragt, es greift der Platzhalter. Ohne pycairo bleibt das Foto eckig und der Platzhalter ein Theme-Icon; der Karten-Rahmen läuft ohne, der draw-Callback bekommt seinen Cairo-Kontext von GTK.
+- **Ort:** `_render_vcard`, \_vcard\_card\_widget und \_vcard\_card\_draw samt Parse-Helfern (\_vcard\_unfold bis \_vcard\_placeholder, \_vcard\_circle, \_ldif\_parse, \_contact\_parse)
+- **Anlass:** Nutzer-Wunsch: ALLE bekannten Visitenkartenformate als Karte rendern – Kontakt-Foto kreisförmig, sonst ein kreisförmiger Platzhalter. Drei Parser liefern dieselbe Karten-Tupel-Struktur: vCard (RFC-6350-Folding, 2.1-Quoted-Printable, Nackt-Parameter, Gruppenpräfix), LDIF (RFC 2849, Base64-Werte, jpegPhoto bleibt rohes Base64 für die Foto-Dekodierung) und Windows-Contact (.contact-XML, namensraum-agnostisch über lokale Element-Namen). 0.26.0 (Nutzer-Hinweis): KEIN Karten-Deckel – alle Kontakte der Datei erscheinen untereinander scrollbar, bei einem einzelnen Kontakt zeigt sich kein Scrollbalken. Feinschliff 0.25.0: Jede Karte trägt einen rechteckigen Rahmen mit dem Eckenradius der Musikcover samt gleichem Schlagschatten (F34/F35) – gezeichnet im draw-Signal HINTER die Widgets (Rundungspfad via \_cover\_round\_path aus dem Media-Modul). Dezenz 0.25.1: KEINE Füllung – die Karte bleibt transparent (weißer Grund schmerzt im Darkmode), Schatten und Haarlinien-Rand bleiben; Eckenradius um ein Drittel dezenter (56/960 statt 56/640 der kleineren Kante). Fotos nur inline Base64 oder lokale URI – Netz-URIs bleiben unbefragt, es greift der Platzhalter. Ohne pycairo bleibt das Foto eckig und der Platzhalter ein Theme-Icon; der Karten-Rahmen läuft ohne, der draw-Callback bekommt seinen Cairo-Kontext von GTK.
 
 ```text
         # Lese-Deckel: Kontakt-Fotos liegen als Base64 IN der
