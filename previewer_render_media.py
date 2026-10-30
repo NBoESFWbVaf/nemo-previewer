@@ -4,7 +4,7 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.24.0 – F38 (Nutzer-Wunsch): Die Bild-Spalte ist in
+STAND: Version 0.25.0 – F38 (Nutzer-Wunsch): Die Bild-Spalte ist in
 einen 60-%-Bereich (Bild, vertikal und horizontal mittig) und einen
 40-%-Bereich (Info-Tabelle) geteilt, live an die Spaltenhöhe gekop-
 pelt; Streifen-Fix (Mittig-Zentrierung am Bild statt am Scrolled-
@@ -1515,7 +1515,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.24.0"
+PREVIEWER_VERSION = "0.25.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)

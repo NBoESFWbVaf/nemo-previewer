@@ -636,11 +636,16 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
 ### TXT-VCARD-1 – vCard-Visitenkarte (F7)
 
 - **Modul:** previewer\_render\_text.py
-- **Ort:** `_render_vcard` samt Parse-Helfern (\_vcard\_unfold bis \_vcard\_placeholder, \_vcard\_circle)
-- **Anlass:** Nutzer-Wunsch: Alle gängigen Visitenkartenformate als Karte rendern – Kontakt-Foto kreisförmig, sonst ein kreisförmiger Platzhalter. Parsing mit Bordmitteln (RFC-6350-Folding, 2.1-Quoted-Printable, Nackt-Parameter, Gruppenpräfix); Fotos nur inline Base64 oder lokale URI – Netz-URIs bleiben unbefragt, es greift der Platzhalter. Der Kreis nutzt die Cairo-Clip-Technik der Cover-Ecken (F34); ohne pycairo bleibt das Foto eckig und der Platzhalter ein Theme-Icon.
+- **Ort:** `_render_vcard`, \_vcard\_card\_widget und \_vcard\_card\_draw samt Parse-Helfern (\_vcard\_unfold bis \_vcard\_placeholder, \_vcard\_circle)
+- **Anlass:** Nutzer-Wunsch: Alle gängigen Visitenkartenformate als Karte rendern – Kontakt-Foto kreisförmig, sonst ein kreisförmiger Platzhalter. Feinschliff 0.25.0 (Nutzer-Wunsch): Jede Karte trägt einen rechteckigen Rahmen mit dem Eckenradius der Musikcover (F34-Formel 56/640 der kleineren Kante) samt gleichem Schlagschatten (F34/F35) – gezeichnet im draw-Signal HINTER die Widgets (Rundungspfad via \_cover\_round\_path aus dem Media-Modul); Dateien mit mehreren Kontakten zeigen alle Karten untereinander scrollbar in einem ScrolledWindow (50-Karten-Deckel mit Rest-Hinweis). Parsing mit Bordmitteln (RFC-6350-Folding, 2.1-Quoted-Printable, Nackt-Parameter, Gruppenpräfix); Fotos nur inline Base64 oder lokale URI – Netz-URIs bleiben unbefragt, es greift der Platzhalter. Ohne pycairo bleibt das Foto eckig und der Platzhalter ein Theme-Icon; der Karten-Rahmen läuft ohne, der draw-Callback bekommt seinen Cairo-Kontext von GTK.
 
 ```text
         # Lese-Deckel: Kontakt-Fotos liegen als Base64 IN der
         # Datei – ein paar MB sind üblich, ein paar Dutzend
         # wären eine Bombe für Nemo.
+```
+
+```text
+        # Rahmen und Schatten brauchen KEIN pycairo – der draw-
+        # Callback bekommt seinen Cairo-Kontext von GTK geliefert.
 ```

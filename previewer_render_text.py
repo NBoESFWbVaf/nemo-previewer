@@ -4,12 +4,13 @@
 Previewer – Renderer-Modul Text (previewer_render_text.py)
 ==========================================================
 
-STAND: Version 0.24.0 – F7 (Nutzer-Wunsch): vCard-Visitenkarte –
-.vcf/.vcard (vCard 2.1, 3.0, 4.0) erscheinen als echte Karte: das
-Kontakt-Foto kreisförmig (inline Base64 oder lokale URI), sonst ein
-runder Platzhalter, darunter Name, Position/Firma und Kontaktdaten
-(→ REF TXT-VCARD-1). Zuvor 0.24.0: Nur Versions-Sync; _render_text
-reicht die Zeilennummern-Einstellung an den TextView weiter.
+STAND: Version 0.25.0 – F7-Feinschliff (Nutzer-Wunsch): Jede Visit-
+tenkarte trägt einen rechteckigen Rahmen im Cover-Eckenradius
+(F34-Formel) samt gleichem Schlagschatten; Dateien mit mehreren
+Kontakten zeigen ALLE Karten scrollbar untereinander. F7-Grundstock
+in 0.24.0: .vcf/.vcard (vCard 2.1, 3.0, 4.0) als Karte mit rundem
+Foto (inline Base64 oder lokale URI), sonst runder Platzhalter
+(→ REF TXT-VCARD-1).
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -1320,12 +1321,14 @@ class TextRendererMixin:
     def _render_vcard(self, path):
         """
         F7 (Nutzer-Wunsch): vCard als Visitenkarte – .vcf/.vcard in
-        allen gängigen Dialekten (vCard 2.1, 3.0, 4.0). Kopf der
-        Karte: rundes Foto (inline Base64 oder lokale URI, sonst der
-        gezeichnete Platzhalter-Kreis), darunter Name groß, darunter
+        allen gängigen Dialekten (vCard 2.1, 3.0, 4.0). Jede Karte
+        trägt einen rechteckigen Rahmen mit dem Eckenradius der
+        Musikcover (F34-Formel) samt gleichem Schlagschatten. Kopf
+        der Karte: rundes Foto (inline Base64 oder lokale URI, sonst
+        der gezeichnete Platzhalter-Kreis), darunter Name groß,
         Position und Firma, dann die Kontaktdaten als gewohnte
-        Tabelle. Enthält die Datei mehrere Kontakte, zeigt die
-        Vorschau den ersten.
+        Tabelle. Dateien mit mehreren Kontakten zeigen ALLE Karten
+        untereinander, scrollbar.
         """
         # → REF TXT-VCARD-1
         try:
@@ -1344,8 +1347,40 @@ class TextRendererMixin:
                        "Öffnen-Knopf betrachten.")
             self._render_generic()
             return
-        card = cards[0]
+        # Widget-Deckel: Adressbuch-Exporte tragen Tausende Kontakte –
+        # die ersten 50 Karten werden gebaut, der Rest gemeldet.
+        shown = cards[:50]
+        stack = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        stack.set_margin_start(6)
+        stack.set_margin_end(6)
+        stack.set_margin_top(6)
+        stack.set_margin_bottom(6)
+        fotos = 0
+        for card in shown:
+            widget, has_photo = self._vcard_card_widget(card)
+            if has_photo:
+                fotos += 1
+            stack.pack_start(widget, False, False, 0)
+        if len(cards) > 50:
+            rest = Gtk.Label(label="… und %d weitere Kontakte"
+                             % (len(cards) - 50))
+            rest.get_style_context().add_class("dim-label")
+            rest.set_halign(Gtk.Align.CENTER)
+            stack.pack_start(rest, False, False, 0)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.add(stack)
+        self._content.pack_start(scroll, True, True, 0)
+        dbg("Visitenkarten: %d gebaut, %d mit Foto (%d Kontakt(e) in "
+            "der Datei)" % (len(shown), fotos, len(cards)))
 
+    def _vcard_card_widget(self, card):
+        """
+        F7: EINE Visitenkarte als Widget. Der Rahmen – abgerundetes
+        Rechteck mit dem Eckenradius der Musikcover plus gleicher
+        Schlagschatten – wird im draw-Signal HINTER die Widgets
+        gezeichnet (→ _vcard_card_draw). Rückgabe: (Widget, Foto?)
+        """
         name = _vcard_display_name(card)
         title = _vcard_first(card, "TITLE")
         org = _vcard_first(card, "ORG").split(";")[0].strip()
@@ -1377,7 +1412,7 @@ class TextRendererMixin:
         note = _vcard_first(card, "NOTE")
         if note:
             rows.append(("Notiz", note.replace("\n", " ")[:120]))
-        # Widget-Deckel: Adressbuch-Exporte tragen gern Dutzende
+        # Zeilen-Deckel: Adressbuch-Exporte tragen gern Dutzende
         # Telefonnummern – nach 14 Zeilen ist Schluss mit Hinweis.
         if len(rows) > 14:
             rows = rows[:14]
@@ -1404,10 +1439,15 @@ class TextRendererMixin:
                            "contact-new-symbolic"), "avatar-default"),
                 Gtk.IconSize.DIALOG)
 
-        head = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        # Innenabstand: 8 px Luft für den Schatten (pad in
+        # _vcard_card_draw) plus 10 px Rand bis zum Kartenrand.
+        inner.set_margin_start(18)
+        inner.set_margin_end(18)
+        inner.set_margin_top(16)
+        inner.set_margin_bottom(19)
         img.set_halign(Gtk.Align.CENTER)
-        img.set_margin_top(8)
-        head.pack_start(img, False, False, 0)
+        inner.pack_start(img, False, False, 0)
         lbl = Gtk.Label()
         lbl.set_markup("<span size='x-large' weight='bold'>%s</span>"
                        % _pango_escape(name))
@@ -1415,7 +1455,7 @@ class TextRendererMixin:
         lbl.set_ellipsize(Pango.EllipsizeMode.END)
         lbl.set_max_width_chars(24)
         lbl.set_tooltip_text(name)
-        head.pack_start(lbl, False, False, 2)
+        inner.pack_start(lbl, False, False, 2)
         sub = " · ".join(x for x in (title, org) if x)
         if sub:
             slbl = Gtk.Label()
@@ -1425,16 +1465,47 @@ class TextRendererMixin:
             slbl.set_ellipsize(Pango.EllipsizeMode.END)
             slbl.set_max_width_chars(32)
             slbl.set_tooltip_text(sub)
-            head.pack_start(slbl, False, False, 0)
-        head.set_margin_bottom(8)
-        self._content.pack_start(head, False, False, 0)
-        self._meta_grid(rows)
-        if len(cards) > 1:
-            self._hint("Datei enthält %d Kontakte – die Vorschau zeigt "
-                       "den ersten." % len(cards))
-        dbg("Visitenkarte: %r – %d Eigenschaft(en), Foto: %s"
-            % (name, len(card),
-               "ja" if had_photo else "Platzhalter"))
+            inner.pack_start(slbl, False, False, 0)
+        self._meta_grid(rows, container=inner)
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        outer.connect("draw", self._vcard_card_draw)
+        outer.pack_start(inner, True, True, 0)
+        return outer, had_photo
+
+    def _vcard_card_draw(self, widget, cr):
+        """
+        F7: Hintergrund der Visitenkarte – abgerundetes Rechteck mit
+        dem Eckenradius der eingebetteten Musikcover (F34-Formel:
+        56/640 der kleineren Kante) und dem gleichen Schlagschatten
+        (F34/F35: sechs gestapelte, wachsende Kacheln). Rückgabe
+        False: GTK zeichnet die Widgets danach OBEN drauf.
+        """
+        # Rahmen und Schatten brauchen KEIN pycairo – der draw-
+        # Callback bekommt seinen Cairo-Kontext von GTK geliefert.
+        try:
+            w = widget.get_allocated_width()
+            h = widget.get_allocated_height()
+            pad = 8
+            dx = dy = 4
+            cw, ch = w - 2 * pad - 3, h - 2 * pad - 3
+            if cw < 24 or ch < 24:
+                return False
+            r = max(4.0, min(cw, ch) * 56.0 / 640.0)
+            for i in range(6, 0, -1):
+                cr.set_source_rgba(0.0, 0.0, 0.0, 0.04)
+                self._cover_round_path(cr, pad + dx - i, pad + dy - i,
+                                       cw + 2 * i, ch + 2 * i, r + i)
+                cr.fill()
+            self._cover_round_path(cr, pad, pad, cw, ch, r)
+            cr.set_source_rgb(0.972, 0.972, 0.980)
+            cr.fill_preserve()
+            cr.set_source_rgba(0.0, 0.0, 0.0, 0.10)
+            cr.set_line_width(1.0)
+            cr.stroke()
+        except Exception as e:
+            dbg("vCard-Karten-Hintergrund fehlgeschlagen (%s)" % e)
+        return False
 
     def _render_ebook(self, path, loader, fmt):
         """
@@ -1577,7 +1648,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.24.0"
+PREVIEWER_VERSION = "0.25.0"
 dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F31: "
     "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "
     "Lese-Deckel bleiben)"

@@ -6,6 +6,16 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.25.0\] – 2026-10-30
+
+### Changed (Geändert)
+
+- vCard-Feinschliff (F7, Nutzer-Wunsch): Jede Visitenkarte trägt einen  
+rechteckigen Rahmen mit dem Eckenradius der eingebetteten Musikcover  
+(F34-Formel) und dem gleichen Schlagschatten; Dateien mit mehreren  
+Kontakten zeigen jetzt ALLE Karten untereinander, scrollbar – nicht  
+mehr nur den ersten (50-Karten-Deckel mit Rest-Hinweis)
+
 ## \[0.24.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)

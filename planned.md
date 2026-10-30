@@ -377,8 +377,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Position/Firma und Kontaktdaten (Telefon, E-Mail, Web, Adresse,  
   Geburtstag) als Tabelle. **M**  
   ✅ Teil 1 in 0.24.0 – vCard-Visitenkarte umgesetzt (→ REF  
-  TXT-VCARD-1 und PAN-VCARD-1): erster Kontakt der Datei, Foto  
-  inline Base64 oder lokale URI, mehrere Kontakte als Hinweis.  
+  TXT-VCARD-1 und PAN-VCARD-1): Foto inline Base64 oder lokale URI,  
+  sonst runder Platzhalter.  
+  ✅ Teil 2 in 0.25.0 – Feinschliff (Nutzer-Wunsch): rechteckiger  
+  Karten-Rahmen im Cover-Eckenradius (F34-Formel) mit gleichem  
+  Schlagschatten; Dateien mit mehreren Kontakten zeigen ALLE  
+  Karten scrollbar untereinander (50-Karten-Deckel mit Rest-  
+  Hinweis).  
   Offen: ICS – Termine als Tabelle (wie EML-Kopf). **S**
 - [ ] **F8 – CSV als echte Tabelle** (Gtk.TreeView). **M**
 - [ ] **F9 – EXIF-Tabelle für Fotos** (Kamera, Datum, Belichtung). **M**
