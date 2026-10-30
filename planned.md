@@ -625,6 +625,23 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   gstreamer1.0-gtk3, der Eigenbau zeigte im Feld kein Bild. Später neu  
   angehen; \_playbin\_set\_uri/\_player\_bar bleiben als Bausteine.
 
+- [x] **F44 – Syntax-Hervorhebung in der Text-Vorschau** (Nutzer-Wunsch). **M**
+
+  ✅ 0.28.0: \_render\_text reicht source\_path an \_text\_view  
+  weiter – der Panel-Kern baut bei erkannter Sprache einen  
+  GtkSource.View mit GtkSource.Buffer (LanguageManager rät sie über  
+  den Dateinamen), dunkles GTK-Theme bekommt ein dunkles Schema  
+  (oblivion, ersatzweise solarized-dark), helles „classic"; die  
+  Zeilennummern (F24) bleiben Randzeichnung und nicht kopierbar.  
+  Optionales Binding gir1.2-gtksource-4 (dasselbe wie xed) – fehlt  
+  es oder bleibt die Sprache unerkannt, zeigt sich die bisherige  
+  Text-Vorschau.
+
+  ✅ 0.28.1 (Nutzer-Wunsch): Hervorhebung in den Einstellungen  
+  umschaltbar (Rubrik „Textdateien", Schlüssel  
+  text\_syntax), Default an – abgehakt zeigt sich immer der  
+  schlichte Text; der Schalter greift live über \_last\_textish.
+
 ---
 
 ## Teil 3: Nach dem ersten Release (1.0.0)
