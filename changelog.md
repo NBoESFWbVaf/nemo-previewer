@@ -6,6 +6,15 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+### Changed (Geändert)
+
+- INSTALL.md: gir1.2-gtksource-4 (Syntax-Hervorhebung in der Text-  
+Vorschau, neu seit 0.28.0) im Block der optionalen Pakete ergänzt –  
+Mint 22 bringt es über xed praktisch immer mit, Debian 13 führt  
+denselben Namen; zusätzlich der Hinweis, dass die Audio-Wiedergabe  
+(autoaudiosink) das Plugin-Set gstreamer1.0-plugins-good braucht,  
+das Mint/Cinnamon mitbringt und minimales Debian nicht
+
 ## \[0.28.1\] – 2026-10-30
 
 ### Added (Hinzugefügt)
