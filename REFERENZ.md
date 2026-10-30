@@ -448,6 +448,21 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
                     # liest die Seiten sofort, danach ist die Datei egal).
 ```
 
+### DOC-LEGACY-1 – Binäre MS-Office-Formate ohne ZIP-Anteil (F39)
+
+- **Modul:** previewer\_render\_docs.py
+- **Ort:** `_render_office_thumb`, Absicherung über `_OFFICE_LEGACY_EXTS`
+- **Anlass:** Die Übergangs-Ansicht liest aus Office-Dateien die eingebettete Miniaturansicht und den Textauszug – beides steckt nur in ZIP-Archiven (ODF/OOXML). Die alten binären Formate (.doc/.xls/.ppt) sind OLE-Compound-Dateien: zipfile scheitert, und ohne den eigenen Zweig stünde die irreführende Fehlermeldung „Office-Dokument konnte nicht geöffnet werden“ in der Vorschau. Der Zweig unterscheidet drei Fälle: Konvertierung läuft (Hinweis wartet auf das scharfe PDF), Konvertierung gescheitert (kaputte Datei, per \_office\_failed nicht endlos erneut) und LibreOffice/Poppler fehlen (Installations-Hinweis).
+
+```text
+        # Die scharfe Route ist für alle Office-Formate gleich (LibreOffice
+        # --convert-to pdf frisst auch die binären Formate), nur der
+        # Übergang bis dahin ist bei ihnen LEER: kein ZIP, keine Miniatur-
+        # ansicht, kein Textauszug. Deshalb endet der Legacy-Zweig im
+        # Hinweis statt im Fehler – und ohne LibreOffice/Poppler im
+        # Installations-Tipp statt in der Diagnose einer kaputten Datei.
+```
+
 ---
 
 ## Text (TXT)
