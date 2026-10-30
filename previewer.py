@@ -4,9 +4,9 @@
 Previewer
 =========
 
-STAND: Version 0.22.0 – F38: Bild-Vorschau in 60-%-Bereich (mittig)
-und 40-%-Info-Bereich geteilt. Am Einstieg selbst keine Änderung –
-nur Versions-Sync.
+STAND: Version 0.22.0 – F40 (Nutzer-Wunsch): Umschalt-Knopf für die
+Vorschau-Seitenleiste in Nemos Titelleiste (rechts, neben der
+Ansichtenauswahl), synchron mit Strg+Alt+P (→ REF ENT-TOGGLE-1).
 Dies ist die EINSTIEGS-Datei der acht zusammengehörigen Dateien
 (previewer.py, previewer_panel.py, previewer_select.py,
 previewer_util.py, previewer_toolbar.py, previewer_render_media.py,
@@ -40,7 +40,8 @@ Siehe INSTALL.md im Repository (Anleitung in Englisch).
 
 Bedienung
 ---------
-- Panel ein-/ausblenden: Strg+Alt+P (oder den Knopf oben rechts im Panel)
+- Panel ein-/ausblenden: Strg+Alt+P oder den Umschalt-Knopf rechts in
+  der Nemo-Titelleiste (neben der Ansichtenauswahl)
 - Trenner zwischen Dateiansicht und Panel ist verschiebbar (Gtk.Paned)
 - Play/Pause & Seek bei Audio über die Bedienelemente im Panel
 - PDF: alle Seiten untereinander, im Vorschau-Bereich scrollbar
@@ -108,6 +109,7 @@ from previewer_util import (
     dbg, diag, VERBOSE_DIAG,
     walk, type_name,
     PANEL_WIDTH, PANEL_MIN_WIDTH, POLL_MS,
+    pick_icon,
 )
 from previewer_select import (
     find_view, selection_signals, SelectionReader,
@@ -153,7 +155,65 @@ class PanelState:
         self.pos_pending = True
         self.none_dbg_at = 0
         self._a11y_dumps = 0
+        self.toggle_btn = None
         self.hpaned.connect("size-allocate", self._on_size_allocate)
+
+    def _install_toolbar_toggle(self):
+        """
+        F40 (Nutzer-Wunsch): Ein-/aus-Knopf für die Vorschau-Seiten-
+        leiste rechts in Nemos Titelleiste, neben der Ansichtenaus-
+        wahl. Der Zustand bleibt synchron: Strg+Alt+P und der Knopf
+        schalten dasselbe Panel, notify::visible zieht nach.
+        """
+        # → REF ENT-TOGGLE-1
+        # Idempotent: Die Versöhnung läuft mehrfach – ein bereits
+        # gepackter Knopf (am Fenster-Objekt gemerkt) wird nicht
+        # doppelt hinzugefügt.
+        if self.toggle_btn is not None or getattr(
+                self.window, "_previewer_toggle", None) is not None:
+            return
+        try:
+            bar = self.window.get_titlebar()
+        except Exception:
+            return
+        if not isinstance(bar, Gtk.HeaderBar):
+            dbg("Vorschau-Knopf: keine GtkHeaderBar als Titelleiste – "
+                "nur Strg+Alt+P")
+            return
+        icon = pick_icon(("view-right-pane", "sidebar-show-symbolic",
+                          "sidebar-symbolic"), "pan-end-symbolic")
+        btn = Gtk.ToggleButton()
+        btn.set_image(Gtk.Image.new_from_icon_name(icon,
+                                                   Gtk.IconSize.BUTTON))
+        btn.set_relief(Gtk.ReliefStyle.NONE)
+        btn.set_tooltip_text("Vorschau-Seitenleiste (Strg+Alt+P)")
+        btn.connect("toggled", self._on_toolbar_toggle)
+        self.toggle_btn = btn
+        bar.pack_end(btn, False, False, 0)
+        # Zustand nachziehen, wenn das Panel woanders umgeschaltet
+        # wird (Strg+Alt+P, Start-Einstellung show_at_start).
+        self.panel.connect("notify::visible", self._on_panel_visibility)
+        try:
+            self.window._previewer_toggle = btn
+        except Exception:
+            pass
+        btn.show()
+        dbg("Vorschau-Knopf in Nemos Titelleiste gesetzt (Icon: %s)"
+            % icon)
+
+    def _on_toolbar_toggle(self, btn):
+        """F40: Knopf schaltet dieselbe Route wie Strg+Alt+P."""
+        if btn.get_active():
+            self.panel.show_all()
+        else:
+            self.panel.hide()
+
+    def _on_panel_visibility(self, panel, prop):
+        """F40: Panel woanders umgeschaltet – Knopf-Zustand nachziehen."""
+        try:
+            self.toggle_btn.set_active(panel.get_visible())
+        except Exception:
+            pass
 
     def _on_size_allocate(self, paned, alloc):
         if not self.pos_pending:
@@ -460,6 +520,9 @@ def _view_ok(self, view):
             traceback.print_exc()
         _dump_a11y_once(self)
         _refresh_soon(self)
+        # F40: Knopf nachrüsten (falls die Titelleiste beim ersten
+        # Versuch noch nicht stand) – idempotent, kein Doppel-Packen.
+        self._install_toolbar_toggle()
 
 
 PanelState._view_ok = _view_ok
