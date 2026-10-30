@@ -4,12 +4,11 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.21.0 – F36 (Nutzer-Wunsch): Foto-Vorschau mit EXIF-
-Info-Tabelle (Höhe, Breite, Aufnahmedatum, Aufnahmeort, Kameramodell,
-Belichtungszeit, Brennweite mit 35-mm-Äquivalent, Blende, ISO – jede
-Zeile nur bei Verfügbarkeit). EXIF-Parser mit Python-Bordmitteln im
-Worker-Thread, Hersteller-Fallbacks über APEX-Werte. F35-Basis (Cover-
-Schatten, Genre, „Zuerst erschienen“), F34/F33/F32 unberührt.
+STAND: Version 0.22.0 – F38 (Nutzer-Wunsch): Die Bild-Spalte ist in
+einen 60-%-Bereich (Bild, vertikal und horizontal mittig) und einen
+40-%-Bereich (EXIF-/Maß-Tabelle, F36) geteilt, live an die Spalten-
+höhe gekoppelt. F36-Basis (EXIF-Parser mit APEX-Fallbacks), F35/F34/
+F33 unberührt. (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
 (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
@@ -341,20 +340,43 @@ class MediaRendererMixin:
 
     def _pack_image_capped(self, scroll):
         """
-        0.17.0 (Nutzer-Wunsch): Die Bild-Vorschau füllt höchstens
-        60 % der Spaltenhöhe (frac_h im _scaled_image-Aufruf) und wird
-        nicht expandiert gepackt – der Container hält via keep_height
-        exakt die (gekappelte) Bildhöhe. Direkt darunter sitzt ein
-        Trenner mit etwas Abstand; der Bereich unter dem Trenner ist
-        für zusätzliche Informationen reserviert (folgt später).
-        fill=True in der Breite, damit der Trenner über die ganze
-        Spaltenbreite läuft.
+        F38 (Nutzer-Wunsch): Die Spalte ist für Bild-Vorschauen in
+        einen 60-%-Bereich für das Bild (vertikal und horizontal
+        mittig) und einen 40-%-Bereich für die Bildinformationen
+        geteilt; zwischen beiden ein Trenner. Die Höhe des Bild-
+        bereichs wird live auf 60 % der Spaltenhöhe gehalten.
         """
-        self._content.pack_start(scroll, False, True, 0)
+        # → REF MED-SPLIT-1
+        top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        # Bild in beide Richtungen mittig: align schlägt fill.
+        scroll.set_halign(Gtk.Align.CENTER)
+        scroll.set_valign(Gtk.Align.CENTER)
+        top.pack_start(scroll, True, True, 0)
+        bottom = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        # F38: Info-Bereich – _meta_grid packt die Bild-Tabelle hierher.
+        self._image_info_box = bottom
+        top.set_size_request(-1,
+                             max(80, int(self._preview_height() * 0.6)))
+        top.connect("size-allocate", self._image_split_sync)
+        self._content.pack_start(top, False, False, 0)
         sep = Gtk.Separator.new(Gtk.Orientation.HORIZONTAL)
         sep.set_margin_top(8)
         sep.set_margin_bottom(8)
         self._content.pack_start(sep, False, True, 0)
+        self._content.pack_start(bottom, True, True, 0)
+
+    def _image_split_sync(self, widget, allocation):
+        """F38: Bildbereich auf 60 % der Spaltenhöhe nachziehen."""
+        # → REF MED-SPLIT-1
+        try:
+            ch = self._content.get_allocated_height()
+            if ch > 100:
+                want = max(80, int(ch * 0.6))
+                cur = widget.get_size_request()[1] or 0
+                if abs(cur - want) > 2:
+                    widget.set_size_request(-1, want)
+        except Exception:
+            pass
 
     def _render_svg(self, path):
         """SVG-Vorschau via librsvg: GdkPixbuf kann SVG nicht laden."""
@@ -378,7 +400,9 @@ class MediaRendererMixin:
                              % (pb.get_width(), pb.get_height()))
             info.get_style_context().add_class("dim-label")
             info.set_halign(Gtk.Align.START)
-            self._content.pack_start(info, False, False, 0)
+            # F38: Maße in den Info-Bereich der Spalten-Aufteilung.
+            box = getattr(self, "_image_info_box", None) or self._content
+            box.pack_start(info, False, False, 0)
         except Exception:
             pass
 
@@ -523,7 +547,8 @@ class MediaRendererMixin:
                         "Brennweite", "Blende", "ISO"):
                 if exif and key in exif:
                     rows.append((key, exif[key]))
-            self._meta_grid(rows)
+            # F38: Tabelle in den 40-%-Info-Bereich der Aufteilung.
+            self._meta_grid(rows, self._image_info_box)
         except Exception:
             pass
         # → REF MED-B7-1
@@ -1181,7 +1206,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.21.0"
+PREVIEWER_VERSION = "0.22.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)
