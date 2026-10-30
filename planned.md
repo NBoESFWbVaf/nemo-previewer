@@ -757,6 +757,22 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Nachtrag 2026-10-30) + Übergangs-Hinweise (→ REF DOC-LEGACY-1);  
   die scharfe PDF-Route (Poppler) blieb unverändert.
 
+- [x] **F40 – Nemo-Titelleiste: Vorschau-Umschalter**
+
+  (Nutzer-Wunsch 2026-10-30) Ein passendes Systemicon für den  
+  Previewer, rechts in die Ansichtenauswahl der Nemo-Toolbar – Aktion:  
+  Vorschauseitenleiste öffnen und schließen. Der Schließen-Knopf im  
+  Panel-Kopf entfällt dafür; das Öffnen-Symbol wechselt auf ein  
+  passenderes Systemicon. **M** – *Skizze:* GtkToggleButton per pack\_end  
+  in die GtkHeaderBar (Nemos Toolbar ist eine HeaderBar-Unterklasse);  
+  Icon über pick\_icon (erster im Theme vorhandener Name, GTK-Fallback);  
+  Zustand synchron über notify::visible am Panel, Aktion identisch zu  
+  Strg+Alt+P.  
+  ✅ 0.22.0 – \_install\_toolbar\_toggle in PanelState, nachgerüstet in  
+  \_view\_ok (idempotent, → REF ENT-TOGGLE-1); Öffnen-Knopf auf  
+  system-run-symbolic, Ausblenden-Knopf aus der Panel-Kopfzeile  
+  entfernt.
+
 ---
 
 ## Empfohlene Reihenfolge
