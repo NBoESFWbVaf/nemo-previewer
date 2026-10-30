@@ -211,13 +211,20 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Nutzer aber informiert – „Der Ordner enthält X Dateien, davon  
   X versteckt." Versteckte verschwinden so nicht stillschweigend aus  
   der Zählung.
-- [ ] **K2** – Kaputtes Office-ZIP zeigt nur Hinweiszeile, kein Icon:
+- [x] **K2** – Kaputtes Office-ZIP zeigt nur Hinweiszeile, kein Icon:
 
-  `_render_generic()` als Hintergrund dazu. **S**
-- [ ] **K3** – SVG: intrinsisch kleine SVGs bleiben klein (kein
+  `_render_generic()` als Hintergrund dazu. **S**  
+  ✅ 0.22.0 – \_render\_generic() packt das Datei-Icon über die  
+  Fehlermeldung – die Hinweiszeile steht nicht mehr allein im Leeren.
+- [x] **K3** – SVG: intrinsisch kleine SVGs bleiben klein (kein
 
   DPI-Rendern); `Rsvg.Handle.get_pixbuf()` ist in neuerem librsvg  
-  deprecated. **S–M**
+  deprecated. **S–M**  
+  ✅ 0.22.0 – neue \_rsvg\_cairo\_pb-Route: render\_document rendert  
+  DPI-artig auf die Panelbreite (Vektor bleibt scharf), die Höhe  
+  wird gedeckelt; das Maße-Label zeigt die intrinsische Größe.  
+  Fallback bleibt get\_pixbuf() (kein pycairo/altes librsvg) – nie  
+  schlechter als vorher (→ REF MED-SVG-DPI-1).
 - [x] **K4** – Markdown: Tabellen, Setext-Überschriften, Task-Listen,
 
   tiefe Inline-Verschachtelungen; Links mit Klammern brechen die Regex.  
@@ -746,8 +753,9 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   \_OFFICE\_EXTS aufnehmen; da binäre Formate keine ZIP-Archive sind,  
   bekommt \_render\_office\_thumb einen eigenen Zweig mit sauberen  
   Hinweisen (Konvertierung läuft / LibreOffice fehlt / gescheitert).  
-  ✅ 0.22.0 – \_OFFICE\_LEGACY\_EXTS + Übergangs-Hinweise (→ REF  
-  DOC-LEGACY-1); die scharfe PDF-Route (Poppler) blieb unverändert.
+  ✅ 0.22.0 – \_OFFICE\_NOZIP\_EXTS (binäre Formate + RTF, Nutzer-  
+  Nachtrag 2026-10-30) + Übergangs-Hinweise (→ REF DOC-LEGACY-1);  
+  die scharfe PDF-Route (Poppler) blieb unverändert.
 
 ---
 
