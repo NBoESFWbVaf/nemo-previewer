@@ -4,9 +4,9 @@
 Previewer
 =========
 
-STAND: Version 0.21.0 – F36: Foto-Vorschau mit EXIF-Info-Tabelle
-(Maße, Datum, Ort, Kamera, Belichtung, Brennweite, Blende, ISO). Am
-Einstieg selbst keine Änderung – nur Versions-Sync.
+STAND: Version 0.22.0 – F38: Bild-Vorschau in 60-%-Bereich (mittig)
+und 40-%-Info-Bereich geteilt. Am Einstieg selbst keine Änderung –
+nur Versions-Sync.
 Dies ist die EINSTIEGS-Datei der acht zusammengehörigen Dateien
 (previewer.py, previewer_panel.py, previewer_select.py,
 previewer_util.py, previewer_toolbar.py, previewer_render_media.py,
@@ -118,7 +118,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.21.0"
+PREVIEWER_VERSION = "0.22.0"
 import previewer_util
 import previewer_select
 import previewer_panel
