@@ -42,8 +42,16 @@ sudo apt install gir1.2-poppler-0.18 python3-cairo
 # Audio/video preview (GStreamer)
 sudo apt install gir1.2-gst-plugins-base-1.0
 
+# Audio output (autoaudiosink) comes from the good plugin set —
+# preinstalled on Mint/Cinnamon, optional on minimal Debian
+sudo apt install gstreamer1.0-plugins-good
+
 # SVG preview (gdk-pixbuf ships no SVG loader anymore)
 sudo apt install gir1.2-rsvg-2.0
+
+# Syntax highlighting in the text preview — same module as the xed
+# editor, practically always preinstalled on Mint via xed
+sudo apt install gir1.2-gtksource-4
 
 # Sharp office preview (ODT/ODS/ODP, DOCX/XLSX/PPTX, DOC/XLS/PPT):
 # converts documents to PDF in the background, once per document
@@ -62,8 +70,8 @@ it, extensions in `~/.local/share/nemo-python/extensions/` are
 silently ignored — the panel never appears
 - The SVG package is named `gir1.2-rsvg-2.0` on both Debian and Mint  
 (Debian has no `gir1.2-rsvg` alias). PDF (`gir1.2-poppler-0.18`),  
-`python3-cairo`, GStreamer and `libreoffice-core` carry the same  
-names on both distributions
+`python3-cairo`, GStreamer, `gir1.2-gtksource-4` and `libreoffice-core`  
+carry the same names on both distributions
 
 ## Install
 
