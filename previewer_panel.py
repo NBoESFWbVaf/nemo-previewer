@@ -4,8 +4,13 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.27.0 – F12 Teil 3/F14 (Nutzer-Wunsch): Der Seiten-
-Deckel für PDF- und Office-Dokumente ist EINSTELLBAR – conf-Schlüssel
+STAND: Version 0.28.1 – F44-Nachtrag (Nutzer-Wunsch): Syntax-Hervorhebung ist EINSTELLBAR – Schlüssel text_syntax, Rubrik „Textdateien“, Default an; ausgeschaltet oder ohne GtkSource-Binding zeigt sich immer der schlichte Text.
+F44 (0.28.0): Syntax-Hervorhebung in der Text-Vorschau – GtkSourceView
+(optionales Binding gir1.2-gtksource-4, dasselbe Modul wie xed),
+Sprache über den GtkSource-LanguageManager geraten, dunkles Theme
+bekommt ein dunkles Schema (→ REF PAN-F44-1).
+F12 Teil 3/F14 (0.27.0): Der Seiten-Deckel für PDF- und Office-
+Dokumente ist EINSTELLBAR – conf-Schlüssel
 doc_page_limit/doc_max_pages, Defaults wie bisher (Begrenzung an,
 20 Seiten); Merker _last_docview lässt Deckel-Änderungen live auf
 die aktuelle Dokument-Vorschau wirken (→ REF PAN-F12-1).
@@ -57,6 +62,15 @@ from previewer_render_docs import (
 )
 from previewer_render_text import TextRendererMixin
 from previewer_toolbar import PreviewToolbarMixin
+
+# → REF PAN-F44-1
+HAVE_GTKSOURCE = False
+try:
+    gi.require_version('GtkSource', '4')
+    from gi.repository import GtkSource
+    HAVE_GTKSOURCE = True
+except Exception:
+    pass
 
 _TEXT_EXTRAS = {
     '.py', '.sh', '.bash', '.zsh', '.js', '.ts', '.json', '.yaml', '.yml',
@@ -154,6 +168,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Default laut Nutzer-Wunsch AN, umschaltbar im Einstellungs-
         # fenster (Rubrik „Textdateien“).
         self._conf_text_linenumbers = True
+        # F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung
+        # als EINSTELLUNG – Rubrik „Textdateien“, Default an; greift
+        # live über _last_textish.
+        self._conf_text_syntax = True
         # F12 Teil 3 (0.27.0): Dokument-Deckel einstellbar – PDF- und
         # Office-Vorschauen begrenzen (Performance) oder komplett
         # anzeigen. Defaults: Begrenzung AN mit 20 Seiten – genau das
@@ -580,7 +598,52 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             pass
         return 600
 
-    def _text_view(self, text, font="9", markup=None, linenumbers=False):
+    def _source_language(self, path):
+        """
+        F44 (0.28.0): Sprache der Datei über den GtkSource-
+        LanguageManager raten (anhand des Namens). None heißt: keine
+        erkannte Sprache – dann bleibt es bei der normalen Text-
+        Vorschau.
+        """
+        try:
+            return GtkSource.LanguageManager.get_default().guess_language(
+                os.path.basename(path), None)
+        except Exception:
+            return None
+
+    def _source_scheme(self):
+        """
+        F44 (0.28.0): Farbschema ans System-Theme anpassen – dunkles
+        Theme (gtk-theme-name enthält „dark“ oder prefer-dark gesetzt)
+        bekommt ein dunkles Schema (oblivion, notfalls solarized-
+        dark), sonst das helle „classic“. Fehlt ein Kandidat, greift
+        der Widget-Default.
+        """
+        try:
+            mgr = GtkSource.StyleSchemeManager.get_default()
+            ids = set(mgr.get_scheme_ids())
+            dark = False
+            try:
+                settings = Gtk.Settings.get_default()
+                name = (settings.get_property("gtk-theme-name")
+                        or "").lower()
+                dark = ("dark" in name
+                        or bool(settings.get_property(
+                            "gtk-application-prefer-dark-theme")))
+            except Exception:
+                pass
+            if dark:
+                for sid in ("oblivion", "solarized-dark"):
+                    if sid in ids:
+                        return mgr.get_scheme(sid)
+            if "classic" in ids:
+                return mgr.get_scheme("classic")
+        except Exception:
+            pass
+        return None
+
+    def _text_view(self, text, font="9", markup=None, linenumbers=False,
+                   source_path=None):
         """
         Fertig konfigurierter TextView im ScrolledWindow, gepackt in
         self._content. font: Pango-Beschreibung; None belässt die
@@ -591,9 +654,34 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         Zeilennummern am linken Rand – nur von _render_text gesetzt
         (Textdateien und endungslose Textdateien), gerenderte
         Vorschauen (Markdown, E-Mail, E-Book, Font-Wasserfall)
-        bleiben ohne.
+        bleiben ohne. source_path (F44, 0.28.0): Datei, deren Sprache
+        GtkSourceView raten soll – wird eine Sprache erkannt, zeigt
+        sich Syntax-Hervorhebung; ohne Binding oder Sprache bleibt
+        es beim normalen TextView.
         """
-        view = Gtk.TextView()
+        # F44 (0.28.0): Quellcode hervorheben – nur wenn das GtkSource-
+        # Binding da ist, der LanguageManager eine Sprache erkennt UND
+        # die Einstellung text_syntax angeschaltet ist (0.28.1,
+        # Nutzer-Wunsch; Default an).
+        view = None
+        if (source_path is not None and HAVE_GTKSOURCE
+                and self._conf_text_syntax):
+            lang = self._source_language(source_path)
+            if lang is not None:
+                try:
+                    view = GtkSource.View()
+                    sbuf = GtkSource.Buffer()
+                    sbuf.set_language(lang)
+                    sbuf.set_style_scheme(self._source_scheme())
+                    view.set_buffer(sbuf)
+                    dbg("F44: Syntax-Hervorhebung aktiv (%s)"
+                        % lang.get_name())
+                except Exception as exc:
+                    dbg("Syntax-Hervorhebung nicht aktivierbar (%s) – "
+                        "zeige normalen Text" % exc)
+                    view = None
+        if view is None:
+            view = Gtk.TextView()
         view.set_editable(False)
         view.set_cursor_visible(False)
         view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
@@ -888,6 +976,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     "previewer", "text_line_numbers")
             except Exception:
                 pass
+            # F44-Nachtrag (0.28.1): Syntax-Hervorhebung an/aus.
+            try:
+                self._conf_text_syntax = kf.get_boolean(
+                    "previewer", "text_syntax")
+            except Exception:
+                pass
             # F12 Teil 3 (0.27.0): Dokument-Deckel (PDF/Office) –
             # Begrenzung ja/nein und maximale Seitenzahl (1–999).
             try:
@@ -929,6 +1023,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                            self._conf_show_at_start)
             kf.set_boolean("previewer", "text_line_numbers",
                            self._conf_text_linenumbers)
+            # F44-Nachtrag (0.28.1): Syntax-Hervorhebung mitspeichern.
+            kf.set_boolean("previewer", "text_syntax",
+                           self._conf_text_syntax)
             # F12 Teil 3 (0.27.0): Dokument-Deckel mitspeichern.
             kf.set_boolean("previewer", "doc_page_limit",
                            self._conf_doc_page_limit)
@@ -1013,7 +1110,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.27.0"
+PREVIEWER_VERSION = "0.28.1"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
