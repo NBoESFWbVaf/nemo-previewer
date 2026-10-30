@@ -10,6 +10,11 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Added (Hinzugefügt)
 
+- Vorschau-Umschalter in der Nemo-Titelleiste (F40, Nutzer-Wunsch):  
+Rechts neben der Ansichtenauswahl sitzt ein Knopf, der die Vorschau-  
+Seitenleiste ein- und ausblendet – das Icon wählt das Theme automatisch  
+(erster vorhandener Name), und der Zustand bleibt mit Strg+Alt+P  
+synchron
 - Alte MS-Office-Formate in der Vorschau (F39, Nutzer-Wunsch):  
 Binäre .doc-, .xls- und .ppt-Dateien sowie RTF-Dateien laufen über  
 die LibreOffice-Hintergrund-Konvertierung wie die OOXML-Formate  
@@ -33,6 +38,16 @@ für die Bildinformationen; die EXIF-/Maß-Tabelle (F36) läuft dort
 hinein, die Aufteilung bleibt beim Fenster-Resize über einen Live-  
 Nachzug erhalten. SVG-Vorschauen nutzen dieselbe Aufteilung, ihre  
 Maß-Zeile steht im Info-Bereich
+- Neues Symbol für den Öffnen-Knopf (F40, Nutzer-Wunsch): Das Öffnen  
+der Datei in der Standardanwendung trägt jetzt das Systemausfüh-  
+rungs-Symbol (system-run), nicht mehr das Dokument-Öffnen-Symbol;  
+fehlt es im Icon-Theme, greift der bisherige Name als Fallback
+
+### Removed (Entfernt)
+
+- Ausblenden-Knopf in der Panel-Kopfzeile (F40, Nutzer-Wunsch): Der  
+Schalter ist als Vorschau-Umschalter in Nemos Titelleiste aufge-  
+wacht (siehe Hinzugefügt) – Strg+Alt+P funktioniert unverändert
 
 ### Fixed (Behoben)
 
