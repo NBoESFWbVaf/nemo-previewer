@@ -1,4 +1,4 @@
-# Nemo Previewer – Planung (planned.md)
+# Nemo Previewer – Planung ([planned.md](http://planned.md))
 
 Arbeitsdatei zur systematischen Ablage. Stand der Analyse: **Version 0.4.1**,  
 2026-10-27. Abgearbeitetes wird abgehakt; erledigte Punkte wandern mit der  
@@ -737,6 +737,17 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   „Location“ (XMP/IPTC Core) und benutzerdefinierte XMP-Felder aus  
   nicht-standardisierten Namensräumen (bis 10 Zusatzzeilen) in der  
   Info-Tabelle via \_xmp\_parse.
+
+- [x] **F39 – Dokumente: alte MS-Office-Formate**
+
+  (Nutzer-Wunsch 2026-10-30) Alte binäre MS-Office-Formate (.doc,  
+  .xls, .ppt) werden nicht nur als Icon dargestellt, sondern über die  
+  LibreOffice-Konvertierung scharf gerendert. **M** – *Skizze:* in  
+  \_OFFICE\_EXTS aufnehmen; da binäre Formate keine ZIP-Archive sind,  
+  bekommt \_render\_office\_thumb einen eigenen Zweig mit sauberen  
+  Hinweisen (Konvertierung läuft / LibreOffice fehlt / gescheitert).  
+  ✅ 0.22.0 – \_OFFICE\_LEGACY\_EXTS + Übergangs-Hinweise (→ REF  
+  DOC-LEGACY-1); die scharfe PDF-Route (Poppler) blieb unverändert.
 
 ---
 
