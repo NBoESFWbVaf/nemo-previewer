@@ -4,12 +4,11 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.19.0 – F34: Cover-Rahmen im Medien-Renderer (gleiche
-Ecken wie die Platzhalter-Kachel, kleiner Schlagschatten für Musik-
-Cover). Im Panel-Kern keine Änderung – nur Versions-Sync; Bild-
-Höhenkappe (F32, Bauabschnitt 1) unverändert. Sonstiger Stand:
-Zeilennummern als
-Randzeichnung – dunkler (Alpha 0.75) und in 80 %
+STAND: Version 0.20.0 – F35: Kopfzeile ohne Dopplungen zur Nemo-Liste
+(nur noch Öffnen-/Ausblenden-Knöpfe), Info-Tabellen mit Doppelpunkt-
+Bezeichnungen (_meta_grid zentral). Medien-Renderer: Genre, Jahr als
+„Zuerst erschienen“ unter dem Album. Sonstiger Stand: Zeilennummern
+als Randzeichnung – dunkler (Alpha 0.75) und in 80 %
 der Textschriftgröße –, connect_after-Draw, Merker _last_textish
 markiert TextView-basierte Vorschauen. Schlüssel text_line_numbers,
 Rubrik „Textdateien“ im Toolbar-Modul.
@@ -22,7 +21,6 @@ sein – der Einstieg prüft das beim Laden.
 import os
 import sys
 import traceback
-from datetime import datetime
 
 import gi
 
@@ -40,8 +38,7 @@ if _HERE not in sys.path:
 from previewer_util import (
     dbg,
     PANEL_WIDTH, PANEL_MIN_WIDTH,
-    query_file_info, human_size,
-    content_type_description,
+    query_file_info,
 )
 from previewer_render_media import MediaRendererMixin, HAVE_GST
 from previewer_render_docs import (
@@ -160,30 +157,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._settings_width_label = None
         self._config_load()
 
-        # --- Kopfzeile ---
+        # --- Kopfzeile (F35: nur noch Bedienelemente – Icon, Name,
+        # Typ, Größe und Datum stehen bereits in der Nemo-Liste und
+        # wären dort Doppelungen) ---
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         header.set_border_width(6)
-
-        self._icon_image = Gtk.Image.new_from_icon_name(
-            "text-x-generic", Gtk.IconSize.DIALOG)
-        header.pack_start(self._icon_image, False, False, 0)
-
-        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        self._name_label = Gtk.Label(label="Keine Datei ausgewählt")
-        self._name_label.set_ellipsize(Pango.EllipsizeMode.END)
-        self._name_label.set_halign(Gtk.Align.START)
-        self._name_label.set_hexpand(True)
-        self._name_label.get_style_context().add_class("dim-label")
-        self._name_label.set_line_wrap(False)
-        title_box.pack_start(self._name_label, True, True, 0)
-
-        self._meta_label = Gtk.Label(label="")
-        self._meta_label.set_ellipsize(Pango.EllipsizeMode.END)
-        self._meta_label.set_halign(Gtk.Align.START)
-        self._meta_label.get_style_context().add_class("dim-label")
-        self._meta_label.set_hexpand(True)
-        title_box.pack_start(self._meta_label, True, True, 0)
-        header.pack_start(title_box, True, True, 0)
 
         # Öffnen- und Ausblenden-Knöpfe
         btn_open = Gtk.Button.new_from_icon_name(
@@ -268,10 +246,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._last_textish = False
 
     def _show_placeholder(self):
-        self._name_label.set_text("Keine Datei ausgewählt")
-        self._meta_label.set_text("")
-        self._icon_image.set_from_icon_name("edit-find-symbolic",
-                                           Gtk.IconSize.DIALOG)
+        # F35: Die frühere Kopfzeile ist entfallen – der Platzhalter-
+        # Text im Inhaltsbereich genügt als Zustandsmeldung.
         self._clear_content()
         # Nemo-Logo, mittig (horizontal und vertikal) in der Spalte
         logo = Gtk.Image()
@@ -323,29 +299,17 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._content.pack_start(extra, False, False, 0)
 
         if not path or not os.path.exists(path):
-            self._name_label.set_text(
-                self._names[0] if self._names else "?")
-            self._meta_label.set_text("(Datei nicht gefunden)")
-            self._icon_image.set_from_icon_name(
-                "dialog-warning-symbolic", Gtk.IconSize.DIALOG)
+            # F35: Der Name steht in der Nemo-Liste – übrig bleibt nur
+            # der Warnhinweis, und zwar im Inhaltsbereich.
+            self._hint("(Datei nicht gefunden)")
             return
 
         mime, size, mtime = query_file_info(path)
         is_dir = os.path.isdir(path)
 
-        # Kopfzeile füllen
-        self._name_label.set_text(os.path.basename(path))
-        self._name_label.set_tooltip_text(path)
-        meta_parts = []
-        if mime:
-            meta_parts.append(content_type_description(mime))
-        if size >= 0:
-            meta_parts.append(human_size(size))
-        if mtime > 0:
-            meta_parts.append(
-                datetime.fromtimestamp(mtime).strftime("%d.%m.%Y %H:%M"))
-        self._meta_label.set_text(" · ".join(meta_parts))
-        self._set_icon(mime, is_dir)
+        # F35: Die frühere Kopfzeilen-Füllung (Icon, Name, Typ · Größe ·
+        # Änderungsdatum) ist entfallen – die Nemo-Liste zeigt all das
+        # bereits neben der Vorschau-Spalte.
 
         uri = GLib.filename_to_uri(path)
         lower = path.lower()
@@ -405,19 +369,6 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._render_generic()
 
     # --- einzelne Renderer --------------------------------------------------
-
-    def _set_icon(self, mime, is_dir):
-        try:
-            if is_dir:
-                name = "folder"
-            else:
-                icon = Gio.content_type_get_icon(mime or "text-x-generic")
-                names = icon.get_names()
-                name = names[0] if names else "text-x-generic"
-            self._icon_image.set_from_icon_name(name, Gtk.IconSize.DIALOG)
-        except Exception:
-            self._icon_image.set_from_icon_name(
-                "text-x-generic", Gtk.IconSize.DIALOG)
 
     def _on_content_size_allocate(self, widget, allocation):
         """
@@ -721,11 +672,16 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         END-Ellipsize und Tooltip) – zentraler Helfer für E-Book-,
         EML-, Audio- und Video-Infos. 0.9.1: zuvor zusätzlich mehrfach
         identisch inline gebaut; die Inline-Kopien sind entfallen.
+        F35: Jede Bezeichnung bekommt automatisch einen Doppelpunkt
+        am Ende (falls nicht bereits vorhanden).
         """
         grid = Gtk.Grid()
         grid.set_row_spacing(2)
         grid.set_column_spacing(10)
         for i, (k, v) in enumerate(rows):
+            # F35: Bezeichnungen enden auf Doppelpunkt.
+            if not k.endswith(":"):
+                k += ":"
             kl = Gtk.Label(label=k)
             kl.set_halign(Gtk.Align.END)
             kl.get_style_context().add_class("dim-label")
@@ -947,7 +903,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.19.0"
+PREVIEWER_VERSION = "0.20.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
