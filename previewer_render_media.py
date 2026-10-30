@@ -4,11 +4,10 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.19.0 – F34 (Nutzer-Wunsch): Cover in der Audio-Vorschau
-sehen jetzt alle gleich aus: Eingebettete Cover bekommen die Rundung der
-Platzhalter-Kachel (56/640 der Kantenlänge, skaliert mit der Anzeige),
-und jeder Cover – eingebettet wie Platzhalter – trägt einen kleinen
-Schlagschatten (in Cairo geschichtet, kein Blur-Filter). F33-Tag-
+STAND: Version 0.20.0 – F35 (Nutzer-Wunsch): Cover-Schatten sitzt jetzt
+rechts und unten (dort 3 px mehr, insgesamt transparenter); Genre-Zeile
+in der Musik-Vorschau, Jahr als „Zuerst erschienen“ unter dem Album.
+F34-Basis (Cover-Rundung wie Platzhalter-Kachel), F33-Tag-
 Informationen, Bild-Vorschau (F32) sowie R1/R9/B7-Disziplinen und
 Deckel unverändert. (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
 
@@ -381,7 +380,9 @@ class MediaRendererMixin:
                 if taglist:
                     for key, gst_tag in (("title", Gst.TAG_TITLE),
                                          ("artist", Gst.TAG_ARTIST),
-                                         ("album", Gst.TAG_ALBUM)):
+                                         ("album", Gst.TAG_ALBUM),
+                                         # F35: Genre – reines String-Tag.
+                                         ("genre", Gst.TAG_GENRE)):
                         ok, val = taglist.get_string(gst_tag)
                         if ok and val:
                             tags[key] = val
@@ -649,14 +650,17 @@ class MediaRendererMixin:
             # Kantenlänge (min(w, h)), mit der Anzeige skaliert.
             r = max(2.0, min(w, h) * 56.0 / 640.0)
             pad = max(6, int(min(w, h) * 0.02))
-            ow, oh = w + 2 * pad, h + 2 * pad
+            # F35: Schatten nach rechts und unten versetzt – dort 3 px
+            # mehr Fläche – und transparenter als in F34.
+            dx = max(2, pad // 2)
             dy = max(2, pad // 2)
+            ow, oh = w + 2 * pad + 3, h + 2 * pad + 3
             surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, ow, oh)
             cr = cairo.Context(surf)
             # Schatten: sechs gestapelte, nach außen wachsende Kacheln.
             for i in range(6, 0, -1):
-                cr.set_source_rgba(0.0, 0.0, 0.0, 0.055)
-                self._cover_round_path(cr, pad - i, pad + dy - i,
+                cr.set_source_rgba(0.0, 0.0, 0.0, 0.04)
+                self._cover_round_path(cr, pad + dx - i, pad + dy - i,
                                        w + 2 * i, h + 2 * i, r + i)
                 cr.fill()
             # Kachel: Ecken-Beschneidung, dann das Cover hinein.
@@ -711,24 +715,25 @@ class MediaRendererMixin:
             rows.append(("Länge", format_seconds(duration)))
         _num_row("Titelnummer", tags.get("track"),
                  tags.get("track_total"))
-        # F33: Jahr zur Veröffentlichung in die Album-Zeile; fehlt das
-        # Album, steht das Jahr allein. Original vor Datums-Jahr.
-        if "album" in tags and tags.get("year"):
-            rows.append(("Album", "%s (%d)" % (tags["album"],
-                                               tags["year"])))
-        elif "album" in tags:
+        # F35: Jahr als eigene Zeile UNTER dem Album – Bezeichnung
+        # „Zuerst erschienen“ (Basis: F33-Jahresermittlung).
+        if "album" in tags:
             rows.append(("Album", tags["album"]))
-        elif tags.get("year"):
-            rows.append(("Jahr", str(tags["year"])))
+        if tags.get("year"):
+            rows.append(("Zuerst erschienen", str(tags["year"])))
         if "album_artist" in tags:
             rows.append(("Albuminterpret", tags["album_artist"]))
         _num_row("CD-Nummer", tags.get("disc"),
                  tags.get("disc_total"))
         if "codec" in tags:
             rows.append(("Codec", tags["codec"]))
+        # F35: Genre – nur die Zeile zeigen, wenn das Tag existiert.
+        if "genre" in tags:
+            rows.append(("Genre", tags["genre"]))
 
         # 0.9.1: Info-Tabelle über den zentralen Helfer (zuvor inline
-        # identisch gebaut – jetzt wie EML/E-Book einheitlich).
+        # identisch gebaut – jetzt wie EML/E-Book einheitlich). F35:
+        # Doppelpunkte an den Bezeichnungen setzt _meta_grid zentral.
         self._meta_grid(rows)
 
     def _playbin_set_uri(self, uri):
@@ -965,7 +970,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.19.0"
+PREVIEWER_VERSION = "0.20.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)
