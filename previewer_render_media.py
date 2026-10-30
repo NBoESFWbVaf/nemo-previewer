@@ -8,11 +8,11 @@ STAND: Version 0.22.0 – F38 (Nutzer-Wunsch): Die Bild-Spalte ist in
 einen 60-%-Bereich (Bild, vertikal und horizontal mittig) und einen
 40-%-Bereich (Info-Tabelle) geteilt, live an die Spaltenhöhe gekop-
 pelt; Streifen-Fix (Mittig-Zentrierung am Bild statt am Scrolled-
-Window, siehe MED-SPLIT-1) und XMP-Ergänzung: „Location“ (IPTC Core) plus benutzer-
-definierte XMP-Felder in der Tabelle. F36-Basis (EXIF-Parser mit
-APEX-Fallbacks), F35/F34/F33 unberührt. (0.15.0/F31: aus dem
-Panel-Kern hierher gezogen.)
-(0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
+Window, siehe MED-SPLIT-1) und XMP-Ergänzung: „Location“ (IPTC
+Core) plus benutzerdefinierte XMP-Felder in der Tabelle. K3: SVG
+über die Cairo-Route DPI-artig auf Panelbreite gerendert (→ REF
+MED-SVG-DPI-1). F36-Basis (EXIF-Parser mit APEX-Fallbacks), F35/
+F34/F33 unberührt. (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -76,6 +76,16 @@ try:
     gi.require_version('PangoCairo', '1.0')
     from gi.repository import PangoCairo
     HAVE_PANGOCAIRO = True
+except Exception:
+    pass
+
+# K3: Cairo allein genügt für die SVG-DPI-Route (siehe _rsvg_cairo_pb):
+# render_document ersetzt das in neuerem librsvg deprecated
+# get_pixbuf() und rendert zusätzlich beliebig groß.
+HAVE_CAIRO = False
+try:
+    import cairo  # pycairo
+    HAVE_CAIRO = True
 except Exception:
     pass
 
@@ -477,26 +487,89 @@ class MediaRendererMixin:
         except Exception:
             pass
 
+    def _rsvg_cairo_pb(self, handle):
+        """
+        K3 (2026-10-30): SVG über die Cairo-Route (render_document)
+        DPI-artig auf die Panelbreite gerendert – intrinsisch kleine
+        SVGs blieben bisher winzig, und get_pixbuf() ist in neuerem
+        librsvg deprecated. Zurück kommt (Pixbuf, (Breite, Höhe)) in
+        INTRINSISCHEN Pixeln oder None – der Aufrufer fällt dann auf
+        den bisherigen get_pixbuf()-Pfad zurück.
+        """
+        # → REF MED-SVG-DPI-1
+        if not HAVE_CAIRO:
+            return None
+        try:
+            dim = handle.get_intrinsic_size_in_pixels()
+            if not dim:
+                return None
+            w, h = float(dim[0]), float(dim[1])
+            if w <= 0 or h <= 0:
+                return None
+            # K3: Ziel ist die Panelbreite (kleine SVGs wachsen scharf
+            # mit, Vektor statt Raster-Upcast), Höhe gedeckelt.
+            f = float(self._preview_width()) / w
+            if h * f > MAX_IMAGE_HEIGHT:
+                f = float(MAX_IMAGE_HEIGHT) / h
+            if f <= 0:
+                return None
+            tw = max(1, int(w * f))
+            th = max(1, int(h * f))
+            surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, tw, th)
+            ctx = cairo.Context(surface)
+            handle.render_document(ctx, Rsvg.Rectangle(
+                x=0.0, y=0.0, width=float(tw), height=float(th)))
+            pb = Gdk.pixbuf_get_from_surface(surface, 0, 0, tw, th)
+            if pb is None:
+                return None
+            return pb, (int(w), int(h))
+        except Exception:
+            return None
+
     def _render_svg(self, path):
-        """SVG-Vorschau via librsvg: GdkPixbuf kann SVG nicht laden."""
+        """
+        SVG-Vorschau via librsvg: GdkPixbuf kann SVG nicht laden.
+        K3 (2026-10-30): Bevorzugt die Cairo-Route (_rsvg_cairo_pb –
+        DPI-artig auf Panelbreite, render_document statt des dep-
+        recated get_pixbuf()); scheitert sie (kein pycairo, altes
+        librsvg, keine intrinsische Größe), greift der alte Pfad.
+        Das Maße-Label zeigt die INTRINSISCHE Größe.
+        """
         if not HAVE_RSVG:
             self._hint("SVG-Vorschau nicht verfügbar – "
                        "Paket gir1.2-rsvg installieren.")
             self._render_generic()
             return
+        handle = None
+        pb = None
+        dims = None
+        err = None
         try:
             handle = Rsvg.Handle.new_from_file(path)
-            pb = handle.get_pixbuf()
         except Exception as e:
-            self._hint("Konnte SVG nicht lesen: %s" % e)
+            err = e
+        if handle is not None:
+            got = self._rsvg_cairo_pb(handle)
+            if got is not None:
+                pb, dims = got
+            else:
+                # K3-Fallback: der bisherige, in neuerem librsvg
+                # deprecated Pfad – funktioniert bis dahin.
+                try:
+                    pb = handle.get_pixbuf()
+                except Exception as e:
+                    err = err or e
+        if pb is None:
+            self._hint("Konnte SVG nicht lesen: %s" % err)
             self._render_generic()
             return
         scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False,
                                     keep_height=True, frac_h=0.6)
         self._pack_image_capped(scroll)
         try:
-            info = Gtk.Label(label="%d × %d px"
-                             % (pb.get_width(), pb.get_height()))
+            if dims is None:
+                dims = (pb.get_width(), pb.get_height())
+            info = Gtk.Label(label="%d × %d px" % dims)
             info.get_style_context().add_class("dim-label")
             info.set_halign(Gtk.Align.START)
             # F38: Maße in den Info-Bereich der Spalten-Aufteilung.
