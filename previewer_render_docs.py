@@ -4,7 +4,7 @@
 Previewer – Renderer-Modul Dokumente (previewer_render_docs.py)
 ===============================================================
 
-STAND: Version 0.19.0 – F34: Keine Änderungen an den Dokument-
+STAND: Version 0.20.0 – F35: Keine Änderungen an den Dokument-
 Renderern – nur Versions-Sync. (0.15.0/F31: aus dem Panel-Kern
 hierher gezogen; Lese- und Decode-Deckel 0.9.2 unverändert.)
 
@@ -510,7 +510,7 @@ class DocsRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.19.0"
+PREVIEWER_VERSION = "0.20.0"
 dbg("previewer_render_docs %s geladen (F31: PDF-/Office-Renderer; "
     "Lese-Deckel und LibreOffice-Cache bleiben)"
     % PREVIEWER_VERSION)
