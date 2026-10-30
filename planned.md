@@ -776,6 +776,18 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   document-edit-symbolic (Stift), Ausblenden-Knopf aus der Panel-  
   kopfzeile entfernt.
 
+- [x] **F41 – HEIC: Foto-Informationen**
+
+  (Nutzer-Meldung 2026-10-30) Aus HEIC-Bildern wurden keine Informa-  
+  tionen angezeigt – EXIF steckt dort als „Exif“-Item ohne JPEG-  
+  APP1-Vorspann im Meta-Container. **M** – *Skizze:* \_exif\_find\_tiff  
+  sucht die TIFF-Kopfmuster II\*/MM\* direkt in den ersten 4 MB und  
+  validiert jeden Fund als IFD0-Struktur; der erste gültige Kopf  
+  gewinnt, die JPEG-Route (APP1-Marker) bleibt unverändert.  
+  ✅ 0.22.0 – \_exif\_parse ruft ohne APP1-Marker \_exif\_find\_tiff auf  
+  (→ REF MED-EXIF-3); auch Plain-TIFF läuft nun über die validierte  
+  Route.
+
 ---
 
 ## Empfohlene Reihenfolge

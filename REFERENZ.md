@@ -365,6 +365,23 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # (SVG, PNG ohne eXIf) bleibt die Tabelle bei Höhe/Breite.
 ```
 
+### MED-EXIF-3 – TIFF-Kopf-Direktsuche für HEIC/HEIF (F41)
+
+- **Modul:** previewer\_render\_media.py
+- **Ort:** `_exif_find_tiff`, aufgerufen aus `_exif_parse` (Fallback ohne APP1-Marker)
+- **Anlass:** Nutzer-Meldung: HEIC-Bilder zeigten keine Foto-Informationen. Ursache: Der Parser kannte nur den JPEG-APP1-Vorspann („Exif“ + zwei Null-Bytes) bzw. den TIFF-Kopf ab Byte 0. HEIC/HEIF speichert EXIF aber als „Exif“-Item im Meta-Container – dessen Daten beginnen direkt mit dem II\*/MM\*-Kopf, ohne Vorspann, irgendwo in den ersten Megabytes. \_exif\_find\_tiff sucht deshalb die beiden Kopf-Muster (im Quellcode bewusst ohne Byte-Escapes: bytes(\[0\]) statt Null-Byte-Literal) in einem 4-MB-Fenster und validiert jeden Fund als IFD0-Struktur (Offset ≥ 8, Eintragszahl 1–4096, kompletter erster IFD im Puffer) – der erste gültige Kopf gewinnt. Die Route fängt zusätzlich die Box-Konvention (Exif-Kasten vor dem Kopf – das Muster bleibt auffindbar) und Plain-TIFF ab; ein missglückter Fund (−1) läuft über den leeren head-Check sauber ins leere Ergebnis. Die APP1-Route für JPEG bleibt unverändert, inkl. Padding-Überspringung.
+
+```text
+        # Die Muster-Validierung ist der Rettungsanker gegen Zufalls-
+        # treffer in Bild- oder Box-Daten: Ein II*/MM*-Muster allein
+        # ist in komprimierten Bytes kein Wunder – aber zusätzlich
+        # einen plausiblen IFD0-Offset UND eine Eintragszahl zwischen
+        # 1 und 4096 UND einen kompletten ersten IFD im Puffer zu
+        # fälschen, ist praktisch ausgeschlossen. Das 4-MB-Fenster
+        # reicht, weil das Exif-Item in HEIC nahe am Dateianfang
+        # liegt (Meta-Box vor der Mdat).
+```
+
 ### MED-XMP-1 – XMP: Location und benutzerdefinierte Felder (F38)
 
 - **Modul:** previewer\_render\_media.py

@@ -11,7 +11,9 @@ pelt; Streifen-Fix (Mittig-Zentrierung am Bild statt am Scrolled-
 Window, siehe MED-SPLIT-1) und XMP-Ergänzung: „Location“ (IPTC
 Core) plus benutzerdefinierte XMP-Felder in der Tabelle. K3: SVG
 über die Cairo-Route DPI-artig auf Panelbreite gerendert (→ REF
-MED-SVG-DPI-1). F36-Basis (EXIF-Parser mit APEX-Fallbacks), F35/
+MED-SVG-DPI-1). F41 (Nutzer-Meldung): HEIC/HEIF-EXIF – ohne APP1-
+Marker sucht _exif_find_tiff den TIFF-Kopf direkt (→ REF
+MED-EXIF-3). F36-Basis (EXIF-Parser mit APEX-Fallbacks), F35/
 F34/F33 unberührt. (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
@@ -323,6 +325,37 @@ def _xmp_parse(data):
     return out
 
 
+def _exif_find_tiff(data):
+    """
+    F41 (Nutzer-Meldung): TIFF-Kopf in Bytes OHNE den JPEG-APP1-
+    Vorspann suchen. HEIC/HEIF speichert EXIF als „Exif“-Item im
+    Meta-Container, dessen Daten direkt mit dem II*/MM*-Kopf
+    beginnen (Plain-TIFF trägt ihn ab Byte 0 und läuft über diesel-
+    be Route). Der erste Kopf mit gültiger IFD0-Struktur gewinnt –
+    ein zufälliges Kopf-Muster in Bild- oder Box-Daten, das zusätz-
+    lich die Struktur-Prüfungen besteht, ist praktisch ausge-
+    schlossen.
+    """
+    # → REF MED-EXIF-3
+    win = data[:4194304]   # Exif-Item sitzt in HEIC nahe am Anfang
+    nul = bytes([0])
+    for pat, bo in ((b"II*" + nul, "<"), (b"MM" + nul + b"*", ">")):
+        base = win.find(pat)
+        while base >= 0:
+            try:
+                off = struct.unpack_from(bo + "I", win, base + 4)[0]
+                if off >= 8:
+                    cnt = struct.unpack_from(bo + "H", win,
+                                             base + off)[0]
+                    if (cnt and cnt <= 4096 and
+                            base + off + 2 + cnt * 12 <= len(win)):
+                        return base
+            except Exception:
+                pass
+            base = win.find(pat, base + 1)
+    return -1
+
+
 def _exif_parse(data):
     """
     F36: EXIF-Kerninformationen aus JPEG-/TIFF-Bytes – mit
@@ -335,7 +368,10 @@ def _exif_parse(data):
     out = {}
     try:
         pos = data.find(b"Exif\x00\x00", 0, 262144)
-        base = pos + 6 if pos >= 0 else 0
+        # F41 (Nutzer-Meldung): Ohne APP1-Marker TIFF-Kopf direkt
+        # suchen – HEIC/HEIF (Exif-Item ohne Vorspann) und Plain-TIFF
+        # kamen bislang leer zurück; -1 fängt head unten ab.
+        base = pos + 6 if pos >= 0 else _exif_find_tiff(data)
         # F36: Puffer zwischen Marker und TIFF-Kopf überlesen (0x00/
         # 0x20-Padding, teils Samsung/Olympus) – der Kopf folgt erst.
         stop = base + 16

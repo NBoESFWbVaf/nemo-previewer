@@ -48,11 +48,17 @@ im Icon-Theme, greift der bisherige Name als Fallback
 ### Removed (Entfernt)
 
 - Ausblenden-Knopf in der Panel-Kopfzeile (F40, Nutzer-Wunsch): Der  
-Schalter ist als Vorschau-Umschalter in Nemos Titelleiste aufge-  
-wacht (siehe Hinzugefügt) – Strg+Alt+P funktioniert unverändert
+Schalter ist als Vorschau-Umschalter in Nemos Werkzeugleiste  
+gewandert (siehe Hinzugefügt) – Strg+Alt+P funktioniert unverändert
 
 ### Fixed (Behoben)
 
+- Foto-Informationen aus HEIC/HEIF (F41, Nutzer-Meldung): Das EXIF  
+liegt dort als „Exif“-Item im Meta-Container – ohne den JPEG-  
+APP1-Vorspann, mit dem TIFF-Kopf direkt in den Bytes. Der Parser  
+sucht den Kopf jetzt auch auf diesem Weg (mit IFD0-Struktur-  
+Validierung) und zeigt aus HEIC ebenfalls Aufnahmedatum, Kamera  
+&amp; Co.  
 - Kaputte Office-Dateien zeigen ein Icon (K2): Statt einer nackten  
 Hinweiszeile sitzt die generische Icon-Ansicht als visueller Anker  
 über der Fehlermeldung  
