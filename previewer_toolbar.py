@@ -4,12 +4,11 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.27.0 – F12 Teil 3 (Nutzer-Wunsch): Neue Rubrik
-„Dokumente“ – Vorschauseiten von PDF- und Office-Dokumenten begrenzen
-(Performance) oder unbegrenzt anzeigen, maximale Seitenzahl 1–999 frei
-wählbar; Änderungen speichern sofort und wirken live über den Merker
-_last_docview. Die ActionBar (F19), Strg+Alt+P und der 0.15.0-Stand
-(F29: Mixin-Modul) bleiben unverändert.
+STAND: Version 0.28.1 – F44-Nachtrag (Nutzer-Wunsch): Umschalter
+„Syntax-Hervorhebung“ in der Rubrik „Textdateien“ (Default an),
+greift live über _last_textish. Die Rubrik „Dokumente“ (F12 Teil 3),
+die ActionBar (F19), Strg+Alt+P und der 0.15.0-Stand (F29: Mixin-
+Modul) bleiben unverändert.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -169,6 +168,17 @@ class PreviewToolbarMixin:
         ln.set_active(self._conf_text_linenumbers)
         ln.connect("toggled", self._on_linenumbers_toggled)
         tfbox.pack_start(ln, False, False, 0)
+        # F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung
+        # als Schalter – Default an, sofort speichern und live wirken.
+        syn = Gtk.CheckButton(
+            label="Syntax-Hervorhebung in Quellcode-Dateien")
+        syn.set_tooltip_text(
+            "Quellcode (.py, .sh, .c …) in der Text-Vorschau einfärben – "
+            "braucht das optionale Paket gir1.2-gtksource-4; abgehakt "
+            "zeigt sich immer der schlichte Text.")
+        syn.set_active(self._conf_text_syntax)
+        syn.connect("toggled", self._on_syntax_toggled)
+        tfbox.pack_start(syn, False, False, 0)
         box.pack_start(tframe, False, False, 0)
 
         # --- F12 Teil 3 (0.27.0): Rubrik „Dokumente“ (PDF/Office) ----
@@ -242,6 +252,18 @@ class PreviewToolbarMixin:
         unberührt und werden nicht neu gerendert.
         """
         self._conf_text_linenumbers = chk.get_active()
+        self._config_save()
+        if self._last_textish and self._path:
+            self._render()
+
+    def _on_syntax_toggled(self, chk):
+        """
+        F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung
+        sofort speichern und live anwenden – derselbe Mechanismus wie
+        beim Zeilennummern-Toggle: nur TextView-basierte Vorschauen
+        bauen sich neu auf, alles andere bleibt unberührt.
+        """
+        self._conf_text_syntax = chk.get_active()
         self._config_save()
         if self._last_textish and self._path:
             self._render()
@@ -327,7 +349,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.27.0"
+PREVIEWER_VERSION = "0.28.1"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)
