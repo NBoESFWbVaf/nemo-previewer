@@ -709,6 +709,29 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Renderer; Höhe/Breite immer, EXIF-Zeilen nur bei vorhandenen Tags;  
   ohne EXIF (z. B. SVG) bleibt die Tabelle bei den Maßen.
 
+- [ ] **F37 – Bild: Karten-Link für Aufnahmeort**
+
+  (Nutzer-Wunsch 2026-10-30) Bilder mit GPS-Standort bekommen einen  
+  Link, der den Aufnahmeort in OpenStreetMap, Google Maps oder der  
+  integrierten Kartenanwendung anzeigt; welcher Kartendienst genutzt  
+  wird, ist über die Einstellungen wählbar. **M** – *Skizze:* Link-  
+  Button mit URI je Dienst (OSM bbox mit Marker, Google q=LAT,LON,  
+  App geo:LAT,LON); Auswahlfeld map\_service im Einstellungs-Fenster  
+  des Toolbar-Moduls, Default OpenStreetMap.
+
+- [x] **F38 – Bild: Spalten-Aufteilung 60/40**
+
+  (Nutzer-Wunsch 2026-10-30) Die Spalte teilt sich in 60 % Bild-Vorschau  
+  (vertikal und horizontal mittig) und 40 % Bildinformationen. **M** –  
+  *Skizze:* \_pack\_image\_capped packt Bild und Info-Box mit Trenner;  
+  der Bildbereich hält 60 % der Spaltenhöhe als Request, size-allocate  
+  zieht live nach; Mittig via halign/valign CENTER, Tabelle via  
+  \_meta\_grid mit container-Parameter.  
+  ✅ 0.22.0 – top/bottom-Boxen mit Trenner, \_image\_split\_sync  
+  (Nachzug nur bei Änderung &gt; 2 px, kein Loop); \_image\_info\_box in  
+  \_\_init\_\_ und \_clear\_content gepflegt; SVG-Maße ebenfalls im  
+  Info-Bereich.
+
 ---
 
 ## Empfohlene Reihenfolge
