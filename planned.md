@@ -1,4 +1,4 @@
-# Nemo Previewer – Planung (planned.md)
+# Nemo Previewer – Planung ([planned.md](http://planned.md))
 
 Arbeitsdatei zur systematischen Ablage. Stand der Analyse: **Version 0.4.1**,  
 2026-10-27. Abgearbeitetes wird abgehakt; erledigte Punkte wandern mit der  
@@ -694,6 +694,20 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Genre-Zeile nur bei vorhandenem Tag; \_meta\_grid hängt „:“ an;  
   Kopfzeile trägt nur noch Öffnen-/Ausblenden-Knöpfe, der  
   Nicht-gefunden-Hinweis steht im Inhaltsbereich.
+
+- [x] **F36 – Bild: EXIF-Info-Tabelle**
+
+  (Nutzer-Wunsch 2026-10-30) Foto-Vorschau zeigt — sofern vorhanden —  
+  Höhe, Breite, Aufnahmedatum, Aufnahmeort, Kameramodell, Belichtungs-  
+  zeit, Zoom (als Brennweite + 35-mm-Äquivalent), Blende und ISO-Wert;  
+  herstellerspezifische Unterschiede beachten. **M** – *Skizze:*  
+  Bordmittel-Parser (JPEG-APP1/TIFF, IFD0/ExifIFD/GPSIFD, Bomben-  
+  deckel) im Worker-Thread; APEX-Fallbacks für Belichtung/Blende,  
+  Datums-Kaskade, GPS in Dezimalgrade; Tabelle über \_meta\_grid,  
+  das Maße-Label geht darin auf.  
+  ✅ 0.21.0 – \_exif\_parse/\_exif\_read\_ifd/\_exif\_dms im Medien-  
+  Renderer; Höhe/Breite immer, EXIF-Zeilen nur bei vorhandenen Tags;  
+  ohne EXIF (z. B. SVG) bleibt die Tabelle bei den Maßen.
 
 ---
 
