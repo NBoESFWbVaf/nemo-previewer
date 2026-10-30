@@ -309,6 +309,36 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # ungerahmt, die Vorschau läuft.
 ```
 
+### MED-EXIF-1 – TIFF-IFD-Laufwerk mit Bomben-Deckel (F36)
+
+- **Modul:** previewer\_render\_media.py
+- **Ort:** `_exif_read_ifd`, aufgerufen aus `_exif_parse`
+- **Anlass:** EXIF ist ein TIFF-IFD-Geflecht: Werte stehen inline (bis 4 Bytes) oder hinter einem Offset, und die Spezial-Zeiger ExifIFD (0x8769) und GPSIFD (0x8825) hängen weitere IFDs an. Präparierte Dateien könnten mit Riesen-Eintragszahlen oder Zeigern ins Leere den Parser schikanieren – deshalb Eintrags-Deckel (512), Offset-Validierung gegen die Dateilänge und Rekursions-Tiefe 2 (B7, gleiche Disziplin wie der Dekodier-Deckel 0.9.2).
+
+```text
+        # Jeder IFD-Eintrag ist 12 Bytes: Tag, Typ, Anzahl, Wert oder
+        # Offset. Alles defensiv: Eintragszahl gedeckelt, Offsets
+        # gegen die Dateilänge geprüft, Zeiger-IFDs (ExifIFD/GPSIFD)
+        # nur zwei Ebenen tief – ein kaputtes Tag darf nie den Parser
+        # in die Knie zwingen, das Bild wird ja trotzdem gezeigt.
+```
+
+### MED-EXIF-2 – EXIF mit Bordmitteln und Hersteller-Fallbacks (F36)
+
+- **Modul:** previewer\_render\_media.py
+- **Ort:** `_exif_parse`, aufgerufen im Worker von `_render_image`
+- **Anlass:** Die gewünschten Felder sind Standard-EXIF, aber Hersteller füllen sie unterschiedlich: Belichtungszeit/Blende teils nur als APEX-Wert (ShutterSpeedValue/ApertureValue), das echte Datum teils nur als DateTimeDigitized statt DateTimeOriginal, das Kameramodell mit Hersteller-Dopplung („Canon Canon EOS …“), der Aufnahmeort als GPS-Gradminuten, teils auch Padding zwischen Exif-Marker und TIFF-Kopf (Samsung/Olympus). Der Parser liest JPEG-APP1- und TIFF-Köpfe mit Python-Bordmitteln (keine neue Pflicht-Abhängigkeit, passend zum Optional-Modul-Muster des Projekts) und formatiert jeden Wert erst nach seinen Fallbacks – fehlt alles, bleibt die Zeile weg („sofern vorhanden“).
+
+```text
+        # Reihenfolge bewusst: Der Direktwert gewinnt, der APEX-Wert
+        # ist der herstellerspezifische Zweitweg (t = 2^-av,
+        # N = 2^(av/2)), das Datum läuft als Kaskade Original →
+        # Digitalisiert → Datei-Datum. GPS wird aus Grad/Minuten/
+        # Sekunden in Dezimalgrade umgerechnet, die Referenz-Buch-
+        # staben (N/S, E/W) liefert das jeweilige GPS-Tag. Ohne EXIF
+        # (SVG, PNG ohne eXIf) bleibt die Tabelle bei Höhe/Breite.
+```
+
 ---
 
 ## Dokumente (DOC)
