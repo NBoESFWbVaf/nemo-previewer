@@ -352,10 +352,10 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
 
 - **Modul:** previewer\_render\_media.py
 - **Ort:** `_cover_shadowed` (Helfer `_cover_round_path`), aufgerufen aus `_finish_audio`
-- **Anlass:** Cairo hat keinen Blur-Filter. Der Schatten entsteht deshalb aus sechs gestapelten, nach außen wachsenden Kacheln à 4 % Deckkraft (F35: nach rechts und unten versetzt, dort 3 px mehr Raum – Kern ≈ 22 %, weicher Saum). Der Radius folgt der Platzhalter-Kachel (56/640 der Kantenlänge), damit eingebettete Cover und Platzhalter deckungsgleich aussehen und beides mit der Live-Skalierung mitwächst.
+- **Anlass:** Cairo hat keinen Blur-Filter. Der Schatten entsteht deshalb aus sechs gestapelten, nach außen wachsenden Kacheln à 4 % Deckkraft (F35: nach rechts und unten versetzt, dort 3 px mehr Raum – Kern ≈ 22 %, weicher Saum). Der Radius folgt der Platzhalter-Kachel (0.25.1, Nutzer-Wunsch: 56/960 der Kantenlänge – um ein Drittel dezenter als F34s 56/640), damit eingebettete Cover und Platzhalter deckungsgleich aussehen und beides mit der Live-Skalierung mitwächst.
 
 ```text
-        # F34/F35: Gleiche Rundung wie die Platzhalter-Kachel: 56/640
+        # F34/F35: Gleiche Rundung wie die Platzhalter-Kachel: 56/960
         # der Kantenlänge (min(w, h), damit Hochformat nicht über-
         # dreht), skaliert mit, weil das gepaddete Pixbuf durch
         # dieselbe Live-Skalierung geht. Cairo kennt keinen Blur – der
@@ -637,7 +637,7 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
 
 - **Modul:** previewer\_render\_text.py
 - **Ort:** `_render_vcard`, \_vcard\_card\_widget und \_vcard\_card\_draw samt Parse-Helfern (\_vcard\_unfold bis \_vcard\_placeholder, \_vcard\_circle)
-- **Anlass:** Nutzer-Wunsch: Alle gängigen Visitenkartenformate als Karte rendern – Kontakt-Foto kreisförmig, sonst ein kreisförmiger Platzhalter. Feinschliff 0.25.0 (Nutzer-Wunsch): Jede Karte trägt einen rechteckigen Rahmen mit dem Eckenradius der Musikcover (F34-Formel 56/640 der kleineren Kante) samt gleichem Schlagschatten (F34/F35) – gezeichnet im draw-Signal HINTER die Widgets (Rundungspfad via \_cover\_round\_path aus dem Media-Modul); Dateien mit mehreren Kontakten zeigen alle Karten untereinander scrollbar in einem ScrolledWindow (50-Karten-Deckel mit Rest-Hinweis). Parsing mit Bordmitteln (RFC-6350-Folding, 2.1-Quoted-Printable, Nackt-Parameter, Gruppenpräfix); Fotos nur inline Base64 oder lokale URI – Netz-URIs bleiben unbefragt, es greift der Platzhalter. Ohne pycairo bleibt das Foto eckig und der Platzhalter ein Theme-Icon; der Karten-Rahmen läuft ohne, der draw-Callback bekommt seinen Cairo-Kontext von GTK.
+- **Anlass:** Nutzer-Wunsch: Alle gängigen Visitenkartenformate als Karte rendern – Kontakt-Foto kreisförmig, sonst ein kreisförmiger Platzhalter. Feinschliff 0.25.0 (Nutzer-Wunsch): Jede Karte trägt einen rechteckigen Rahmen mit dem Eckenradius der Musikcover samt gleichem Schlagschatten (F34/F35) – gezeichnet im draw-Signal HINTER die Widgets (Rundungspfad via \_cover\_round\_path aus dem Media-Modul); Dateien mit mehreren Kontakten zeigen alle Karten untereinander scrollbar in einem ScrolledWindow (50-Karten-Deckel mit Rest-Hinweis). Dezenz 0.25.1 (Nutzer-Wunsch): KEINE Füllung – die Karte bleibt transparent (weißer Grund schmerzt im Darkmode), Schatten und Haarlinien-Rand bleiben; Eckenradius um ein Drittel dezenter (56/960 statt 56/640 der kleineren Kante). Parsing mit Bordmitteln (RFC-6350-Folding, 2.1-Quoted-Printable, Nackt-Parameter, Gruppenpräfix); Fotos nur inline Base64 oder lokale URI – Netz-URIs bleiben unbefragt, es greift der Platzhalter. Ohne pycairo bleibt das Foto eckig und der Platzhalter ein Theme-Icon; der Karten-Rahmen läuft ohne, der draw-Callback bekommt seinen Cairo-Kontext von GTK.
 
 ```text
         # Lese-Deckel: Kontakt-Fotos liegen als Base64 IN der

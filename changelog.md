@@ -6,6 +6,18 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.25.1\] – 2026-10-30
+
+### Changed (Geändert)
+
+- Visitenkarten ohne Karten-Hintergrund (F7, Nutzer-Wunsch): Der  
+Karten-Rahmen bleibt transparent – im Darkmode schmerzt eine  
+weiße Kachel in den Augen; Schatten und Haarlinien-Rand bleiben  
+- Dezenterer Eckenradius (Nutzer-Wunsch): Um ein Drittel reduziert –  
+Visitenkarten wie Musikcover (Platzhalter-Kachel und Cover-Rahmen  
+mit Schatten) runden jetzt mit 56/960 statt 56/640 der kleineren  
+Kante
+
 ## \[0.25.0\] – 2026-10-30
 
 ### Changed (Geändert)

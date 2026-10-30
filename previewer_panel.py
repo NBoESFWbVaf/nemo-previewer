@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.25.0 – F7 (Nutzer-Wunsch): vCard-Dateien (.vcf/
+STAND: Version 0.25.1 – F7 (Nutzer-Wunsch): vCard-Dateien (.vcf/
 .vcard) rendert die Visitenkarte aus dem Text-Modul (→ REF PAN-
 VCARD-1). F43: Ordner-Vorschau zeigt den Inhalt als Liste statt
 nur eines Ordner-Icons (→ REF PAN-FOLDER-1). F40: Kopfzeile trägt
@@ -974,7 +974,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.25.0"
+PREVIEWER_VERSION = "0.25.1"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "

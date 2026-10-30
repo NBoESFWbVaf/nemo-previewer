@@ -4,7 +4,10 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.25.0 – F38 (Nutzer-Wunsch): Die Bild-Spalte ist in
+STAND: Version 0.25.1 – Dezenz (Nutzer-Wunsch): Cover-Eckenradius um
+ein Drittel reduziert, 56/960 statt 56/640 der kleineren Kante –
+Platzhalter-Kachel und Cover-Rahmen runden gleich mit. F38
+(Nutzer-Wunsch): Die Bild-Spalte ist in
 einen 60-%-Bereich (Bild, vertikal und horizontal mittig) und einen
 40-%-Bereich (Info-Tabelle) geteilt, live an die Spaltenhöhe gekop-
 pelt; Streifen-Fix (Mittig-Zentrierung am Bild statt am Scrolled-
@@ -1042,7 +1045,8 @@ class MediaRendererMixin:
             cr = cairo.Context(surf)
             # Abgerundete Ecken als Beschneidungspfad; außerhalb bleibt
             # die Fläche transparent – die Kachel wirkt auf jedem Theme.
-            r = 56.0
+            # 0.25.1 (Nutzer-Wunsch): um ein Drittel dezenter als F34.
+            r = 56.0 * 2.0 / 3.0
             cr.new_sub_path()
             cr.arc(size - r, r, r, -0.5 * math.pi, 0.0)
             cr.arc(size - r, size - r, r, 0.0, 0.5 * math.pi)
@@ -1191,9 +1195,11 @@ class MediaRendererMixin:
             w, h = pb.get_width(), pb.get_height()
             if w < 8 or h < 8:
                 return pb
-            # Gleiche Rundung wie die Platzhalter-Kachel: 56/640 der
+            # Gleiche Rundung wie die Platzhalter-Kachel: 56/960 der
             # Kantenlänge (min(w, h)), mit der Anzeige skaliert.
-            r = max(2.0, min(w, h) * 56.0 / 640.0)
+            # 0.25.1 (Nutzer-Wunsch): um ein Drittel dezenter – F34
+            # rundete noch mit 56/640.
+            r = max(2.0, min(w, h) * 56.0 / 960.0)
             pad = max(6, int(min(w, h) * 0.02))
             # F35: Schatten nach rechts und unten versetzt – dort 3 px
             # mehr Fläche – und transparenter als in F34.
@@ -1515,7 +1521,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.25.0"
+PREVIEWER_VERSION = "0.25.1"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)

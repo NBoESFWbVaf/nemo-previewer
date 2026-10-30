@@ -4,13 +4,13 @@
 Previewer – Renderer-Modul Text (previewer_render_text.py)
 ==========================================================
 
-STAND: Version 0.25.0 – F7-Feinschliff (Nutzer-Wunsch): Jede Visit-
-tenkarte trägt einen rechteckigen Rahmen im Cover-Eckenradius
-(F34-Formel) samt gleichem Schlagschatten; Dateien mit mehreren
-Kontakten zeigen ALLE Karten scrollbar untereinander. F7-Grundstock
-in 0.24.0: .vcf/.vcard (vCard 2.1, 3.0, 4.0) als Karte mit rundem
-Foto (inline Base64 oder lokale URI), sonst runder Platzhalter
-(→ REF TXT-VCARD-1).
+STAND: Version 0.25.1 – Dezenz (Nutzer-Wunsch): Visitenkarten ohne
+Karten-Füllung – transparent statt weißem Grund, Schatten und
+Haarlinien-Rand bleiben; Cover-Eckenradius überall um ein Drittel
+reduziert (56/960 statt 56/640). F7-Feinschliff in 0.25.1: Rahmen
+mit Cover-Eckenradius, ALLE Karten scrollbar. F7-Grundstock in
+0.24.0: .vcf/.vcard als Karte mit rundem Foto (inline Base64 oder
+lokale URI), sonst runder Platzhalter (→ REF TXT-VCARD-1).
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -1476,9 +1476,11 @@ class TextRendererMixin:
     def _vcard_card_draw(self, widget, cr):
         """
         F7: Hintergrund der Visitenkarte – abgerundetes Rechteck mit
-        dem Eckenradius der eingebetteten Musikcover (F34-Formel:
-        56/640 der kleineren Kante) und dem gleichen Schlagschatten
-        (F34/F35: sechs gestapelte, wachsende Kacheln). Rückgabe
+        dem Eckenradius der eingebetteten Musikcover (0.25.1 um ein
+        Drittel dezenter: 56/960 der kleineren Kante), dem gleichen
+        Schlagschatten (F34/F35: sechs gestapelte, wachsende Kacheln)
+        und KEINER Füllung – die Karte bleibt transparent, im Dark-
+        mode tut ein weißer Kachelgrund in den Augen weh. Rückgabe
         False: GTK zeichnet die Widgets danach OBEN drauf.
         """
         # Rahmen und Schatten brauchen KEIN pycairo – der draw-
@@ -1491,15 +1493,16 @@ class TextRendererMixin:
             cw, ch = w - 2 * pad - 3, h - 2 * pad - 3
             if cw < 24 or ch < 24:
                 return False
-            r = max(4.0, min(cw, ch) * 56.0 / 640.0)
+            r = max(4.0, min(cw, ch) * 56.0 / 960.0)
             for i in range(6, 0, -1):
                 cr.set_source_rgba(0.0, 0.0, 0.0, 0.04)
                 self._cover_round_path(cr, pad + dx - i, pad + dy - i,
                                        cw + 2 * i, ch + 2 * i, r + i)
                 cr.fill()
+            # Keine Füllung – die Karte bleibt transparent, nur der
+            # Haarlinien-Rand markiert sie (Nutzer-Wunsch 0.25.1:
+            # weißer Grund schmerzt im Darkmode in den Augen).
             self._cover_round_path(cr, pad, pad, cw, ch, r)
-            cr.set_source_rgb(0.972, 0.972, 0.980)
-            cr.fill_preserve()
             cr.set_source_rgba(0.0, 0.0, 0.0, 0.10)
             cr.set_line_width(1.0)
             cr.stroke()
@@ -1648,7 +1651,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.25.0"
+PREVIEWER_VERSION = "0.25.1"
 dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F31: "
     "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "
     "Lese-Deckel bleiben)"

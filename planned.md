@@ -384,6 +384,9 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Schlagschatten; Dateien mit mehreren Kontakten zeigen ALLE  
   Karten scrollbar untereinander (50-Karten-Deckel mit Rest-  
   Hinweis).  
+  ✅ Feinschliff 0.25.1 (Nutzer-Wunsch): Karten-Hintergrund  
+  transparent statt weiß (Darkmode), Eckenradius überall um ein  
+  Drittel dezenter (56/960 statt 56/640 – auch Musikcover).  
   Offen: ICS – Termine als Tabelle (wie EML-Kopf). **S**
 - [ ] **F8 – CSV als echte Tabelle** (Gtk.TreeView). **M**
 - [ ] **F9 – EXIF-Tabelle für Fotos** (Kamera, Datum, Belichtung). **M**
