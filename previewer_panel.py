@@ -4,9 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.21.0 – F36: Foto-Info-Tabelle läuft über den zentralen
-_meta_grid (Doppelpunkt-Bezeichnungen, F35). Im Panel-Kern keine
-Änderung – nur Versions-Sync. Sonstiger Stand: Zeilennummern als
+STAND: Version 0.22.0 – F38: _meta_grid bekommt einen optionalen
+container – die EXIF-Tabelle der Bild-Vorschau packt in den 40-%-
+Info-Bereich der neuen Aufteilung. Sonstiger Stand: Zeilennummern als
 Randzeichnung – dunkler (Alpha 0.75) und in 80 %
 der Textschriftgröße –, connect_after-Draw, Merker _last_textish
 markiert TextView-basierte Vorschauen. Schlüssel text_line_numbers,
@@ -117,6 +117,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # beliebig viele live-skalierte Bilder pro Vorschau möglich,
         # ohne sich gegenseitig zu überschreiben.
         self._scale_items = []
+        # F38: 40-%-Info-Bereich der Bild-Aufteilung (gesetzt, sobald
+        # _pack_image_capped die Spalte für eine Bild-Vorschau teilt).
+        self._image_info_box = None
         # Hintergrund-Konvertierung für Office-Dokumente (LibreOffice → PDF)
         self._office_job = None
         self._office_failed = set()
@@ -231,6 +234,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._content.remove(child)
         # Skalier-Quellen freigeben (Speicher der vollen Auflösung)
         self._scale_items = []
+        # F38: Info-Bereich der letzten Bild-Vorschau freigeben.
+        self._image_info_box = None
         # ebenso die Quell-Pixbufs der PDF-Seiten; die Render-Generation
         # hochzählen, damit laufende Idle-Nachschub-Schritte (R2)
         # abbrechen, statt in eine verwaiste Ansicht hinein zu malen.
@@ -665,7 +670,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     # --- E-Books: EPUB, FictionBook, MOBI -----------------------------------
 
-    def _meta_grid(self, rows):
+    def _meta_grid(self, rows, container=None):
         """
         Schlüssel-Wert-Tabelle (dim-Label links, Wert rechts mit
         END-Ellipsize und Tooltip) – zentraler Helfer für E-Book-,
@@ -673,6 +678,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         identisch inline gebaut; die Inline-Kopien sind entfallen.
         F35: Jede Bezeichnung bekommt automatisch einen Doppelpunkt
         am Ende (falls nicht bereits vorhanden).
+        F38: Mit optionalem container packt die Tabelle an jede
+        Stelle – Bild-Vorschauen geben ihren 40-%-Info-Bereich mit.
         """
         grid = Gtk.Grid()
         grid.set_row_spacing(2)
@@ -691,7 +698,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             vl.set_tooltip_text(v)
             grid.attach(kl, 0, i, 1, 1)
             grid.attach(vl, 1, i, 1, 1)
-        self._content.pack_start(grid, False, False, 0)
+        # F38: container schlägt _content – Bild-Tabellen gehören in
+        # den 40-%-Info-Bereich der neuen Bild-Aufteilung.
+        target = container if container is not None else self._content
+        target.pack_start(grid, False, False, 0)
 
     def _render_folder(self, path):
         """
@@ -902,7 +912,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.21.0"
+PREVIEWER_VERSION = "0.22.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
