@@ -6,6 +6,17 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.22.0\] – 2026-10-30
+
+### Changed (Geändert)
+
+- Bild-Vorschau in 60/40-Aufteilung (F38, Nutzer-Wunsch): Die Spalte  
+teilt sich in einen 60-%-Bereich für das Bild (vertikal und horizon-  
+tahl mittig) und einen 40-%-Bereich für die Bildinformationen; die  
+EXIF-/Maß-Tabelle (F36) läuft dort hinein, die Aufteilung bleibt  
+beim Fenster-Resize über einen Live-Nachzug erhalten. SVG-Vorschauen  
+nutzen dieselbe Aufteilung, ihre Maß-Zeile steht im Info-Bereich
+
 ## \[0.21.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)
