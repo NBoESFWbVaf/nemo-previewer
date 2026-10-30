@@ -4,12 +4,13 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.20.0 – F35 (Nutzer-Wunsch): Cover-Schatten sitzt jetzt
-rechts und unten (dort 3 px mehr, insgesamt transparenter); Genre-Zeile
-in der Musik-Vorschau, Jahr als „Zuerst erschienen“ unter dem Album.
-F34-Basis (Cover-Rundung wie Platzhalter-Kachel), F33-Tag-
-Informationen, Bild-Vorschau (F32) sowie R1/R9/B7-Disziplinen und
-Deckel unverändert. (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
+STAND: Version 0.21.0 – F36 (Nutzer-Wunsch): Foto-Vorschau mit EXIF-
+Info-Tabelle (Höhe, Breite, Aufnahmedatum, Aufnahmeort, Kameramodell,
+Belichtungszeit, Brennweite mit 35-mm-Äquivalent, Blende, ISO – jede
+Zeile nur bei Verfügbarkeit). EXIF-Parser mit Python-Bordmitteln im
+Worker-Thread, Hersteller-Fallbacks über APEX-Werte. F35-Basis (Cover-
+Schatten, Genre, „Zuerst erschienen“), F34/F33/F32 unberührt.
+(0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -19,6 +20,7 @@ sein – der Einstieg prüft das beim Laden.
 import os
 import sys
 import math
+import struct
 import threading
 import traceback
 
@@ -133,6 +135,204 @@ def _media_gi_warmup():
 _IMAGE_FILE_CAP = 64 * 1024 * 1024   # Bilddatei: Rohbytes vor Dekodierung
 _MEDIA_IMAGE_CAP = 32 * 1024 * 1024  # eingebettetes Cover aus Medien-Tags
 
+# --- F36: Foto-Metadaten (EXIF) mit Python-Bordmitteln --------------------
+
+_EXIF_TYPE_SIZE = {1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1, 9: 4, 10: 8}
+
+
+def _exif_read_ifd(data, base, bo, off, out, depth=0):
+    """
+    Ein TIFF-IFD lesen: sammelt Tag→(Typ, Rohbytes) und lädt die
+    Spezial-Zeiger ExifIFD (0x8769) und GPSIFD (0x8825) als Unter-
+    IFDs nach. depth dämpft Zeiger-Verrücktheit (B7).
+    """
+    # → REF MED-EXIF-1
+    try:
+        n = struct.unpack_from(bo + "H", data, off)[0]
+        if n > 512 or off + 2 + n * 12 > len(data):
+            return                      # B7: Bomben-Deckel
+        for i in range(n):
+            e = off + 2 + i * 12
+            tag, typ, cnt = struct.unpack_from(bo + "HHI", data, e)
+            size = _EXIF_TYPE_SIZE.get(typ, 1) * cnt
+            if size <= 4:
+                val = data[e + 8:e + 8 + size]
+            else:
+                vo = base + struct.unpack_from(bo + "I", data, e + 8)[0]
+                if vo + size > len(data):
+                    continue
+                val = data[vo:vo + size]
+            out[tag] = (typ, val)
+        for tag in (0x8769, 0x8825):
+            if tag in out and depth < 2:
+                try:
+                    sub = base + struct.unpack(bo + "I", out[tag][1])[0]
+                    _exif_read_ifd(data, base, bo, sub, out, depth + 1)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+def _exif_str(entry):
+    """ASCII-Feld (Typ 2) als Text oder None."""
+    if not entry or entry[0] != 2:
+        return None
+    try:
+        return (entry[1].decode("utf-8", "replace")
+                .rstrip("\x00").strip() or None)
+    except Exception:
+        return None
+
+
+def _exif_num(entry, bo):
+    """Erster Zahlenwert (SHORT/LONG) eines Tags oder None."""
+    if not entry:
+        return None
+    typ, val = entry
+    try:
+        if typ == 3 and len(val) >= 2:
+            return struct.unpack_from(bo + "H", val)[0]
+        if typ == 4 and len(val) >= 4:
+            return struct.unpack_from(bo + "I", val)[0]
+    except Exception:
+        pass
+    return None
+
+
+def _exif_frac(entry, bo):
+    """RATIONAL/SRATIONAL (num/den) als float oder None."""
+    if not entry:
+        return None
+    typ, val = entry
+    try:
+        if typ in (5, 10) and len(val) >= 8:
+            fmt = bo + ("ii" if typ == 10 else "II")
+            n, d = struct.unpack_from(fmt, val)
+            return float(n) / d if d else None
+    except Exception:
+        pass
+    return None
+
+
+def _exif_dms(tags, tag, bo):
+    """GPS-Grad/Minuten/Sekunden (3 RATIONALS) in Dezimalgrade."""
+    entry = tags.get(tag)
+    if not entry or entry[0] != 5 or len(entry[1]) < 24:
+        return None
+    try:
+        n = struct.unpack_from(bo + "IIIIII", entry[1])
+        g = n[0] / n[1] if n[1] else 0.0
+        m = n[2] / n[3] if n[3] else 0.0
+        s = n[4] / n[5] if n[5] else 0.0
+        return g + m / 60.0 + s / 3600.0
+    except Exception:
+        return None
+
+
+def _exif_parse(data):
+    """
+    F36: EXIF-Kerninformationen aus JPEG-/TIFF-Bytes – mit
+    Python-Bordmitteln, ohne neue Pflicht-Abhängigkeit. Hersteller-
+    Eigenheiten fangen Standard-Fallbacks ab (APEX statt Direktwert,
+    Datums-Kaskade, GPS-Dezimalgrad). Zurück kommt ein Dict mit
+    fertigen Anzeige-Texten – nur vorhandene Werte.
+    """
+    # → REF MED-EXIF-2
+    out = {}
+    try:
+        pos = data.find(b"Exif\x00\x00", 0, 262144)
+        base = pos + 6 if pos >= 0 else 0
+        # F36: Puffer zwischen Marker und TIFF-Kopf überlesen (0x00/
+        # 0x20-Padding, teils Samsung/Olympus) – der Kopf folgt erst.
+        stop = base + 16
+        while base < stop and data[base:base + 1] in (b"\x00", b"\x20"):
+            base += 1
+        head = data[base:base + 2]
+        if head == b"MM":
+            bo = ">"
+        elif head == b"II":
+            bo = "<"
+        else:
+            return out
+        if struct.unpack_from(bo + "H", data, base + 2)[0] != 42:
+            return out
+        ifd0 = base + struct.unpack_from(bo + "I", data, base + 4)[0]
+        tags = {}
+        _exif_read_ifd(data, base, bo, ifd0, tags)
+        # F36: Kameramodell – viele Modelle wiederholen den Hersteller
+        # im Modell-Namen („Canon“ + „Canon EOS …“): nur dann kürzen.
+        make = _exif_str(tags.get(0x010F))
+        model = _exif_str(tags.get(0x0110))
+        if model:
+            if make and model.lower().startswith(make.lower()):
+                out["Kameramodell"] = model
+            elif make:
+                out["Kameramodell"] = "%s %s" % (make, model)
+            else:
+                out["Kameramodell"] = model
+        # F36: Aufnahmedatum – Original vor digitalisiert vor Datei-
+        # Datum; Hersteller schreiben das echte Datum teils nur an
+        # einer der drei Stellen.
+        for tag in (0x9003, 0x9004, 0x0132):
+            dt = _exif_str(tags.get(tag))
+            if dt and len(dt) >= 16 and dt[4] == ":" and dt[7] == ":":
+                out["Aufnahmedatum"] = "%s.%s.%s %s" % (
+                    dt[8:10], dt[5:7], dt[0:4], dt[11:16])
+                break
+        # F36: Belichtungszeit – Direktwert, sonst APEX-Zeitwert
+        # (t = 2^-av; manche Kompakte schreiben nur den).
+        t = _exif_frac(tags.get(0x829A), bo)
+        if t is None:
+            av = _exif_frac(tags.get(0x9201), bo)
+            if av is not None:
+                t = 2.0 ** -av
+        if t:
+            if t < 1.0:
+                out["Belichtungszeit"] = "1/%d s" % max(
+                    2, round(1.0 / t))
+            elif t == int(t):
+                out["Belichtungszeit"] = "%d s" % int(t)
+            else:
+                out["Belichtungszeit"] = "%.1f s" % t
+        # F36: Blende – FNumber, sonst APEX-Öffnung (N = 2^(av/2)).
+        fn = _exif_frac(tags.get(0x829D), bo)
+        if fn is None:
+            av = _exif_frac(tags.get(0x9202), bo)
+            if av is not None:
+                fn = 2.0 ** (av / 2.0)
+        if fn:
+            out["Blende"] = "f/%.1f" % fn
+        # F36: „Zoom“ als Brennweite, plus 35-mm-Äquivalent, wenn es
+        # abweicht (Vollformat-Kameras tragen kein eigenes Tag).
+        fl = _exif_frac(tags.get(0x920A), bo)
+        fl35 = _exif_num(tags.get(0xA405), bo)
+        if fl:
+            txt = "%g mm" % fl
+            if fl35 and abs(fl35 - fl) > 0.5:
+                txt += " (%d mm äquiv.)" % fl35
+            out["Brennweite"] = txt
+        elif fl35:
+            out["Brennweite"] = "%d mm" % fl35
+        # F36: ISO – klassische ISOSpeedRatings, sonst ISOSpeed.
+        iso = _exif_num(tags.get(0x8827), bo)
+        if iso is None:
+            iso = _exif_num(tags.get(0x8833), bo)
+        if iso:
+            out["ISO"] = str(iso)
+        # F36: Aufnahmeort – GPS-Gradminuten in Dezimalgrade; die
+        # Referenz-Buchstaben (N/S, E/W) gibt das jeweilige GPS-Tag.
+        lat = _exif_dms(tags, 0x0002, bo)
+        lon = _exif_dms(tags, 0x0004, bo)
+        if lat is not None and lon is not None:
+            lr = (_exif_str(tags.get(0x0001)) or "N")[:1]
+            lor = (_exif_str(tags.get(0x0003)) or "E")[:1]
+            out["Aufnahmeort"] = "%.4f° %s, %.4f° %s" % (
+                abs(lat), lr, abs(lon), lor)
+    except Exception as exc:
+        dbg("EXIF-Parsing fehlgeschlagen: %s" % exc)
+    return out
+
 # ========================== Renderer: Medien ================================
 
 
@@ -212,7 +412,7 @@ class MediaRendererMixin:
             target_w = 1024
 
         def work():
-            data, err = None, None
+            data, err, exif = None, None, None
             try:
                 with open(path, "rb") as fh:
                     data = fh.read(_IMAGE_FILE_CAP)
@@ -220,9 +420,13 @@ class MediaRendererMixin:
             except Exception as exc:
                 data, err = None, exc
                 dbg("Bild-Lesen fehlgeschlagen (%s): %s" % (path, exc))
+            # F36: EXIF gleich im Worker auswerten – reine Byte-Arbeit
+            # ohne Gdk-Objekte, passend zur R1/B7-Thread-Disziplin.
+            if data:
+                exif = _exif_parse(data)
             try:
                 GLib.idle_add(self._image_probe_done,
-                              path, target_w, data, err)
+                              path, target_w, data, err, exif)
             except Exception as exc:
                 dbg("Bild-Rückgabe fehlgeschlagen (%s): %s"
                     % (path, exc))
@@ -232,15 +436,17 @@ class MediaRendererMixin:
         except Exception:
             # Rettungsanker: Thread nicht startbar → synchron lesen,
             # die Dekodierung übernimmt _image_probe_done direkt.
-            data, err = None, None
+            data, err, exif = None, None, None
             try:
                 with open(path, "rb") as fh:
                     data = fh.read(_IMAGE_FILE_CAP)
+                if data:
+                    exif = _exif_parse(data)
             except Exception as exc:
                 data, err = None, exc
-            self._image_probe_done(path, target_w, data, err)
+            self._image_probe_done(path, target_w, data, err, exif)
 
-    def _image_probe_done(self, path, target_w, data, err):
+    def _image_probe_done(self, path, target_w, data, err, exif=None):
         """
         R9-Rückkehr (0.10.3/0.10.4): Dekodierung der im Worker
         gelesenen Bytes HIER im GTK-Thread (gleiche Disziplin wie bei
@@ -309,10 +515,15 @@ class MediaRendererMixin:
             h = orig.get("h", pb.get_height())
             if (w > h) != (pb.get_width() > pb.get_height()):
                 w, h = h, w
-            info = Gtk.Label(label="%d × %d px" % (w, h))
-            info.get_style_context().add_class("dim-label")
-            info.set_halign(Gtk.Align.START)
-            self._content.pack_start(info, False, False, 0)
+            # F36: Maße-Zeile ist in der Foto-Info-Tabelle aufgegangen;
+            # alle weiteren Zeilen nur, wenn EXIF sie hergibt.
+            rows = [("Höhe", "%d px" % h), ("Breite", "%d px" % w)]
+            for key in ("Aufnahmedatum", "Aufnahmeort",
+                        "Kameramodell", "Belichtungszeit",
+                        "Brennweite", "Blende", "ISO"):
+                if exif and key in exif:
+                    rows.append((key, exif[key]))
+            self._meta_grid(rows)
         except Exception:
             pass
         # → REF MED-B7-1
@@ -970,7 +1181,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.20.0"
+PREVIEWER_VERSION = "0.21.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)
