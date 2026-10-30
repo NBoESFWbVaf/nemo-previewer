@@ -366,7 +366,7 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
 
 - **Modul:** previewer\_render\_media.py
 - **Ort:** `_pack_image_capped` mit Helfer `_image_split_sync`, genutzt von `_render_image` und `_render_svg`
-- **Anlass:** Gtk.Box kennt keine Prozent-Aufteilung – expand ist ein Schalter, kein Verhältnis. Der Bildbereich trägt deshalb 60 % der Spaltenhöhe als Größenanforderung; ein size-allocate-Nachzug hält die Aufteilung beim Fenster-Resize aktuell. Mittig-Position des Bilds macht halign/valign CENTER am ScrolledWindow (align schlägt fill), der Info-Bereich expandiert und füllt den Rest (≈ 40 %).
+- **Anlass:** Gtk.Box kennt keine Prozent-Aufteilung – expand ist ein Schalter, kein Verhältnis. Der Bildbereich trägt deshalb 60 % der Spaltenhöhe als Größenanforderung; ein size-allocate-Nachzug hält die Aufteilung beim Fenster-Resize aktuell. Mittig-Position macht halign/valign CENTER am Gtk.Image (NICHT am ScrolledWindow – der Streifen-Bug im 0.22.0-Test), der Info-Bereich expandiert und füllt den Rest (≈ 40 %).
 
 ```text
         # Gtk.Box teilt extra Raum nur gleichmäßig unter expandierenden
@@ -374,13 +374,16 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # trägt deshalb 60 % der Spaltenhöhe als Request und zieht den
         # in size-allocate nach (nur bei relevanter Änderung, sonst
         # reißt der Anforderungs-Loop das Layout in Endlos-Schleifen).
-        # Mittig-Position des Bilds macht halign/valign CENTER am
-        # ScrolledWindow – align schlägt fill, das Bild wird also nie
-        # verzerrt oder gestreckt, nur zentriert.
-        # Der Bildbereich selbst braucht fill=True in der Breite –
-        # sonst schrumpft er auf die Minimalbreite des ScrolledWindow
-        # und GTK clippt das auf Spaltenbreite skalierte Bild auf
-        # einen schmalen Streifen (Streifen-Bug im 0.22.0-Test).
+        # Mittig-Zentrierung macht DAS BILD, nicht der ScrolledWindow:
+        # Ein scrollbares Widget darf seine natürliche Breite auf ~0
+        # senken – align=CENTER nimmt genau diese natürliche Größe,
+        # der auf Spaltenbreite skalierte Scroll wäre also nur ein
+        # schmaler Streifen, in dem das Bild geclippt wird. Das
+        # Gtk.Image sitzt via Viewport im Scroll; sein halign/valign
+        # CENTER zentriert es in beiden Richtungen im 60-%-Bereich.
+        # Der Bereich selbst braucht expand=False gegen die Höhe –
+        # expand/fill wirken in der vertikalen Box nur auf die HÖHE,
+        # die Breite quer gibt die Box Kindern ohnehin voll.
 ```
 
 ---
