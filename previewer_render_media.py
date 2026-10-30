@@ -7,8 +7,8 @@ Previewer – Renderer-Modul Medien (previewer_render_media.py)
 STAND: Version 0.22.0 – F38 (Nutzer-Wunsch): Die Bild-Spalte ist in
 einen 60-%-Bereich (Bild, vertikal und horizontal mittig) und einen
 40-%-Bereich (Info-Tabelle) geteilt, live an die Spaltenhöhe gekop-
-pelt; Streifen-Fix (Bildbereich mit fill=True über volle Spalten-
-breite) und XMP-Ergänzung: „Location“ (IPTC Core) plus benutzer-
+pelt; Streifen-Fix (Mittig-Zentrierung am Bild statt am Scrolled-
+Window, siehe MED-SPLIT-1) und XMP-Ergänzung: „Location“ (IPTC Core) plus benutzer-
 definierte XMP-Felder in der Tabelle. F36-Basis (EXIF-Parser mit
 APEX-Fallbacks), F35/F34/F33 unberührt. (0.15.0/F31: aus dem
 Panel-Kern hierher gezogen.)
@@ -432,9 +432,21 @@ class MediaRendererMixin:
         """
         # → REF MED-SPLIT-1
         top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        # Bild in beide Richtungen mittig: align schlägt fill.
-        scroll.set_halign(Gtk.Align.CENTER)
-        scroll.set_valign(Gtk.Align.CENTER)
+        # F38-Streifen-Fix: Mittig macht DAS BILD, nicht der Scroll.
+        # align=CENTER schrumpft einen ScrolledWindow auf seine
+        # NATÜRLICHE Breite – ein scrollbares Widget kann sie auf
+        # ~0 senken, das auf Spaltenbreite skalierte Bild wäre also
+        # nur ein schmaler Streifen. Das Gtk.Image sitzt via
+        # Viewport im Scroll; halign/valign CENTER am Bild zentriert
+        # es in beiden Richtungen im 60-%-Bereich.
+        try:
+            vp = scroll.get_child()
+            img = vp.get_child() if vp is not None else None
+            if img is not None:
+                img.set_halign(Gtk.Align.CENTER)
+                img.set_valign(Gtk.Align.CENTER)
+        except Exception:
+            pass
         top.pack_start(scroll, True, True, 0)
         bottom = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         # F38: Info-Bereich – _meta_grid packt die Bild-Tabelle hierher.
@@ -442,10 +454,9 @@ class MediaRendererMixin:
         top.set_size_request(-1,
                              max(80, int(self._preview_height() * 0.6)))
         top.connect("size-allocate", self._image_split_sync)
-        # F38-Streifen-Fix: fill=True in der Breite – sonst schrumpft
-        # der Bereich auf die Minimalbreite des ScrolledWindow und
-        # GTK clippt das (auf Spaltenbreite skalierte) Bild auf einen
-        # schmalen Streifen.
+        # F38: expand=False hält die Höhe auf der 60-%-Anforderung –
+        # expand/fill wirken in einer vertikalen GtkBox nur auf die
+        # HÖHE; die Breite quer gibt die Box Kindern ohnehin voll.
         self._content.pack_start(top, False, True, 0)
         sep = Gtk.Separator.new(Gtk.Orientation.HORIZONTAL)
         sep.set_margin_top(8)
