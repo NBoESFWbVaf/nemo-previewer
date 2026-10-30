@@ -4,7 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.22.0 – F38: _meta_grid bekommt einen optionalen
+STAND: Version 0.22.0 – F40: Kopfzeile trägt nur noch den Öffnen-Knopf
+(system-run-Symbol) – der Ausblenden-Knopf ist in die Nemo-Titel-
+leiste gewandert. F38: _meta_grid bekommt einen optionalen
 container – die EXIF-Tabelle der Bild-Vorschau packt in den 40-%-
 Info-Bereich der neuen Aufteilung. Sonstiger Stand: Zeilennummern als
 Randzeichnung – dunkler (Alpha 0.75) und in 80 %
@@ -38,6 +40,7 @@ from previewer_util import (
     dbg,
     PANEL_WIDTH, PANEL_MIN_WIDTH,
     query_file_info,
+    pick_icon,
 )
 from previewer_render_media import MediaRendererMixin, HAVE_GST
 from previewer_render_docs import (
@@ -165,20 +168,18 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         header.set_border_width(6)
 
-        # Öffnen- und Ausblenden-Knöpfe
+        # Öffnen-Knopf (F40: Systemausführungs-Symbol statt Dokument-
+        # Öffnen – es startet ja die Datei in IHRER Anwendung). Der
+        # Ausblenden-Knopf ist als Vorschau-Umschalter in Nemos
+        # Titelleiste aufgewacht (→ REF ENT-TOGGLE-1).
         btn_open = Gtk.Button.new_from_icon_name(
-            "document-open-symbolic", Gtk.IconSize.BUTTON)
+            pick_icon(("system-run-symbolic", "system-run"),
+                      "document-open-symbolic"),
+            Gtk.IconSize.BUTTON)
         btn_open.set_tooltip_text("Mit Standardanwendung öffnen")
         btn_open.set_relief(Gtk.ReliefStyle.NONE)
         btn_open.connect("clicked", self._on_open_clicked)
         header.pack_end(btn_open, False, False, 0)
-
-        btn_hide = Gtk.Button.new_from_icon_name(
-            "window-close-symbolic", Gtk.IconSize.BUTTON)
-        btn_hide.set_tooltip_text("Panel ausblenden (Strg+Alt+P)")
-        btn_hide.set_relief(Gtk.ReliefStyle.NONE)
-        btn_hide.connect("clicked", lambda *a: self.hide())
-        header.pack_end(btn_hide, False, False, 0)
 
         self.pack_start(header, False, False, 0)
         self._separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
