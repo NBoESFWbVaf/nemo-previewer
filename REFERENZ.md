@@ -386,6 +386,22 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # die Breite quer gibt die Box Kindern ohnehin voll.
 ```
 
+### MED-SVG-DPI-1 – SVG DPI-Rendern über die Cairo-Route (K3)
+
+- **Modul:** previewer\_render\_media.py
+- **Ort:** `_rsvg_cairo_pb`, genutzt von `_render_svg` (Fallback: `get_pixbuf`)
+- **Anlass:** get\_pixbuf() rendert strikt in der intrinsischen Größe – ein 24×24-Icon-SVG bleibt ein Mini-Punkt in der Spalte, und seit librsvg 2.52 gilt der Aufruf ohnehin als deprecated. render\_document nimmt dagegen ein Rsvg.Rectangle als Zielfläche: dieselbe Vektor-Geometrie, beliebiger DPI-Maßstab. Scheitert die Route (kein pycairo, altes librsvg ohne render\_document, keine intrinsische Größe), greift der bisherige Pfad – die Vorschau ist also nie schlechter als vorher; das Maße-Label zeigt in beiden Fällen die intrinsische Größe.
+
+```text
+        # Die intrinsische Größe (get_intrinsic_size_in_pixels) ist die
+        # Rechengrundlage: Die Panelbreite ist das Render-Ziel, kleine
+        # SVGs wachsen scharf mit (Vektor statt Raster-Upcast, kein
+        # Blur), die Deckelhöhe begrenzt die Zielfläche nach oben. Die
+        # gerenderte Pixbuf wandert wie bisher durch _scaled_image in
+        # die 60/40-Aufteilung – die Live-Skalierung bei Fenster-Resize
+        # greift dann allerdings auf die Raster-Pixbuf zurück.
+```
+
 ---
 
 ## Dokumente (DOC)
@@ -448,17 +464,17 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
                     # liest die Seiten sofort, danach ist die Datei egal).
 ```
 
-### DOC-LEGACY-1 – Binäre MS-Office-Formate ohne ZIP-Anteil (F39)
+### DOC-LEGACY-1 – Office-Formate ohne ZIP-Anteil (F39)
 
 - **Modul:** previewer\_render\_docs.py
-- **Ort:** `_render_office_thumb`, Absicherung über `_OFFICE_LEGACY_EXTS`
-- **Anlass:** Die Übergangs-Ansicht liest aus Office-Dateien die eingebettete Miniaturansicht und den Textauszug – beides steckt nur in ZIP-Archiven (ODF/OOXML). Die alten binären Formate (.doc/.xls/.ppt) sind OLE-Compound-Dateien: zipfile scheitert, und ohne den eigenen Zweig stünde die irreführende Fehlermeldung „Office-Dokument konnte nicht geöffnet werden“ in der Vorschau. Der Zweig unterscheidet drei Fälle: Konvertierung läuft (Hinweis wartet auf das scharfe PDF), Konvertierung gescheitert (kaputte Datei, per \_office\_failed nicht endlos erneut) und LibreOffice/Poppler fehlen (Installations-Hinweis).
+- **Ort:** `_render_office_thumb`, Absicherung über `_OFFICE_NOZIP_EXTS`
+- **Anlass:** Die Übergangs-Ansicht liest aus Office-Dateien die eingebettete Miniaturansicht und den Textauszug – beides steckt nur in ZIP-Archiven (ODF/OOXML). Die alten binären Formate (.doc/.xls/.ppt) und RTF sind keine ZIP-Archive: zipfile scheitert, und ohne den eigenen Zweig stünde die irreführende Fehlermeldung „Office-Dokument konnte nicht geöffnet werden“ in der Vorschau. Der Zweig unterscheidet drei Fälle: Konvertierung läuft (Hinweis wartet auf das scharfe PDF), Konvertierung gescheitert (kaputte Datei, per \_office\_failed nicht endlos erneut) und LibreOffice/Poppler fehlen (Installations-Hinweis).
 
 ```text
         # Die scharfe Route ist für alle Office-Formate gleich (LibreOffice
-        # --convert-to pdf frisst auch die binären Formate), nur der
+        # --convert-to pdf frisst auch die binären Formate und RTF), nur der
         # Übergang bis dahin ist bei ihnen LEER: kein ZIP, keine Miniatur-
-        # ansicht, kein Textauszug. Deshalb endet der Legacy-Zweig im
+        # ansicht, kein Textauszug. Deshalb endet der No-ZIP-Zweig im
         # Hinweis statt im Fehler – und ohne LibreOffice/Poppler im
         # Installations-Tipp statt in der Diagnose einer kaputten Datei.
 ```
