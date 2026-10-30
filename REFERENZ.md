@@ -339,6 +339,29 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # (SVG, PNG ohne eXIf) bleibt die Tabelle bei Höhe/Breite.
 ```
 
+### MED-XMP-1 – XMP: Location und benutzerdefinierte Felder (F38)
+
+- **Modul:** previewer\_render\_media.py
+- **Ort:** `_xmp_parse`/`_xmp_clean` mit Namensraum-Filter `_XMP_STD`, aufgerufen im Worker von `_render_image`
+- **Anlass:** Die textliche „Location“ steht nicht im EXIF-, sondern im XMP-Teil des JPEG (IPTC Core, `Iptc4xmpCore:Location` – digikam/Lightroom füllen sie im Ort-Dialog), und vom Benutzer definierte Felder leben in eigenen XMP-Namensräumen. Adobe-Tools schreiben einfache Werte gern als Attribut der rdf:Description statt als eigenes Element, deshalb prüft der Parser beide Formen. Alles außerhalb der Standard-Namensräume (\_XMP\_STD) gilt als benutzerdefiniert und wird als „Präfix:Name“-Zeile übernommen – Werte werden von XML-Resten befreit, Entities dekodiert, auf 120 Zeichen gekürzt; maximal zehn Zusatzzeilen, damit Experimentier-Metadaten die Tabelle nicht fluten.
+
+```text
+        # XMP lebt im JPEG-APP1-Segment hinter der Adobe-URI; der
+        # RDF-Block reicht von <x:xmpmeta> bis </x:xmpmeta>. Regex
+        # statt XML-Parser: Bordmittel wie beim EXIF-Pfad, keine
+        # neue Pflicht-Abhängigkeit. Element-Form UND Attribut-Form
+        # prüfen – Adobe-Tools schreiben einfache Werte als Attribut
+        # der rdf:Description, eigene Elemente nur bei verschachtel-
+        # ten Werten (rdf:Bag/Seq). Falle bei der Element-Form: Ein
+        # verschachtelter Gesamt-Match (Öffnung bis passendes
+        # Schluss-Tag) lässt <x:xmpmeta> als ERSTEN Treffer bis zum
+        # letzten </x:xmpmeta> aufzehren – die eigentlichen Felder
+        # kämen nie dran. Deshalb werden nur Öffnungs-Tags gescannt
+        # und je Feld das passende Schluss-Tag gezielt gesucht;
+        # Standard-Wrapper (x, rdf) überspringt der Namensraum-
+        # Filter, gescannt wird trotzdem weiter.
+```
+
 ### MED-SPLIT-1 – Spalten-Aufteilung 60/40 mit Live-Nachzug (F38)
 
 - **Modul:** previewer\_render\_media.py
@@ -354,6 +377,10 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # Mittig-Position des Bilds macht halign/valign CENTER am
         # ScrolledWindow – align schlägt fill, das Bild wird also nie
         # verzerrt oder gestreckt, nur zentriert.
+        # Der Bildbereich selbst braucht fill=True in der Breite –
+        # sonst schrumpft er auf die Minimalbreite des ScrolledWindow
+        # und GTK clippt das auf Spaltenbreite skalierte Bild auf
+        # einen schmalen Streifen (Streifen-Bug im 0.22.0-Test).
 ```
 
 ---
