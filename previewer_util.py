@@ -4,7 +4,7 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.23.0 – F40: Neuer Helfer pick_icon (erstes im Icon-
+STAND: Version 0.24.0 – F40: Neuer Helfer pick_icon (erstes im Icon-
 Thema vorhandenes Symbol, Fallback sonst) für den Nemo-Titelleisten-
 Umschalter und den Öffnen-Knopf. Die Basis-Helfer _pixbuf_from_bytes
 und _zf_read_capped (0.15.0/F31) bleiben unverändert.
@@ -198,5 +198,5 @@ def _zf_read_capped(zf, name, cap):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.23.0"
+PREVIEWER_VERSION = "0.24.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)

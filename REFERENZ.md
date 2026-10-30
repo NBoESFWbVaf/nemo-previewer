@@ -167,6 +167,19 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # Deckel bei Bildern.
 ```
 
+### PAN-VCARD-1 – vCard-Dispatch (F7)
+
+- **Modul:** previewer\_panel.py
+- **Ort:** Typ-Kette in `_render`, direkt nach dem `.eml`-Zweig
+- **Anlass:** Nutzer-Wunsch: Visitenkartenformate (.vcf/.vcard, MIME text/vcard) werden als Visitenkarte gerendert, nicht als Textdatei. Der Renderer \_render\_vcard lebt im Text-Modul; der Dispatch zweigt VOR dem generischen text/-Zweig ab, damit die MIME-Erkennung die Karte nicht als Klartext wegschluckt.
+
+```text
+        elif lower.endswith((".vcf", ".vcard")) or mime == "text/vcard":
+            # F7: vCard-Visitenkarte (Renderer im Text-Modul).
+            # → REF PAN-VCARD-1
+            self._render_vcard(path)
+```
+
 ---
 
 ## Auswahl (SEL)
@@ -618,4 +631,16 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # Überschriften skalieren mit: ihre size='large'/'x-large'-
         # Angaben sind relativ zur Basis-Schrift.
         # Markup nur übernehmen, wenn es validiert wurde – sonst Rohtext.
+```
+
+### TXT-VCARD-1 – vCard-Visitenkarte (F7)
+
+- **Modul:** previewer\_render\_text.py
+- **Ort:** `_render_vcard` samt Parse-Helfern (\_vcard\_unfold bis \_vcard\_placeholder, \_vcard\_circle)
+- **Anlass:** Nutzer-Wunsch: Alle gängigen Visitenkartenformate als Karte rendern – Kontakt-Foto kreisförmig, sonst ein kreisförmiger Platzhalter. Parsing mit Bordmitteln (RFC-6350-Folding, 2.1-Quoted-Printable, Nackt-Parameter, Gruppenpräfix); Fotos nur inline Base64 oder lokale URI – Netz-URIs bleiben unbefragt, es greift der Platzhalter. Der Kreis nutzt die Cairo-Clip-Technik der Cover-Ecken (F34); ohne pycairo bleibt das Foto eckig und der Platzhalter ein Theme-Icon.
+
+```text
+        # Lese-Deckel: Kontakt-Fotos liegen als Base64 IN der
+        # Datei – ein paar MB sind üblich, ein paar Dutzend
+        # wären eine Bombe für Nemo.
 ```

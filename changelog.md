@@ -6,6 +6,18 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.24.0\] – 2026-10-30
+
+### Added (Hinzugefügt)
+
+- vCard-Visitenkarte (F7, Teil 1, Nutzer-Wunsch): .vcf/.vcard-Dateien  
+(vCard 2.1, 3.0, 4.0) erscheinen als echte Visitenkarte – das  
+Kontakt-Foto kreisförmig (inline Base64 oder lokale URI), ohne Foto  
+ein kreisförmiger Platzhalter; darunter Name, Position/Firma und  
+die Kontaktdaten (Telefon, E-Mail, Web, Adresse, Geburtstag) als  
+Tabelle. Enthält die Datei mehrere Kontakte, wird der erste gezeigt;  
+ICS (Termine als Tabelle) bleibt offen
+
 ## \[0.23.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)

@@ -4,11 +4,12 @@
 Previewer – Renderer-Modul Text (previewer_render_text.py)
 ==========================================================
 
-STAND: Version 0.23.0 – F38/F43: Nur Versions-Sync. _render_text reicht
-die Zeilennummern-Einstellung an den TextView weiter (Rubrik
-„Textdateien“, Default an; die Nummern sind nicht kopierbar, der
-Text schon). Markdown, EML, E-Books und Font-Wasserfall bleiben
-ohne Nummern.
+STAND: Version 0.24.0 – F7 (Nutzer-Wunsch): vCard-Visitenkarte –
+.vcf/.vcard (vCard 2.1, 3.0, 4.0) erscheinen als echte Karte: das
+Kontakt-Foto kreisförmig (inline Base64 oder lokale URI), sonst ein
+runder Platzhalter, darunter Name, Position/Firma und Kontaktdaten
+(→ REF TXT-VCARD-1). Zuvor 0.24.0: Nur Versions-Sync; _render_text
+reicht die Zeilennummern-Einstellung an den TextView weiter.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -28,15 +29,19 @@ import struct
 import tempfile
 import zipfile
 import email
+import math
+import quopri
 from email import policy
 import xml.etree.ElementTree as ElementTree
 
 import gi
 
+gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
+gi.require_version('GdkPixbuf', '2.0')
 gi.require_version('Pango', '1.0')
 
-from gi.repository import Gdk, Pango
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -45,7 +50,7 @@ if _HERE not in sys.path:
 from previewer_util import (
     dbg,
     MAX_TEXT_BYTES, MAX_TEXT_LINES, MAX_IMAGE_HEIGHT,
-    MAX_EBOOK_CHARS,
+    MAX_EBOOK_CHARS, pick_icon,
     _zf_read_capped, _pixbuf_from_bytes,
 )
 
@@ -67,6 +72,7 @@ except Exception:
 # Dekodierbomben – ein präpariertes Bild/PDF/EPUB/DOCX/EML darf Nemo
 # niemals durch Riesen-Allokationen abschießen.
 _EML_FILE_CAP = 2 * 1024 * 1024      # .eml: Kopfzeilen + Körper-Anfang
+_VCARD_FILE_CAP = 8 * 1024 * 1024    # vCard: Eigenschaften + Foto-B64
 
 # --- Markdown -> Pango-Markup (Vorschau-Qualität, kein voller Parser) ---
 
@@ -918,8 +924,262 @@ def _font_known(font_map, family):
 # ============================ Renderer: Text ================================
 
 
+# --- vCard (F7): Parser und Karten-Helfer --------------------------------
+
+def _vcard_unfold(text):
+    """
+    Zeilenfortsetzungen zusammenfügen: Standard-Folding (Zeile beginnt
+    mit Leerzeichen oder Tab, RFC 6350) und die Weichkanteilung von
+    vCard 2.1 (Zeile endet auf =, nur bei QUOTED-PRINTABLE).
+    """
+    out = []
+    for line in text.split("\n"):
+        line = line.rstrip("\r")
+        if not out:
+            out.append(line)
+        elif line[:1] in (" ", "\t"):
+            out[-1] += line[1:]
+        elif (out[-1].endswith("=")
+                and "QUOTED-PRINTABLE" in out[-1].upper()):
+            out[-1] = out[-1][:-1] + line
+        else:
+            out.append(line)
+    return out
+
+
+def _vcard_split(line):
+    """
+    Eine Eigenschafts-Zeile in (Name, Params, Wert) zerlegen. Der
+    erste Doppelpunkt trennt Kopf und Wert – weitere Doppelpunkte im
+    Wert (URLs, Zeitangaben) bleiben unbehelligt. vCard-2.1-Nackt-
+    parameter (ohne TYPE=) landen unter TYPE.
+    """
+    idx = line.find(":")
+    if idx < 0:
+        return None
+    head, value = line[:idx], line[idx + 1:]
+    parts = head.split(";")
+    name = parts[0].strip().upper()
+    if "." in name:
+        # vCard-3.0-Gruppenpräfix (item1.TEL): abtrennen
+        name = name.split(".")[-1]
+    params = {}
+    for p in parts[1:]:
+        p = p.strip()
+        if not p:
+            continue
+        if "=" in p:
+            key, raw = p.split("=", 1)
+            params.setdefault(key.strip().upper(), []).extend(
+                v.strip().upper() for v in raw.split(","))
+        else:
+            params.setdefault("TYPE", []).append(p.upper())
+    return name, params, value
+
+
+def _vcard_parse(text):
+    """
+    Text in Karten zerlegen. Jede Karte ist eine Liste von (Name,
+    Params, Wert). Quoted-Printable-Werte werden hier dekodiert;
+    sonstige Escapes bleiben roh – Aufrufer lösen sie mit
+    _vcard_unescape.
+    """
+    cards, cur = [], None
+    for line in _vcard_unfold(text):
+        up = line.strip().upper()
+        if up.startswith("BEGIN:VCARD"):
+            cur = []
+        elif up.startswith("END:VCARD"):
+            if cur is not None:
+                cards.append(cur)
+            cur = None
+        elif cur is not None and ":" in line:
+            prop = _vcard_split(line)
+            if prop is None:
+                continue
+            name, params, value = prop
+            if "QUOTED-PRINTABLE" in params.get("ENCODING", []):
+                charset = (params.get("CHARSET", ["utf-8"])[0]
+                           or "utf-8").lower()
+                try:
+                    value = quopri.decodestring(
+                        value.encode("latin-1", "replace")
+                    ).decode(charset, "replace")
+                except Exception:
+                    pass
+            cur.append((name, params, value))
+    return cards
+
+
+def _vcard_unescape(v):
+    """vCard-Escapes im Wert lösen (Komma, Semikolon, Umbruch)."""
+    return (v.replace("\\n", "\n").replace("\\N", "\n")
+             .replace("\\,", ",").replace("\\;", ";")
+             .replace("\\\\", "\\"))
+
+
+def _vcard_props(card, name):
+    """Alle Werte einer Eigenschaft als (Params, Wert)-Paare."""
+    return [(params, value) for (n, params, value) in card
+            if n == name]
+
+
+def _vcard_first(card, name):
+    """Erster nicht-leerer Wert einer Eigenschaft (entschärft)."""
+    for params, value in _vcard_props(card, name):
+        v = _vcard_unescape(value).strip()
+        if v:
+            return v
+    return ""
+
+
+def _vcard_display_name(card):
+    """Anzeigename: FN, sonst aus N zusammensetzen, sonst Spitzname."""
+    v = _vcard_first(card, "FN")
+    if v:
+        return v
+    for params, value in _vcard_props(card, "N"):
+        parts = [_vcard_unescape(p).strip() for p in value.split(";")]
+        parts += [""] * (5 - len(parts))
+        name = " ".join(x for x in (parts[3], parts[1], parts[0]) if x)
+        if name:
+            return name
+    return _vcard_first(card, "NICKNAME") or "(ohne Namen)"
+
+
+_VCARD_TEL_LABELS = (("CELL", "Mobil"), ("HOME", "Privat"),
+                     ("WORK", "Geschäftlich"), ("FAX", "Fax"),
+                     ("VOICE", "Telefon"))
+
+
+def _vcard_tel_label(params):
+    """Deutsches Telefon-Label aus dem TYPE-Parameter."""
+    types = set(params.get("TYPE", []))
+    for key, label in _VCARD_TEL_LABELS:
+        if key in types:
+            return label
+    return "Telefon"
+
+
+def _vcard_adr(value):
+    """ADR-Zeile (Postfach bis Land) zu einer lesbaren Adresse."""
+    parts = [_vcard_unescape(p).strip() for p in value.split(";")]
+    parts += [""] * (7 - len(parts))
+    street, city = parts[1], parts[3]
+    region, zipcode, country = parts[4], parts[5], parts[6]
+    line = ", ".join(x for x in (street, " ".join(
+        y for y in (zipcode, city) if y)) if x)
+    tail = ", ".join(x for x in (region, country) if x)
+    return " – ".join(x for x in (line, tail) if x)
+
+
+def _vcard_bday(value):
+    """Geburtstag in Punkte-Notation (1985-04-12 oder 19850412)."""
+    v = value.strip()
+    if re.fullmatch(r"\d{8}", v):
+        return "%s.%s.%s" % (v[6:8], v[4:6], v[0:4])
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
+        return "%s.%s.%s" % (v[8:10], v[5:7], v[0:4])
+    return v
+
+
+def _vcard_photo(card):
+    """
+    Foto der Karte als Bytes – inline Base64 (ENCODING=b oder BASE64,
+    vCard 2.1 auch mit nacktem Parameter) oder lokale Datei-URI
+    (VALUE=URI beziehungsweise file:-Angabe). Netz-URIs werden bewusst
+    NICHT geladen – die Vorschau geht niemanden im Netz fragen; es
+    greift der Platzhalter.
+    """
+    for params, value in _vcard_props(card, "PHOTO"):
+        encs = params.get("ENCODING", []) + params.get("TYPE", [])
+        if "B" in encs or "BASE64" in encs:
+            try:
+                return base64.b64decode(re.sub(r"\s+", "", value))
+            except Exception:
+                continue
+        raw = value.strip()
+        vals = params.get("VALUE", [])
+        looks_uri = ("URI" in vals or "URL" in vals or "URI" in encs
+                     or raw[:5].upper() == "FILE:" or raw[:1] == "/")
+        if not looks_uri:
+            continue
+        try:
+            path = (GLib.filename_from_uri(raw)[0]
+                    if raw[:5].upper() == "FILE:" else raw)
+            if path and os.path.isfile(path):
+                with open(path, "rb") as fh:
+                    return fh.read(16 * 1024 * 1024)
+        except Exception:
+            continue
+    return None
+
+
+def _vcard_circle(pb, size=160):
+    """
+    F7: Foto quadratisch mittig zuschneiden und kreisförmig maskieren
+    (Alphakanal am Rand) – dieselbe Cairo-Clip-Technik wie die Cover-
+    Ecken (F34). Ohne Cairo bleibt das zugeschnittene Quadrat eckig.
+    """
+    try:
+        w, h = pb.get_width(), pb.get_height()
+        if w < 1 or h < 1:
+            return None
+        side = min(w, h)
+        pb = pb.new_subpixbuf((w - side) // 2, (h - side) // 2,
+                              side, side)
+        pb = pb.scale_simple(size, size, GdkPixbuf.InterpType.BILINEAR)
+        if pb is None or not HAVE_PANGOCAIRO:
+            return pb
+        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
+        cr = cairo.Context(surf)
+        cr.arc(size / 2.0, size / 2.0, size / 2.0 - 1.0,
+               0.0, 2 * math.pi)
+        cr.clip()
+        Gdk.cairo_set_source_pixbuf(cr, pb, 0, 0)
+        cr.paint()
+        out = Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
+        return out if out is not None else pb
+    except Exception as e:
+        dbg("vCard-Kreis-Maske fehlgeschlagen (%s) – eckiges Foto" % e)
+        return pb
+
+
+def _vcard_placeholder(size=160):
+    """
+    F7: Runder Platzhalter – heller Kreis mit gedämpfter Personen-
+    Silhouette (Kopf und Schulterbogen), themeneutral in Grautönen.
+    Ohne Cairo gibt es None zurück; der Aufrufer zeigt dann ein
+    Theme-Icon als Notnagel.
+    """
+    if not HAVE_PANGOCAIRO:
+        return None
+    try:
+        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
+        cr = cairo.Context(surf)
+        half = size / 2.0
+        cr.arc(half, half, half, 0.0, 2 * math.pi)
+        cr.clip()
+        pat = cairo.LinearGradient(0.0, 0.0, 0.0, size)
+        pat.add_color_stop_rgba(0.0, 0.90, 0.90, 0.92, 1.0)
+        pat.add_color_stop_rgba(1.0, 0.76, 0.76, 0.80, 1.0)
+        cr.set_source(pat)
+        cr.paint()
+        cr.set_source_rgba(0.62, 0.62, 0.66, 1.0)
+        cr.arc(half, half - size * 0.10, size * 0.19,
+               0.0, 2 * math.pi)
+        cr.fill()
+        cr.arc(half, half + size * 0.42, size * 0.34,
+               math.pi, 2 * math.pi)
+        cr.fill()
+        return Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
+    except Exception as e:
+        dbg("vCard-Platzhalter fehlgeschlagen (%s) – Icon-Notnagel" % e)
+        return None
+
+
 class TextRendererMixin:
-    """Mixin: Renderer für Text, Markdown, EML, E-Book und Schrift."""
+    """Mixin: Renderer für Text, Markdown, EML, E-Book, Schrift, vCard."""
 
     # --- gemeinsame Helfer für Text-Ansichten (Audit 0.9.1) ---------------
     # Der TextView-Bau war zuvor FÜNF Mal nahezu identisch implementiert
@@ -1056,6 +1316,125 @@ class TextRendererMixin:
             except Exception:
                 text = ""
         return text[:MAX_TEXT_BYTES]
+
+    def _render_vcard(self, path):
+        """
+        F7 (Nutzer-Wunsch): vCard als Visitenkarte – .vcf/.vcard in
+        allen gängigen Dialekten (vCard 2.1, 3.0, 4.0). Kopf der
+        Karte: rundes Foto (inline Base64 oder lokale URI, sonst der
+        gezeichnete Platzhalter-Kreis), darunter Name groß, darunter
+        Position und Firma, dann die Kontaktdaten als gewohnte
+        Tabelle. Enthält die Datei mehrere Kontakte, zeigt die
+        Vorschau den ersten.
+        """
+        # → REF TXT-VCARD-1
+        try:
+            with open(path, "rb") as fh:
+                # Lese-Deckel: Kontakt-Fotos liegen als Base64 IN der
+                # Datei – ein paar MB sind üblich, ein paar Dutzend
+                # wären eine Bombe für Nemo.
+                raw = fh.read(_VCARD_FILE_CAP)
+        except Exception as e:
+            self._hint("Visitenkarte konnte nicht geöffnet werden: %s"
+                       % e)
+            return
+        cards = _vcard_parse(raw.decode("utf-8", "replace"))
+        if not cards:
+            self._hint("Kein vCard-Kontakt gefunden – Datei über den "
+                       "Öffnen-Knopf betrachten.")
+            self._render_generic()
+            return
+        card = cards[0]
+
+        name = _vcard_display_name(card)
+        title = _vcard_first(card, "TITLE")
+        org = _vcard_first(card, "ORG").split(";")[0].strip()
+
+        rows = []
+        for params, value in _vcard_props(card, "TEL"):
+            v = _vcard_unescape(value).strip()
+            if v:
+                rows.append((_vcard_tel_label(params), v))
+        for params, value in _vcard_props(card, "EMAIL"):
+            v = _vcard_unescape(value).strip()
+            if v:
+                rows.append(("E-Mail", v))
+        for params, value in _vcard_props(card, "URL"):
+            v = _vcard_unescape(value).strip()
+            if v:
+                rows.append(("Web", v))
+        for params, value in _vcard_props(card, "ADR"):
+            v = _vcard_adr(value)
+            if v:
+                rows.append(("Adresse", v))
+        for params, value in _vcard_props(card, "BDAY"):
+            v = _vcard_bday(value)
+            if v:
+                rows.append(("Geburtstag", v))
+        nick = _vcard_first(card, "NICKNAME")
+        if nick:
+            rows.append(("Spitzname", nick))
+        note = _vcard_first(card, "NOTE")
+        if note:
+            rows.append(("Notiz", note.replace("\n", " ")[:120]))
+        # Widget-Deckel: Adressbuch-Exporte tragen gern Dutzende
+        # Telefonnummern – nach 14 Zeilen ist Schluss mit Hinweis.
+        if len(rows) > 14:
+            rows = rows[:14]
+            rows.append(("Weitere", "… Angaben in der Datei"))
+
+        photo_bytes = _vcard_photo(card)
+        pb, had_photo = None, False
+        if photo_bytes is not None:
+            try:
+                pb = _pixbuf_from_bytes(photo_bytes)
+                had_photo = pb is not None
+            except Exception as e:
+                dbg("vCard-Foto nicht dekodierbar (%s) – Platzhalter-"
+                    "Kreis" % e)
+        pb = _vcard_circle(pb) if pb is not None else None
+        if pb is None:
+            pb = _vcard_placeholder()
+        if pb is not None:
+            img = Gtk.Image.new_from_pixbuf(pb)
+        else:
+            # Kein Cairo, kein Foto: Icon-Notnagel aus dem Theme.
+            img = Gtk.Image.new_from_icon_name(
+                pick_icon(("avatar-default-symbolic", "avatar-default",
+                           "contact-new-symbolic"), "avatar-default"),
+                Gtk.IconSize.DIALOG)
+
+        head = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        img.set_halign(Gtk.Align.CENTER)
+        img.set_margin_top(8)
+        head.pack_start(img, False, False, 0)
+        lbl = Gtk.Label()
+        lbl.set_markup("<span size='x-large' weight='bold'>%s</span>"
+                       % _pango_escape(name))
+        lbl.set_halign(Gtk.Align.CENTER)
+        lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        lbl.set_max_width_chars(24)
+        lbl.set_tooltip_text(name)
+        head.pack_start(lbl, False, False, 2)
+        sub = " · ".join(x for x in (title, org) if x)
+        if sub:
+            slbl = Gtk.Label()
+            slbl.set_markup("<span foreground='grey'>%s</span>"
+                            % _pango_escape(sub))
+            slbl.set_halign(Gtk.Align.CENTER)
+            slbl.set_ellipsize(Pango.EllipsizeMode.END)
+            slbl.set_max_width_chars(32)
+            slbl.set_tooltip_text(sub)
+            head.pack_start(slbl, False, False, 0)
+        head.set_margin_bottom(8)
+        self._content.pack_start(head, False, False, 0)
+        self._meta_grid(rows)
+        if len(cards) > 1:
+            self._hint("Datei enthält %d Kontakte – die Vorschau zeigt "
+                       "den ersten." % len(cards))
+        dbg("Visitenkarte: %r – %d Eigenschaft(en), Foto: %s"
+            % (name, len(card),
+               "ja" if had_photo else "Platzhalter"))
 
     def _render_ebook(self, path, loader, fmt):
         """
@@ -1198,7 +1577,8 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.23.0"
-dbg("previewer_render_text %s geladen (F31: Text/Markdown/EML/"
-    "E-Book/Schrift-Renderer; K4-Markdown und Lese-Deckel bleiben)"
+PREVIEWER_VERSION = "0.24.0"
+dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F31: "
+    "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "
+    "Lese-Deckel bleiben)"
     % PREVIEWER_VERSION)

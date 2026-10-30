@@ -4,7 +4,7 @@
 Previewer – Renderer-Modul Dokumente (previewer_render_docs.py)
 ===============================================================
 
-STAND: Version 0.23.0 – F39 (Nutzer-Wunsch): Ältere Office-Formate ohne
+STAND: Version 0.24.0 – F39 (Nutzer-Wunsch): Ältere Office-Formate ohne
 ZIP-Anteil (.doc/.xls/.ppt, RTF) werden über die LibreOffice-
 Konvertierung scharf gerendert; die Übergangsansicht zeigt saubere
 Hinweise (→ REF DOC-LEGACY-1). K2: Kaputtes Office-ZIP zeigt das
@@ -541,7 +541,7 @@ class DocsRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.23.0"
+PREVIEWER_VERSION = "0.24.0"
 dbg("previewer_render_docs %s geladen (F31: PDF-/Office-Renderer; "
     "Lese-Deckel und LibreOffice-Cache bleiben)"
     % PREVIEWER_VERSION)

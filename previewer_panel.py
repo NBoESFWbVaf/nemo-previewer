@@ -4,17 +4,18 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.23.0 – F43 (Nutzer-Wunsch): Ordner-Vorschau zeigt
-den Inhalt als Liste statt nur eines Ordner-Icons (→ REF PAN-
-FOLDER-1). F40: Kopfzeile trägt nur noch den Öffnen-Knopf (Stift-
-Symbol document-edit) – der Ausblenden-Knopf ist in Nemos Werkzeug-
-leiste gewandert. F38: _meta_grid bekommt einen optionalen
-container – die EXIF-Tabelle der Bild-Vorschau packt in den 40-%-
-Info-Bereich der neuen Aufteilung. Sonstiger Stand: Zeilennummern als
-Randzeichnung – dunkler (Alpha 0.75) und in 80 %
-der Textschriftgröße –, connect_after-Draw, Merker _last_textish
-markiert TextView-basierte Vorschauen. Schlüssel text_line_numbers,
-Rubrik „Textdateien“ im Toolbar-Modul.
+STAND: Version 0.24.0 – F7 (Nutzer-Wunsch): vCard-Dateien (.vcf/
+.vcard) rendert die Visitenkarte aus dem Text-Modul (→ REF PAN-
+VCARD-1). F43: Ordner-Vorschau zeigt den Inhalt als Liste statt
+nur eines Ordner-Icons (→ REF PAN-FOLDER-1). F40: Kopfzeile trägt
+nur noch den Öffnen-Knopf (Stift-Symbol document-edit) – der
+Ausblenden-Knopf ist in Nemos Werkzeugleiste gewandert. F38:
+_meta_grid bekommt einen optionalen container – die EXIF-Tabelle
+der Bild-Vorschau packt in den 40-%-Info-Bereich der neuen Auf-
+teilung. Sonstiger Stand: Zeilennummern als Randzeichnung – dunkler
+(Alpha 0.75) und in 80 % der Textschriftgröße –, connect_after-
+Draw, Merker _last_textish markiert TextView-basierte Vorschauen.
+Schlüssel text_line_numbers, Rubrik „Textdateien“ im Toolbar-Modul.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -357,6 +358,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._render_markdown(path)
         elif lower.endswith(".eml") or mime == "message/rfc822":
             self._render_eml(path)
+        elif lower.endswith((".vcf", ".vcard")) or mime == "text/vcard":
+            # F7: vCard-Visitenkarte (Renderer im Text-Modul).
+            # → REF PAN-VCARD-1
+            self._render_vcard(path)
         elif mime == "application/epub+zip" or lower.endswith(".epub"):
             self._render_epub(path)
         elif (mime in ("application/x-fictionbook+xml",
@@ -969,7 +974,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.23.0"
+PREVIEWER_VERSION = "0.24.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "

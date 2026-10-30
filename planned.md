@@ -368,9 +368,18 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 - [ ] **F6 – SQLite-Datenbanken** (.db/.sqlite): Tabellenliste +
 
   Zeilenanzahl (stdlib `sqlite3`). **S**
-- [ ] **F7 – vCard/ICS**: Kontakte &amp; Termine als Tabelle (wie EML-Kopf).
+- [ ] **F7 – vCard/ICS**: vCard-Visitenkarte, ICS-Tabelle
 
-  **S**
+  (Nutzer-Wunsch 2026-10-30) Alle gängigen Visitenkartenformate  
+  (.vcf/.vcard, vCard 2.1/3.0/4.0) werden als echte Visitenkarte  
+  gerendert: Kontaktbild kreisförmig – ist keins enthalten, zeigt  
+  die Vorschau ein kreisförmiges Platzhalterbild –, darunter Name,  
+  Position/Firma und Kontaktdaten (Telefon, E-Mail, Web, Adresse,  
+  Geburtstag) als Tabelle. **M**  
+  ✅ Teil 1 in 0.24.0 – vCard-Visitenkarte umgesetzt (→ REF  
+  TXT-VCARD-1 und PAN-VCARD-1): erster Kontakt der Datei, Foto  
+  inline Base64 oder lokale URI, mehrere Kontakte als Hinweis.  
+  Offen: ICS – Termine als Tabelle (wie EML-Kopf). **S**
 - [ ] **F8 – CSV als echte Tabelle** (Gtk.TreeView). **M**
 - [ ] **F9 – EXIF-Tabelle für Fotos** (Kamera, Datum, Belichtung). **M**
 - [ ] **F10 – Torrent-Dateien** (bencode-Parser, \~40 Zeilen). **S**
