@@ -10,6 +10,12 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Added (Hinzugefügt)
 
+- Alte MS-Office-Formate in der Vorschau (F39, Nutzer-Wunsch):  
+Binäre .doc-, .xls- und .ppt-Dateien laufen über die LibreOffice-  
+Hintergrund-Konvertierung wie die OOXML-Formate scharf ins PDF; da  
+sie keine ZIP-Archive sind, gibt es keine eingebettete Miniatur-  
+ansicht – die Übergangsansicht zeigt Hinweise zu Konvertierung,  
+fehlendem LibreOffice oder gescheiterter Konvertierung
 - „Location“ und benutzerdefinierte Felder in der Bild-Info-Tabelle  
 (F38, Nutzer-Wunsch): Falls vorhanden, zeigt die Tabelle die XMP-  
 „Location“ (IPTC Core, direkt nach dem Aufnahmeort) sowie beliebige  
