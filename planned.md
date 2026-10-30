@@ -1,4 +1,4 @@
-# Nemo Previewer – Planung ([planned.md](http://planned.md))
+# Nemo Previewer – Planung (planned.md)
 
 Arbeitsdatei zur systematischen Ablage. Stand der Analyse: **Version 0.4.1**,  
 2026-10-27. Abgearbeitetes wird abgehakt; erledigte Punkte wandern mit der  
