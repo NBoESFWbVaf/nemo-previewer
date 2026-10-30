@@ -6,6 +6,29 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.28.1\] – 2026-10-30
+
+### Added (Hinzugefügt)
+
+- Syntax-Hervorhebung als Einstellung (F44-Nachtrag,  
+Nutzer-Wunsch): In der Rubrik „Textdateien“ umschaltbar  
+(Schlüssel text\_syntax), Standard aktiviert – abgehakt  
+zeigen Quellcode-Dateien immer den schlichten Text; der  
+Schalter greift sofort auf die laufende Vorschau
+
+## \[0.28.0\] – 2026-10-30
+
+### Added (Hinzugefügt)
+
+- Syntax-Hervorhebung in der Text-Vorschau (F44, Nutzer-Wunsch):  
+Quellcode-Dateien (.py, .sh, .c, .js, .json, .xml …) erscheinen  
+eingefärbt wie im Editor – GtkSourceView (optionales Paket  
+gir1.2-gtksource-4, dasselbe Modul wie xed) rät die Sprache über  
+den Dateinamen; ohne Binding oder ohne erkannte Sprache bleibt die  
+Vorschau unverändert. Dunkles GTK-Theme bekommt ein dunkles  
+Farbschema (oblivion), helles das klassische; Zeilennummern (F24)  
+bleiben Randzeichnung und nicht kopierbar
+
 ## \[0.27.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)
