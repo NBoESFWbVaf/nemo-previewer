@@ -11,11 +11,12 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 ### Added (Hinzugefügt)
 
 - Alte MS-Office-Formate in der Vorschau (F39, Nutzer-Wunsch):  
-Binäre .doc-, .xls- und .ppt-Dateien laufen über die LibreOffice-  
-Hintergrund-Konvertierung wie die OOXML-Formate scharf ins PDF; da  
-sie keine ZIP-Archive sind, gibt es keine eingebettete Miniatur-  
-ansicht – die Übergangsansicht zeigt Hinweise zu Konvertierung,  
-fehlendem LibreOffice oder gescheiterter Konvertierung
+Binäre .doc-, .xls- und .ppt-Dateien sowie RTF-Dateien laufen über  
+die LibreOffice-Hintergrund-Konvertierung wie die OOXML-Formate  
+scharf ins PDF; da sie keine ZIP-Archive sind, gibt es keine  
+eingebettete Miniaturansicht – die Übergangsansicht zeigt Hinweise  
+zu Konvertierung, fehlendem LibreOffice oder gescheiterter  
+Konvertierung
 - „Location“ und benutzerdefinierte Felder in der Bild-Info-Tabelle  
 (F38, Nutzer-Wunsch): Falls vorhanden, zeigt die Tabelle die XMP-  
 „Location“ (IPTC Core, direkt nach dem Aufnahmeort) sowie beliebige  
@@ -32,6 +33,17 @@ für die Bildinformationen; die EXIF-/Maß-Tabelle (F36) läuft dort
 hinein, die Aufteilung bleibt beim Fenster-Resize über einen Live-  
 Nachzug erhalten. SVG-Vorschauen nutzen dieselbe Aufteilung, ihre  
 Maß-Zeile steht im Info-Bereich
+
+### Fixed (Behoben)
+
+- Kaputte Office-Dateien zeigen ein Icon (K2): Statt einer nackten  
+Hinweiszeile sitzt die generische Icon-Ansicht als visueller Anker  
+über der Fehlermeldung  
+- SVG-Vorschau über die Cairo-Route (K3): Intrinsisch kleine SVGs  
+füllen jetzt die Panelbreite (DPI-Rendern, Vektor bleibt scharf),  
+und der Aufruf nutzt die aktuelle librsvg-API statt des deprecated  
+get\_pixbuf(); ohne pycairo oder mit altem librsvg greift der  
+bisherige Pfad als Fallback
 
 ## \[0.21.0\] – 2026-10-30
 
