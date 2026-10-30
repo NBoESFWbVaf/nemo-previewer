@@ -4,9 +4,12 @@
 Previewer – Renderer-Modul Dokumente (previewer_render_docs.py)
 ===============================================================
 
-STAND: Version 0.22.0 – F38: Keine Änderungen an den Dokument-
-Renderern – nur Versions-Sync. (0.15.0/F31: aus dem Panel-Kern
-hierher gezogen; Lese- und Decode-Deckel 0.9.2 unverändert.)
+STAND: Version 0.22.0 – F39 (Nutzer-Wunsch): Alte binäre MS-Office-
+Formate (.doc/.xls/.ppt) werden über die LibreOffice-Konvertierung
+scharf gerendert; ohne ZIP gibt es keine eingebettete Miniatur-
+ansicht, die Übergangsansicht zeigt saubere Hinweise (→ REF
+DOC-LEGACY-1). (0.15.0/F31: aus dem Panel-Kern hierher gezogen;
+Lese- und Decode-Deckel 0.9.2 unverändert.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -83,7 +86,12 @@ def office_cache_path(path):
 _OFFICE_EXTS = {
     ".odt", ".ods", ".odp", ".odg", ".odf",          # OpenDocument
     ".docx", ".xlsx", ".pptx",                        # MS Office (OOXML)
+    ".doc", ".xls", ".ppt",                           # MS Office (F39)
 }
+# F39: Alte binäre MS-Office-Formate – keine ZIP-Archive, keine
+# eingebettete Miniaturansicht; einzig die LibreOffice-Konvertierung
+# bringt eine Vorschau.
+_OFFICE_LEGACY_EXTS = {".doc", ".xls", ".ppt"}
 _OFFICE_THUMBS = (
     "Thumbnails/thumbnail.png",                       # ODF
     "docProps/thumbnail.jpeg",                       # OOXML
@@ -318,7 +326,8 @@ class DocsRendererMixin:
 
     def _render_office(self, path):
         """
-        Office-Dokumente (ODT/ODS/ODP, DOCX/XLSX/PPTX) – scharfe Route:
+        Office-Dokumente (ODT/ODS/ODP, DOCX/XLSX/PPTX; F39: auch die
+        alten binären DOC/XLS/PPT) – scharfe Route:
         Ist ein frisches LibreOffice-Konvertierungs-PDF im Cache, wird
         dessen Seiten per Poppler scharf und in voller Panelbreite
         gerendert (identisch zur PDF-Vorschau, scrollbar). Sonst
@@ -356,6 +365,24 @@ class DocsRendererMixin:
         ist, wird ersatzweise ein Textauszug gezeigt. Bei converting=True
         läuft parallel die LibreOffice-Konvertierung – dann mit Hinweis.
         """
+        # F39: Alte binäre MS-Office-Formate sind keine ZIP-Archive –
+        # der Weg über Miniaturansicht/Textauszug läuft hier ins
+        # Leere (→ REF DOC-LEGACY-1).
+        if os.path.splitext(path)[1].lower() in _OFFICE_LEGACY_EXTS:
+            if converting:
+                self._hint("Scharfe Vorschau wird im Hintergrund "
+                           "erstellt (LibreOffice) – einen Moment …")
+            elif SOFFICE and HAVE_POPPLER:
+                # F39: Konvertierung angetreten, aber ohne Ergebnis
+                # (kaputte Datei) – nicht endlos erneut ansetzen.
+                self._hint("Scharfe Vorschau konnte nicht erstellt "
+                           "werden – Datei über den Öffnen-Knopf "
+                           "betrachten.")
+            else:
+                self._hint("Keine Vorschau möglich – LibreOffice "
+                           "installieren (Paket libreoffice-core), "
+                           "dann konvertiert die Vorschau schar.")
+            return
         thumb = None
         text = ""
         try:
