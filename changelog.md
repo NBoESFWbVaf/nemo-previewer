@@ -6,6 +6,22 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.21.0\] – 2026-10-30
+
+### Added (Hinzugefügt)
+
+- Foto-Info-Tabelle mit EXIF-Daten (F36, Nutzer-Wunsch): Unter Bild-  
+Vorschauen steht eine Tabelle mit Höhe, Breite, Aufnahmedatum, Aufnahme-  
+ort (GPS in Dezimalgrad), Kameramodell, Belichtungszeit, Brennweite  
+mit 35-mm-Äquivalent, Blende und ISO-Wert – jede Zeile nur, wenn der  
+Wert vorhanden ist; Höhe/Breite folgen der EXIF-Drehung. Der EXIF-  
+Parser läuft mit Python-Bordmitteln im Worker-Thread (keine neue  
+Abhängigkeit); herstellerspezifische Unterschiede fangen Standard-  
+Fallbacks ab: Belichtungszeit/Blende notfalls aus den APEX-Werten,  
+Datum als Kaskade Original → Digitalisiert → Datei, Kameramodell ohne  
+Hersteller-Dopplung. Das bisherige Maße-Label ist in der Tabelle  
+aufgegangen
+
 ## \[0.20.0\] – 2026-10-29
 
 ### Added (Hinzugefügt)
