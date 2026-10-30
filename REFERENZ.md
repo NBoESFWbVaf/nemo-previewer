@@ -49,6 +49,27 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
 # wird unterdrückt; alle anderen Gtk-Meldungen bleiben sichtbar.
 ```
 
+### ENT-TOGGLE-1 – Vorschau-Umschalter in Nemos Titelleiste (F40)
+
+- **Modul:** previewer.py
+- **Ort:** `PanelState._install_toolbar_toggle` (nachgerüstet in `_view_ok`), Rückkanäle `_on_toolbar_toggle`/`_on_panel_visibility`
+- **Anlass:** Der Nutzer wollte den Ein-/aus-Schalter nicht mehr im Panel-Kopf, sondern rechts in Nemos eigener Titelleiste neben der Ansichtenauswahl. Nemos Toolbar ist eine GtkHeaderBar-Unterklasse – pack\_end stellt den Knopf direkt neben den rechten Knopf-Cluster. Zwei Synchronisations-Fälle: der Knopf schaltet dasselbe Panel wie Strg+Alt+P (toggled → show/hide), und umgekehrt zieht notify::visible am Panel den Knopf nach (Show-at-Start-Einstellung, Tastenkürzel) – beide Richtungen konvergieren, da set\_active auf den gleichbleibenden Wert kein toggled mehr auslöst.
+
+```text
+        # PanelState entsteht genau einmal pro Fenster, aber die
+        # Versöhnung (_reconcile) läuft mehrfach – der Knopf wird am
+        # Fenster-Objekt gemerkt (Python-Attribut, nicht GObject-
+        # set_data – PyGObject blockiert die Daten-Methoden) und nie
+        # doppelt gepackt. Die Installation geschieht nachgereicht in
+        # _view_ok, weil die Titelleiste beim ersten PanelState-Bau
+        # theoretisch noch nicht stehen muss.
+        # Die Icon-Wahl läuft über pick_icon: Nicht jedes Mint-/Nemo-
+        # Theme liefert jeden Namen – der erste vorhandene gewinnt,
+        # der letzte Fallback (pan-end-symbolic) existiert immer in
+        # GTK selbst. Ohne GtkHeaderBar als Titelleiste gibt es einen
+        # dbg-Hinweis; bleiben würde Strg+Alt+P.
+```
+
 ---
 
 ## Panel-Kern (PAN)
