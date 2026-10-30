@@ -4,12 +4,12 @@
 Previewer – Renderer-Modul Dokumente (previewer_render_docs.py)
 ===============================================================
 
-STAND: Version 0.22.0 – F39 (Nutzer-Wunsch): Alte binäre MS-Office-
-Formate (.doc/.xls/.ppt) werden über die LibreOffice-Konvertierung
-scharf gerendert; ohne ZIP gibt es keine eingebettete Miniatur-
-ansicht, die Übergangsansicht zeigt saubere Hinweise (→ REF
-DOC-LEGACY-1). (0.15.0/F31: aus dem Panel-Kern hierher gezogen;
-Lese- und Decode-Deckel 0.9.2 unverändert.)
+STAND: Version 0.22.0 – F39 (Nutzer-Wunsch): Ältere Office-Formate ohne
+ZIP-Anteil (.doc/.xls/.ppt, RTF) werden über die LibreOffice-
+Konvertierung scharf gerendert; die Übergangsansicht zeigt saubere
+Hinweise (→ REF DOC-LEGACY-1). K2: Kaputtes Office-ZIP zeigt das
+Datei-Icon neben der Fehlermeldung. (0.15.0/F31: aus dem Panel-Kern
+hierher gezogen; Lese- und Decode-Deckel 0.9.2 unverändert.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
 previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
@@ -87,11 +87,12 @@ _OFFICE_EXTS = {
     ".odt", ".ods", ".odp", ".odg", ".odf",          # OpenDocument
     ".docx", ".xlsx", ".pptx",                        # MS Office (OOXML)
     ".doc", ".xls", ".ppt",                           # MS Office (F39)
+    ".rtf",                                           # RTF (F39)
 }
-# F39: Alte binäre MS-Office-Formate – keine ZIP-Archive, keine
-# eingebettete Miniaturansicht; einzig die LibreOffice-Konvertierung
-# bringt eine Vorschau.
-_OFFICE_LEGACY_EXTS = {".doc", ".xls", ".ppt"}
+# F39: Office-Formate OHNE ZIP-Anteil – keine eingebettete
+# Miniaturansicht, einzig die LibreOffice-Konvertierung bringt eine
+# Vorschau: die binären MS-Formate und RTF.
+_OFFICE_NOZIP_EXTS = {".doc", ".xls", ".ppt", ".rtf"}
 _OFFICE_THUMBS = (
     "Thumbnails/thumbnail.png",                       # ODF
     "docProps/thumbnail.jpeg",                       # OOXML
@@ -326,8 +327,8 @@ class DocsRendererMixin:
 
     def _render_office(self, path):
         """
-        Office-Dokumente (ODT/ODS/ODP, DOCX/XLSX/PPTX; F39: auch die
-        alten binären DOC/XLS/PPT) – scharfe Route:
+        Office-Dokumente (ODT/ODS/ODP, DOCX/XLSX/PPTX; F39: auch
+        DOC/XLS/PPT und RTF) – scharfe Route:
         Ist ein frisches LibreOffice-Konvertierungs-PDF im Cache, wird
         dessen Seiten per Poppler scharf und in voller Panelbreite
         gerendert (identisch zur PDF-Vorschau, scrollbar). Sonst
@@ -365,10 +366,10 @@ class DocsRendererMixin:
         ist, wird ersatzweise ein Textauszug gezeigt. Bei converting=True
         läuft parallel die LibreOffice-Konvertierung – dann mit Hinweis.
         """
-        # F39: Alte binäre MS-Office-Formate sind keine ZIP-Archive –
-        # der Weg über Miniaturansicht/Textauszug läuft hier ins
+        # F39: Office-Formate ohne ZIP-Anteil (binär + RTF) – der Weg
+        # über Miniaturansicht/Textauszug läuft hier ins
         # Leere (→ REF DOC-LEGACY-1).
-        if os.path.splitext(path)[1].lower() in _OFFICE_LEGACY_EXTS:
+        if os.path.splitext(path)[1].lower() in _OFFICE_NOZIP_EXTS:
             if converting:
                 self._hint("Scharfe Vorschau wird im Hintergrund "
                            "erstellt (LibreOffice) – einen Moment …")
@@ -401,6 +402,9 @@ class DocsRendererMixin:
                         break
                 text = _extract_office_text(zf, names)
         except Exception as e:
+            # K2 (2026-10-30): Nur die Hinweiszeile wirkt leer – das
+            # Datei-Icon gibt der Fehlermeldung einen visuellen Anker.
+            self._render_generic()
             self._hint("Office-Dokument konnte nicht geöffnet werden: %s" % e)
             return
         shown = False
