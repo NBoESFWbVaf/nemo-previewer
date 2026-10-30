@@ -4,11 +4,10 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.20.0 – F35: Kopfzeile ohne Dopplungen zur Nemo-Liste
-(nur noch Öffnen-/Ausblenden-Knöpfe), Info-Tabellen mit Doppelpunkt-
-Bezeichnungen (_meta_grid zentral). Medien-Renderer: Genre, Jahr als
-„Zuerst erschienen“ unter dem Album. Sonstiger Stand: Zeilennummern
-als Randzeichnung – dunkler (Alpha 0.75) und in 80 %
+STAND: Version 0.21.0 – F36: Foto-Info-Tabelle läuft über den zentralen
+_meta_grid (Doppelpunkt-Bezeichnungen, F35). Im Panel-Kern keine
+Änderung – nur Versions-Sync. Sonstiger Stand: Zeilennummern als
+Randzeichnung – dunkler (Alpha 0.75) und in 80 %
 der Textschriftgröße –, connect_after-Draw, Merker _last_textish
 markiert TextView-basierte Vorschauen. Schlüssel text_line_numbers,
 Rubrik „Textdateien“ im Toolbar-Modul.
@@ -903,7 +902,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.20.0"
+PREVIEWER_VERSION = "0.21.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "

@@ -4,7 +4,7 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.20.0 – F35: Nur Versions-Sync; die ActionBar (F19),
+STAND: Version 0.21.0 – F36: Nur Versions-Sync; die ActionBar (F19),
 Strg+Alt+P und der 0.15.0-Stand (F29: Mixin-Modul) bleiben unverändert.
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
@@ -251,7 +251,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.20.0"
+PREVIEWER_VERSION = "0.21.0"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)
