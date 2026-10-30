@@ -6,9 +6,12 @@ Previewer – Renderer-Modul Medien (previewer_render_media.py)
 
 STAND: Version 0.22.0 – F38 (Nutzer-Wunsch): Die Bild-Spalte ist in
 einen 60-%-Bereich (Bild, vertikal und horizontal mittig) und einen
-40-%-Bereich (EXIF-/Maß-Tabelle, F36) geteilt, live an die Spalten-
-höhe gekoppelt. F36-Basis (EXIF-Parser mit APEX-Fallbacks), F35/F34/
-F33 unberührt. (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
+40-%-Bereich (Info-Tabelle) geteilt, live an die Spaltenhöhe gekop-
+pelt; Streifen-Fix (Bildbereich mit fill=True über volle Spalten-
+breite) und XMP-Ergänzung: „Location“ (IPTC Core) plus benutzer-
+definierte XMP-Felder in der Tabelle. F36-Basis (EXIF-Parser mit
+APEX-Fallbacks), F35/F34/F33 unberührt. (0.15.0/F31: aus dem
+Panel-Kern hierher gezogen.)
 (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
 
 Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
@@ -19,6 +22,7 @@ sein – der Einstieg prüft das beim Laden.
 import os
 import sys
 import math
+import re
 import struct
 import threading
 import traceback
@@ -229,6 +233,86 @@ def _exif_dms(tags, tag, bo):
         return None
 
 
+# F38: Standard-XMP-Namensräume – alles DARÜBER hinaus gilt als
+# „vom Benutzer definiert“ und landet als eigene Tabellen-Zeile hier.
+_XMP_STD = {"exif", "tiff", "x", "xmp", "xmpMM", "xmpBJ", "xmpRights",
+            "xmpDM", "xap", "xapMM", "xapBJ", "xapRights", "dc",
+            "photoshop", "Iptc4xmpCore", "Iptc", "aux", "crs", "crss",
+            "lr", "rdf", "xml", "xmlns", "xsi", "stEvt", "stRef",
+            "stDim", "MicrosoftPhoto", "pdf", "xmpTPg", "xmpGImg"}
+
+
+def _xmp_clean(val):
+    """F38: XML-Reste aus XMP-Werten kehren; Entities dekodieren."""
+    val = re.sub(r"<[^>]+>", " ", val)
+    for a, b in (("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"),
+                 ("&quot;", '"'), ("&apos;", "'")):
+        val = val.replace(a, b)
+    return " ".join(val.split())[:120]
+
+
+def _xmp_parse(data):
+    """
+    F38 (Nutzer-Wunsch): XMP-Felder aus dem JPEG-APP1-Segment mit
+    Python-Bordmitteln (Regex über das eingebettete RDF-XML, keine
+    neue Pflicht-Abhängigkeit – passend zum EXIF-Parser). Zurück
+    kommt ein Dict: „Location“ (IPTC Core, Element- ODER Attribut-
+    Form) plus benutzerdefinierte Felder aus nicht-standardisierten
+    Namensräumen als „Präfix:Name“ – nur vorhandene, nicht-leere
+    Werte.
+    """
+    # → REF MED-XMP-1
+    out = {}
+    try:
+        pos = data.find(b"http://ns.adobe.com/xap/1.0/", 0, 262144)
+        if pos < 0:
+            return out
+        start = data.find(b"<x:xmpmeta", pos)
+        end = data.find(b"</x:xmpmeta>", pos)
+        if start < 0 or end < 0 or end <= start:
+            return out
+        xmp = data[start:end + 12].decode("utf-8", "replace")
+        # F38: „Location“ – textlicher Ort aus IPTC Core (digikam,
+        # Lightroom & Co. füllen ihn im Ort-Dialog), Attribute zuerst:
+        # Adobe-Tools schreiben einfache Werte gern als Attribut der
+        # rdf:Description statt als eigenes Element.
+        m = (re.search(r'<[^>]*Iptc4xmpCore:Location="([^"]+)"', xmp)
+             or re.search(
+                 r"<Iptc4xmpCore:Location>(.*?)</Iptc4xmpCore:Location>",
+                 xmp, re.S))
+        if m:
+            loc = _xmp_clean(m.group(1))
+            if loc:
+                out["Location"] = loc
+        # F38: benutzerdefinierte Felder – Element-Form: Öffnungs-Tags
+        # scannen und das passende Schluss-Tag suchen, NICHT als
+        # verschachtelten Gesamt-Match (→ REF MED-XMP-1: sonst
+        # verschluckt <x:xmpmeta> als erster Treffer das Dokument).
+        custom = {}
+        for m in re.finditer(r"<(\w+):(\w+)[^>]*>", xmp):
+            pfx, name = m.group(1), m.group(2)
+            if pfx in _XMP_STD or name in _XMP_STD:
+                continue
+            close = xmp.find("</%s:%s>" % (pfx, name), m.end())
+            if close < 0:
+                continue
+            val = _xmp_clean(xmp[m.end():close])
+            if val:
+                custom.setdefault("%s:%s" % (pfx, name), val)
+        # F38: benutzerdefinierte Felder – Attribut-Form (einfache
+        # Werte ohne eigenes Element, von Adobe-Tools bevorzugt).
+        for m in re.finditer(r'(\w+):(\w+)="([^"]+)"', xmp):
+            pfx, name, val = m.group(1), m.group(2), m.group(3)
+            val = _xmp_clean(val)
+            if pfx not in _XMP_STD and name not in _XMP_STD and val:
+                custom.setdefault("%s:%s" % (pfx, name), val)
+        for key in list(custom)[:10]:
+            out[key] = custom[key]
+    except Exception:
+        pass
+    return out
+
+
 def _exif_parse(data):
     """
     F36: EXIF-Kerninformationen aus JPEG-/TIFF-Bytes – mit
@@ -358,7 +442,11 @@ class MediaRendererMixin:
         top.set_size_request(-1,
                              max(80, int(self._preview_height() * 0.6)))
         top.connect("size-allocate", self._image_split_sync)
-        self._content.pack_start(top, False, False, 0)
+        # F38-Streifen-Fix: fill=True in der Breite – sonst schrumpft
+        # der Bereich auf die Minimalbreite des ScrolledWindow und
+        # GTK clippt das (auf Spaltenbreite skalierte) Bild auf einen
+        # schmalen Streifen.
+        self._content.pack_start(top, False, True, 0)
         sep = Gtk.Separator.new(Gtk.Orientation.HORIZONTAL)
         sep.set_margin_top(8)
         sep.set_margin_bottom(8)
@@ -436,7 +524,7 @@ class MediaRendererMixin:
             target_w = 1024
 
         def work():
-            data, err, exif = None, None, None
+            data, err, exif, xmp = None, None, None, None
             try:
                 with open(path, "rb") as fh:
                     data = fh.read(_IMAGE_FILE_CAP)
@@ -446,11 +534,13 @@ class MediaRendererMixin:
                 dbg("Bild-Lesen fehlgeschlagen (%s): %s" % (path, exc))
             # F36: EXIF gleich im Worker auswerten – reine Byte-Arbeit
             # ohne Gdk-Objekte, passend zur R1/B7-Thread-Disziplin.
+            # F38: XMP (Location + benutzerdefinierte Felder) ebenso.
             if data:
                 exif = _exif_parse(data)
+                xmp = _xmp_parse(data)
             try:
                 GLib.idle_add(self._image_probe_done,
-                              path, target_w, data, err, exif)
+                              path, target_w, data, err, exif, xmp)
             except Exception as exc:
                 dbg("Bild-Rückgabe fehlgeschlagen (%s): %s"
                     % (path, exc))
@@ -460,17 +550,19 @@ class MediaRendererMixin:
         except Exception:
             # Rettungsanker: Thread nicht startbar → synchron lesen,
             # die Dekodierung übernimmt _image_probe_done direkt.
-            data, err, exif = None, None, None
+            data, err, exif, xmp = None, None, None, None
             try:
                 with open(path, "rb") as fh:
                     data = fh.read(_IMAGE_FILE_CAP)
                 if data:
                     exif = _exif_parse(data)
+                    xmp = _xmp_parse(data)
             except Exception as exc:
                 data, err = None, exc
-            self._image_probe_done(path, target_w, data, err, exif)
+            self._image_probe_done(path, target_w, data, err, exif, xmp)
 
-    def _image_probe_done(self, path, target_w, data, err, exif=None):
+    def _image_probe_done(self, path, target_w, data, err, exif=None,
+                          xmp=None):
         """
         R9-Rückkehr (0.10.3/0.10.4): Dekodierung der im Worker
         gelesenen Bytes HIER im GTK-Thread (gleiche Disziplin wie bei
@@ -542,11 +634,22 @@ class MediaRendererMixin:
             # F36: Maße-Zeile ist in der Foto-Info-Tabelle aufgegangen;
             # alle weiteren Zeilen nur, wenn EXIF sie hergibt.
             rows = [("Höhe", "%d px" % h), ("Breite", "%d px" % w)]
-            for key in ("Aufnahmedatum", "Aufnahmeort",
-                        "Kameramodell", "Belichtungszeit",
+            for key in ("Aufnahmedatum", "Aufnahmeort"):
+                if exif and key in exif:
+                    rows.append((key, exif[key]))
+            # F38: „Location“ (XMP/IPTC Core) direkt nach dem
+            # Aufnahmeort – falls vorhanden.
+            if xmp and xmp.get("Location"):
+                rows.append(("Location", xmp["Location"]))
+            for key in ("Kameramodell", "Belichtungszeit",
                         "Brennweite", "Blende", "ISO"):
                 if exif and key in exif:
                     rows.append((key, exif[key]))
+            # F38: benutzerdefinierte XMP-Felder aus nicht-standard-
+            # Namensräumen – jede Zeile nur mit vorhandenem Wert.
+            if xmp:
+                for key in [k for k in xmp if k != "Location"][:10]:
+                    rows.append((key, xmp[key]))
             # F38: Tabelle in den 40-%-Info-Bereich der Aufteilung.
             self._meta_grid(rows, self._image_info_box)
         except Exception:
