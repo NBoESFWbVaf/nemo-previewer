@@ -4,9 +4,10 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.22.0 – F38: Nur Versions-Sync. (Seit dem Struktur-
-Release 0.15.0/F31 leben hier die zwei Basis-Helfer
-_pixbuf_from_bytes und _zf_read_capped für alle Renderer.)
+STAND: Version 0.22.0 – F40: Neuer Helfer pick_icon (erstes im Icon-
+Thema vorhandenes Symbol, Fallback sonst) für den Nemo-Titelleisten-
+Umschalter und den Öffnen-Knopf. Die Basis-Helfer _pixbuf_from_bytes
+und _zf_read_capped (0.15.0/F31) bleiben unverändert.
 
 Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
 Hilfsfunktionen und die zentralen Konfigurations-Konstanten. Teil der
@@ -59,6 +60,22 @@ def diag(msg):
     """Diagnose-Ausgabe – nur sichtbar bei VERBOSE_DIAG=True."""
     if VERBOSE_DIAG:
         dbg(msg)
+
+
+def pick_icon(names, fallback):
+    """
+    F40: Das erste im aktiven Icon-Thema VORHANDENE Symbol aus names
+    zurückgeben – Mint-/Nemo-Themes liefern nicht jeden Namen –, sonst
+    fallback. So bleibt kein Knopf ersatzlos ohne Bild.
+    """
+    try:
+        theme = Gtk.IconTheme.get_default()
+        for name in names:
+            if theme.has_icon(name):
+                return name
+    except Exception:
+        pass
+    return fallback
 
 
 def walk(widget):
