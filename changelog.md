@@ -17,6 +17,10 @@ klassisch als Umschalter direkt hinter den Ansichts-Knöpfen der
 Nemo-Toolbar; das Icon ist builder-view-right-pane-symbolic (Icon-  
 Helfer mit Theme-Fallbacks), und der Zustand bleibt mit Strg+Alt+P  
 synchron
+- Foto-Informationen für RAW-Dateien (F42, Nutzer-Wunsch): NEF,  
+CR2, CR3, ARW, ORF, DNG &amp; Co. kann Gdk-Pixbuf meist nicht deko-  
+dieren – das Panel zeigt jetzt die Foto-Tabelle (Kamera, Datum,  
+Blende &amp; Co.) unter der Icon-Ansicht, wenn EXIF im Puffer steht  
 - Alte MS-Office-Formate in der Vorschau (F39, Nutzer-Wunsch):  
 Binäre .doc-, .xls- und .ppt-Dateien sowie RTF-Dateien laufen über  
 die LibreOffice-Hintergrund-Konvertierung wie die OOXML-Formate  
@@ -53,12 +57,12 @@ gewandert (siehe Hinzugefügt) – Strg+Alt+P funktioniert unverändert
 
 ### Fixed (Behoben)
 
-- Foto-Informationen aus HEIC/HEIF (F41, Nutzer-Meldung): Das EXIF  
-liegt dort als „Exif“-Item im Meta-Container – ohne den JPEG-  
-APP1-Vorspann, mit dem TIFF-Kopf direkt in den Bytes. Der Parser  
-sucht den Kopf jetzt auch auf diesem Weg (mit IFD0-Struktur-  
-Validierung) und zeigt aus HEIC ebenfalls Aufnahmedatum, Kamera  
-&amp; Co.  
+- Foto-Informationen aus HEIC/HEIF (F41/F42, Nutzer-Meldung): Das  
+EXIF liegt dort als „Exif“-Item mitten im Container – teils mit,  
+teils ohne APP1-Vorspann, teils erst am Ende der Datei. Ein zu-  
+fälliger früher „Exif“-Treffer in der Meta-Box brach die alte  
+Einzelsuche ab; jetzt sammelt der Parser validierte Kandidaten  
+im ganzen Puffer und nimmt den ersten mit EXIF  
 - Kaputte Office-Dateien zeigen ein Icon (K2): Statt einer nackten  
 Hinweiszeile sitzt die generische Icon-Ansicht als visueller Anker  
 über der Fehlermeldung  

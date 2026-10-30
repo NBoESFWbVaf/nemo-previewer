@@ -11,8 +11,10 @@ pelt; Streifen-Fix (Mittig-Zentrierung am Bild statt am Scrolled-
 Window, siehe MED-SPLIT-1) und XMP-Ergänzung: „Location“ (IPTC
 Core) plus benutzerdefinierte XMP-Felder in der Tabelle. K3: SVG
 über die Cairo-Route DPI-artig auf Panelbreite gerendert (→ REF
-MED-SVG-DPI-1). F41 (Nutzer-Meldung): HEIC/HEIF-EXIF – ohne APP1-
-Marker sucht _exif_find_tiff den TIFF-Kopf direkt (→ REF
+MED-SVG-DPI-1). F41/F42 (Nutzer-Meldung): HEIC/HEIF- und RAW-EXIF –
+_exif_bases sammelt validierte Kandidaten im ganzen Puffer (Marker,
+TIFF-Köpfe, ORF-Köpfe), die Schleife nimmt den ersten mit EXIF;
+RAW ohne Dekodierung zeigt die Foto-Tabelle unter dem Icon (→ REF
 MED-EXIF-3). F36-Basis (EXIF-Parser mit APEX-Fallbacks), F35/
 F34/F33 unberührt. (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
 
@@ -325,35 +327,80 @@ def _xmp_parse(data):
     return out
 
 
-def _exif_find_tiff(data):
+def _exif_valid(data, base, bo, magic):
+    """F42: Struktur-Check eines TIFF-Kandidaten (42-Magie optional –
+    Olympus ORF trägt „RO“ statt 42): IFD0-Offset ≥ 8, Eintragszahl
+    1–4096, erster IFD komplett im Puffer."""
+    try:
+        if magic and struct.unpack_from(bo + "H", data,
+                                        base + 2)[0] != 42:
+            return False
+        off = struct.unpack_from(bo + "I", data, base + 4)[0]
+        if off < 8:
+            return False
+        cnt = struct.unpack_from(bo + "H", data, base + off)[0]
+        return 0 < cnt <= 4096 and base + off + 2 + cnt * 12 <= len(data)
+    except Exception:
+        return False
+
+
+def _exif_bases(data):
     """
-    F41 (Nutzer-Meldung): TIFF-Kopf in Bytes OHNE den JPEG-APP1-
-    Vorspann suchen. HEIC/HEIF speichert EXIF als „Exif“-Item im
-    Meta-Container, dessen Daten direkt mit dem II*/MM*-Kopf
-    beginnen (Plain-TIFF trägt ihn ab Byte 0 und läuft über diesel-
-    be Route). Der erste Kopf mit gültiger IFD0-Struktur gewinnt –
-    ein zufälliges Kopf-Muster in Bild- oder Box-Daten, das zusätz-
-    lich die Struktur-Prüfungen besteht, ist praktisch ausge-
-    schlossen.
+    F42 (Nutzer-Meldung): Liefert EXIF-Kandidaten im GANZEN Puffer –
+    Paare (Basis-Offset, 42-Magie prüfen). Drei Quellen:
+    1. „Exif“-Marker wie im JPEG-APP1 – HEIC/HEIF-Exif-Items tragen
+       teils denselben Vorspann, oft mitten oder am Ende der Datei;
+       dahinter folgt nach F36-Padding der TIFF-Kopf. RAWs mit ein-
+       gebettetem JPEG (RAF, RW2) kommen über denselben Weg.
+    2. Direkte TIFF-Köpfe (II*/MM*) – HEIC-Items ohne Vorspann, Plain-
+       TIFF und TIFF-basierte RAWs (NEF, CR2, ARW, DNG, PEF) tragen
+       ihn ab Byte 0 oder in einem Sub-Block.
+    3. Olympus-ORF-Köpfe (IIRO/IIRS) – TIFF-artig, ohne 42-Magie.
+    Jeder Kandidat wird validiert (_exif_valid), Duplikate fallen
+    weg. Ein falscher „Exif“-Treffer – der Item-Typ in der HEIC-
+    Meta-Box ist einer – fällt durch die Validierung oder liefert
+    kein EXIF; der nächste Kandidat gewinnt. Genau daran scheiterte
+    F41: Der früheste „Exif“-Treffer bestimmte allein, ob und wo
+    gesucht wurde. Reihenfolge: Marker vor Direkt-Köpfen, je nach
+    Position.
     """
     # → REF MED-EXIF-3
-    win = data[:4194304]   # Exif-Item sitzt in HEIC nahe am Anfang
+    out, seen = [], set()
     nul = bytes([0])
+    marker = b"Exif" + nul + nul
+
+    def add(base, bo, magic):
+        if base in seen or not _exif_valid(data, base, bo, magic):
+            return
+        seen.add(base)
+        out.append((base, magic))
+
+    # 1. „Exif“-Marker überall im Puffer (F41 suchte nur 256 KB).
+    pos = data.find(marker)
+    while pos >= 0:
+        base = pos + 6
+        # F36: Puffer zwischen Marker und TIFF-Kopf überlesen (0x00/
+        # 0x20-Padding, teils Samsung/Olympus) – der Kopf folgt erst.
+        stop = base + 16
+        while base < stop and data[base:base + 1] in (nul, b" "):
+            base += 1
+        head = data[base:base + 2]
+        add(base, "<" if head == b"II" else ">", True)
+        pos = data.find(marker, pos + 1)
+    # 2. Direkte TIFF-Köpfe (II*/MM*) überall im Puffer.
     for pat, bo in ((b"II*" + nul, "<"), (b"MM" + nul + b"*", ">")):
-        base = win.find(pat)
-        while base >= 0:
-            try:
-                off = struct.unpack_from(bo + "I", win, base + 4)[0]
-                if off >= 8:
-                    cnt = struct.unpack_from(bo + "H", win,
-                                             base + off)[0]
-                    if (cnt and cnt <= 4096 and
-                            base + off + 2 + cnt * 12 <= len(win)):
-                        return base
-            except Exception:
-                pass
-            base = win.find(pat, base + 1)
-    return -1
+        pos = data.find(pat)
+        while pos >= 0:
+            add(pos, bo, True)
+            pos = data.find(pat, pos + 1)
+    # 3. Olympus ORF: IIRO/IIRS statt II*/MM* – der IFD0-Pointer
+    # liegt trotzdem bei Offset 4, nur die 42-Magie fehlt.
+    for pat in (b"IIRO", b"IIRS"):
+        pos = data.find(pat)
+        while pos >= 0:
+            add(pos, "<", False)
+            pos = data.find(pat, pos + 1)
+    return out
 
 
 def _exif_parse(data):
@@ -363,20 +410,27 @@ def _exif_parse(data):
     Eigenheiten fangen Standard-Fallbacks ab (APEX statt Direktwert,
     Datums-Kaskade, GPS-Dezimalgrad). Zurück kommt ein Dict mit
     fertigen Anzeige-Texten – nur vorhandene Werte.
+    F42 (Nutzer-Meldung): Kandidaten-Schleife – _exif_bases sammelt
+    validierte TIFF-Kandidaten im ganzen Puffer, der erste mit EXIF
+    gewinnt (HEIC/HEIF und RAW, → REF MED-EXIF-3).
     """
-    # → REF MED-EXIF-2
+    # → REF MED-EXIF-2 (F42: Kandidaten-Schleife)
+    bases = _exif_bases(data)
+    dbg("EXIF: %d Kandidat(en)" % len(bases))
+    for base, magic in bases:
+        out = _exif_parse_at(data, base, magic)
+        if out:
+            return out
+    return {}
+
+
+def _exif_parse_at(data, base, magic=True):
+    """
+    F42: EXIF an EINEM TIFF-Basis-Offset – formatierender Teil der
+    F36-Logik, von der Kandidaten-Schleife je Kandidat aufgerufen.
+    """
     out = {}
     try:
-        pos = data.find(b"Exif\x00\x00", 0, 262144)
-        # F41 (Nutzer-Meldung): Ohne APP1-Marker TIFF-Kopf direkt
-        # suchen – HEIC/HEIF (Exif-Item ohne Vorspann) und Plain-TIFF
-        # kamen bislang leer zurück; -1 fängt head unten ab.
-        base = pos + 6 if pos >= 0 else _exif_find_tiff(data)
-        # F36: Puffer zwischen Marker und TIFF-Kopf überlesen (0x00/
-        # 0x20-Padding, teils Samsung/Olympus) – der Kopf folgt erst.
-        stop = base + 16
-        while base < stop and data[base:base + 1] in (b"\x00", b"\x20"):
-            base += 1
         head = data[base:base + 2]
         if head == b"MM":
             bo = ">"
@@ -384,7 +438,8 @@ def _exif_parse(data):
             bo = "<"
         else:
             return out
-        if struct.unpack_from(bo + "H", data, base + 2)[0] != 42:
+        if magic and struct.unpack_from(bo + "H", data,
+                                        base + 2)[0] != 42:
             return out
         ifd0 = base + struct.unpack_from(bo + "I", data, base + 4)[0]
         tags = {}
@@ -449,6 +504,12 @@ def _exif_parse(data):
             iso = _exif_num(tags.get(0x8833), bo)
         if iso:
             out["ISO"] = str(iso)
+        # F42 (RAW): Pixelmaße – ohne Dekodierung die einzige Größen-
+        # quelle (A002/A003 aus dem ExifIFD).
+        pw = _exif_num(tags.get(0xA002), bo)
+        ph = _exif_num(tags.get(0xA003), bo)
+        if pw and ph:
+            out["Maße"] = "%d × %d px" % (pw, ph)
         # F36: Aufnahmeort – GPS-Gradminuten in Dezimalgrade; die
         # Referenz-Buchstaben (N/S, E/W) gibt das jeweilige GPS-Tag.
         lat = _exif_dms(tags, 0x0002, bo)
@@ -461,6 +522,28 @@ def _exif_parse(data):
     except Exception as exc:
         dbg("EXIF-Parsing fehlgeschlagen: %s" % exc)
     return out
+
+
+def _exif_rows(exif, xmp):
+    """
+    F42: Foto-Zeilen aus EXIF/XMP – gemeinsam für die Bild-Ansicht
+    (unter Höhe/Breite) und den RAW-Fallback (unter dem Icon). Nur
+    vorhandene Werte, Reihenfolge wie in der Bild-Tabelle.
+    """
+    rows = []
+    for key in ("Aufnahmedatum", "Aufnahmeort"):
+        if exif and key in exif:
+            rows.append((key, exif[key]))
+    if xmp and xmp.get("Location"):
+        rows.append(("Location", xmp["Location"]))
+    for key in ("Kameramodell", "Belichtungszeit", "Brennweite",
+                "Blende", "ISO"):
+        if exif and key in exif:
+            rows.append((key, exif[key]))
+    if xmp:
+        for key in [k for k in xmp if k != "Location"][:10]:
+            rows.append((key, xmp[key]))
+    return rows
 
 # ========================== Renderer: Medien ================================
 
@@ -722,6 +805,23 @@ class MediaRendererMixin:
             except Exception:
                 pb = None
         if pb is None:
+            # F42 (Nutzer-Wunsch): RAW-Dateien (NEF, CR2, CR3, ARW,
+            # ORF, DNG, PEF …) kann Gdk-Pixbuf meist nicht dekodie-
+            # ren – das EXIF/XMP steht aber schon im Puffer. Foto-
+            # Tabelle unter der Icon-Ansicht statt nur der Fehler-
+            # meldung; ohne EXIF bleibt es beim alten Hinweis
+            # (→ REF MED-EXIF-3).
+            rows = []
+            if exif and "Maße" in exif:
+                rows.append(("Maße", exif["Maße"]))
+            rows += _exif_rows(exif, xmp)
+            if rows:
+                dbg("RAW/undekodierbar: Foto-Tabelle (%d Zeilen)"
+                    % len(rows))
+                self._render_generic()
+                self._meta_grid(rows, None)
+                self._content.show_all()
+                return False
             self._hint("Konnte Bild nicht laden: %s" % (err or "unbekannt"))
             self._render_generic()
             # Auch dieser Fallback packt NACH dem show_all() des
@@ -754,22 +854,8 @@ class MediaRendererMixin:
             # F36: Maße-Zeile ist in der Foto-Info-Tabelle aufgegangen;
             # alle weiteren Zeilen nur, wenn EXIF sie hergibt.
             rows = [("Höhe", "%d px" % h), ("Breite", "%d px" % w)]
-            for key in ("Aufnahmedatum", "Aufnahmeort"):
-                if exif and key in exif:
-                    rows.append((key, exif[key]))
-            # F38: „Location“ (XMP/IPTC Core) direkt nach dem
-            # Aufnahmeort – falls vorhanden.
-            if xmp and xmp.get("Location"):
-                rows.append(("Location", xmp["Location"]))
-            for key in ("Kameramodell", "Belichtungszeit",
-                        "Brennweite", "Blende", "ISO"):
-                if exif and key in exif:
-                    rows.append((key, exif[key]))
-            # F38: benutzerdefinierte XMP-Felder aus nicht-standard-
-            # Namensräumen – jede Zeile nur mit vorhandenem Wert.
-            if xmp:
-                for key in [k for k in xmp if k != "Location"][:10]:
-                    rows.append((key, xmp[key]))
+            # F42: EXIF/XMP-Zeilen gemeinsam mit dem RAW-Fallback.
+            rows += _exif_rows(exif, xmp)
             # F38: Tabelle in den 40-%-Info-Bereich der Aufteilung.
             self._meta_grid(rows, self._image_info_box)
         except Exception:

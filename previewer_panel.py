@@ -325,7 +325,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._render_folder(path)
         elif mime == "image/svg+xml" or lower.endswith(".svg"):
             self._render_svg(path)
-        elif mime.startswith("image/") or mime == "application/x-xpixmap":
+        elif (mime.startswith("image/") or
+              mime == "application/x-xpixmap" or
+              lower.endswith((".heic", ".heif", ".hif"))):
+            # F42: HEIC-Endungen als Backup, falls shared-mime-info
+            # den Typ (noch) nicht kennt.
             self._render_image(path)
         elif mime == "application/pdf" or lower.endswith(".pdf"):
             if HAVE_POPPLER:

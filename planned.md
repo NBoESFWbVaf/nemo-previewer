@@ -788,6 +788,21 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   (→ REF MED-EXIF-3); auch Plain-TIFF läuft nun über die validierte  
   Route.
 
+- [x] **F42 – RAW-Dateien: Foto-Informationen ohne Dekodierung**
+
+  (Nutzer-Wunsch 2026-10-30) Prüfung, ob RAW-Formate (Nikon, Canon  
+  etc.) Eigentümlichkeiten haben: TIFF-basierte RAWs (NEF, CR2,  
+  ARW, DNG, PEF) tragen EXIF ab Byte 0; HEIC-artige Container (CR3)  
+  lauschen im Meta-Teil; Olympus ORF ersetzt die 42-Magie durch  
+  IIRO/IIRS; RAWs mit eingebettetem JPEG (RAF, RW2) tragen APP1-  
+  Marker. **M** – *Skizze:* Kandidaten-Schleife in \_exif\_bases  
+  (Marker, TIFF-Köpfe, ORF-Köpfe – alles im ganzen Puffer vali-  
+  diert), RAW-Fallback in \_image\_probe\_done packt die Foto-  
+  Tabelle unter die Icon-Ansicht, Maße aus EXIF A002/A003.  
+  ✅ 0.22.0 – \_exif\_parse/\_exif\_parse\_at/\_exif\_bases/\_exif\_rows,  
+  RAW-Zweig im Bild-Fallback, HEIC-Endungen als Bild-Dispatch-  
+  Backup (→ REF MED-EXIF-3).
+
 ---
 
 ## Empfohlene Reihenfolge

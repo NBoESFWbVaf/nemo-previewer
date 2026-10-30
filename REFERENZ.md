@@ -365,21 +365,23 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # (SVG, PNG ohne eXIf) bleibt die Tabelle bei Höhe/Breite.
 ```
 
-### MED-EXIF-3 – TIFF-Kopf-Direktsuche für HEIC/HEIF (F41)
+### MED-EXIF-3 – EXIF-Kandidaten-Schleife für HEIC/HEIF und RAW (F41/F42)
 
 - **Modul:** previewer\_render\_media.py
-- **Ort:** `_exif_find_tiff`, aufgerufen aus `_exif_parse` (Fallback ohne APP1-Marker)
-- **Anlass:** Nutzer-Meldung: HEIC-Bilder zeigten keine Foto-Informationen. Ursache: Der Parser kannte nur den JPEG-APP1-Vorspann („Exif“ + zwei Null-Bytes) bzw. den TIFF-Kopf ab Byte 0. HEIC/HEIF speichert EXIF aber als „Exif“-Item im Meta-Container – dessen Daten beginnen direkt mit dem II\*/MM\*-Kopf, ohne Vorspann, irgendwo in den ersten Megabytes. \_exif\_find\_tiff sucht deshalb die beiden Kopf-Muster (im Quellcode bewusst ohne Byte-Escapes: bytes(\[0\]) statt Null-Byte-Literal) in einem 4-MB-Fenster und validiert jeden Fund als IFD0-Struktur (Offset ≥ 8, Eintragszahl 1–4096, kompletter erster IFD im Puffer) – der erste gültige Kopf gewinnt. Die Route fängt zusätzlich die Box-Konvention (Exif-Kasten vor dem Kopf – das Muster bleibt auffindbar) und Plain-TIFF ab; ein missglückter Fund (−1) läuft über den leeren head-Check sauber ins leere Ergebnis. Die APP1-Route für JPEG bleibt unverändert, inkl. Padding-Überspringung.
+- **Ort:** `_exif_bases` (mit `_exif_valid`), Kandidaten-Schleife in `_exif_parse` → `_exif_parse_at`, RAW-Fallback in `_image_probe_done` mit `_exif_rows`
+- **Anlass:** Nutzer-Meldung: HEIC-Bilder zeigten keine Foto-Informationen – auch nach der ersten Korrektur (F41) nicht. F41s Ursachen-Analyse war unvollständig: Die alte Einzelsuche ließ den frühesten „Exif“-Treffer allein entscheiden, ob und wo gesucht wurde – und in der HEIC-Meta-Box steht der Item-Typ „Exif“ wörtlich, ein falscher Treffer brach die Suche vorzeitig ab. Dazu waren die Suchfenster (256 KB für den Marker, 4 MB für den TIFF-Kopf) zu klein: HEIC-Exif-Items liegen teils mitten oder am Ende der Datei. F42 löst das strukturell: \_exif\_bases sammelt Kandidaten im GANZEN Puffer (64-MB-Lesedeckel) aus drei Quellen – „Exif“-Marker (APP1-artige Vorspanne, auch in RAWs mit eingebettetem JPEG wie RAF/RW2), direkte TIFF-Köpfe II\*/MM\* (Plain-TIFF und TIFF-basierte RAWs wie NEF, CR2, ARW, DNG, PEF tragen ihn ab Byte 0) und Olympus-ORF-Köpfe IIRO/IIRS (TIFF-artig, aber ohne die 42-Magie – der IFD0-Pointer liegt trotzdem bei Offset 4). Jeder Kandidat wird von \_exif\_valid strukturell geprüft (Magie optional, IFD0-Offset ≥ 8, Eintragszahl 1–4096, erster IFD komplett im Puffer), Duplikate aussortiert; \_exif\_parse probiert die Kandidaten der Reihe nach, bis einer EXIF hergibt (JPEG bevorzugt über den Marker-Treffer, der vorn steht). Falsche Treffer fallen also nicht mehr auf die ganze Suche durch. Der RAW-Fallback zeigt die Foto-Tabelle (Maße aus A002/A003) unter der Icon-Ansicht, wenn Gdk-Pixbuf nicht dekodieren kann; die Bild-Ansicht teilt sich die Zeilen-Logik mit \_exif\_rows.
 
 ```text
-        # Die Muster-Validierung ist der Rettungsanker gegen Zufalls-
-        # treffer in Bild- oder Box-Daten: Ein II*/MM*-Muster allein
-        # ist in komprimierten Bytes kein Wunder – aber zusätzlich
-        # einen plausiblen IFD0-Offset UND eine Eintragszahl zwischen
-        # 1 und 4096 UND einen kompletten ersten IFD im Puffer zu
-        # fälschen, ist praktisch ausgeschlossen. Das 4-MB-Fenster
-        # reicht, weil das Exif-Item in HEIC nahe am Dateianfang
-        # liegt (Meta-Box vor der Mdat).
+        # Die Struktur-Validierung ist der Rettungsanker gegen Zu-
+        # fallstreffer in Bild- oder Box-Daten: Ein II*/MM*-Muster
+        # allein ist in komprimierten Bytes kein Wunder – aber zu-
+        # sätzlich einen plausiblen IFD0-Offset UND eine Eintrags-
+        # zahl zwischen 1 und 4096 UND einen kompletten ersten IFD
+        # im Puffer zu fälschen, ist praktisch ausgeschlossen. Und
+        # selbst ein struktur-gültiger Fehltreffer bleibt harmlos:
+        # Er liefert kein EXIF, der nächste Kandidat gewinnt.
+        # Quellcode-Note: bytes([0]) statt Null-Byte-Literale –
+        # Escape-Fallen beim Übertragen in Canvases/Edits.
 ```
 
 ### MED-XMP-1 – XMP: Location und benutzerdefinierte Felder (F38)
