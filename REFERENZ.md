@@ -182,6 +182,23 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
             self._render_vcard(path)
 ```
 
+### PAN-F44-1 – Optionales GtkSource-Binding (F44)
+
+- **Modul:** previewer\_panel.py
+- **Ort:** Modulkopf, unterhalb der Mixin-Importe
+- **Anlass:** 0.28.0 (Nutzer-Wunsch): Syntax-Hervorhebung in der Text-Vorschau. GtkSourceView wird wie Poppler im Docs-Modul als OPTIONALES Binding geladen; fehlt es (Paket gir1.2-gtksource-4), bleibt alles beim bisherigen TextView. \_source\_language rät die Sprache über den Dateinamen, \_source\_scheme wählt bei dunklem GTK-Theme oblivion (ersatzweise solarized-dark), sonst classic. 0.28.1 (Nutzer-Wunsch): über die Einstellung text\_syntax an/aus schaltbar (Rubrik „Textdateien“), Default an.
+
+```text
+# → REF PAN-F44-1
+HAVE_GTKSOURCE = False
+try:
+    gi.require_version('GtkSource', '4')
+    from gi.repository import GtkSource
+    HAVE_GTKSOURCE = True
+except Exception:
+    pass
+```
+
 ---
 
 ## Auswahl (SEL)
