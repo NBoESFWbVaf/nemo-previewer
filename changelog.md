@@ -6,6 +6,31 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.20.0\] – 2026-10-29
+
+### Added (Hinzugefügt)
+
+- Genre in der Musik-Vorschau (F35, Nutzer-Wunsch): Der Discoverer liest  
+das Genre-Tag mit; die Zeile erscheint nur, wenn das Tag vorhanden ist
+
+### Changed (Geändert)
+
+- Cover-Schatten neu ausgerichtet (F35, Nutzer-Wunsch): Der Schlags-  
+schatten der Cover sitzt jetzt rechts und unten, reicht dort 3 px  
+weiter und ist insgesamt transparenter (4 % Deckkraft je Stufe  
+statt 5,5 %)
+- Musik-Infos umgestellt (F35, Nutzer-Wunsch): Das Jahr steht nicht mehr  
+in der Album-Zeile, sondern als eigene Zeile darunter – Bezeichnung  
+„Zuerst erschienen“
+- Doppelpunkte (F35, Nutzer-Wunsch): Alle Bezeichnungen der Info-  
+Tabellen (Musik, Video, EML, E-Book, Schrift) enden auf einen  
+Doppelpunkt – zentral im Tabellen-Helfer gesetzt
+- Kopfzeile ausgedünnt (F35, Nutzer-Wunsch): Icon, Dateiname, Typ, Größe  
+und Änderungsdatum sind aus dem Kopfbereich der Vorschau-Spalte  
+entfernt – all das zeigt die Nemo-Liste bereits. Übrig bleiben die  
+Öffnen- und Ausblenden-Knöpfe; der Hinweis „(Datei nicht gefunden)“  
+steht jetzt im Inhaltsbereich
+
 ## \[0.19.0\] – 2026-10-29
 
 ### Added (Hinzugefügt)
