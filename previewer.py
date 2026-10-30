@@ -180,7 +180,8 @@ class PanelState:
             dbg("Vorschau-Knopf: keine GtkHeaderBar als Titelleiste – "
                 "nur Strg+Alt+P")
             return
-        icon = pick_icon(("view-right-pane", "sidebar-show-symbolic",
+        icon = pick_icon(("builder-view-right-pane-symbolic",
+                          "view-right-pane", "sidebar-show-symbolic",
                           "sidebar-symbolic"), "pan-end-symbolic")
         btn = Gtk.ToggleButton()
         btn.set_image(Gtk.Image.new_from_icon_name(icon,

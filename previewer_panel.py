@@ -5,7 +5,7 @@ Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
 STAND: Version 0.22.0 – F40: Kopfzeile trägt nur noch den Öffnen-Knopf
-(system-run-Symbol) – der Ausblenden-Knopf ist in die Nemo-Titel-
+(Stift-Symbol document-edit) – der Ausblenden-Knopf ist in die Nemo-Titel-
 leiste gewandert. F38: _meta_grid bekommt einen optionalen
 container – die EXIF-Tabelle der Bild-Vorschau packt in den 40-%-
 Info-Bereich der neuen Aufteilung. Sonstiger Stand: Zeilennummern als
@@ -173,7 +173,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Ausblenden-Knopf ist als Vorschau-Umschalter in Nemos
         # Titelleiste aufgewacht (→ REF ENT-TOGGLE-1).
         btn_open = Gtk.Button.new_from_icon_name(
-            pick_icon(("system-run-symbolic", "system-run"),
+            pick_icon(("document-edit-symbolic", "document-edit",
+                       "edit-symbolic", "text-editor-symbolic"),
                       "document-open-symbolic"),
             Gtk.IconSize.BUTTON)
         btn_open.set_tooltip_text("Mit Standardanwendung öffnen")

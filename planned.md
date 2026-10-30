@@ -770,8 +770,8 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Strg+Alt+P.  
   ✅ 0.22.0 – \_install\_toolbar\_toggle in PanelState, nachgerüstet in  
   \_view\_ok (idempotent, → REF ENT-TOGGLE-1); Öffnen-Knopf auf  
-  system-run-symbolic, Ausblenden-Knopf aus der Panel-Kopfzeile  
-  entfernt.
+  document-edit-symbolic (Stift), Ausblenden-Knopf aus der Panel-  
+  kopfzeile entfernt.
 
 ---
 
