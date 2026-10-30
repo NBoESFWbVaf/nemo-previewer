@@ -10,11 +10,13 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Added (Hinzugefügt)
 
-- Vorschau-Umschalter in der Nemo-Titelleiste (F40, Nutzer-Wunsch):  
-Rechts neben der Ansichtenauswahl sitzt ein Knopf, der die Vorschau-  
-Seitenleiste ein- und ausblendet – das Icon ist builder-view-right-  
-pane-symbolic (Icon-Helfer mit Theme-Fallbacks), und der Zustand  
-bleibt mit Strg+Alt+P synchron
+- Vorschau-Umschalter in Nemos Werkzeugleiste (F40, Nutzer-Wunsch):  
+Neben der Ansichtenauswahl sitzt ein Knopf, der die Vorschau-  
+Seitenleiste ein- und ausblendet – bei CSD in der Titelleiste,  
+klassisch als Umschalter direkt hinter den Ansichts-Knöpfen der  
+Nemo-Toolbar; das Icon ist builder-view-right-pane-symbolic (Icon-  
+Helfer mit Theme-Fallbacks), und der Zustand bleibt mit Strg+Alt+P  
+synchron
 - Alte MS-Office-Formate in der Vorschau (F39, Nutzer-Wunsch):  
 Binäre .doc-, .xls- und .ppt-Dateien sowie RTF-Dateien laufen über  
 die LibreOffice-Hintergrund-Konvertierung wie die OOXML-Formate  

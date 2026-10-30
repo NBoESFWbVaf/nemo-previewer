@@ -49,11 +49,11 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
 # wird unterdrückt; alle anderen Gtk-Meldungen bleiben sichtbar.
 ```
 
-### ENT-TOGGLE-1 – Vorschau-Umschalter in Nemos Titelleiste (F40)
+### ENT-TOGGLE-1 – Vorschau-Umschalter in Nemos Werkzeugleiste (F40)
 
 - **Modul:** previewer.py
-- **Ort:** `PanelState._install_toolbar_toggle` (nachgerüstet in `_view_ok`), Rückkanäle `_on_toolbar_toggle`/`_on_panel_visibility`
-- **Anlass:** Der Nutzer wollte den Ein-/aus-Schalter nicht mehr im Panel-Kopf, sondern rechts in Nemos eigener Titelleiste neben der Ansichtenauswahl. Nemos Toolbar ist eine GtkHeaderBar-Unterklasse – pack\_end stellt den Knopf direkt neben den rechten Knopf-Cluster. Zwei Synchronisations-Fälle: der Knopf schaltet dasselbe Panel wie Strg+Alt+P (toggled → show/hide), und umgekehrt zieht notify::visible am Panel den Knopf nach (Show-at-Start-Einstellung, Tastenkürzel) – beide Richtungen konvergieren, da set\_active auf den gleichbleibenden Wert kein toggled mehr auslöst.
+- **Ort:** `PanelState._install_toolbar_toggle` (nachgerüstet in `_view_ok`), Rückkanäle `_on_toolbar_toggle`/`_on_panel_visibility`, Helfer `_pack_toggle`/`_find_first_widget`/`_pos_after_view_buttons`/`_has_view_icon`
+- **Anlass:** Der Nutzer wollte den Ein-/aus-Schalter nicht mehr im Panel-Kopf, sondern in Nemos Werkzeugleiste neben der Ansichtenauswahl. Die erste Annahme, Nemos Toolbar sei eine GtkHeaderBar-Unterklasse, bewahrheitete sich auf klassischem Nemo (Cinnamon) nicht: get\_titlebar() liefert NULL, der Knopf erschien nie. Nemo bietet keine offizielle Erweiterungs-API für die Toolbar – aber NemoToolbar ist nur ein GtkBox, und die Ansichts-Knöpfe stecken in einer GtkToolbar aus dem UIManager. Deshalb zwei Installations-Routen: Route 1 bei CSD (Titelleiste ist GtkHeaderBar) – GtkToggleButton per pack\_end; pack\_end nimmt in GTK3 NUR das Kind-Argument, mehr Argumente werfen einen TypeError. Route 2 klassisch – \_find\_first\_widget durchsucht den Widget-Baum nach der ersten GtkToolbar, \_pos\_after\_view\_buttons setzt den GtkToggleToolButton direkt hinter den letzten Ansichts-Knopf (erkannt am view-…-Icon seiner Gtk.Image), ohne Fund hängt insert(-1) hinten an. Zwei Synchronisations-Fälle: der Knopf schaltet dasselbe Panel wie Strg+Alt+P (toggled → show/hide), und umgekehrt zieht notify::visible am Panel den Knopf nach (Show-at-Start-Einstellung, Tastenkürzel) – beide Richtungen konvergieren, da set\_active auf den gleichbleibenden Wert kein toggled mehr auslöst.
 
 ```text
         # PanelState entsteht genau einmal pro Fenster, aber die
@@ -61,13 +61,18 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # Fenster-Objekt gemerkt (Python-Attribut, nicht GObject-
         # set_data – PyGObject blockiert die Daten-Methoden) und nie
         # doppelt gepackt. Die Installation geschieht nachgereicht in
-        # _view_ok, weil die Titelleiste beim ersten PanelState-Bau
+        # _view_ok, weil die Werkzeugleiste beim ersten PanelState-Bau
         # theoretisch noch nicht stehen muss.
+        # Zwei Installations-Routen: GtkHeaderBar als Titelleiste
+        # (CSD) bekommt einen GtkToggleButton per pack_end (nur das
+        # Kind-Argument!); klassisches Nemo bekommt die GtkToolbar im
+        # Widget-Baum markiert und einen GtkToggleToolButton direkt
+        # hinter die Ansichts-Knöpfe.
         # Die Icon-Wahl läuft über pick_icon: Nicht jedes Mint-/Nemo-
         # Theme liefert jeden Namen – der erste vorhandene gewinnt,
         # der letzte Fallback (pan-end-symbolic) existiert immer in
-        # GTK selbst. Ohne GtkHeaderBar als Titelleiste gibt es einen
-        # dbg-Hinweis; bleiben würde Strg+Alt+P.
+        # GTK selbst. Ohne HeaderBar und GtkToolbar bleibt Strg+Alt+P
+        # (dbg-Hinweis).
 ```
 
 ---

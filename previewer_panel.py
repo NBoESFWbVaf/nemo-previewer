@@ -5,7 +5,7 @@ Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
 STAND: Version 0.22.0 – F40: Kopfzeile trägt nur noch den Öffnen-Knopf
-(Stift-Symbol document-edit) – der Ausblenden-Knopf ist in die Nemo-Titel-
+(Stift-Symbol document-edit) – der Ausblenden-Knopf ist in Nemos Werkzeug-
 leiste gewandert. F38: _meta_grid bekommt einen optionalen
 container – die EXIF-Tabelle der Bild-Vorschau packt in den 40-%-
 Info-Bereich der neuen Aufteilung. Sonstiger Stand: Zeilennummern als

@@ -5,8 +5,9 @@ Previewer
 =========
 
 STAND: Version 0.22.0 – F40 (Nutzer-Wunsch): Umschalt-Knopf für die
-Vorschau-Seitenleiste in Nemos Titelleiste (rechts, neben der
-Ansichtenauswahl), synchron mit Strg+Alt+P (→ REF ENT-TOGGLE-1).
+Vorschau-Seitenleiste in Nemos Werkzeugleiste (rechts, neben der
+Ansichtenauswahl; CSD-Titelleiste oder klassische Toolbar),
+synchron mit Strg+Alt+P (→ REF ENT-TOGGLE-1).
 Dies ist die EINSTIEGS-Datei der acht zusammengehörigen Dateien
 (previewer.py, previewer_panel.py, previewer_select.py,
 previewer_util.py, previewer_toolbar.py, previewer_render_media.py,
@@ -40,8 +41,8 @@ Siehe INSTALL.md im Repository (Anleitung in Englisch).
 
 Bedienung
 ---------
-- Panel ein-/ausblenden: Strg+Alt+P oder den Umschalt-Knopf rechts in
-  der Nemo-Titelleiste (neben der Ansichtenauswahl)
+- Panel ein-/ausblenden: Strg+Alt+P oder den Umschalt-Knopf in Nemos
+  Werkzeugleiste (neben der Ansichtenauswahl)
 - Trenner zwischen Dateiansicht und Panel ist verschiebbar (Gtk.Paned)
 - Play/Pause & Seek bei Audio über die Bedienelemente im Panel
 - PDF: alle Seiten untereinander, im Vorschau-Bereich scrollbar
@@ -161,8 +162,8 @@ class PanelState:
     def _install_toolbar_toggle(self):
         """
         F40 (Nutzer-Wunsch): Ein-/aus-Knopf für die Vorschau-Seiten-
-        leiste rechts in Nemos Titelleiste, neben der Ansichtenaus-
-        wahl. Der Zustand bleibt synchron: Strg+Alt+P und der Knopf
+        leiste in Nemos Werkzeugleiste, neben der Ansichtenauswahl.
+        Der Zustand bleibt synchron: Strg+Alt+P und der Knopf
         schalten dasselbe Panel, notify::visible zieht nach.
         """
         # → REF ENT-TOGGLE-1
@@ -172,25 +173,45 @@ class PanelState:
         if self.toggle_btn is not None or getattr(
                 self.window, "_previewer_toggle", None) is not None:
             return
-        try:
-            bar = self.window.get_titlebar()
-        except Exception:
-            return
-        if not isinstance(bar, Gtk.HeaderBar):
-            dbg("Vorschau-Knopf: keine GtkHeaderBar als Titelleiste – "
-                "nur Strg+Alt+P")
-            return
         icon = pick_icon(("builder-view-right-pane-symbolic",
                           "view-right-pane", "sidebar-show-symbolic",
                           "sidebar-symbolic"), "pan-end-symbolic")
-        btn = Gtk.ToggleButton()
-        btn.set_image(Gtk.Image.new_from_icon_name(icon,
-                                                   Gtk.IconSize.BUTTON))
-        btn.set_relief(Gtk.ReliefStyle.NONE)
+        # Route 1: Titelleiste als GtkHeaderBar (Desktops mit CSD) –
+        # Knopf per pack_end rechts hinten anfügen.
+        try:
+            bar = self.window.get_titlebar()
+        except Exception:
+            bar = None
+        if isinstance(bar, Gtk.HeaderBar):
+            btn = Gtk.ToggleButton()
+            btn.set_image(Gtk.Image.new_from_icon_name(
+                icon, Gtk.IconSize.BUTTON))
+            btn.set_relief(Gtk.ReliefStyle.NONE)
+            self._pack_toggle(btn, icon, "Titelleiste",
+                              lambda b: bar.pack_end(b))
+            return
+        # Route 2: klassisches Nemo – die Ansichts-Knöpfe sitzen in
+        # einer GtkToolbar (NemoToolbar ist ein GtkBox drumherum).
+        # Diese im Widget-Baum suchen und den Umschalter als ToolItem
+        # direkt hinter die Ansichts-Knöpfe setzen.
+        toolbar = self._find_first_widget(
+            self.window, lambda w: isinstance(w, Gtk.Toolbar))
+        if toolbar is None:
+            dbg("Vorschau-Knopf: weder HeaderBar noch GtkToolbar "
+                "gefunden – nur Strg+Alt+P")
+            return
+        btn = Gtk.ToggleToolButton()
+        btn.set_icon_name(icon)
+        pos = self._pos_after_view_buttons(toolbar)
+        self._pack_toggle(btn, icon, "Toolbar",
+                           lambda b: toolbar.insert(b, pos))
+
+    def _pack_toggle(self, btn, icon, where, pack):
+        """F40: Knopf fertigmachen, einpacken, verkabeln, loggen."""
         btn.set_tooltip_text("Vorschau-Seitenleiste (Strg+Alt+P)")
         btn.connect("toggled", self._on_toolbar_toggle)
         self.toggle_btn = btn
-        bar.pack_end(btn, False, False, 0)
+        pack(btn)
         # Zustand nachziehen, wenn das Panel woanders umgeschaltet
         # wird (Strg+Alt+P, Start-Einstellung show_at_start).
         self.panel.connect("notify::visible", self._on_panel_visibility)
@@ -199,8 +220,47 @@ class PanelState:
         except Exception:
             pass
         btn.show()
-        dbg("Vorschau-Knopf in Nemos Titelleiste gesetzt (Icon: %s)"
-            % icon)
+        dbg("Vorschau-Knopf in Nemos %s gesetzt (Icon: %s)"
+            % (where, icon))
+
+    def _find_first_widget(self, widget, pred):
+        """F40: Widget-Baum rekursiv durchsuchen, erstes Match liefern."""
+        if pred(widget):
+            return widget
+        if isinstance(widget, Gtk.Container):
+            for child in widget.get_children():
+                found = self._find_first_widget(child, pred)
+                if found is not None:
+                    return found
+        return None
+
+    def _pos_after_view_buttons(self, toolbar):
+        """
+        F40: Position direkt hinter dem letzten Ansichts-Knopf der
+        Toolbar (dessen Icon heißt view-…-symbolic). Ohne Fund -1,
+        dann hängt insert() hinten an.
+        """
+        pos = -1
+        for item in toolbar.get_children():
+            child = item.get_child()
+            if child is not None and self._has_view_icon(child):
+                pos = toolbar.get_item_index(item)
+        return -1 if pos < 0 else pos + 1
+
+    def _has_view_icon(self, widget):
+        """F40: Hat das Widget (rekursiv) ein view-…-Icon? (Gtk.Image)."""
+        if isinstance(widget, Gtk.Image):
+            try:
+                name = widget.get_icon_name()[0]
+            except Exception:
+                name = None
+            if name and name.startswith("view-"):
+                return True
+        if isinstance(widget, Gtk.Container):
+            for child in widget.get_children():
+                if self._has_view_icon(child):
+                    return True
+        return False
 
     def _on_toolbar_toggle(self, btn):
         """F40: Knopf schaltet dieselbe Route wie Strg+Alt+P."""
@@ -521,8 +581,8 @@ def _view_ok(self, view):
             traceback.print_exc()
         _dump_a11y_once(self)
         _refresh_soon(self)
-        # F40: Knopf nachrüsten (falls die Titelleiste beim ersten
-        # Versuch noch nicht stand) – idempotent, kein Doppel-Packen.
+        # F40: Knopf nachrüsten (falls die Toolbar beim ersten Versuch
+        # noch nicht stand) – idempotent, kein Doppel-Packen.
         self._install_toolbar_toggle()
 
 
