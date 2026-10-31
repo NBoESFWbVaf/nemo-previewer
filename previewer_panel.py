@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.32.0 – F47 (Nutzer-Fund): „Textdateien" ohne Text-Vorschau – der Dispatch rät den Typ aus dem NAMEN: index.theme ist application/x-theme, .xsession-errors.old application/x-trash („Sicherheitskopie"); nur endungslose Dotfiles wie .xsession-errors kamen über den F23-Schnüffler zur Vorschau. Fix beidseitig: .theme/.old/.bak/.orig in die _TEXT_EXTRAS-Whitelist UND Schnüffel-Fallback für opake Typen (application/x-trash, x-theme, octet-stream) vor dem generischen Platzhalter – der Inhalt entscheidet, Binärdateien fallen an der Steuerzeichen-Schwelle (→ REF PAN-F47-1). F46 (0.31.11, GELÖST): Padding in der Platte statt ListBox-Margin; F46 VIII (0.31.10): Overlay-Scrolling aus; F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
+STAND: Version 0.33.0 – F48 (Nutzer-Wunsch): Ordner-Vorschau obligatorisch – die Inhaltsliste bleibt der Standard für markierte Ordner; der neue Schalter „Ordnerinhalte in der Vorschau anzeigen“ (Default an, Key folder_contents) stellt bei Abwahl auf das schlichte Ordner-Icon mit Dateiinformationen um, Umschalten greift live (→ REF PAN-FOLDER-2). F47 (0.32.0): Text-Vorschau für opake Typen (Whitelist + Schnüffel-Fallback); F46 (0.31.11, GELÖST): Padding in der Platte statt ListBox-Margin; F46 VIII (0.31.10): Overlay-Scrolling aus; F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
 F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
@@ -254,6 +254,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._pdf_count = 0
         # → REF PAN-F12-1
         self._conf_show_at_start = True
+        # F48 (Nutzer-Wunsch): Die Ordner-Vorschau mit Inhaltsliste
+        # ist der obligatorische Standard – der Schalter „Ordner-
+        # inhalte in der Vorschau anzeigen“ im Einstellungsfenster
+        # (Default an) stellt bei Bedarf auf das schlichte Ordner-
+        # Icon mit Dateiinformationen um (→ REF PAN-FOLDER-2).
+        self._conf_folder_contents = True
         # F24 (0.16.0): Zeilennummern in der reinen Text-Vorschau –
         # Default laut Nutzer-Wunsch AN, umschaltbar im Einstellungs-
         # fenster (Rubrik „Textdateien“).
@@ -738,7 +744,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
         # --- nach Typ rendern ---
         if is_dir:
-            self._render_folder(path)
+            # F48 (Nutzer-Wunsch): Die Inhaltsliste ist der
+            # obligatorische Standard; der Schalter „Ordnerinhalte
+            # in der Vorschau anzeigen“ (Default an) stellt bei
+            # Abwahl auf das schlichte Ordner-Icon mit Datei-
+            # informationen um (→ REF PAN-FOLDER-2).
+            if self._conf_folder_contents:
+                self._render_folder(path)
+            else:
+                self._render_generic()
         elif mime == "image/svg+xml" or lower.endswith(".svg"):
             self._render_svg(path)
         elif (mime.startswith("image/") or
@@ -1517,6 +1531,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     "previewer", "show_at_start")
             except Exception:
                 pass
+            # F48: Ordner-Inhaltsliste an/aus.
+            try:
+                self._conf_folder_contents = kf.get_boolean(
+                    "previewer", "folder_contents")
+            except Exception:
+                pass
             try:
                 self._conf_text_linenumbers = kf.get_boolean(
                     "previewer", "text_line_numbers")
@@ -1567,6 +1587,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             kf = _KEYFILE_CLS()
             kf.set_boolean("previewer", "show_at_start",
                            self._conf_show_at_start)
+            # F48: Ordner-Inhaltsliste an/aus mitspeichern.
+            kf.set_boolean("previewer", "folder_contents",
+                           self._conf_folder_contents)
             kf.set_boolean("previewer", "text_line_numbers",
                            self._conf_text_linenumbers)
             # F44-Nachtrag (0.28.1): Syntax-Hervorhebung mitspeichern.
@@ -1656,7 +1679,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.32.0"
+PREVIEWER_VERSION = "0.33.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
