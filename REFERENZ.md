@@ -212,6 +212,23 @@ except Exception:
         self.get_style_context().add_class("background")
 ```
 
+### PAN-BG-2 – Hintergrund-Kette statt festem Toplevel-Kontext (F46 III)
+
+- **Modul:** previewer\_panel.py
+- **Ort:** \_paint\_background / \_on\_panel\_draw; draw-Connect am Scroll-Fenster in \_render\_folder
+- **Anlass:** Nutzer-Fund (0.31.5, beide Modi): Der 0.31.4-Hintergrund über den Toplevel-Stil-Kontext blieb wirkungslos – erstens löst WhiteSur dort offenbar keine Hintergrundfarbe auf, zweitens trägt GtkScrolledWindow ein eigenes GdkWindow, sodass die Panel-Malerei die Bildlaufleisten-Region nie erreicht (Nemos eigene Liste zeigt dort dunkelgrau, das Panel zeigte schwarz, sobald die Ordner-Liste scrolle). Der Painter läuft deshalb als Kette: Panel-Kontext (Stilklasse background), Toplevel, Kontext des gerenderten Inhalts (Gtk.ListBox/Gtk.TextView – deren Platte ist ja sichtbar gemalt), sonst eine aus der Vordergrundfarbe abgeleitete Grundfläche (hell im Lightmode, dunkel im Darkmode). Er hängt zusätzlich am Scroll-Fenster der Ordner-Liste – ohne eigenes GdkWindow bliebe das Doppel-Malen unsichtbar. dbg „Panel-Hintergrund:" protokolliert Quelle und alle Kandidatenfarben, aber nur bei Wechsel (Merker \_bg\_dbg\_key gegen dbg-Flut im draw-Signal); die Ordner-Diagnose meldet zusätzlich scroll.get\_has\_window().
+
+```text
+        # 0.31.5 (F46 III, Nutzer-Fund): GtkBox ruft gtk_render_
+        # background nie selbst auf – deshalb malt dieser Haken den
+        # Hintergrund VOR allen Kindern. Er hängt zusätzlich am
+        # Scroll-Fenster der Ordner-Liste: Das trägt ein eigenes
+        # GdkWindow, das die Panel-Malerei sonst nie erreicht
+        # (→ REF PAN-BG-2).
+        self._paint_background(widget, cr)
+        return False
+```
+
 ---
 
 ## Auswahl (SEL)
