@@ -4,7 +4,8 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.2 – F43-Fix II (Nutzer-Fund): Die 0.31.1-Diagnose bestätigte – der Ladekurs wählt durchweg -symbolic-Namen, aber das WhiteSur-Theme liefert unter diesen Namen selbst farbige Icons (dunkle Platten im Darkmode) – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe der Liste nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
+STAND: Version 0.31.3 – F46 + F43-Fix III (Nutzer-Fund): Screenshots brachten die Klarheit – das Schwarze war nie das Icon, sondern der ungemalte Hintergrund der Vorschauspalte (schwarze Balken über/unter der Liste und in der Bildlaufleisten-Region, sichtbar erst bei langen Listen; im Lightmode deckte das Theme die Flächen zufällig mit); das Panel malt jetzt selbst (Stilklasse background). Und die Silhouetten holen ihre Vordergrundfarbe jetzt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste – im Lightmode waren die Icons dadurch weiß und unsichtbar.
+F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
 F43-Fix (0.30.1, Nutzer-Fund): Strikt symbolische Icons in der Ordner-Vorschau – GTK lud bei fehlender -symbolic-Variante heimlich das farbige Voll-Icon (dunkle Platten mit hartem Rand im Darkmode); die Symbol-Kandidaten werden gegen Gtk.IconTheme geprüft.
 F43-Feinschliff II (0.30.0, Nutzer-Wunsch): Ordner-Vorschau mit theme-folgenden symbolischen Icons (Darkmode hell, Lightmode dunkel); Ordner zuerst (F43); versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
@@ -180,6 +181,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
     def __init__(self, window):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_size_request(PANEL_MIN_WIDTH, -1)
+        # 0.31.3 (F46, Nutzer-Fund): Stilklasse background – das
+        # Panel malt seine leeren Flächen selbst, sonst blieben
+        # sie ungemalt schwarz (→ REF PAN-BG-1).
+        self.get_style_context().add_class("background")
 
         self._window = window
         self._path = None
@@ -954,8 +959,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # bestätigt durch die 0.31.1-Diagnose) – deshalb zeichnet
         # die Ordner-Vorschau jedes gewählte Symbol als einfarbige
         # Silhouette in der Vordergrundfarbe der Liste nach (Form
-        # bleibt, RGB einheitlich auf die Textfarbe).
-        fg = box.get_style_context().get_color(Gtk.StateFlags.NORMAL)
+        # bleibt, RGB einheitlich auf die Textfarbe). 0.31.3: Die
+        # Farbe kommt vom ANGEDOCKTEN Panel statt von der frisch
+        # gebauten, noch nicht im Fenster hängenden Liste (→ REF
+        # PAN-FOLDER-1).
+        fg = self.get_style_context().get_color(Gtk.StateFlags.NORMAL)
         sil = {}
         for name, is_dir in shown[:300]:
             # 0.29.0/0.30.0/0.30.1 (Nutzer-Wunsch/-Fund): Typ-Icon vor
@@ -1039,12 +1047,16 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # welches Theme-Symbol je Typ tatsächlich lädt. Seit 0.31.2
         # zusätzlich die Zahl der als Silhouette nachgezeichneten
         # Symbole – stimmt sie mit der Zahl der gewählten nicht
-        # überein, lief das Theme doch wieder Farbe herein.
+        # überein, lief das Theme doch wieder Farbe herein. Seit
+        # 0.31.3 steht die entnommene Vordergrundfarbe mit im Log.
         dbg("Ordner-Icons: " + ", ".join(
             "%s→%s" % kv for kv in sorted(picked.items()))
             + " – als Silhouette nachgezeichnet: %d/%d"
+            " – Vordergrundfarbe: %d,%d,%d"
             % (sum(1 for p in sil.values() if p is not None),
-               len(sil)))
+               len(sil),
+               int(round(fg.red * 255)), int(round(fg.green * 255)),
+               int(round(fg.blue * 255))))
 
     def _render_generic(self):
         mime, size, mtime = query_file_info(self._path)
@@ -1247,7 +1259,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.2"
+PREVIEWER_VERSION = "0.31.3"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
