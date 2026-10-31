@@ -882,6 +882,12 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   keine CSS-Hintergrundfarbe – das Panel zeichnet im draw-Signal  
   den themed Hintergrund; Ordner-Liste randlos, das Padding  
   (10/10/8/8 px) sitzt in den Zeilen (→ REF PAN-BG-1).
+  ✅ 0.31.5 – F46 III (Nutzer-Fund): Der 0.31.4-Hintergrund  
+  blieb wirkungslos – der Toplevel-Kontext löst in WhiteSur keine  
+  Farbe auf, und die Scrollbar-Region liegt im eigenen GdkWindow  
+  des Scroll-Fensters. Der Painter läuft jetzt als Kette und  
+  zusätzlich am Scroll-Fenster; dbg „Panel-Hintergrund:" zeigt  
+  Quelle und Kandidaten (→ REF PAN-BG-2).  
 
 ---
 
