@@ -6,6 +6,21 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.9\] – 2026-10-31
+
+### Added (Hinzugefügt)
+
+- Pixelsonden-Diagnose (F46 VII, Nutzer-Fund): 0.31.8 lief  
+  sauber und dbg zeigte ALLE Flächen bemalt – auch das  
+  Scroll-Fenster löst jetzt rgba(56,56,56,0.999) auf (zuvor  
+  transparent) – dennoch blieb der schwarze Streifen. Das  
+  Bild widerspricht dem Widget-Modell; deshalb liest die  
+  neue Diagnose \_dbg\_pixels nach dem Malen echte Pixel an  
+  neun Punkten (Kante, Bildlaufleisten-Spalte in zwei Tiefen,  
+  Platten-Rand, Spalte oben/unten, Panelrand, Platten-Mitte, vor dem Panel) und protokolliert  
+  die Farben als „Panel-Pixel:“-Zeile – das Log zeigt damit,  
+  WO Schwarz wirklich sitzt (→ REF PAN-BG-2).
+
 ## \[0.31.8\] – 2026-10-31
 
 ### Fixed (Behoben)

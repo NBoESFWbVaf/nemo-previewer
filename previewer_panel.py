@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.8 – F46 VI (Nutzer-Fund): Der schwarze Hintergrund trat erstmals mit dem Randlos-Wunsch aus 0.31.4 auf – erst ohne den 8-px-Außenrand erreichte das eigene, transparente GdkWindow des Scroll-Fensters die Plattenkante. Der Ordner-Zweig nullt den Außenrand deshalb nicht mehr (der Rand von _render_inner bleibt). Zusätzlich deckt die CSS-Regel jetzt auch das Scroll-Fenster selbst und die Junction ab, der dbg-Merker des Hintergrund-Painters ist je Widget eigener (ein einzelner ließ die Zeilen endlos pendeln – Logflut), und die CSS-dbg-Zeile druckt nur noch bei Farbwechsel (→ REF PAN-BG-2, PAN-FOLDER-1). F46 V (0.31.7): CSS-Regel pvw-surface auf Viewport und Bildlaufleisten, Eigen-Farbe je Widget im dbg. F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
+STAND: Version 0.31.9 – F46 VII (Nutzer-Fund): 0.31.8 lief sauber (eine bereit-Zeile, keine Flut) und dbg zeigte ALLE Flächen bemalt – auch das Scroll-Fenster löst jetzt rgba(56,56,56,0.999) auf (zuvor transparent) – dennoch blieb der schwarze Streifen laut Nutzer. Das Bild widerspricht dem Widget-Modell, deshalb reine Diagnose-Version: \_dbg\_pixels liest nach dem Malen echte Pixel (Pixelsonden in der Bildlaufleisten-Spalte – Kante und zwei Tiefen –, am Panelrand, auf der Platte und vor dem Panel) und protokolliert die Farben – das Log zeigt damit, WO Schwarz wirklich sitzt (→ REF PAN-BG-2). F46 VI (0.31.8): Randlos-Rücknahme, CSS auf Scroll-Fenster/Junction, dbg je Widget, CSS-dbg nur bei Farbwechsel. F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
 F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
@@ -518,6 +518,51 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                    box.get_margin_top(), box.get_margin_bottom()))
         except Exception:
             pass
+        return False
+
+    def _dbg_pixels(self):
+        """F46 VII: Pixelsonden – alle dbg-Flächen malen Grau, der
+        Nutzer sieht trotzdem Schwarz. Nach dem Malen echte Pixel
+        lesen; das Log verrät, WO Schwarz wirklich sitzt (→ REF
+        PAN-BG-2)."""
+        try:
+            top = self.get_toplevel()
+            if top is None or top.get_window() is None:
+                return False
+            win = top.get_window()
+            pw = self.get_allocated_width()
+            ph = self.get_allocated_height()
+            punkte = [
+                ("Kante", pw - 2, ph // 2),
+                ("Spalte-1", pw - 5, ph // 2),
+                ("Spalte-2", pw - 12, ph // 2),
+                ("Platten-Rand", pw - 22, ph // 2),
+                ("Spalte-oben", pw - 5, 40),
+                ("Spalte-unten", pw - 5, ph - 40),
+                ("PanelRand-links", 5, ph // 2),
+                ("Platten-Mitte", pw // 2, 60),
+                ("VorPanel-links", -12, ph // 2),
+            ]
+            fund = []
+            for name, x, y in punkte:
+                try:
+                    pos = self.translate_coordinates(top, x, y)
+                    if pos is None:
+                        continue
+                    pb = Gdk.pixbuf_get_from_window(
+                        win, pos[0], pos[1], 1, 1)
+                    if pb is None:
+                        continue
+                    rgb = pb.get_pixels()
+                    fund.append("%s[%d,%d]=rgb(%d,%d,%d)"
+                                % (name, x, y, rgb[0], rgb[1],
+                                   rgb[2]))
+                except Exception:
+                    pass
+            if fund:
+                dbg("Panel-Pixel: " + "; ".join(fund))
+        except Exception as e:
+            dbg("Panel-Pixel: gescheitert – %s" % e)
         return False
 
 
@@ -1303,6 +1348,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # zurücklesen – zeigt, ob Theme-CSS die Widget-Ränder
         # überschreibt (Verdacht gegen das verschwundene Padding).
         GLib.idle_add(self._dbg_list_margins, box)
+        # 0.31.9 (F46 VII, Nutzer-Fund): Pixelsonden – alle Flächen
+        # malen laut dbg Grau, der Nutzer sieht weiterhin Schwarz.
+        # Die Sonden lesen nach dem Malen echte Pixel und zeigen,
+        # WO Schwarz wirklich sitzt (→ REF PAN-BG-2).
+        GLib.timeout_add(600, self._dbg_pixels)
         # 0.31.1 (Nutzer-Fund): Inhaltstyp → gewähltes Symbol protokol-
         # lieren – zeigt das Log bei Icon-Problemen (F43-Diagnose),
         # welches Theme-Symbol je Typ tatsächlich lädt. Seit 0.31.2
@@ -1520,7 +1570,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.8"
+PREVIEWER_VERSION = "0.31.9"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
