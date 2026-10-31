@@ -859,7 +859,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ✅ 0.23.0 – \_render\_folder komplett umgebaut (→ REF PAN-FOLDER-1).  
   ✅ 0.29.0 – Feinschliff (Nutzer-Wunsch): Icons vor den Namen  
   (Ordner- bzw. Dateityp-Symbol aus dem Icon-Theme), Innenabstand  
-  wie bei Textvorschauen (10/10/8/8 px).
+  wie bei Textvorschauen (10/10/8/8 px).  
+  ✅ 0.30.0 – Feinschliff II (Nutzer-Wunsch): Symbolische Icons  
+  folgen dem System-Theme (Darkmode hell, Lightmode dunkel);  
+  versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
 
 ---
 
