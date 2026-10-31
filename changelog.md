@@ -6,6 +6,25 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.5\] – 2026-10-31
+
+### Fixed (Behoben)
+
+- Panel-Hintergrund III (F46 III, Nutzer-Fund): Der 0.31.4-Weg  
+  malte in WhiteSur nichts – der Toplevel-Stil-Kontext löst dort  
+  keine Hintergrundfarbe auf, und die Bildlaufleisten-Region liegt  
+  im eigenen GdkWindow des Scroll-Fensters, das die Panel-Malerei  
+  nie erreicht; schwarze Ränder blieben also, sobald die Ordner-  
+  Liste scrolle (beide Modi, während Nemos eigene Liste dort  
+  dunkelgrau zeigt). Der Hintergrund-Painter läuft jetzt als  
+  Kette – Panel-Kontext, Toplevel, Inhalts-Platte, sonst eine aus  
+  der Vordergrundfarbe abgeleitete Grundfläche – und zusätzlich  
+  am Scroll-Fenster selbst. dbg „Panel-Hintergrund:" nennt Quelle  
+  und alle Kandidatenfarben, die Ordner-Diagnose verrät, ob das  
+  Scroll-Fenster ein eigenes GdkWindow trägt (→ REF PAN-BG-2).  
+  Nebenbei: Die versehentlich doppelt stehende 0.31.3-Zeile im  
+  Panel-Modulkopf ist entfernt.
+
 ## \[0.31.4\] – 2026-10-31
 
 ### Fixed (Behoben)
