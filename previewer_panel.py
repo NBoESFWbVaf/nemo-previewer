@@ -4,7 +4,8 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.30.0 – F43-Feinschliff II (Nutzer-Wunsch): Ordner-Vorschau mit theme-folgenden symbolischen Icons (Darkmode hell, Lightmode dunkel); Ordner zuerst (F43); versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
+STAND: Version 0.30.1 – F43-Fix (Nutzer-Fund): Strikt symbolische Icons in der Ordner-Vorschau – GTK lud bei fehlender -symbolic-Variante heimlich das farbige Voll-Icon (dunkle Platten mit hartem Rand im Darkmode); die Symbol-Kandidaten werden jetzt gegen Gtk.IconTheme geprüft.
+F43-Feinschliff II (0.30.0, Nutzer-Wunsch): Ordner-Vorschau mit theme-folgenden symbolischen Icons (Darkmode hell, Lightmode dunkel); Ordner zuerst (F43); versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
 F43-Feinschliff (0.29.0, Nutzer-Wunsch): Ordner-Vorschau trägt Icons vor den Namen (Typ-Symbol aus dem Icon-Theme, MENU-Größe, mit Fallback) und den Innenabstand der Text-Vorschauen (10/10/8/8 px).
 F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung ist EINSTELLBAR – Schlüssel text_syntax, Rubrik „Textdateien“, Default an; ausgeschaltet oder ohne GtkSource-Binding zeigt sich immer der schlichte Text.
 F44 (0.28.0): Syntax-Hervorhebung in der Text-Vorschau – GtkSourceView
@@ -895,22 +896,35 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         box.set_margin_end(10)
         box.set_margin_top(8)
         box.set_margin_bottom(8)
+        # 0.30.1: Icon-Theme EINMAL holen – der Zeilen-Loop fragt die
+        # Symbol-Varianten gegen das Theme ab
+        theme = Gtk.IconTheme.get_default()
         for name, is_dir in shown[:300]:
-            # 0.29.0/0.30.0 (Nutzer-Wunsch): Typ-Icon vor dem Namen –
-            # Ordner über inode/directory, Dateien über den Inhalts-
-            # typ, den Gio zum Namen rät. Seit 0.30.0 SYMBOLISCH:
-            # Symbol-Icons färben sich nach der Vordergrundfarbe und
-            # folgen damit dem System-Theme (Darkmode hell, Lightmode
-            # dunkel). Fallback bleiben die klassischen Symbol-Namen.
+            # 0.29.0/0.30.0/0.30.1 (Nutzer-Wunsch/-Fund): Typ-Icon vor
+            # dem Namen – Ordner über inode/directory, Dateien über
+            # den Inhaltstyp, den Gio zum Namen rät. Strikt SYMBOLISCH:
+            # Symbol-Icons folgen der Vordergrundfarbe des System-
+            # Themes (Darkmode hell, Lightmode dunkel). 0.30.1: GTK
+            # lud bei fehlender -symbolic-Variante heimlich das
+            # farbige Voll-Icon (dunkle Platten im Darkmode) – die
+            # Kandidaten werden deshalb gegen Gtk.IconTheme geprüft
+            # und fehlende Varianten fallen auf die generischen
+            # Symbole zurück, nie auf das Voll-Icon.
             ic = Gtk.Image()
             try:
                 if is_dir:
                     ctype = "inode/directory"
                 else:
                     ctype = Gio.content_type_guess(name, None)[0]
-                ic.set_from_gicon(
-                    Gio.content_type_get_symbolic_icon(ctype),
-                    Gtk.IconSize.MENU)
+                sname = ("folder-symbolic" if is_dir
+                         else "text-x-generic-symbolic")
+                for base in Gio.content_type_get_icon(
+                        ctype).get_names():
+                    cand = base + "-symbolic"
+                    if theme.has_icon(cand):
+                        sname = cand
+                        break
+                ic.set_from_icon_name(sname, Gtk.IconSize.MENU)
             except Exception:
                 ic.set_from_icon_name(
                     "folder-symbolic" if is_dir
@@ -1158,7 +1172,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.30.0"
+PREVIEWER_VERSION = "0.30.1"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
