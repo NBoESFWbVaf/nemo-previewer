@@ -4,7 +4,7 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.34.0 – F12-Wasserfall (Nutzer-Wunsch): Rubrik
+STAND: Version 0.34.1 – F12-Wasserfall (Nutzer-Wunsch): Rubrik
 „Schriftarten“ mit Wasserfall-Probetext-Feld der Schrift-Vorschau –
 speichert sofort (Key font_sample_text) und greift live auf die
 gerade angezeigte Schrift; der Platzhalter ist weg (→ REF
@@ -415,7 +415,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.34.0"
+PREVIEWER_VERSION = "0.34.1"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)

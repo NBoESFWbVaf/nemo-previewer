@@ -4,7 +4,7 @@
 Previewer – Renderer-Modul Text (previewer_render_text.py)
 ==========================================================
 
-STAND: Version 0.34.0 – F12-Wasserfall (Nutzer-Fund/-Wunsch): Der
+STAND: Version 0.34.1 – F12-Wasserfall (Nutzer-Fund/-Wunsch): Der
 Textfarb-Fix – get_color() verlangt in GTK3 das State-Argument, der
 alte Aufruf ohne Argument warf IMMER eine TypeError, deren except
 den Fallback (fast schwarz) übrig ließ – der Wasserfall folgt jetzt
@@ -1911,7 +1911,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.34.0"
+PREVIEWER_VERSION = "0.34.1"
 dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F44: "
     "Syntax-Hervorhebung via source_path; F31: "
     "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "
