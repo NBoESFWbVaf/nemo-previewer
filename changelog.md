@@ -6,6 +6,25 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.10\] – 2026-10-31
+
+### Fixed (Behoben)
+
+- Panel-Hintergrund VIII (F46 VIII, Pixelsonden-Fund): Die Sonden aus  
+  0.31.9 ertappten das Schwarz exklusiv an Spalte-2 (pw-12) – im  
+  Streifen zwischen Plattenkante und Bildlaufleisten-Spalte, und nur,  
+  solange die Bildlaufleiste sichtbar ist; Viewport, Scroll-Fenster und  
+  Panel sind überall bemalt. Ursache: Overlay-Scrolling lässt den Balken  
+  in einem eigenen Gdk-Fenster über dem Viewport floaten, dessen  
+  ungemalte Teile schwarz bleiben. Die Ordner-Liste bekommt deshalb  
+  einen klassischen Inline-Balken (set\_overlay\_scrolling(False));  
+  Painter und CSS greifen damit zuverlässig. Die Pixelsonden bleiben  
+  als Verifikation drin (→ REF PAN-BG-2).
+- SyntaxWarning in previewer\_panel.py behoben: Die STAND-Zeile trug  
+  \_-Escapes im Modul-Docstring, Python warnte bei jedem Start mit  
+  „invalid escape sequence" – Identifikatoren stehen dort jetzt ohne  
+  Backslash.
+
 ## \[0.31.9\] – 2026-10-31
 
 ### Added (Hinzugefügt)
