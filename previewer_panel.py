@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.10 – F46 VIII (Pixelsonden-Fund): Die Sonden aus 0.31.9 ertappten das Schwarz exklusiv bei pw-12 – im Streifen zwischen Plattenkante und Bildlaufleisten-Spalte, und nur, wenn die Leiste sichtbar ist; Viewport, Scroll-Fenster und Panel sind überall bemalt. Der Balken floatet als Overlay-Scrolling in einem eigenen Gdk-Fenster über dem Viewport, dessen ungemalte Teile schwarz bleiben – deshalb jetzt klassischer Inline-Balken (set_overlay_scrolling(False)), dann greifen Painter und CSS zuverlässig; die Pixelsonden bleiben zur Verifikation drin (→ REF PAN-BG-2). F46 VII (0.31.9): _dbg_pixels liest nach dem Malen echte Pixel (Pixelsonden in der Bildlaufleisten-Spalte, am Panelrand, auf der Platte und vor dem Panel) – das Log zeigt damit, WO Schwarz wirklich sitzt. F46 VI (0.31.8): Randlos-Rücknahme, CSS auf Scroll-Fenster/Junction, dbg je Widget, CSS-dbg nur bei Farbwechsel. F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
+STAND: Version 0.31.11 – F46 IX (Nutzer-Beschreibung): Der 0.31.10-Test bestätigte den Inline-Balken (kein Sondenpunkt mehr schwarz, Leiste und Rinne themefarben), aber der Nutzer sieht weiterhin Schwarz und beschreibt die Lage: Die schwarze Ebene ist der TRÄGER der Ordnerliste (Eltern-Ebene), sichtbar nur bei überlanger Liste; die Bildlaufleiste selbst passt. Fix: Das 10/10/8/8-Padding sitzt jetzt IN der Platte – die Ränder hängen an den Zeilen-Inhalten statt als Margins vor der ListBox, die Themefläche der Platte füllt den Viewport randvoll, der Träger hat keine freiliegende Fläche mehr. Zusätzlich Panel-Scan: komplettes horizontales Farbprofil in Panelhöhe mit Schwarz-Pixel-Zähler (→ REF PAN-BG-2). F46 VIII (0.31.10): Overlay-Scrolling aus – klassischer Inline-Balken. F46 VI (0.31.8): Randlos-Rücknahme, CSS auf Scroll-Fenster/Junction, dbg je Widget, CSS-dbg nur bei Farbwechsel. F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
 F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
@@ -561,6 +561,40 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     pass
             if fund:
                 dbg("Panel-Pixel: " + "; ".join(fund))
+            # 0.31.11 (F46 IX): Panel-Scan – ein komplettes
+            # horizontales Farbprofil in Panelhöhe, Farbläufe
+            # komprimiert, mit Schwarz-Pixel-Zähler. Zeigt auch
+            # Streifen, zwischen denen keine feste Sonde sitzt
+            # (→ REF PAN-BG-2).
+            pos = self.translate_coordinates(top, 0, ph // 2)
+            if pos is not None:
+                pb = Gdk.pixbuf_get_from_window(
+                    win, pos[0], pos[1], pw, 1)
+                if pb is not None:
+                    px = pb.get_pixels()
+                    nc = pb.get_n_channels()
+                    runs = []
+                    start = 0
+                    farbe = None
+                    for i in range(pw):
+                        f = (px[i * nc], px[i * nc + 1],
+                             px[i * nc + 2])
+                        if f != farbe:
+                            if farbe is not None:
+                                runs.append((start, i - 1, farbe))
+                            farbe = f
+                            start = i
+                    runs.append((start, pw - 1, farbe))
+                    schwarz = sum(e - a + 1
+                                  for a, e, f in runs
+                                  if f == (0, 0, 0))
+                    teile = ["%d-%d:rgb(%d,%d,%d)"
+                             % (a, e, f[0], f[1], f[2])
+                             for a, e, f in runs]
+                    if len(teile) > 40:
+                        teile = teile[:40] + ["…"]
+                    dbg("Panel-Scan[y=%d] Schwarz=%dpx: %s"
+                        % (ph // 2, schwarz, " ".join(teile)))
         except Exception as e:
             dbg("Panel-Pixel: gescheitert – %s" % e)
         return False
@@ -1211,15 +1245,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         rest = max(0, len(shown) - 300)
         box = Gtk.ListBox()
         box.set_selection_mode(Gtk.SelectionMode.NONE)
-        # 0.29.0 (Nutzer-Wunsch): derselbe Innenabstand wie bei den
-        # Text-Vorschauen (10/10/8/8 px) – seit 0.31.4 liegt er
-        # INNERHALB des Listenfensters: Der Inhaltsbereich trägt
-        # keinen Außenrand mehr (siehe unten), die ListBox-Ränder
-        # sitzen auf der Platte (→ REF PAN-FOLDER-1).
-        box.set_margin_start(10)
-        box.set_margin_end(10)
-        box.set_margin_top(8)
-        box.set_margin_bottom(8)
+        # 0.31.11 (F46 IX, Nutzer-Beschreibung): Das 10/10/8/8-
+        # Innen-Padding gehört IN die Platte, nicht als Rand davor:
+        # ListBox-Ränder legen den Träger der Liste (Viewport)
+        # frei, und genau dort zeigte sich das Schwarz bei über-
+        # langer Liste. Die ListBox füllt deshalb randvoll; das
+        # Padding sitzt als Ränder an den Zeilen-Inhalten (unten) –
+        # die Plattenfarbe reicht bis an den Viewport-Rand (→ REF
+        # PAN-FOLDER-1, PAN-BG-2).
         # 0.30.1: Icon-Theme EINMAL holen – der Zeilen-Loop fragt die
         # Symbol-Varianten gegen das Theme ab
         theme = Gtk.IconTheme.get_default()
@@ -1235,7 +1268,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # PAN-FOLDER-1).
         fg = self.get_style_context().get_color(Gtk.StateFlags.NORMAL)
         sil = {}
-        for name, is_dir in shown[:300]:
+        letzte_zeile = None
+        for nr, (name, is_dir) in enumerate(shown[:300]):
             # 0.29.0/0.30.0/0.30.1 (Nutzer-Wunsch/-Fund): Typ-Icon vor
             # dem Namen – Ordner über inode/directory, Dateien über
             # den Inhaltstyp, den Gio zum Namen rät. Strikt SYMBOLISCH:
@@ -1295,15 +1329,31 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             side.set_halign(Gtk.Align.END)
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                            spacing=6)
+            # 0.31.11 (F46 IX): Padding der Platte – 10 px Seiten-
+            # abstand am Zeilen-Inhalt, oben 8 px an der ersten
+            # Zeile. Die Platte selbst füllt den Viewport randvoll.
+            hbox.set_margin_start(10)
+            hbox.set_margin_end(10)
+            if nr == 0:
+                hbox.set_margin_top(8)
             hbox.pack_start(ic, False, False, 0)
             hbox.pack_start(nm, True, True, 0)
             hbox.pack_start(side, False, False, 0)
             box.add(hbox)
+            letzte_zeile = hbox
         if rest > 0:
             more = Gtk.Label(label="… und %d weitere" % rest)
             more.get_style_context().add_class("dim-label")
             more.set_halign(Gtk.Align.START)
+            # 0.31.11 (F46 IX): gleiche Zeilen-Polsterung.
+            more.set_margin_start(10)
+            more.set_margin_end(10)
             box.add(more)
+            letzte_zeile = more
+        # 0.31.11 (F46 IX): Padding unten – 8 px am letzten
+        # Zeilen-Inhalt statt ListBox-Rand.
+        if letzte_zeile is not None:
+            letzte_zeile.set_margin_bottom(8)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
                           Gtk.PolicyType.AUTOMATIC)
@@ -1579,7 +1629,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.10"
+PREVIEWER_VERSION = "0.31.11"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
