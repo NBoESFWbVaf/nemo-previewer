@@ -4,7 +4,7 @@
 Previewer – Renderer-Modul Medien (previewer_render_media.py)
 =============================================================
 
-STAND: Version 0.29.0 – Dezenz (Nutzer-Wunsch): Cover-Eckenradius um
+STAND: Version 0.30.0 – Dezenz (Nutzer-Wunsch): Cover-Eckenradius um
 ein Drittel reduziert, 56/960 statt 56/640 der kleineren Kante –
 Platzhalter-Kachel und Cover-Rahmen runden gleich mit. F38
 (Nutzer-Wunsch): Die Bild-Spalte ist in
@@ -1521,7 +1521,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.29.0"
+PREVIEWER_VERSION = "0.30.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)
