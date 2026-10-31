@@ -4,7 +4,8 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.29.0 – F43-Feinschliff (Nutzer-Wunsch): Ordner-Vorschau trägt Icons vor den Namen (Typ-Symbol aus dem Icon-Theme, MENU-Größe, mit Fallback) und den Innenabstand der Text-Vorschauen (10/10/8/8 px).
+STAND: Version 0.30.0 – F43-Feinschliff II (Nutzer-Wunsch): Ordner-Vorschau mit theme-folgenden symbolischen Icons (Darkmode hell, Lightmode dunkel); Ordner zuerst (F43); versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
+F43-Feinschliff (0.29.0, Nutzer-Wunsch): Ordner-Vorschau trägt Icons vor den Namen (Typ-Symbol aus dem Icon-Theme, MENU-Größe, mit Fallback) und den Innenabstand der Text-Vorschauen (10/10/8/8 px).
 F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung ist EINSTELLBAR – Schlüssel text_syntax, Rubrik „Textdateien“, Default an; ausgeschaltet oder ohne GtkSource-Binding zeigt sich immer der schlichte Text.
 F44 (0.28.0): Syntax-Hervorhebung in der Text-Vorschau – GtkSourceView
 (optionales Binding gir1.2-gtksource-4, dasselbe Modul wie xed),
@@ -834,10 +835,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         dann Dateien, je alphabetisch; pro Zeile Icon, Name plus
         „Ordner“ bzw. Größe. Seit 0.29.0 (Nutzer-Wunsch): Vor jedem
         Namen das Typ-Icon aus dem Icon-Theme, die Liste trägt den
-        Innenabstand der Text-Vorschauen (10/10/8/8 px). K1 bleibt:
-        ALLE Einträge zählen, versteckte separat ausweisen – sie
-        stehen gedimmt MIT in der Liste,
-        nichts fehlt stillschweigend. Riesige Ordner: die ersten
+        Innenabstand der Text-Vorschauen (10/10/8/8 px). Seit 0.30.0
+        (Nutzer-Wunsch): Die Icons sind symbolisch und folgen dem
+        System-Theme (Darkmode hell, Lightmode dunkel); versteckte
+        Einträge stehen nur in der Liste, wenn Nemo sie anzeigt
+        (Strg+H, org.nemo.preferences show-hidden-files), sonst weist
+        der Kopf-Hinweis sie zahlenmäßig aus (K1). Riesige Ordner: die ersten
         300 Zeilen im Scroll-Fenster, Rest als Fußzeile – sonst
         baute ein Ordner mit zehntausend Einträgen ebensoviele
         Label-Widgets.
@@ -863,12 +866,26 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                        % (total, unit, hidden))
         else:
             self._hint("Der Ordner enthält %d %s." % (total, unit))
+        # 0.30.0 (Nutzer-Wunsch): Versteckte nur zeigen, wenn Nemo sie
+        # zeigt – die Liste folgt auf org.nemo.preferences show-hidden-
+        # files (Strg+H). Lässt sich die Einstellung nicht lesen
+        # (fremdes System), zeigen wir wie bisher alles.
+        show_hidden = True
+        try:
+            nemo_prefs = Gio.Settings.new("org.nemo.preferences")
+            show_hidden = nemo_prefs.get_boolean("show-hidden-files")
+        except Exception:
+            pass
+        if not show_hidden:
+            dirs = [n for n in dirs if not n.startswith(".")]
+            files = [n for n in files if not n.startswith(".")]
         # F43: Anzeige-Reihenfolge – Ordner vor Dateien, je alphabet-
-        # isch (case-insensitiv). Versteckte Einträge stehen an ihrer
-        # alphabetischen Position, nur gedimmt – so liest sich der
-        # Ordner wie in `ls -A`.
+        # isch (case-insensitiv). Sichtbare Versteckte stehen an
+        # ihrer alphabetischen Position, nur gedimmt.
         shown = ([(n, True) for n in sorted(dirs, key=str.lower)]
                  + [(n, False) for n in sorted(files, key=str.lower)])
+        if not shown:
+            return
         rest = max(0, len(shown) - 300)
         box = Gtk.ListBox()
         box.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -879,21 +896,25 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         box.set_margin_top(8)
         box.set_margin_bottom(8)
         for name, is_dir in shown[:300]:
-            # 0.29.0 (Nutzer-Wunsch): Typ-Icon vor dem Namen – Ordner
-            # über inode/directory, Dateien über den Inhaltstyp, den
-            # Gio zum Namen rät; greift das Icon-Theme nicht, bleibt
-            # der klassische Fallback
+            # 0.29.0/0.30.0 (Nutzer-Wunsch): Typ-Icon vor dem Namen –
+            # Ordner über inode/directory, Dateien über den Inhalts-
+            # typ, den Gio zum Namen rät. Seit 0.30.0 SYMBOLISCH:
+            # Symbol-Icons färben sich nach der Vordergrundfarbe und
+            # folgen damit dem System-Theme (Darkmode hell, Lightmode
+            # dunkel). Fallback bleiben die klassischen Symbol-Namen.
             ic = Gtk.Image()
             try:
                 if is_dir:
                     ctype = "inode/directory"
                 else:
                     ctype = Gio.content_type_guess(name, None)[0]
-                ic.set_from_gicon(Gio.content_type_get_icon(ctype),
-                                  Gtk.IconSize.MENU)
+                ic.set_from_gicon(
+                    Gio.content_type_get_symbolic_icon(ctype),
+                    Gtk.IconSize.MENU)
             except Exception:
                 ic.set_from_icon_name(
-                    "folder" if is_dir else "text-x-generic",
+                    "folder-symbolic" if is_dir
+                    else "text-x-generic-symbolic",
                     Gtk.IconSize.MENU)
             nm = Gtk.Label()
             if is_dir:
@@ -1137,7 +1158,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.29.0"
+PREVIEWER_VERSION = "0.30.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
