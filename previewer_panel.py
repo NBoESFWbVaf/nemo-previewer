@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.5 – F46 III (Nutzer-Fund): Der 0.31.4-Hintergrund blieb ohne Wirkung – der Toplevel-Kontext löst in WhiteSur offenbar keine Hintergrundfarbe auf, und die Bildlaufleisten-Region liegt im eigenen GdkWindow des Scroll-Fensters, das die Panel-Malerei nie erreicht. Der Hintergrund-Painter läuft deshalb als Kette (Panel-Kontext, Toplevel, Inhalts-Platte, sonst aus der Vordergrundfarbe abgeleitete Grundfläche) und zusätzlich am Scroll-Fenster der Ordner-Liste; dbg „Panel-Hintergrund:" nennt Quelle und Kandidatenfarben (→ REF PAN-BG-2). F46 II (0.31.4, Nutzer-Wunsch): Ordner-Liste randlos – der Außenrand des Inhaltsbereichs wird dafür genullt, das Padding (10/10/8/8 px) liegt INNERHALB des Listenfensters.
+STAND: Version 0.31.6 – F46 IV (Nutzer-Fund): 0.31.5 lieferte gültige Farben (Panel=rgba(56,56,56,0.999)) und bestätigte das eigene GdkWindow des Scroll-Fensters – die schwarze Scrollbar-Ebene blieb aber, und das Listen-Padding schien verschwunden. Deshalb deckt der Hintergrund-Painter jetzt auch Viewport und Bildlaufleisten ab (weitere eigene GdkWindow, Bildlaufleisten entstehen erst beim Realisieren), dbg nennt pro Widget, wo er malt, und liest die ListBox-Margins nach dem Realisieren zurück (CSS-Override-Verdacht) (→ REF PAN-BG-2). F46 II (0.31.4, Nutzer-Wunsch): Ordner-Liste randlos – der Außenrand des Inhaltsbereichs wird dafür genullt, das Padding (10/10/8/8 px) liegt INNERHALB des Listenfensters.
 F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
@@ -400,11 +400,33 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             cr.rectangle(0, 0, w, h)
             cr.fill()
             used = "Vordergrund-abgeleitet"
-        key = "%s|%s" % (used, ";".join(report))
+        wname = type(widget).__name__
+        key = "%s|%s|%s" % (wname, used, ";".join(report))
         if key != self._bg_dbg_key:
             self._bg_dbg_key = key
-            dbg("Panel-Hintergrund: quelle=%s – Kandidaten: %s"
-                % (used, "; ".join(report)))
+            dbg("Panel-Hintergrund (%s): quelle=%s – Kandidaten: %s"
+                % (wname, used, "; ".join(report)))
+
+    def _on_scroll_realized(self, sc):
+        """Bildlaufleisten an den Painter hängen (F46 IV) – sie
+        entstehen erst beim Realisieren (→ REF PAN-BG-2)."""
+        try:
+            for bar in (sc.get_vscrollbar(), sc.get_hscrollbar()):
+                if bar is not None:
+                    bar.connect("draw", self._on_panel_draw)
+        except Exception:
+            pass
+
+    def _dbg_list_margins(self, box):
+        """Effektive ListBox-Margins auslesen (F46 IV) – deckt auf,
+        ob Theme-CSS die Widget-Ränder überschreibt."""
+        try:
+            dbg("Ordner-Liste Margins: start=%d end=%d oben=%d unten=%d"
+                % (box.get_margin_start(), box.get_margin_end(),
+                   box.get_margin_top(), box.get_margin_bottom()))
+        except Exception:
+            pass
+        return False
 
 
     # ------------------------------ Selektion ------------------------------
@@ -1157,6 +1179,17 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # ohne eigenes GdkWindow bliebe das Doppel-Malen unsichtbar
         # (→ REF PAN-BG-2).
         scroll.connect("draw", self._on_panel_draw)
+        # 0.31.6 (F46 IV, Nutzer-Fund): Auch der Viewport ist ein
+        # eigenes GdkWindow; die Bildlaufleisten entstehen erst
+        # beim Realisieren. Beide bekommen denselben Painter
+        # (→ REF PAN-BG-2).
+        try:
+            vp = scroll.get_child()
+            if vp is not None:
+                vp.connect("draw", self._on_panel_draw)
+        except Exception:
+            pass
+        scroll.connect("realize", self._on_scroll_realized)
         # 0.31.4 (Nutzer-Wunsch): Außenrand des Inhaltsbereichs für
         # die Ordner-Vorschau nullen – das Listenfenster füllt die
         # Spalte randlos, das Padding (10/10/8/8 px) liegt IN der
@@ -1167,6 +1200,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             " – Scroll-Fenster eigenes GdkWindow: %s"
             % (total, min(300, len(shown)),
                scroll.get_has_window()))
+        # 0.31.6 (F46 IV, Nutzer-Fund): Margins nach dem Realisieren
+        # zurücklesen – zeigt, ob Theme-CSS die Widget-Ränder
+        # überschreibt (Verdacht gegen das verschwundene Padding).
+        GLib.idle_add(self._dbg_list_margins, box)
         # 0.31.1 (Nutzer-Fund): Inhaltstyp → gewähltes Symbol protokol-
         # lieren – zeigt das Log bei Icon-Problemen (F43-Diagnose),
         # welches Theme-Symbol je Typ tatsächlich lädt. Seit 0.31.2
@@ -1384,7 +1421,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.5"
+PREVIEWER_VERSION = "0.31.6"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
