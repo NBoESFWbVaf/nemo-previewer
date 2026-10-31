@@ -878,6 +878,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Flächen waren der ungemalte Panel-Hintergrund – das Panel  
   malt jetzt selbst (Stilklasse background); Silhouetten-Farbe  
   kommt vom angedockten Panel (Lightmode-Icons waren weiß).
+  ✅ 0.31.4 – F46 II (Nutzer-Fund/-Wunsch): GtkBox malt selbst  
+  keine CSS-Hintergrundfarbe – das Panel zeichnet im draw-Signal  
+  den themed Hintergrund; Ordner-Liste randlos, das Padding  
+  (10/10/8/8 px) sitzt in den Zeilen (→ REF PAN-BG-1).
 
 ---
 

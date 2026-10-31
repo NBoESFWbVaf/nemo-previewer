@@ -6,6 +6,20 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.4\] – 2026-10-31
+
+### Fixed (Behoben)
+
+- Panel-Hintergrund II (F46 II, Nutzer-Fund/-Wunsch): Die Stilklasse  
+  background allein genügte nicht – GtkBox malt keine CSS-Hinter-  
+  grundfarbe. Das Panel zeichnet deshalb im draw-Signal als  
+  Erstes den themed Hintergrund unter alle Kinder – mit dem Stil-  
+  Kontext des Nemo-Toplevels, denn der Panel-Kontext trägt bei  
+  WhiteSur-Dark womöglich keine aufgelöste Hintergrundfarbe.  
+  Und die Ordner-Liste füllt die Spalte randlos – der Außenrand  
+  des Inhaltsbereichs wird dafür genullt, das Padding (10/10/8/8  
+  px) liegt INNERHALB des Listenfensters (Nutzer-Wunsch).
+
 ## \[0.31.3\] – 2026-10-31
 
 ### Fixed (Behoben)
