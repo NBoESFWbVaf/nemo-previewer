@@ -895,6 +895,14 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   0.31.5-Push hatte den Einstieg als previewer-py.py ins Repo  
   gebracht (previewer.py blieb 0.31.4, Nemo lud zwei Provider) –  
   bereinigt (→ REF PAN-BG-2).  
+  ✅ 0.31.7 – F46 V (Nutzer-Fund): Painter und Margins arbeiteten  
+  nachweislich, der Streifen blieb trotzdem – Ursachen-Verdacht:  
+  Theme-Flächen überdecken den draw-Painter (er läuft vor dem  
+  Widget-Standard-Draw), und die Margin-Streifen zeigen den  
+  Viewport-Hintergrund statt der Platte. Hintergrund jetzt  
+  zusätzlich per CSS-Regel (Klasse pvw-surface, Anwendungs-  
+  priorität) auf Viewport und Bildlaufleisten; dbg ergänzt je  
+  Widget die Eigen-Farbe des Widget-Kontexts (→ REF PAN-BG-2).
 
 ---
 

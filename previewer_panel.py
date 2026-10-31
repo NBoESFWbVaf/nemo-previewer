@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.6 – F46 IV (Nutzer-Fund): 0.31.5 lieferte gültige Farben (Panel=rgba(56,56,56,0.999)) und bestätigte das eigene GdkWindow des Scroll-Fensters – die schwarze Scrollbar-Ebene blieb aber, und das Listen-Padding schien verschwunden. Deshalb deckt der Hintergrund-Painter jetzt auch Viewport und Bildlaufleisten ab (weitere eigene GdkWindow, Bildlaufleisten entstehen erst beim Realisieren), dbg nennt pro Widget, wo er malt, und liest die ListBox-Margins nach dem Realisieren zurück (CSS-Override-Verdacht) (→ REF PAN-BG-2). F46 II (0.31.4, Nutzer-Wunsch): Ordner-Liste randlos – der Außenrand des Inhaltsbereichs wird dafür genullt, das Padding (10/10/8/8 px) liegt INNERHALB des Listenfensters.
+STAND: Version 0.31.7 – F46 V (Nutzer-Fund): 0.31.6 bewies Painter-Erfolg (dbg: alle vier Widgets malen, quelle=Panel, rgba(56,56,56,0.999)) und gesetzte Margins (10/10/8/8) – doch der schwarze Streifen blieb und das Padding fehlte optisch. Ursachen-Verdacht: Der draw-Painter malt VOR dem Widget-Standard-Draw, Theme-Flächen (Trough, Viewport) überdecken ihn; und die Margin-Streifen der Liste zeigen den Viewport-Hintergrund statt der Platte. Deshalb setzt jetzt eine CSS-Regel (Klasse pvw-surface, Anwendungspriorität über dem Theme) die Hintergrundfarbe auf Viewport und Bildlaufleisten, und dbg ergänzt je Widget die Eigen-Farbe des Widget-Kontexts (→ REF PAN-BG-2). F46 IV (0.31.6): Painter zusätzlich an Viewport und Bildlaufleisten, Widget-dbg, Margin-Rücklesen. F46 II (0.31.4, Nutzer-Wunsch): Ordner-Liste randlos – der Außenrand des Inhaltsbereichs wird dafür genullt, das Padding (10/10/8/8 px) liegt INNERHALB des Listenfensters.
 F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
@@ -194,6 +194,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # der Hintergrund-Painter protokolliert Quelle und Farben
         # nur bei Wechsel (→ REF PAN-BG-2).
         self._bg_dbg_key = None
+        # 0.31.7 (F46 V): CSS-Regel für die Scroll-Flächen – der
+        # Provider entsteht beim Ordner-Render (→ REF PAN-BG-2).
+        self._surface_provider = None
 
         self._window = window
         self._path = None
@@ -379,6 +382,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             if ctx is None and rgba is not None \
                     and rgba.alpha > 0.0:
                 ctx, used = cctx, name
+        # 0.31.7 (F46 V): Eigen-Farbe des Widget-Kontexts proto-
+        # kollieren – zeigt, was das Theme DORT selbst malt und
+        # womöglich über den Painter legt (→ REF PAN-BG-2).
+        try:
+            eigen = widget.get_style_context().get_background_color(
+                Gtk.StateFlags.NORMAL)
+            report.append("Eigen=%s" % eigen.to_string())
+        except Exception:
+            pass
         w, h = widget.get_allocated_width(), \
             widget.get_allocated_height()
         if ctx is not None:
@@ -409,13 +421,80 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     def _on_scroll_realized(self, sc):
         """Bildlaufleisten an den Painter hängen (F46 IV) – sie
-        entstehen erst beim Realisieren (→ REF PAN-BG-2)."""
+        entstehen erst beim Realisieren (→ REF PAN-BG-2).
+        0.31.7 (F46 V): Auch die Flächen-CSS-Regel nachreichen."""
         try:
             for bar in (sc.get_vscrollbar(), sc.get_hscrollbar()):
                 if bar is not None:
                     bar.connect("draw", self._on_panel_draw)
+                    if self._surface_provider is not None:
+                        bar.get_style_context().add_provider(
+                            self._surface_provider,
+                            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         except Exception:
             pass
+
+    def _apply_surface_css(self, scroll):
+        """F46 V: Hintergrund der Scroll-Flächen per CSS setzen.
+
+        Der draw-Painter läuft VOR dem Widget-Standard-Draw – malt
+        das Theme dort eine eigene Fläche (Trough, Viewport), über-
+        deckt sie ihn. Eine CSS-Regel hingegen färbt im regulären
+        Mal-Durchlauf, mit Anwendungspriorität über dem Theme. Die
+        Regel gilt nur unterhalb der Klasse pvw-surface, berührt
+        Nemo selbst also nicht (→ REF PAN-BG-2).
+        """
+        try:
+            farbe = None
+            try:
+                rgba = self.get_style_context().get_background_color(
+                    Gtk.StateFlags.NORMAL)
+                if rgba is not None and rgba.alpha > 0.0:
+                    farbe = rgba.to_string()
+            except Exception:
+                pass
+            if farbe is None:
+                farbe = "rgb(56,56,56)"
+            css = (
+                ".pvw-surface viewport,"
+                ".pvw-surface scrollbar,"
+                ".pvw-surface scrollbar trough,"
+                ".pvw-surface scrollbar undershoot"
+                " { background-color: %s; }" % farbe).encode("utf-8")
+            prov = Gtk.CssProvider()
+            prov.load_from_data(css)
+            scroll.get_style_context().add_class("pvw-surface")
+            scroll.get_style_context().add_provider(
+                prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            self._surface_provider = prov
+            for ctx in self._surface_css_contexts(scroll):
+                ctx.add_provider(
+                    prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            dbg("Panel-Hintergrund CSS: Regel für Viewport und "
+                "Bildlaufleisten installiert (Farbe %s)" % farbe)
+        except Exception as e:
+            dbg("Panel-Hintergrund CSS: gescheitert – %s" % e)
+
+    def _surface_css_contexts(self, scroll):
+        """Stil-Kontexte, die die Flächen-Regel zusätzlich brauchen
+        (F46 V) – Provider greifen zwar über die Eltern-Kette, zur
+        Sicherheit stehen sie auch direkt an jedem Kind (→ REF
+        PAN-BG-2)."""
+        ctxs = []
+        try:
+            vp = scroll.get_child()
+            if vp is not None:
+                ctxs.append(vp.get_style_context())
+        except Exception:
+            pass
+        try:
+            for bar in (scroll.get_vscrollbar(),
+                        scroll.get_hscrollbar()):
+                if bar is not None:
+                    ctxs.append(bar.get_style_context())
+        except Exception:
+            pass
+        return ctxs
 
     def _dbg_list_margins(self, box):
         """Effektive ListBox-Margins auslesen (F46 IV) – deckt auf,
@@ -1190,6 +1269,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         except Exception:
             pass
         scroll.connect("realize", self._on_scroll_realized)
+        # 0.31.7 (F46 V, Nutzer-Fund): Der Painter-Malte-Erfolg
+        # war belegt, der Streifen blieb trotzdem – Theme-Flächen
+        # überdecken den Painter also. Die Fläche deshalb addi-
+        # tional per CSS-Regel färben (→ REF PAN-BG-2).
+        self._apply_surface_css(scroll)
         # 0.31.4 (Nutzer-Wunsch): Außenrand des Inhaltsbereichs für
         # die Ordner-Vorschau nullen – das Listenfenster füllt die
         # Spalte randlos, das Padding (10/10/8/8 px) liegt IN der
@@ -1421,7 +1505,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.6"
+PREVIEWER_VERSION = "0.31.7"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "

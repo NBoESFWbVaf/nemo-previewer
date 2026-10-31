@@ -4,7 +4,7 @@
 Previewer
 =========
 
-STAND: Version 0.31.6 – F45 (Nutzer-Wunsch): Der Einstieg installiert
+STAND: Version 0.31.7 – F45 (Nutzer-Wunsch): Der Einstieg installiert
 gleich zu Anfang den Schritt-Trace (install_step_trace, → REF
 UT-TRACE-1): NEMO_PREVIEWER_TRACE=1/call protokolliert jeden Funktions-
 Aufruf samt Argumenten, jedes Return und jede Ausnahme, =line
@@ -128,7 +128,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.31.6"
+PREVIEWER_VERSION = "0.31.7"
 import previewer_util
 import previewer_select
 import previewer_panel

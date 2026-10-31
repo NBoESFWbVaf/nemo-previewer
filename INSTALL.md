@@ -101,14 +101,14 @@ carry the same names on both distributions
   ```
 2. Check the log. Each module reports its version on load:
   ```text
-   [previewer] previewer_util 0.31.6 geladen
-   [previewer] previewer_select 0.31.6 geladen
-   [previewer] previewer_render_media 0.31.6 geladen (...)
-   [previewer] previewer_render_docs 0.31.6 geladen (...)
-   [previewer] previewer_render_text 0.31.6 geladen (...)
-   [previewer] previewer_toolbar 0.31.6 geladen (...)
-   [previewer] previewer_panel 0.31.6 geladen (...)
-   [previewer] previewer (Einstieg) v0.31.6 bereit
+   [previewer] previewer_util 0.31.7 geladen
+   [previewer] previewer_select 0.31.7 geladen
+   [previewer] previewer_render_media 0.31.7 geladen (...)
+   [previewer] previewer_render_docs 0.31.7 geladen (...)
+   [previewer] previewer_render_text 0.31.7 geladen (...)
+   [previewer] previewer_toolbar 0.31.7 geladen (...)
+   [previewer] previewer_panel 0.31.7 geladen (...)
+   [previewer] previewer (Einstieg) v0.31.7 bereit
   ```
 
    Eight lines with the same version number — anything else means an old  

@@ -6,6 +6,24 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.7\] – 2026-10-31
+
+### Fixed (Behoben)
+
+- Panel-Hintergrund V (F46 V, Nutzer-Fund): 0.31.6 bewies in den  
+  dbg-Zeilen arbeitende Painter und gesetzte Margins (alle vier  
+  Widgets malen mit quelle=Panel; ListBox-Margins 10/10/8/8) – doch  
+  der schwarze Streifen blieb und das Padding fehlte optisch.  
+  Ursachen-Verdacht: Der draw-Painter läuft vor dem Widget-  
+  Standard-Draw – Theme-Flächen (Trough, Viewport) überdecken ihn;  
+  und die Margin-Streifen der Liste zeigen den Viewport-Hintergrund  
+  statt der Platte. Die Hintergrundfarbe steht deshalb jetzt  
+  zusätzlich als CSS-Regel auf Viewport und Bildlaufleisten  
+  (Klasse pvw-surface, Anwendungspriorität über dem Theme; die  
+  Bildlaufleisten werden beim Realisieren nachgereicht), und dbg  
+  nennt je Widget die Eigen-Farbe des Widget-Kontexts – zeigt, was  
+  das Theme dort selbst malt (→ REF PAN-BG-2).
+
 ## \[0.31.6\] – 2026-10-31
 
 ### Fixed (Behoben)
@@ -22,7 +40,7 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 - Repo-Bereinigung (Nutzer-Fund): Beim 0.31.5-Push war der  
   Einstieg versehentlich als previewer-py.py ins Repo geraten,  
   während previewer.py auf 0.31.4 stehen blieb – Nemo lud zwei  
-  Provider (ACHTUNG-Warnflut). previewer-py.py ist gelöscht,  
+  Provider (ACHTUNG-Warnflut). Bereinigung: previewer-py.py im Repo und Extension-Ordner löschen,  
   previewer.py trägt die aktuelle Fassung.
 
 ## \[0.31.5\] – 2026-10-31
