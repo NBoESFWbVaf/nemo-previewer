@@ -4,7 +4,8 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.0 – F43-Fix (Nutzer-Fund): Strikt symbolische Icons in der Ordner-Vorschau – GTK lud bei fehlender -symbolic-Variante heimlich das farbige Voll-Icon (dunkle Platten mit hartem Rand im Darkmode); die Symbol-Kandidaten werden jetzt gegen Gtk.IconTheme geprüft.
+STAND: Version 0.31.1 – F43-Diagnose (Nutzer-Fund): Die dunklen Platten kehrten zurück, obwohl der strenge Symbol-Ladekurs (0.30.1) greift – deshalb protokolliert die Ordner-Vorschau je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:"), um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
+F43-Fix (0.30.1, Nutzer-Fund): Strikt symbolische Icons in der Ordner-Vorschau – GTK lud bei fehlender -symbolic-Variante heimlich das farbige Voll-Icon (dunkle Platten mit hartem Rand im Darkmode); die Symbol-Kandidaten werden gegen Gtk.IconTheme geprüft.
 F43-Feinschliff II (0.30.0, Nutzer-Wunsch): Ordner-Vorschau mit theme-folgenden symbolischen Icons (Darkmode hell, Lightmode dunkel); Ordner zuerst (F43); versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
 F43-Feinschliff (0.29.0, Nutzer-Wunsch): Ordner-Vorschau trägt Icons vor den Namen (Typ-Symbol aus dem Icon-Theme, MENU-Größe, mit Fallback) und den Innenabstand der Text-Vorschauen (10/10/8/8 px).
 F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung ist EINSTELLBAR – Schlüssel text_syntax, Rubrik „Textdateien“, Default an; ausgeschaltet oder ohne GtkSource-Binding zeigt sich immer der schlichte Text.
@@ -899,6 +900,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # 0.30.1: Icon-Theme EINMAL holen – der Zeilen-Loop fragt die
         # Symbol-Varianten gegen das Theme ab
         theme = Gtk.IconTheme.get_default()
+        picked = {}
         for name, is_dir in shown[:300]:
             # 0.29.0/0.30.0/0.30.1 (Nutzer-Wunsch/-Fund): Typ-Icon vor
             # dem Namen – Ordner über inode/directory, Dateien über
@@ -924,6 +926,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     if theme.has_icon(cand):
                         sname = cand
                         break
+                picked[ctype] = sname
                 ic.set_from_icon_name(sname, Gtk.IconSize.MENU)
             except Exception:
                 ic.set_from_icon_name(
@@ -970,6 +973,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._content.pack_start(scroll, True, True, 0)
         dbg("Ordner-Liste: %d Einträge, %d Zeilen gebaut"
             % (total, min(300, len(shown))))
+        # 0.31.1 (Nutzer-Fund): Inhaltstyp → gewähltes Symbol protokol-
+        # lieren – zeigt das Log bei Icon-Problemen (F43-Diagnose),
+        # welches Theme-Symbol je Typ tatsächlich lädt
+        dbg("Ordner-Icons: " + ", ".join(
+            "%s→%s" % kv for kv in sorted(picked.items())))
 
     def _render_generic(self):
         mime, size, mtime = query_file_info(self._path)
@@ -1172,7 +1180,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.0"
+PREVIEWER_VERSION = "0.31.1"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
