@@ -6,6 +6,26 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.34.1\] – 2026-10-31
+
+### Fixed (Behoben)
+
+- Linker Rand der Vorschauspalte im Lightmode schwarz (F46 X,  
+  Nutzer-Fund): Der schmale Streifen zwischen Dateiansicht und  
+  Vorschau gehört dem Griff-Fenster des injizierten Gtk.Paned –  
+  GTK malt dort von sich aus keinen Hintergrund, im Darkmode lag  
+  Schwarz auf Dunkelgrau (unsichtbar), im Lightmode zeigte sich  
+  ein schwarzer Rahmen. Ein draw-Haken am Paned malt die Fläche  
+  jetzt mit derselben Ketten-Farbe wie das Panel (→ REF PAN-BG-2).  
+- Umschalt-Knopf beim Start inaktiv (F40-Nachtrag, Nutzer-Fund):  
+  Der Knopf für die Vorschauspalte in Nemos Werkzeugleiste zeigte  
+  den offenen Zustand nicht an. notify::visible feuert nur bei  
+  Wechseln – das Panel ist beim Einpacken des Knopfes aber schon  
+  sichtbar (die Injektion ruft show all), also zog der Knopf  
+  seinen Zustand nie nach. Er synchronisiert jetzt direkt beim  
+  Einpacken (set active vor dem Connect, löst nichts aus)  
+  (→ REF ENT-TOGGLE-1).
+
 ## \[0.34.0\] – 2026-10-31
 
 ### Fixed (Behoben)
