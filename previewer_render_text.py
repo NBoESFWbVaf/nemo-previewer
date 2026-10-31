@@ -4,7 +4,7 @@
 Previewer – Renderer-Modul Text (previewer_render_text.py)
 ==========================================================
 
-STAND: Version 0.31.2 – F44 (Nutzer-Wunsch): _render_text reicht
+STAND: Version 0.31.3 – F44 (Nutzer-Wunsch): _render_text reicht
 source_path an _text_view weiter – Quellcode-Dateien (.py, .sh, .c …)
 erscheinen mit Syntax-Hervorhebung (GtkSourceView im Panel-Kern,
 optionales Binding gir1.2-gtksource-4).
@@ -1892,7 +1892,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.31.2"
+PREVIEWER_VERSION = "0.31.3"
 dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F44: "
     "Syntax-Hervorhebung via source_path; F31: "
     "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "
