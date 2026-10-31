@@ -4,10 +4,12 @@
 Previewer
 =========
 
-STAND: Version 0.30.1 – F40 (Nutzer-Wunsch): Umschalt-Knopf für die
-Vorschau-Seitenleiste in Nemos Werkzeugleiste (rechts, neben der
-Ansichtenauswahl; CSD-Titelleiste oder klassische Toolbar),
-synchron mit Strg+Alt+P (→ REF ENT-TOGGLE-1).
+STAND: Version 0.31.0 – F45 (Nutzer-Wunsch): Der Einstieg installiert
+gleich zu Anfang den Schritt-Trace (install_step_trace, → REF
+UT-TRACE-1): NEMO_PREVIEWER_TRACE=1/call protokolliert jeden Funktions-
+Aufruf samt Argumenten, jedes Return und jede Ausnahme, =line
+zusätzlich jede ausgeführte Zeile; ohne die Variable läuft kein Hook.
+F40 (0.30.1, Nutzer-Wunsch): Umschalt-Knopf für die Vorschau-Seitenleiste in Nemos Werkzeugleiste (rechts, neben der Ansichtenauswahl; CSD-Titelleiste oder klassische Toolbar), synchron mit Strg+Alt+P (→ REF ENT-TOGGLE-1).
 Dies ist die EINSTIEGS-Datei der acht zusammengehörigen Dateien
 (previewer.py, previewer_panel.py, previewer_select.py,
 previewer_util.py, previewer_toolbar.py, previewer_render_media.py,
@@ -111,7 +113,12 @@ from previewer_util import (
     walk, type_name,
     PANEL_WIDTH, PANEL_MIN_WIDTH, POLL_MS,
     pick_icon,
+    install_step_trace,
 )
+# F45 (Nutzer-Wunsch): Schritt-Trace gleich nach dem util-Import
+# setzen – so laufen schon die Modul-Importe und später jede
+# Funktion unter dem Hook (NEMO_PREVIEWER_TRACE, → REF UT-TRACE-1).
+install_step_trace()
 from previewer_select import (
     find_view, selection_signals, SelectionReader,
     _atk_children, _dump_widget_tree,
@@ -121,7 +128,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.30.1"
+PREVIEWER_VERSION = "0.31.0"
 import previewer_util
 import previewer_select
 import previewer_panel
