@@ -259,6 +259,24 @@ except Exception:
 
 ---
 
+## Helfer (UT)
+
+### UT-TRACE-1 – Schritt-Trace über sys.settrace (F45)
+
+- **Modul:** previewer\_util.py
+- **Ort:** `install\_step\_trace`, gesetzt im Einstieg gleich nach dem util-Import
+- **Anlass:** Nutzer-Wunsch: Jede Funktion der acht Module soll im Debug-Log identifizierbar sein. Statt jede Funktion einzeln zu instrumentieren setzt ein zentraler Hook via sys.settrace auf – verfolgt nur Dateien mit Präfix previewer\_ (Nemo, GTK und fremde Extensions bleiben unberührt); dbg/diag sind ausgenommen, damit der Logger sich nicht selbst protokolliert. Niveau über NEMO\_PREVIEWER\_TRACE: 1/call protokolliert jeden Aufruf samt auf 60 Zeichen gekürzten Argumenten, jedes Return und jede Ausnahme; line zusätzlich jede ausgeführte Zeile. Ein Fehler im Hook schaltet still ab, statt Nemo zu gefährden.
+
+```text
+# Aufrufe, Returns, Ausnahmen protokollieren:
+#   NEMO_PREVIEWER_TRACE=1 nemo --no-desktop
+# zusätzlich jede ausgeführte Zeile:
+#   NEMO_PREVIEWER_TRACE=line nemo --no-desktop
+# ohne die Variable läuft KEIN Hook – null Overhead im Alltag.
+```
+
+---
+
 ## Toolbar (TB)
 
 ### TB-F19-1 – Statische ActionBar (F19)
