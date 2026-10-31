@@ -4,7 +4,7 @@
 Previewer
 =========
 
-STAND: Version 0.34.0 – F45 (Nutzer-Wunsch): Der Einstieg installiert
+STAND: Version 0.34.1 – F46 X (Nutzer-Fund): Der linke Rand der Vorschauspalte (Griff-Fenster des injizierten Gtk.Paned) ist ungemalt und zeigte im Lightmode einen schwarzen Rahmen – ein draw-Haken am Paned malt ihn jetzt mit der Panel-Ketten-Farbe (→ REF PAN-BG-2). F40-Nachtrag (Nutzer-Fund): Der Knopf in Nemos Werkzeugleiste synchronisiert seinen Anfangs-Zustand direkt beim Einpacken – das Panel ist da schon sichtbar, notify::visible feuerte nie, der Knopf blieb inaktiv (→ REF ENT-TOGGLE-1). F45 (Nutzer-Wunsch): Der Einstieg installiert
 gleich zu Anfang den Schritt-Trace (install_step_trace, → REF
 UT-TRACE-1): NEMO_PREVIEWER_TRACE=1/call protokolliert jeden Funktions-
 Aufruf samt Argumenten, jedes Return und jede Ausnahme, =line
@@ -128,7 +128,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.34.0"
+PREVIEWER_VERSION = "0.34.1"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -165,6 +165,9 @@ class PanelState:
         self._a11y_dumps = 0
         self.toggle_btn = None
         self.hpaned.connect("size-allocate", self._on_size_allocate)
+        # F46 X (0.34.1): Das Griff-Fenster des Paned untermalen –
+        # im Lightmode zeigte der linke Rand sonst schwarz.
+        self.hpaned.connect("draw", self._on_hpaned_draw)
 
     def _install_toolbar_toggle(self):
         """
@@ -216,6 +219,12 @@ class PanelState:
     def _pack_toggle(self, btn, icon, where, pack):
         """F40: Knopf fertigmachen, einpacken, verkabeln, loggen."""
         btn.set_tooltip_text("Vorschau-Seitenleiste (Strg+Alt+P)")
+        # F40-Nachtrag (0.34.1, Nutzer-Fund): Anfangs-Zustand
+        # synchronisieren – notify::visible feuert nur bei Wechseln,
+        # das Panel ist beim Einpacken schon sichtbar, der Knopf
+        # blieb also inaktiv. set_active VOR dem toggled-Connect
+        # stößt nichts an (→ REF ENT-TOGGLE-1).
+        btn.set_active(self.panel.get_visible())
         btn.connect("toggled", self._on_toolbar_toggle)
         self.toggle_btn = btn
         pack(btn)
@@ -282,6 +291,20 @@ class PanelState:
             self.toggle_btn.set_active(panel.get_visible())
         except Exception:
             pass
+
+    def _on_hpaned_draw(self, paned, cr):
+        """
+        F46 X (0.34.1, Nutzer-Fund): Der linke Rand der Vorschau-
+        spalte gehört dem Griff-Fenster des injizierten Gtk.Paned –
+        ungemalt, im Lightmode ein schwarzer Rahmen. Der Painter
+        des Panels malt dieselbe Fläche mit der Ketten-Farbe
+        (→ REF PAN-BG-2).
+        """
+        try:
+            self.panel._paint_background(paned, cr)
+        except Exception:
+            pass
+        return False
 
     def _on_size_allocate(self, paned, alloc):
         if not self.pos_pending:
