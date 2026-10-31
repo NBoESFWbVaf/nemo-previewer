@@ -939,6 +939,15 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Abwahl auf das schlichte Ordner-Icon mit Dateiinformationen um;  
   Umschalten greift live auf einen gerade markierten Ordner (→ REF  
   PAN-FOLDER-2).
+  ✅ 0.34.0 – F12 (Nutzer-Fund/-Wunsch): Wasserfall der Schrift-Vorschau –  
+  Textfarbe folgt jetzt dem Theme (get_color() verlangt in GTK3 das  
+  State-Argument; der alte Aufruf ohne Argument warf IMMER eine  
+  TypeError, deren except den Fallback fast schwarz stehen ließ –  
+  jetzt get_color(Gtk.StateFlags.NORMAL) wie bei den Ordner-Icons);  
+  der Probetext ist einstellbar über die neue Rubrik „Schriftarten“  
+  im Einstellungsfenster (Key font_sample_text, Default der  
+  klassische Satz), Einträge speichern sofort und greifen live auf  
+  die gerade angezeigte Schrift (→ REF TXT-FONT-2).
 
 ---
 
