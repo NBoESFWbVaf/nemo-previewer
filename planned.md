@@ -856,7 +856,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   rechts „Ordner“), dann Dateien (rechts Größe über human\_size), je  
   alphabetisch; versteckte gedimmt dabei (K1 bleibt), 300-Zeilen-  
   Deckel mit „… und N weitere“.  
-  ✅ 0.23.0 – \_render\_folder komplett umgebaut (→ REF PAN-FOLDER-1).
+  ✅ 0.23.0 – \_render\_folder komplett umgebaut (→ REF PAN-FOLDER-1).  
+  ✅ 0.29.0 – Feinschliff (Nutzer-Wunsch): Icons vor den Namen  
+  (Ordner- bzw. Dateityp-Symbol aus dem Icon-Theme), Innenabstand  
+  wie bei Textvorschauen (10/10/8/8 px).
 
 ---
 
