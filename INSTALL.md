@@ -137,6 +137,16 @@ For debugging, close your filebrowser and start it again over terminal.
 nemo -q && nemo --no-desktop
 ```
 
+Set `NEMO_PREVIEWER_TRACE=1` to log every function call of the  
+extension — arguments, return values and exceptions — and  
+`NEMO_PREVIEWER_TRACE=line` to log every executed line as well  
+(no variable set: no hook, no overhead):
+
+```
+nemo -q
+NEMO_PREVIEWER_TRACE=1 nemo --no-desktop
+```
+
 ## Troubleshooting
 
 
