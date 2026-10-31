@@ -865,7 +865,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).  
   ✅ 0.30.1 – Fix (Nutzer-Fund): Strikte Symbolik – Kandidaten gegen  
   das Icon-Theme geprüft, kein heimliches Voll-Icon mehr (dunkle  
-  Platten im Darkmode).
+  Platten im Darkmode).  
+  ✅ 0.31.0 – Schritt-Trace (Nutzer-Wunsch): sys.settrace-Hook  
+  protokolliert jeden Aufruf/Return/Ausnahme aller Funktionen;  
+  NEMO\_PREVIEWER\_TRACE=1 bzw. =line (→ REF UT-TRACE-1).
 
 ---
 
