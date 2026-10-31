@@ -6,6 +6,20 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.3\] – 2026-10-31
+
+### Fixed (Behoben)
+
+- Schwarze Flächen um die Ordner-Liste (F46 + F43-Fix III,  
+  Nutzer-Fund): Screenshots Dark-/Lightmode brachten die Klarheit –  
+  das Schwarze war nie das Icon, sondern der ungemalte Hintergrund  
+  der Vorschauspalte (ober-/unterhalb der Liste, Bildlaufleisten-  
+  region); das Panel malt ihn jetzt selbst (Stilklasse background).  
+  Und die Silhouetten-Icons holen ihre Vordergrundfarbe jetzt vom  
+  angedockten Panel statt von der frisch gebauten, noch nicht im  
+  Fenster hängenden Liste – im Lightmode waren sie dadurch weiß  
+  und unsichtbar.
+
 ## \[0.31.2\] – 2026-10-31
 
 ### Fixed (Behoben)
