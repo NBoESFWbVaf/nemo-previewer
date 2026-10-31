@@ -30,7 +30,7 @@ extension consists of **eight files that**
 **Mandatory packages**
 
 ```bash
-sudo apt install nemo-python python3-gi
+sudo apt install nemo-python python3-gi git
 ```
 
 **Optional packages** — each one unlocks additional preview types:
@@ -58,6 +58,13 @@ sudo apt install gir1.2-gtksource-4
 sudo apt install libreoffice-core
 ```
 
+**All packages at once**
+
+  ```bash
+    sudo apt install nemo-python python3-gi git gir1.2-poppler-0.18 python3-cairo gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-good gir1.2-rsvg-2.0 gir1.2-gtksource-4 libreoffice-core
+  ```
+
+
 Everything else runs on Python standard library modules only.
 
 **Debian notes** (verified on Debian 13 "Trixie" with Cinnamon/Nemo)
@@ -75,14 +82,19 @@ carry the same names on both distributions
 
 ## Install
 
-1. Copy **all eight files** into the Nemo extension folder:
+### Change directory and clone git
   ```bash
-   mkdir -p ~/.local/share/nemo-python/extensions
-   cp previewer.py previewer_panel.py previewer_select.py previewer_util.py \
-      previewer_toolbar.py previewer_render_media.py \
-      previewer_render_docs.py previewer_render_text.py \
-      ~/.local/share/nemo-python/extensions/
+    cd /tmp \
+    git clone https://github.com/NBoESFWbVaf/nemo-previewer.git
   ```
+
+### Create the needed directory and copy all *.py Files to this
+  ```bash
+    mkdir -p ~/.local/share/nemo-python/extensions
+    cp /tmp/nemo-previewer/*.py ~/.local/share/nemo-python/extensions/
+  ```
+
+
 2. Restart Nemo:
   ```bash
    nemo -q && nemo
