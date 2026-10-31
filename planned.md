@@ -908,6 +908,17 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Außenrand deshalb nicht mehr (8 px von \_render\_inner bleiben);  
   CSS-Regel zusätzlich auf Scroll-Fenster und Junction, dbg-Merker je  
   Widget, CSS-dbg nur bei Farbwechsel (→ REF PAN-BG-2, PAN-FOLDER-1).
+  ✅ 0.31.9 – F46 VII (Nutzer-Fund): Alle Flächen malen laut dbg Grau,  
+  der Streifen blieb – Pixelsonden \_dbg\_pixels lesen echte Pixel  
+  an sieben Punkten und zeigen im Log, WO Schwarz wirklich sitzt  
+  (→ REF PAN-BG-2).
+  ✅ 0.31.10 – F46 VIII (Pixelsonden-Fund): Die Sonden ertappten das  
+  Schwarz exklusiv an Spalte-2 (pw-12), nur solange die Bildlaufleiste  
+  sichtbar ist – Overlay-Scrolling floatet den Balken in einem eigenen  
+  Gdk-Fenster über dem Viewport, dessen ungemalte Teile schwarz bleiben.  
+  Klassischer Inline-Balken per set\_overlay\_scrolling(False), Sonden  
+  bleiben als Verifikation drin; zusätzlich SyntaxWarning aus der  
+  STAND-Zeile entfernt (→ REF PAN-BG-2).
 
 ---
 
