@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.11 – F46 IX (Nutzer-Beschreibung): Der 0.31.10-Test bestätigte den Inline-Balken (kein Sondenpunkt mehr schwarz, Leiste und Rinne themefarben), aber der Nutzer sieht weiterhin Schwarz und beschreibt die Lage: Die schwarze Ebene ist der TRÄGER der Ordnerliste (Eltern-Ebene), sichtbar nur bei überlanger Liste; die Bildlaufleiste selbst passt. Fix: Das 10/10/8/8-Padding sitzt jetzt IN der Platte – die Ränder hängen an den Zeilen-Inhalten statt als Margins vor der ListBox, die Themefläche der Platte füllt den Viewport randvoll, der Träger hat keine freiliegende Fläche mehr. Zusätzlich Panel-Scan: komplettes horizontales Farbprofil in Panelhöhe mit Schwarz-Pixel-Zähler (→ REF PAN-BG-2). F46 VIII (0.31.10): Overlay-Scrolling aus – klassischer Inline-Balken. F46 VI (0.31.8): Randlos-Rücknahme, CSS auf Scroll-Fenster/Junction, dbg je Widget, CSS-dbg nur bei Farbwechsel. F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
+STAND: Version 0.32.0 – F47 (Nutzer-Fund): „Textdateien" ohne Text-Vorschau – der Dispatch rät den Typ aus dem NAMEN: index.theme ist application/x-theme, .xsession-errors.old application/x-trash („Sicherheitskopie"); nur endungslose Dotfiles wie .xsession-errors kamen über den F23-Schnüffler zur Vorschau. Fix beidseitig: .theme/.old/.bak/.orig in die _TEXT_EXTRAS-Whitelist UND Schnüffel-Fallback für opake Typen (application/x-trash, x-theme, octet-stream) vor dem generischen Platzhalter – der Inhalt entscheidet, Binärdateien fallen an der Steuerzeichen-Schwelle (→ REF PAN-F47-1). F46 (0.31.11, GELÖST): Padding in der Platte statt ListBox-Margin; F46 VIII (0.31.10): Overlay-Scrolling aus; F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
 F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
@@ -79,12 +79,29 @@ try:
 except Exception:
     pass
 
+# F47 (Nutzer-Fund): .theme und die Backup-Endungen gelten der
+# MIME-Datenbank als application/x-theme bzw. application/x-trash
+# („Sicherheitskopie") – nicht als Text. Die Endungen stehen
+# deshalb zusätzlich in der Whitelist; .swp bleibt bewusst draußen
+# (Vim-Swap ist binär).
 _TEXT_EXTRAS = {
     '.py', '.sh', '.bash', '.zsh', '.js', '.ts', '.json', '.yaml', '.yml',
     '.toml', '.ini', '.cfg', '.conf', '.csv', '.log', '.md', '.rst',
     '.css', '.html', '.xml', '.patch', '.diff', '.desktop', '.service',
     '.gitignore', '.nemo_action', '.pyw', '.lua', '.pl', '.rb', '.go',
     '.rs', '.c', '.h', '.cpp', '.hpp', '.java', '.sql', '.tex',
+    '.theme', '.old', '.bak', '.orig',
+}
+
+# F47 (Nutzer-Fund): „Opake" Typen – die Datenbank sagt nicht
+# text/*, obwohl der Inhalt oft lesbarer Text ist: Sicherungs-
+# kopien (x-trash), Theme-Beschreibungen (x-theme), unbekannte
+# Dateien (octet-stream). Der Dispatch lässt bei diesen Typen
+# den Schnüffler über den INHALT entscheiden, bevor die Vorschau
+# aufgibt (→ REF PAN-F47-1).
+_OPAQUE_TYPES = {
+    "application/x-trash", "application/x-theme",
+    "application/octet-stream",
 }
 
 # F12 (0.12.0): Konfiguration der Vorschauspalte – GLib-natives
@@ -779,6 +796,16 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._render_office(path)
         elif not os.path.splitext(lower)[1] and _sniff_is_text(path):
             # → REF PAN-F23-1
+            self._render_text(path)
+        elif mime in _OPAQUE_TYPES and _sniff_is_text(path):
+            # F47 (Nutzer-Fund): Der Typ-Rater liest nur den NAMEN –
+            # index.theme galt als Theme, .xsession-errors.old als
+            # „Sicherheitskopie", beide ohne Text-Vorschau, obwohl
+            # ihr Inhalt reiner Text ist. Bei diesen „opaken" Typen
+            # entscheidet deshalb der Schnüffler über den INHALT,
+            # bevor die Vorschau aufgibt; Binärdateien fallen wie
+            # immer an der Steuerzeichen-Schwelle (→ REF
+            # PAN-F47-1).
             self._render_text(path)
         else:
             self._render_generic()
@@ -1629,7 +1656,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.11"
+PREVIEWER_VERSION = "0.32.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
