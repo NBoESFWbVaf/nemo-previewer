@@ -6,8 +6,23 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.29.0\] – 2026-10-31
+
 ### Changed (Geändert)
 
+- Ordner-Vorschau mit Icons und Innenabstand (F43-Feinschliff,  
+Nutzer-Wunsch): Vor jedem Eintrag steht das Typ-Icon aus dem  
+Icon-Theme – Ordner-Symbol bzw. von Gio geratenes Datei-Symbol  
+in Menü-Größe, mit Fallback –, und die Liste trägt denselben  
+Innenabstand wie die Text-Vorschauen (10/10/8/8 px)  
+- INSTALL.md: Installation auf git clone umgestellt (Nutzer-Umbau  
+übernommen): git im Pflichtpaket, eigene Abschnitte „Change  
+directory and clone git“ und „Create the needed directory …“,  
+Sammelzeile „All packages at once“ mit allen Paketen in einem  
+Rutsch; drei Schönheitsfehler gleich mitgeflickt: cd-Fortsetzung  
+mit &amp;&amp; statt Backslash (ergab kaputtes Bash), Schritt-Nummerie-  
+rung 1./2./3. statt 2./3./4., Überschrift um „directory“ ergänzt;  
+Log-Beispiel im Abschnitt Install von 0.3.1 auf 0.29.0 gebracht  
 - INSTALL.md: gir1.2-gtksource-4 (Syntax-Hervorhebung in der Text-  
 Vorschau, neu seit 0.28.0) im Block der optionalen Pakete ergänzt –  
 Mint 22 bringt es über xed praktisch immer mit, Debian 13 führt  
