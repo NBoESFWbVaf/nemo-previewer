@@ -6,6 +6,19 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.33.0\] – 2026-10-31
+
+### Added (Hinzugefügt)
+
+- Ordner-Inhaltsliste einstellbar (F48, Nutzer-Wunsch): Die Ordner-  
+  Vorschau mit Inhaltsliste bleibt der obligatorische Standard; der  
+  neue Schalter „Ordnerinhalte in der Vorschau anzeigen“ in der  
+  Rubrik „Allgemein“ (Default an, Konfigurations-Schlüssel  
+  folder\_contents) zeigt bei Abwahl das schlichte Ordner-Icon mit  
+  Dateiinformationen (das Verhalten vor 0.23.0). Umschalten  
+  speichert sofort und baut einen gerade markierten Ordner live  
+  um; Datei-Vorschauen bleiben unberührt (→ REF PAN-FOLDER-2).
+
 ## \[0.32.0\] – 2026-10-31
 
 ### Added (Hinzugefügt)
