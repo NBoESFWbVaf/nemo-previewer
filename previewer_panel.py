@@ -4,7 +4,9 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.3 – F46 + F43-Fix III (Nutzer-Fund): Screenshots brachten die Klarheit – das Schwarze war nie das Icon, sondern der ungemalte Hintergrund der Vorschauspalte (schwarze Balken über/unter der Liste und in der Bildlaufleisten-Region, sichtbar erst bei langen Listen; im Lightmode deckte das Theme die Flächen zufällig mit); das Panel malt jetzt selbst (Stilklasse background). Und die Silhouetten holen ihre Vordergrundfarbe jetzt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste – im Lightmode waren die Icons dadurch weiß und unsichtbar.
+STAND: Version 0.31.4 – F46 II (Nutzer-Fund/-Wunsch): Die Stilklasse background allein genügte nicht – GtkBox malt von selbst KEINE CSS-Hintergrundfarbe; deshalb zeichnet das Panel im draw-Signal als Erstes den themed Hintergrund (Stil-Kontext des Nemo-Toplevels – der Panel-Kontext trägt bei WhiteSur-Dark womöglich keine aufgelöste Hintergrundfarbe) unter alle Kinder. Und die Ordner-Liste füllt die Spalte randlos – der Außenrand des Inhaltsbereichs wird dafür genullt, das Padding (10/10/8/8 px) liegt INNERHALB des Listenfensters.
+F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
+F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
 F43-Fix (0.30.1, Nutzer-Fund): Strikt symbolische Icons in der Ordner-Vorschau – GTK lud bei fehlender -symbolic-Variante heimlich das farbige Voll-Icon (dunkle Platten mit hartem Rand im Darkmode); die Symbol-Kandidaten werden gegen Gtk.IconTheme geprüft.
@@ -185,6 +187,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Panel malt seine leeren Flächen selbst, sonst blieben
         # sie ungemalt schwarz (→ REF PAN-BG-1).
         self.get_style_context().add_class("background")
+        # 0.31.4 (F46 II): GtkBox malt selbst KEINE CSS-Hintergrund-
+        # farbe – deshalb zeichnet das Panel im draw-Signal zuerst
+        # den themed Hintergrund unter alle Kinder (→ REF PAN-BG-1).
+        self.connect("draw", self._on_panel_draw)
 
         self._window = window
         self._path = None
@@ -303,6 +309,19 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # B3: Beim Abbauen des Panels Wiedergabe und Timer sauber stoppen
         self.connect("destroy", self._on_panel_destroy)
 
+    def _on_panel_draw(self, widget, cr):
+        # 0.31.4 (F46 II, Nutzer-Fund): GtkBox ruft gtk_render_
+        # background nie selbst auf – hier manuell VOR allen Kind-
+        # widgets, damit keine Fläche ungemalt schwarz bleibt. Der
+        # Stil-Kontext des TOPLEVELS (Nemo-Fenster) liefert die
+        # Hintergrundfarbe – der Panel-Kontext trägt bei WhiteSur-
+        # Dark womöglich gar keine aufgelöste (→ REF PAN-BG-1).
+        Gtk.render_background(
+            widget.get_toplevel().get_style_context(), cr,
+            0, 0, widget.get_allocated_width(),
+            widget.get_allocated_height())
+        return False
+
 
     # ------------------------------ Selektion ------------------------------
 
@@ -394,6 +413,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
     def _render_inner(self):
         path = self._path
         self._clear_content()
+        # 0.31.4 (F46 II, Nutzer-Wunsch): Außenrand des Inhalts-
+        # bereichs pro Render auf 8 px zurücksetzen – Renderer, die
+        # randlos füllen (Ordner-Liste), nullen ihn selbst (→ REF
+        # PAN-BG-1).
+        self._content.set_border_width(8)
 
         if len(self._names) > 1:
             extra = Gtk.Label(label="… und %d weitere ausgewählt" %
@@ -945,7 +969,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         box = Gtk.ListBox()
         box.set_selection_mode(Gtk.SelectionMode.NONE)
         # 0.29.0 (Nutzer-Wunsch): derselbe Innenabstand wie bei den
-        # Text-Vorschauen (10/10/8/8 px)
+        # Text-Vorschauen (10/10/8/8 px) – seit 0.31.4 liegt er
+        # INNERHALB des Listenfensters: Der Inhaltsbereich trägt
+        # keinen Außenrand mehr (siehe unten), die ListBox-Ränder
+        # sitzen auf der Platte (→ REF PAN-FOLDER-1).
         box.set_margin_start(10)
         box.set_margin_end(10)
         box.set_margin_top(8)
@@ -1039,6 +1066,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                           Gtk.PolicyType.AUTOMATIC)
         scroll.set_vexpand(True)
         scroll.add(box)
+        # 0.31.4 (Nutzer-Wunsch): Außenrand des Inhaltsbereichs für
+        # die Ordner-Vorschau nullen – das Listenfenster füllt die
+        # Spalte randlos, das Padding (10/10/8/8 px) liegt IN der
+        # Platte (→ REF PAN-FOLDER-1).
+        self._content.set_border_width(0)
         self._content.pack_start(scroll, True, True, 0)
         dbg("Ordner-Liste: %d Einträge, %d Zeilen gebaut"
             % (total, min(300, len(shown))))
@@ -1259,7 +1291,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.3"
+PREVIEWER_VERSION = "0.31.4"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
