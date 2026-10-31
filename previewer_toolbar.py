@@ -4,7 +4,12 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.32.0 – F44-Nachtrag (Nutzer-Wunsch): Umschalter
+STAND: Version 0.33.0 – F48 (Nutzer-Wunsch): Neuer Schalter „Ordner-
+inhalte in der Vorschau anzeigen“ in der Rubrik „Allgemein“ (Default
+an) – abgewählt zeigt ein markierter Ordner das schlichte Ordner-Icon
+mit Dateiinformationen statt der Inhaltsliste; Umschalten speichert
+sofort (Key folder_contents) und rendert einen gerade markierten
+Ordner live um (→ REF PAN-FOLDER-2). F44-Nachtrag (Nutzer-Wunsch): Umschalter
 „Syntax-Hervorhebung“ in der Rubrik „Textdateien“ (Default an),
 greift live über _last_textish. Die Rubrik „Dokumente“ (F12 Teil 3),
 die ActionBar (F19), Strg+Alt+P und der 0.15.0-Stand (F29: Mixin-
@@ -125,6 +130,19 @@ class PreviewToolbarMixin:
         chk.connect("toggled", self._on_show_at_start_toggled)
         fbox.pack_start(chk, False, False, 0)
 
+        # F48 (Nutzer-Wunsch): Ordner-Inhaltsliste an/aus – Default
+        # an; abgewählt zeigt ein markierter Ordner das schlichte
+        # Ordner-Icon mit Dateiinformationen (→ REF PAN-FOLDER-2).
+        chk = Gtk.CheckButton(
+            label="Ordnerinhalte in der Vorschau anzeigen")
+        chk.set_tooltip_text(
+            "Abhaken, damit markierte Ordner nur das schlichte "
+            "Ordner-Icon mit Dateiinformationen zeigen statt der "
+            "Inhaltsliste")
+        chk.set_active(self._conf_folder_contents)
+        chk.connect("toggled", self._on_folder_contents_toggled)
+        fbox.pack_start(chk, False, False, 0)
+
         # → REF TB-F12-1
         wrow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         lbl_width = Gtk.Label(label="Standardbreite beim Start")
@@ -240,6 +258,18 @@ class PreviewToolbarMixin:
         self._conf_show_at_start = chk.get_active()
         self._config_save()
 
+    def _on_folder_contents_toggled(self, chk):
+        """
+        F48 (Nutzer-Wunsch): Ordner-Inhaltsliste sofort speichern
+        und live anwenden – ist gerade ein Ordner markiert, baut
+        sich die Vorschau sofort um (Inhaltsliste ↔ schlichtes
+        Ordner-Icon); Datei-Vorschauen bleiben unberührt.
+        """
+        self._conf_folder_contents = chk.get_active()
+        self._config_save()
+        if self._path and os.path.isdir(self._path):
+            self._render()
+
     def _on_linenumbers_toggled(self, chk):
         """
         F24 (0.16.0): Zeilennummern sofort speichern und live
@@ -349,7 +379,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.32.0"
+PREVIEWER_VERSION = "0.33.0"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)
