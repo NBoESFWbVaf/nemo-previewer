@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.33.0 – F48 (Nutzer-Wunsch): Ordner-Vorschau obligatorisch – die Inhaltsliste bleibt der Standard für markierte Ordner; der neue Schalter „Ordnerinhalte in der Vorschau anzeigen“ (Default an, Key folder_contents) stellt bei Abwahl auf das schlichte Ordner-Icon mit Dateiinformationen um, Umschalten greift live (→ REF PAN-FOLDER-2). F47 (0.32.0): Text-Vorschau für opake Typen (Whitelist + Schnüffel-Fallback); F46 (0.31.11, GELÖST): Padding in der Platte statt ListBox-Margin; F46 VIII (0.31.10): Overlay-Scrolling aus; F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
+STAND: Version 0.34.0 – F12-Wasserfall (Nutzer-Fund/-Wunsch): Der Probetext der Schrift-Vorschau ist jetzt einstellbar (Key font_sample_text, Default der klassische Satz), die Rubrik „Schriftarten“ im Einstellungsfenster greift live; der Wasserfall-Text folgt dem Theme (→ REF TXT-FONT-2). F48 (Nutzer-Wunsch): Ordner-Vorschau obligatorisch – die Inhaltsliste bleibt der Standard für markierte Ordner; der neue Schalter „Ordnerinhalte in der Vorschau anzeigen“ (Default an, Key folder_contents) stellt bei Abwahl auf das schlichte Ordner-Icon mit Dateiinformationen um, Umschalten greift live (→ REF PAN-FOLDER-2). F47 (0.32.0): Text-Vorschau für opake Typen (Whitelist + Schnüffel-Fallback); F46 (0.31.11, GELÖST): Padding in der Platte statt ListBox-Margin; F46 VIII (0.31.10): Overlay-Scrolling aus; F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
 F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
@@ -67,7 +67,7 @@ from previewer_render_media import MediaRendererMixin, HAVE_GST
 from previewer_render_docs import (
     DocsRendererMixin, HAVE_POPPLER, _OFFICE_EXTS,
 )
-from previewer_render_text import TextRendererMixin
+from previewer_render_text import TextRendererMixin, _FONT_SAMPLE_TEXT
 from previewer_toolbar import PreviewToolbarMixin
 
 # → REF PAN-F44-1
@@ -260,6 +260,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # (Default an) stellt bei Bedarf auf das schlichte Ordner-
         # Icon mit Dateiinformationen um (→ REF PAN-FOLDER-2).
         self._conf_folder_contents = True
+        # F12 (0.34.0, Nutzer-Wunsch): Wasserfall-Probetext der
+        # Schrift-Vorschau – Default ist der klassische Satz aus
+        # previewer_render_text; überschreibbar im Einstellungs-
+        # fenster (Rubrik „Schriftarten“) (→ REF TXT-FONT-2).
+        self._conf_font_sample_text = _FONT_SAMPLE_TEXT
         # F24 (0.16.0): Zeilennummern in der reinen Text-Vorschau –
         # Default laut Nutzer-Wunsch AN, umschaltbar im Einstellungs-
         # fenster (Rubrik „Textdateien“).
@@ -1537,6 +1542,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     "previewer", "folder_contents")
             except Exception:
                 pass
+            # F12 (0.34.0): Wasserfall-Probetext der Schrift-Vorschau.
+            try:
+                t = kf.get_string("previewer", "font_sample_text")
+                if t and t.strip():
+                    self._conf_font_sample_text = t
+            except Exception:
+                pass
             try:
                 self._conf_text_linenumbers = kf.get_boolean(
                     "previewer", "text_line_numbers")
@@ -1590,6 +1602,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # F48: Ordner-Inhaltsliste an/aus mitspeichern.
             kf.set_boolean("previewer", "folder_contents",
                            self._conf_folder_contents)
+            # F12 (0.34.0): Wasserfall-Probetext mitspeichern.
+            kf.set_string("previewer", "font_sample_text",
+                          self._conf_font_sample_text)
             kf.set_boolean("previewer", "text_line_numbers",
                            self._conf_text_linenumbers)
             # F44-Nachtrag (0.28.1): Syntax-Hervorhebung mitspeichern.
@@ -1679,7 +1694,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.33.0"
+PREVIEWER_VERSION = "0.34.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
