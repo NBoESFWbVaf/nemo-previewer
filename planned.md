@@ -933,6 +933,12 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   x-theme, octet-stream) vor dem generischen Platzhalter; der  
   Inhalt entscheidet, Binäres fällt an der Steuerzeichen-Schwelle  
   (→ REF PAN-F47-1).
+  ✅ 0.33.0 – F48 (Nutzer-Wunsch): Ordner-Vorschau obligatorisch –  
+  Inhaltsliste bleibt Standard, neuer Schalter „Ordnerinhalte in der  
+  Vorschau anzeigen“ (Default an, Key folder_contents) stellt bei  
+  Abwahl auf das schlichte Ordner-Icon mit Dateiinformationen um;  
+  Umschalten greift live auf einen gerade markierten Ordner (→ REF  
+  PAN-FOLDER-2).
 
 ---
 
