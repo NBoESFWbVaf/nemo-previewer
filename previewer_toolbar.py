@@ -4,7 +4,7 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.31.5 – F44-Nachtrag (Nutzer-Wunsch): Umschalter
+STAND: Version 0.31.6 – F44-Nachtrag (Nutzer-Wunsch): Umschalter
 „Syntax-Hervorhebung“ in der Rubrik „Textdateien“ (Default an),
 greift live über _last_textish. Die Rubrik „Dokumente“ (F12 Teil 3),
 die ActionBar (F19), Strg+Alt+P und der 0.15.0-Stand (F29: Mixin-
@@ -349,7 +349,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.31.5"
+PREVIEWER_VERSION = "0.31.6"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)

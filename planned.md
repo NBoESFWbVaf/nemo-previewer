@@ -888,6 +888,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   des Scroll-Fensters. Der Painter läuft jetzt als Kette und  
   zusätzlich am Scroll-Fenster; dbg „Panel-Hintergrund:" zeigt  
   Quelle und Kandidaten (→ REF PAN-BG-2).  
+  ✅ 0.31.6 – F46 IV (Nutzer-Fund): Schwarze Scrollbar-Ebene blieb  
+  trotz Kette – Painter deckt jetzt auch Viewport und Bildlauf-  
+  leisten ab; dbg nennt das malt-berechtigte Widget und liest die  
+  ListBox-Margins zurück (CSS-Override-Verdacht). Nebenbei: Der  
+  0.31.5-Push hatte den Einstieg als previewer-py.py ins Repo  
+  gebracht (previewer.py blieb 0.31.4, Nemo lud zwei Provider) –  
+  bereinigt (→ REF PAN-BG-2).  
 
 ---
 

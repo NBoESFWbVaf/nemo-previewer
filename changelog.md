@@ -6,6 +6,25 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.6\] – 2026-10-31
+
+### Fixed (Behoben)
+
+- Panel-Hintergrund IV (F46 IV, Nutzer-Fund): Die schwarze  
+  Scrollbar-Ebene blieb auch in 0.31.5 – der Painter deckt deshalb  
+  jetzt zusätzlich Viewport und Bildlaufleisten ab (weitere eigene  
+  GdkWindow; die Bildlaufleisten entstehen erst beim Realisieren  
+  und werden dort nachgehängt). dbg „Panel-Hintergrund (Widget):"  
+  nennt jetzt pro Widget, wo gemalt wurde, und liest die ListBox-  
+  Margins nach dem Realisieren zurück – falls Theme-CSS die  
+  Widget-Ränder überschreibt (Verdacht gegen das verschwundene  
+  Listen-Padding), steht es im Log (→ REF PAN-BG-2).  
+- Repo-Bereinigung (Nutzer-Fund): Beim 0.31.5-Push war der  
+  Einstieg versehentlich als previewer-py.py ins Repo geraten,  
+  während previewer.py auf 0.31.4 stehen blieb – Nemo lud zwei  
+  Provider (ACHTUNG-Warnflut). previewer-py.py ist gelöscht,  
+  previewer.py trägt die aktuelle Fassung.
+
 ## \[0.31.5\] – 2026-10-31
 
 ### Fixed (Behoben)

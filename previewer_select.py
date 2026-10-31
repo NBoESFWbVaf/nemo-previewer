@@ -4,7 +4,7 @@
 Previewer – Auswahl-Modul (previewer_select.py)
 ===============================================
 
-STAND: Version 0.31.5 – F38/F43: Keine Änderungen an der Auswahl-Logik –
+STAND: Version 0.31.6 – F38/F43: Keine Änderungen an der Auswahl-Logik –
 nur Versions-Sync (die langerklärten Kommentarblöcke stehen als
 Marker in REFERENZ.md, F28).
 
@@ -1256,5 +1256,5 @@ class SelectionReader:
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.31.5"
+PREVIEWER_VERSION = "0.31.6"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)
