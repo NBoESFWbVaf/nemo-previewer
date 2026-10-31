@@ -919,6 +919,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Klassischer Inline-Balken per set\_overlay\_scrolling(False), Sonden  
   bleiben als Verifikation drin; zusätzlich SyntaxWarning aus der  
   STAND-Zeile entfernt (→ REF PAN-BG-2).
+  ✅ 0.31.11 – F46 IX (Nutzer-Beschreibung): Leiste und Rinne sind  
+  themefarben (Trough rgb(41,41,41), Slider rgb(121,121,121)), das  
+  Schwarz sitzt auf dem TRÄGER der Ordnerliste (Eltern-Ebene),  
+  sichtbar nur bei überlanger Liste – deshalb Padding 10/10/8/8  
+  jetzt IN der Platte (Zeilen-Ränder statt ListBox-Margins), die  
+  Platte füllt den Viewport randvoll; dazu Panel-Scan mit  
+  Schwarz-Pixel-Zähler (→ REF PAN-FOLDER-1, PAN-BG-2).
 
 ---
 
