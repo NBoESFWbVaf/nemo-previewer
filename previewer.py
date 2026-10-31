@@ -1,769 +1,1180 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Previewer
-=========
+Previewer – Panel-Modul (previewer_panel.py)
+============================================
 
-STAND: Version 0.30.0 – F40 (Nutzer-Wunsch): Umschalt-Knopf für die
-Vorschau-Seitenleiste in Nemos Werkzeugleiste (rechts, neben der
-Ansichtenauswahl; CSD-Titelleiste oder klassische Toolbar),
-synchron mit Strg+Alt+P (→ REF ENT-TOGGLE-1).
-Dies ist die EINSTIEGS-Datei der acht zusammengehörigen Dateien
-(previewer.py, previewer_panel.py, previewer_select.py,
-previewer_util.py, previewer_toolbar.py, previewer_render_media.py,
-previewer_render_docs.py, previewer_render_text.py) – alle müssen im
-gleichen Ordner liegen und die gleiche Version tragen.
-Projekt-Repository: https://github.com/NBoESFWbVaf/nemo-previewer
-(Versionsverlauf: changelog.md im Repository).
+STAND: Version 0.30.1 – F43-Fix (Nutzer-Fund): Strikt symbolische Icons in der Ordner-Vorschau – GTK lud bei fehlender -symbolic-Variante heimlich das farbige Voll-Icon (dunkle Platten mit hartem Rand im Darkmode); die Symbol-Kandidaten werden jetzt gegen Gtk.IconTheme geprüft.
+F43-Feinschliff II (0.30.0, Nutzer-Wunsch): Ordner-Vorschau mit theme-folgenden symbolischen Icons (Darkmode hell, Lightmode dunkel); Ordner zuerst (F43); versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
+F43-Feinschliff (0.29.0, Nutzer-Wunsch): Ordner-Vorschau trägt Icons vor den Namen (Typ-Symbol aus dem Icon-Theme, MENU-Größe, mit Fallback) und den Innenabstand der Text-Vorschauen (10/10/8/8 px).
+F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung ist EINSTELLBAR – Schlüssel text_syntax, Rubrik „Textdateien“, Default an; ausgeschaltet oder ohne GtkSource-Binding zeigt sich immer der schlichte Text.
+F44 (0.28.0): Syntax-Hervorhebung in der Text-Vorschau – GtkSourceView
+(optionales Binding gir1.2-gtksource-4, dasselbe Modul wie xed),
+Sprache über den GtkSource-LanguageManager geraten, dunkles Theme
+bekommt ein dunkles Schema (→ REF PAN-F44-1).
+F12 Teil 3/F14 (0.27.0): Der Seiten-Deckel für PDF- und Office-
+Dokumente ist EINSTELLBAR – conf-Schlüssel
+doc_page_limit/doc_max_pages, Defaults wie bisher (Begrenzung an,
+20 Seiten); Merker _last_docview lässt Deckel-Änderungen live auf
+die aktuelle Dokument-Vorschau wirken (→ REF PAN-F12-1).
+F7 (0.26.0): Visitenkartenformate – vCard (.vcf/.vcard), LDIF
+(.ldif), Windows-Contact (.contact) – rendert die Visitenkarte aus
+dem Text-Modul (→ REF PAN-VCARD-1). F43: Ordner-Vorschau zeigt den
+Inhalt als Liste statt nur eines Ordner-Icons (→ REF PAN-FOLDER-1).
+F40: Kopfzeile trägt nur noch den Öffnen-Knopf (Stift-Symbol
+document-edit) – der Ausblenden-Knopf ist in Nemos Werkzeugleiste
+gewandert. F38: _meta_grid bekommt einen optionalen container – die
+EXIF-Tabelle der Bild-Vorschau packt in den 40-%-Info-Bereich der
+neuen Aufteilung. Sonstiger Stand: Zeilennummern als Randzeichnung –
+dunkler (Alpha 0.75) und in 80 % der Textschriftgröße –, connect_after-
+Draw, Merker _last_textish markiert TextView-basierte Vorschauen.
+Schlüssel text_line_numbers, Rubrik „Textdateien“ im Toolbar-Modul.
 
-Eine Nemo-Python-Extension namens "Previewer": dockt rechts im Nemofenster
-ein Panel an und zeigt eine gerenderte Vorschau der aktuell selektierten
-Datei.
-
-Unterstützte Vorschauen
------------------------
-- Bilder (JPEG, PNG, WebP, GIF, TIFF, ... alles, was Gdk-Pixbuf kennt)
-- Text/Quellcode (read-only, monospace; endungslose Textdateien werden
-  über eine Inhaltsprüfung erkannt)
-- Markdown (.md): gerendert – Überschriften, Fett/Kursiv, Code, Listen
-- E-Mail-Dateien (.eml): Kopfzeilen und Textkörper
-- PDF (alle Seiten scrollbar untereinander; benötigt gir1.2-poppler)
-- Office-Dokumente (ODT/ODS/ODP, DOCX/XLSX/PPTX): scharfe Seitenansicht
-  über LibreOffice-Hintergrundkonvertierung nach PDF (Cache in
-  ~/.cache/previewer); ohne LibreOffice die eingebettete Miniaturansicht
-- Audio (Tags, Cover, Play/Pause mit Seek-Leiste; via GStreamer)
-- Video (Kachel mit Tags und Dauer; Abspielen über den Öffnen-Knopf)
-- Ordner und alles andere: Icon + Dateiinformationen
-
-Installation
-------------
-Siehe INSTALL.md im Repository (Anleitung in Englisch).
-
-Bedienung
----------
-- Panel ein-/ausblenden: Strg+Alt+P oder den Umschalt-Knopf in Nemos
-  Werkzeugleiste (neben der Ansichtenauswahl)
-- Trenner zwischen Dateiansicht und Panel ist verschiebbar (Gtk.Paned)
-- Play/Pause & Seek bei Audio über die Bedienelemente im Panel
-- PDF: alle Seiten untereinander, im Vorschau-Bereich scrollbar
-
-Technik (für Interessierte)
----------------------------
-Das offizielle Nemo-Extension-API bietet keinen "Side-Panel-Provider".
-Das Panel nutzt deshalb die bewährte Crowbar-Technik von nemo-terminal:
-Über Nemo.LocationWidgetProvider erhält man ein Referenz-Widget im Slot,
-steigt im Widget-Baum auf und verpackt den Fenster-Inhaltsbereich (den
-Nemo-Pane) in ein horizontales Gtk.Paned, dessen zweite Hälfte das
-Vorschau-Panel ist – es sitzt damit fest an der rechten Fensterrandkante.
-
-Die Auswahl wird ermittelt über (previewer_select.py):
-- direkte Auswahl über NemoView.peek_selection: der Funktionszeiger
-  wird aus dem Klassen-VTable von NemoView gelesen (libnemo-private
-  ist auf Mint 22 statisch gelinkt, es gibt keine ladbare .so); die
-  NemoFile-Einträge werden über ihr NemoFileInfo-Interface befragt,
-- Auswahl-Signale, die zur Laufzeit entdeckt und verbunden werden –
-  im Widget-Teilbaum der Ansicht und auf den ATK-Objekten; so ist es
-  egal, wie Nemo seine Signale genau benennt,
-- Gtk.IconView-/Gtk.TreeView-Auswahl als Fallback (das Nemo-Listenmodell
-  trägt den Dateinamen erst in den Attribut-Spalten; Spalte 0 enthält
-  das NemoFile-Objekt),
-- ATK-Selection, ATK-Zustände und Fokus nur als Fallback,
-- als Sicherheitsnetz einen leichtgewichtigen Timer.
-
-Office-Dokumente: LibreOffice konvertiert im Hintergrund (soffice
---headless --convert-to pdf) einmalig nach PDF; das Ergebnis wird unter
-~/.cache/previewer gecacht (Key = Hash des Dateipfads; gültig, solange
-die Quelldatei nicht neuer ist als das Cache-PDF). Poppler rendert daraus
-alle Seiten scharf, untereinander scrollbar und live skalierbar. Während
-der Konvertierung zeigt das Panel die eingebettete ZIP-Miniaturansicht
-mit Hinweis.
-
-Alle Zugriffe sind defensiv gekapselt (try/except), damit die Extension
-Nemo niemals zum Absturz bringen kann. Alles läuft im Nemo-Prozess.
-
-Getestet gegen Nemo 6.x unter Linux Mint 22. Da interne Widget-Strukturen
-von Nemo-Updates geändert werden könnten, ist die Injektion mit Fallbacks
-und Reconciliation (Prüfung pro Timer-Tick) abgesichert.
-
-Autor: für Mirakuli Teebaum, 2026. Lizenz: GPLv3 oder später.
+Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
+previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
+sein – der Einstieg prüft das beim Laden.
 """
 
+import os
 import sys
 import traceback
-import urllib.parse
 
 import gi
 
-gi.require_version('Nemo', '3.0')
 gi.require_version('Gtk', '3.0')
-gi.require_version('Atk', '1.0')
+gi.require_version('Gdk', '3.0')
+gi.require_version('Pango', '1.0')
+gi.require_version('GdkPixbuf', '2.0')
 
-from gi.repository import GObject, Nemo, Gtk, GLib, Atk
+from gi.repository import Gtk, Gdk, GdkPixbuf, Gio, GLib, Pango
 
-# Geschwister-Module finden, egal wie nemo-python diese Datei geladen hat.
-import os
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
 from previewer_util import (
-    dbg, diag, VERBOSE_DIAG,
-    walk, type_name,
-    PANEL_WIDTH, PANEL_MIN_WIDTH, POLL_MS,
+    dbg,
+    PANEL_WIDTH, PANEL_MIN_WIDTH,
+    query_file_info,
     pick_icon,
+    human_size,
 )
-from previewer_select import (
-    find_view, selection_signals, SelectionReader,
-    _atk_children, _dump_widget_tree,
+from previewer_render_media import MediaRendererMixin, HAVE_GST
+from previewer_render_docs import (
+    DocsRendererMixin, HAVE_POPPLER, _OFFICE_EXTS,
 )
-from previewer_panel import PreviewPanel
+from previewer_render_text import TextRendererMixin
+from previewer_toolbar import PreviewToolbarMixin
 
-# PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
-# prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
-# Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.30.0"
-import previewer_util
-import previewer_select
-import previewer_panel
-import previewer_toolbar
-import previewer_render_media
-import previewer_render_docs
-import previewer_render_text
+# → REF PAN-F44-1
+HAVE_GTKSOURCE = False
+try:
+    gi.require_version('GtkSource', '4')
+    from gi.repository import GtkSource
+    HAVE_GTKSOURCE = True
+except Exception:
+    pass
 
-for _mod in (previewer_util, previewer_select, previewer_panel,
-             previewer_toolbar, previewer_render_media,
-             previewer_render_docs, previewer_render_text):
-    _ver = getattr(_mod, "PREVIEWER_VERSION", None)
-    if _ver != PREVIEWER_VERSION:
-        dbg("ACHTUNG: %s.py hat Version %r, erwartet wird %r – Datei im "
-            "Extension-Ordner durch die aktuelle Fassung ersetzen!"
-            % (_mod.__name__, _ver, PREVIEWER_VERSION))
+_TEXT_EXTRAS = {
+    '.py', '.sh', '.bash', '.zsh', '.js', '.ts', '.json', '.yaml', '.yml',
+    '.toml', '.ini', '.cfg', '.conf', '.csv', '.log', '.md', '.rst',
+    '.css', '.html', '.xml', '.patch', '.diff', '.desktop', '.service',
+    '.gitignore', '.nemo_action', '.pyw', '.lua', '.pl', '.rb', '.go',
+    '.rs', '.c', '.h', '.cpp', '.hpp', '.java', '.sql', '.tex',
+}
 
-# ============================== Provider ===================================
+# F12 (0.12.0): Konfiguration der Vorschauspalte – GLib-natives
+# INI-Format, braucht keine zusätzliche Abhängigkeit. Verzeichnis
+# wird beim ersten Speichern angelegt.
+CONF_DIR = os.path.expanduser("~/.config/nemo-previewer")
+CONF_FILE = os.path.join(CONF_DIR, "nemo-previewer.conf")
+# → REF PAN-B8-1
+try:
+    _KEYFILE_CLS = GLib.KeyFile
+except AttributeError:
+    _KEYFILE_CLS = getattr(GLib, "Keyfile", None)
+try:
+    _KEYFILE_FLAGS_NONE = GLib.KeyFileFlags.NONE
+except AttributeError:
+    _KEYFILE_FLAGS_NONE = 0
 
-class PanelState:
-    """Zustand pro Nemo-Fenster (am Fenster-Objekt gespeichert)."""
+
+def _sniff_is_text(path, probe=4096):
+    """
+    F23: Ist eine endungslose Datei lesbarer Text? Gio rät den
+    MIME-Typ nur aus dem Dateinamen – frei benannte Dateien (notes,
+    todo, Dotfiles wie .bashrc) landen sonst auf application/
+    octet-stream und damit ohne Text-Vorschau. Kurzer Blick in die
+    ersten Bytes statt Vertrauen auf den Namen: NULL-Bytes und ein
+    überhöhter Anteil an Steuerzeichen (alles außer Tab/LF/CR)
+    deuten auf Binärdaten. Encoding-agnostisch – UTF-8 wie Latin-1-
+    Text bestehen, Zufalls-Binärdaten fallen sicher durch. Die
+    eigentliche Text-Vorschau kappelt wie immer bei 256 KB /
+    2000 Zeilen.
+    """
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(probe)
+    except Exception:
+        return False
+    if not head or b"\x00" in head:
+        return False
+    ctrl = sum(1 for b in head if b < 9 or 14 <= b <= 31 or b == 127)
+    return ctrl / len(head) < 0.05
+
+# ================================ Panel ====================================
+
+class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
+                   TextRendererMixin, Gtk.Box):
+    """Das angedockte Vorschau-Panel (rechte Hälfte des Gtk.Paned)."""
 
     def __init__(self, window):
-        self.window = window
-        self.panel = PreviewPanel(window)
-        self.hpaned = Gtk.Paned.new(Gtk.Orientation.HORIZONTAL)
-        self.dir_path = None
-        self.view = None
-        self.view_handlers = []
-        self.poll_id = 0
-        self.last_sel = None
-        self.pos_pending = True
-        self.none_dbg_at = 0
-        self._a11y_dumps = 0
-        self.toggle_btn = None
-        self.hpaned.connect("size-allocate", self._on_size_allocate)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.set_size_request(PANEL_MIN_WIDTH, -1)
 
-    def _install_toolbar_toggle(self):
-        """
-        F40 (Nutzer-Wunsch): Ein-/aus-Knopf für die Vorschau-Seiten-
-        leiste in Nemos Werkzeugleiste, neben der Ansichtenauswahl.
-        Der Zustand bleibt synchron: Strg+Alt+P und der Knopf
-        schalten dasselbe Panel, notify::visible zieht nach.
-        """
-        # → REF ENT-TOGGLE-1
-        # Idempotent: Die Versöhnung läuft mehrfach – ein bereits
-        # gepackter Knopf (am Fenster-Objekt gemerkt) wird nicht
-        # doppelt hinzugefügt.
-        if self.toggle_btn is not None or getattr(
-                self.window, "_previewer_toggle", None) is not None:
+        self._window = window
+        self._path = None
+        self._names = []
+        self._playbin = None
+        self._progress_timer = 0
+        self._render_width = 0
+        # 0.17.0: Spaltenhöhe für die Bild-Höhenkappe mitverfolgen
+        # (max. 60 % der Spalte, Nutzer-Wunsch).
+        self._render_height = 0
+        # Skalierbare Vorschauen (R3): JEDES Bild bringt seine Parameter
+        # als eigenen Dict-Eintrag mit (siehe _scaled_image) – so sind
+        # beliebig viele live-skalierte Bilder pro Vorschau möglich,
+        # ohne sich gegenseitig zu überschreiben.
+        self._scale_items = []
+        # F38: 40-%-Info-Bereich der Bild-Aufteilung (gesetzt, sobald
+        # _pack_image_capped die Spalte für eine Bild-Vorschau teilt).
+        self._image_info_box = None
+        # Hintergrund-Konvertierung für Office-Dokumente (LibreOffice → PDF)
+        self._office_job = None
+        self._office_failed = set()
+        # 0.9.1: Panel-Abbau merken – der child-watch einer laufenden
+        # LibreOffice-Konvertierung darf dann nicht mehr rendern.
+        self._destroyed = False
+        # Mehrseitige PDF-Vorschau: Quell-Pixbufs je Seite + Anzeige-Images
+        self._pdf_src = None
+        self._pdf_imgs = None
+        self._pdf_box = None
+        self._pdf_last_w = 0
+        # → REF PAN-R2-1
+        self._pdf_gen = 0
+        # F14: Seitenanzeige der PDF-Vorschau + Gesamtzahl der Seiten
+        self._pdf_page_label = None
+        self._pdf_count = 0
+        # → REF PAN-F12-1
+        self._conf_show_at_start = True
+        # F24 (0.16.0): Zeilennummern in der reinen Text-Vorschau –
+        # Default laut Nutzer-Wunsch AN, umschaltbar im Einstellungs-
+        # fenster (Rubrik „Textdateien“).
+        self._conf_text_linenumbers = True
+        # F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung
+        # als EINSTELLUNG – Rubrik „Textdateien“, Default an; greift
+        # live über _last_textish.
+        self._conf_text_syntax = True
+        # F12 Teil 3 (0.27.0): Dokument-Deckel einstellbar – PDF- und
+        # Office-Vorschauen begrenzen (Performance) oder komplett
+        # anzeigen. Defaults: Begrenzung AN mit 20 Seiten – genau das
+        # bis dahin fest verdrahtete Verhalten (MAX_PDF_PAGES im
+        # Docs-Modul).
+        self._conf_doc_page_limit = True
+        self._conf_doc_max_pages = 20
+        # F12 Teil 3: Merker – ist die AKTUELLE Vorschau eine PDF-/Office-
+        # Seitenansicht? Dann wirken Deckel-Änderungen sofort (Gegen-
+        # stück zu _last_textish der Zeilennummern).
+        self._last_docview = False
+        # Merker: Ist die AKTUELLE Vorschau TextView-basiert, der
+        # Zeilennummern-Toggle also billig anwendbar? (Damit der
+        # Einstellungs-Toggle nur solche Vorschauen neu rendert,
+        # statt z.B. Audio-Player oder Office-Konvertierung.)
+        self._last_textish = False
+        # Standardbreite beim Start: Default PANEL_WIDTH (300 px,
+        # Nutzer-Wunsch). Eine per Ziehen gewählte Breite wird zur
+        # künftigen Startbreite und landet entprellt in der conf;
+        # _panel_width_saved verhindert Doppel-Schreibvorgänge.
+        self._panel_width = PANEL_WIDTH
+        self._panel_width_saved = PANEL_WIDTH
+        self._panel_width_timer = 0
+        self._settings_win = None
+        self._settings_spin = None
+        self._settings_width_label = None
+        self._settings_pages_spin = None
+        self._config_load()
+
+        # --- Kopfzeile (F35: nur noch Bedienelemente – Icon, Name,
+        # Typ, Größe und Datum stehen bereits in der Nemo-Liste und
+        # wären dort Doppelungen) ---
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        header.set_border_width(6)
+
+        # Öffnen-Knopf (F40: Systemausführungs-Symbol statt Dokument-
+        # Öffnen – es startet ja die Datei in IHRER Anwendung). Der
+        # Ausblenden-Knopf ist als Vorschau-Umschalter in Nemos
+        # Titelleiste aufgewacht (→ REF ENT-TOGGLE-1).
+        btn_open = Gtk.Button.new_from_icon_name(
+            pick_icon(("document-edit-symbolic", "document-edit",
+                       "edit-symbolic", "text-editor-symbolic"),
+                      "document-open-symbolic"),
+            Gtk.IconSize.BUTTON)
+        btn_open.set_tooltip_text("Mit Standardanwendung öffnen")
+        btn_open.set_relief(Gtk.ReliefStyle.NONE)
+        btn_open.connect("clicked", self._on_open_clicked)
+        header.pack_end(btn_open, False, False, 0)
+
+        self.pack_start(header, False, False, 0)
+        self._separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        self.pack_start(self._separator, False, False, 0)
+
+        # --- Vorschau-Bereich ---
+        self._content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self._content.set_border_width(8)
+        self.pack_start(self._content, True, True, 0)
+        # Vorschau passt ihre Größe an, wenn die Panelbreite (Gtk.Paned-
+        # Trenner) verändert wird: entprelltes Neu-Rendern bei Breiten-
+        # änderung.
+        self._content.connect("size-allocate",
+                              self._on_content_size_allocate)
+
+
+        # --- F19: Toolbar am unteren Rand der Vorschauspalte ---
+        # Aufbau inkl. Einstellungs-Knopf, CSS-Feintuning und Tasten-
+        # kürzel (Strg+Alt+P) liegt im Toolbar-Modul (F29).
+        self._build_toolbar(window)
+
+        self._show_placeholder()
+
+        # B3: Beim Abbauen des Panels Wiedergabe und Timer sauber stoppen
+        self.connect("destroy", self._on_panel_destroy)
+
+
+    # ------------------------------ Selektion ------------------------------
+
+    def set_selection(self, names, dir_path):
+        """Auswahl setzen und Vorschau neu rendern (names = Dateinamen)."""
+        # Audio-Player immer sauber stoppen, wenn sich etwas ändert
+        self._stop_playback()
+
+        if not names:
+            self._path = None
+            self._names = []
+            self._show_placeholder()
             return
-        icon = pick_icon(("builder-view-right-pane-symbolic",
-                          "view-right-pane", "sidebar-show-symbolic",
-                          "sidebar-symbolic"), "pan-end-symbolic")
-        # Route 1: Titelleiste als GtkHeaderBar (Desktops mit CSD) –
-        # Knopf per pack_end rechts hinten anfügen.
-        try:
-            bar = self.window.get_titlebar()
-        except Exception:
-            bar = None
-        if isinstance(bar, Gtk.HeaderBar):
-            btn = Gtk.ToggleButton()
-            btn.set_image(Gtk.Image.new_from_icon_name(
-                icon, Gtk.IconSize.BUTTON))
-            btn.set_relief(Gtk.ReliefStyle.NONE)
-            self._pack_toggle(btn, icon, "Titelleiste",
-                              lambda b: bar.pack_end(b))
-            return
-        # Route 2: klassisches Nemo – die Ansichts-Knöpfe sitzen in
-        # einer GtkToolbar (NemoToolbar ist ein GtkBox drumherum).
-        # Diese im Widget-Baum suchen und den Umschalter als ToolItem
-        # direkt hinter die Ansichts-Knöpfe setzen.
-        toolbar = self._find_first_widget(
-            self.window, lambda w: isinstance(w, Gtk.Toolbar))
-        if toolbar is None:
-            dbg("Vorschau-Knopf: weder HeaderBar noch GtkToolbar "
-                "gefunden – nur Strg+Alt+P")
-            return
-        btn = Gtk.ToggleToolButton()
-        btn.set_icon_name(icon)
-        pos = self._pos_after_view_buttons(toolbar)
-        self._pack_toggle(btn, icon, "Toolbar",
-                           lambda b: toolbar.insert(b, pos))
 
-    def _pack_toggle(self, btn, icon, where, pack):
-        """F40: Knopf fertigmachen, einpacken, verkabeln, loggen."""
-        btn.set_tooltip_text("Vorschau-Seitenleiste (Strg+Alt+P)")
-        btn.connect("toggled", self._on_toolbar_toggle)
-        self.toggle_btn = btn
-        pack(btn)
-        # Zustand nachziehen, wenn das Panel woanders umgeschaltet
-        # wird (Strg+Alt+P, Start-Einstellung show_at_start).
-        self.panel.connect("notify::visible", self._on_panel_visibility)
-        try:
-            self.window._previewer_toggle = btn
-        except Exception:
-            pass
-        btn.show()
-        dbg("Vorschau-Knopf in Nemos %s gesetzt (Icon: %s)"
-            % (where, icon))
-
-    def _find_first_widget(self, widget, pred):
-        """F40: Widget-Baum rekursiv durchsuchen, erstes Match liefern."""
-        if pred(widget):
-            return widget
-        if isinstance(widget, Gtk.Container):
-            for child in widget.get_children():
-                found = self._find_first_widget(child, pred)
-                if found is not None:
-                    return found
-        return None
-
-    def _pos_after_view_buttons(self, toolbar):
-        """
-        F40: Position direkt hinter dem letzten Ansichts-Knopf der
-        Toolbar (dessen Icon heißt view-…-symbolic). Ohne Fund -1,
-        dann hängt insert() hinten an.
-        """
-        pos = -1
-        for item in toolbar.get_children():
-            child = item.get_child()
-            if child is not None and self._has_view_icon(child):
-                pos = toolbar.get_item_index(item)
-        return -1 if pos < 0 else pos + 1
-
-    def _has_view_icon(self, widget):
-        """F40: Hat das Widget (rekursiv) ein view-…-Icon? (Gtk.Image)."""
-        if isinstance(widget, Gtk.Image):
-            try:
-                name = widget.get_icon_name()[0]
-            except Exception:
-                name = None
-            if name and name.startswith("view-"):
-                return True
-        if isinstance(widget, Gtk.Container):
-            for child in widget.get_children():
-                if self._has_view_icon(child):
-                    return True
-        return False
-
-    def _on_toolbar_toggle(self, btn):
-        """F40: Knopf schaltet dieselbe Route wie Strg+Alt+P."""
-        if btn.get_active():
-            self.panel.show_all()
+        self._names = list(names)
+        first = names[0]
+        if dir_path:
+            self._path = os.path.join(dir_path, first)
         else:
-            self.panel.hide()
+            self._path = first
+        self._render()
 
-    def _on_panel_visibility(self, panel, prop):
-        """F40: Panel woanders umgeschaltet – Knopf-Zustand nachziehen."""
+    # ------------------------------ Rendering ------------------------------
+
+    def _clear_content(self):
+        for child in list(self._content.get_children()):
+            self._content.remove(child)
+        # Skalier-Quellen freigeben (Speicher der vollen Auflösung)
+        self._scale_items = []
+        # F38: Info-Bereich der letzten Bild-Vorschau freigeben.
+        self._image_info_box = None
+        # ebenso die Quell-Pixbufs der PDF-Seiten; die Render-Generation
+        # hochzählen, damit laufende Idle-Nachschub-Schritte (R2)
+        # abbrechen, statt in eine verwaiste Ansicht hinein zu malen.
+        self._pdf_src = None
+        self._pdf_imgs = None
+        self._pdf_box = None
+        self._pdf_last_w = 0
+        self._pdf_page_label = None
+        self._pdf_count = 0
+        self._pdf_gen += 1
+        # F24: War die gerade abgebaute Vorschau eine Text-Vorschau?
+        self._last_textish = False
+        # F12 Teil 3: War sie eine Dokument-Seitenansicht (PDF/Office)?
+        self._last_docview = False
+
+    def _show_placeholder(self):
+        # F35: Die frühere Kopfzeile ist entfallen – der Platzhalter-
+        # Text im Inhaltsbereich genügt als Zustandsmeldung.
+        self._clear_content()
+        # Nemo-Logo, mittig (horizontal und vertikal) in der Spalte
+        logo = Gtk.Image()
+        logo_name = "folder"
         try:
-            self.toggle_btn.set_active(panel.get_visible())
+            theme = Gtk.IconTheme.get_default()
+            if theme.has_icon("nemo"):
+                logo_name = "nemo"
+        except Exception:
+            pass
+        try:
+            logo.set_from_icon_name(logo_name, Gtk.IconSize.DIALOG)
+            logo.set_pixel_size(96)
+        except Exception:
+            logo.set_from_icon_name("folder", Gtk.IconSize.DIALOG)
+        lbl = Gtk.Label(label="Wähle eine Datei aus,\num eine Vorschau zu sehen.")
+        lbl.set_line_wrap(True)
+        lbl.get_style_context().add_class("dim-label")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.pack_start(logo, False, False, 0)
+        box.pack_start(lbl, False, False, 0)
+        box.set_halign(Gtk.Align.CENTER)
+        box.set_valign(Gtk.Align.CENTER)
+        self._content.pack_start(box, True, True, 0)
+        self._content.show_all()
+
+    def _render(self):
+        """Vorschau für self._path aufbauen. Nie werfen – immer Fallback."""
+        try:
+            self._render_inner()
+        except Exception:
+            dbg("Fehler beim Rendern von %r:" % self._path)
+            traceback.print_exc()
+            try:
+                self._render_generic()
+            except Exception:
+                pass
+        self._content.show_all()
+
+    def _render_inner(self):
+        path = self._path
+        self._clear_content()
+
+        if len(self._names) > 1:
+            extra = Gtk.Label(label="… und %d weitere ausgewählt" %
+                              (len(self._names) - 1))
+            extra.get_style_context().add_class("dim-label")
+            extra.set_halign(Gtk.Align.START)
+            self._content.pack_start(extra, False, False, 0)
+
+        if not path or not os.path.exists(path):
+            # F35: Der Name steht in der Nemo-Liste – übrig bleibt nur
+            # der Warnhinweis, und zwar im Inhaltsbereich.
+            self._hint("(Datei nicht gefunden)")
+            return
+
+        mime, size, mtime = query_file_info(path)
+        is_dir = os.path.isdir(path)
+
+        # F35: Die frühere Kopfzeilen-Füllung (Icon, Name, Typ · Größe ·
+        # Änderungsdatum) ist entfallen – die Nemo-Liste zeigt all das
+        # bereits neben der Vorschau-Spalte.
+
+        uri = GLib.filename_to_uri(path)
+        lower = path.lower()
+
+        # --- nach Typ rendern ---
+        if is_dir:
+            self._render_folder(path)
+        elif mime == "image/svg+xml" or lower.endswith(".svg"):
+            self._render_svg(path)
+        elif (mime.startswith("image/") or
+              mime == "application/x-xpixmap" or
+              lower.endswith((".heic", ".heif", ".hif"))):
+            # F42: HEIC-Endungen als Backup, falls shared-mime-info
+            # den Typ (noch) nicht kennt.
+            self._render_image(path)
+        elif mime == "application/pdf" or lower.endswith(".pdf"):
+            if HAVE_POPPLER:
+                self._render_pdf(path)
+            else:
+                self._hint("PDF-Vorschau nicht verfügbar – "
+                           "Paket gir1.2-poppler-0.18 installieren.")
+                self._render_generic()
+        elif mime.startswith("audio/") or lower.endswith((".mp3", ".flac", ".ogg", ".opus", ".m4a", ".wav", ".wma")):
+            if HAVE_GST:
+                self._render_audio(path, uri)
+            else:
+                self._hint("Audio-Vorschau nicht verfügbar – "
+                           "Paket gir1.2-gst-plugins-base-1.0 installieren.")
+                self._render_generic()
+        elif mime.startswith("video/"):
+            if HAVE_GST:
+                self._render_video(path, uri)
+            else:
+                self._render_generic()
+        elif lower.endswith((".md", ".markdown")):
+            self._render_markdown(path)
+        elif lower.endswith(".eml") or mime == "message/rfc822":
+            self._render_eml(path)
+        elif (lower.endswith((".vcf", ".vcard", ".ldif", ".contact"))
+              or mime == "text/vcard"):
+            # F7: Visitenkartenformate – vCard, LDIF, Windows-Contact
+            # (Renderer im Text-Modul).
+            # → REF PAN-VCARD-1
+            self._render_vcard(path)
+        elif mime == "application/epub+zip" or lower.endswith(".epub"):
+            self._render_epub(path)
+        elif (mime in ("application/x-fictionbook+xml",
+                       "application/x-fictionbook")
+              or lower.endswith(".fb2")):
+            self._render_fb2(path)
+        elif (mime == "application/x-mobipocket-ebook"
+              or lower.endswith((".mobi", ".prc", ".azw", ".azw3"))):
+            self._render_mobi(path)
+        elif (mime in ("font/ttf", "font/otf", "font/collection",
+                       "application/x-font-ttf", "application/x-font-otf",
+                       "application/vnd.ms-opentype")
+              or lower.endswith((".ttf", ".otf", ".ttc"))):
+            self._render_font(path)
+        elif mime.startswith("text/") or os.path.splitext(lower)[1] in _TEXT_EXTRAS:
+            self._render_text(path)
+        elif os.path.splitext(lower)[1] in _OFFICE_EXTS:
+            self._render_office(path)
+        elif not os.path.splitext(lower)[1] and _sniff_is_text(path):
+            # → REF PAN-F23-1
+            self._render_text(path)
+        else:
+            self._render_generic()
+
+    # --- einzelne Renderer --------------------------------------------------
+
+    def _on_content_size_allocate(self, widget, allocation):
+        """
+        Breitenänderung des Vorschau-Bereichs beobachten (der Nutzer zieht
+        den Gtk.Paned-Trenner). Es wird NICHT neu gerendert – stattdessen
+        wird nur die angezeigte Pixbuf der skalierbaren Vorschau sofort
+        an die neue Breite angepasst (billig, ohne Neu-Decodieren).
+        F12 (0.13.0): Eine gezogene Breite wird außerdem zur künftigen
+        STARTBREITE – sie steht dann als aktueller Wert im Einstellungs-
+        fenster und landet entprellt in der conf. Das Tracking liegt VOR
+        der 12-px-Render-Schwelle, damit auch kleine Züge zählen.
+        """
+        try:
+            width = allocation.width
+            height = allocation.height
+            if (width >= PANEL_MIN_WIDTH
+                    and width != self._panel_width):
+                self._panel_width = width
+                self._panel_width_schedule_save()
+            # 0.17.0: Höhenänderungen (Fenster-Resize) lösen ebenfalls
+            # eine Live-Anpassung aus – die Bild-Höhenkappe koppelt an
+            # die aktuelle Spaltenhöhe. Vor dem 12-px-Filter, sonst
+            # bliebe die Kappe bei kleineren Fensterzügen stehen.
+            if (height > 100
+                    and abs(height - self._render_height) >= 12):
+                self._render_height = height
+                self._apply_scale()
+            if abs(width - self._render_width) < 12:
+                return
+            self._render_width = width
+            self._apply_scale()
+            self._apply_pdf_scale()
         except Exception:
             pass
 
-    def _on_size_allocate(self, paned, alloc):
-        if not self.pos_pending:
+    def _scaled_image(self, src, max_h, upscale=False, keep_height=False,
+                      max_upscale=1.0, frac_h=None):
+        """
+        Gtk.Image, das mit der Panelbreite lebt. Die Quelle (src) bleibt
+        in voller Auflösung im Speicher; die angezeigte Pixbuf wird bei
+        Breitenänderungen live neu skaliert. Das Bild liegt in einem
+        ScrolledWindow, damit seine Minimalbreite das Gtk.Paned beim
+        Verkleinern nicht blockiert (das war die Ruckel-Ursache).
+        upscale=True lässt kleine Quellen (z.B. Office-Miniaturansichten)
+        mit der Panelbreite mitwachsen – begrenzt durch max_upscale,
+        damit kleine Miniaturansichten nicht zu unleserlichem Brei
+        hochgeblasen werden.
+        keep_height=True nur bei nicht-expandiertem Packen (Office,
+        Cover, Video-Frame): hält die Containerhöhe auf Bildhöhe, damit
+        das Bild unter Platzdruck nicht unten abgeschnitten wird. Bei
+        expandiertem Packen (PDF) darf KEINE Mindesthöhe gesetzt werden
+        – hochkantige Bilder würden sonst dem Fenster ihre Höhe
+        aufzwingen.
+        0.17.0: frac_h (z. B. 0.6) begrenzt die Anzeige-Höhe auf diesen
+        Bruchteil der SPALTENHÖHE – live, weil _apply_scale bei jedem
+        Fenster-Resize neu heranzieht. Nutzt die Bild-Vorschau
+        (Nutzer-Wunsch: max. 60 % der Spalte, darunter ein Trenner und
+        später zusätzliche Informationen); eingebettete Bilder (Cover,
+        Office-Miniatur, Video-Frame) bleiben ohne frac.
+        R3: Skalier-Parameter liegen als Python-Daten-Dict JEWEILS am
+        Bild-Eintrag in self._scale_items statt in Panel-Einzelattributen
+        – mehrere live-skalierte Bilder pro Vorschau (Cover +
+        Kapitelbilder …) überschreiben sich damit nicht mehr gegenseitig.
+        (Bewusst NICHT Gtk set_data/get_data: PyGObject blockiert die
+        GObject-Daten-Methoden mit 'Data access methods are unsupported'
+        – das Panel stürzte sonst beim ersten Bild ab.)
+        Gibt den fertigen Container (Gtk.ScrolledWindow) zurück.
+        """
+        img = Gtk.Image()
+        # Horizontal mittig: kleine Vorschauen (Cover, Office-Miniatur)
+        # kleben nicht am linken Rand, sondern sitzen zentriert.
+        img.set_halign(Gtk.Align.CENTER)
+        img.set_valign(Gtk.Align.START)
+        scroll = Gtk.ScrolledWindow()
+        # AUTOMATIC in beide Richtungen: bricht die Weitergabe der
+        # Kind-Minimalbreite nach oben ab, das Pane bleibt frei ziehbar.
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.add(img)
+        item = {"img": img, "scroll": scroll, "src": src, "maxh": max_h,
+                "upscale": upscale, "maxup": max_upscale,
+                "keeph": keep_height, "frac": frac_h, "lastw": 0}
+        if self._scale_items is None:
+            self._scale_items = []
+        self._scale_items.append(item)
+        self._apply_scale()
+        return scroll
+
+    def _apply_scale(self):
+        """Angezeigte Pixbufs ALLER registrierten Vorschau-Bilder an die
+        aktuelle Panelbreite anpassen (R3: Liste statt Einzel-Slot;
+        Einträge sind Daten-Dicts, siehe _scaled_image)."""
+        if not self._scale_items:
             return
-        # F12 (0.13.0): Startbreite aus der Konfiguration (das Panel
-        # liest sie im Konstruktor aus nemo-previewer.conf, inklusive
-        # der per Ziehen gewählten Breite als künftige Startbreite);
-        # ohne Konfiguration gilt der Default PANEL_WIDTH (300 px).
-        width = getattr(self.panel, "_panel_width", None) or PANEL_WIDTH
-        if alloc.width > width + 200:
-            paned.set_position(alloc.width - width)
-            self.pos_pending = False
+        for item in self._scale_items:
+            try:
+                src = item["src"]
+                if src is None:
+                    continue
+                sw, sh = src.get_width(), src.get_height()
+                if sw <= 0 or sh <= 0:
+                    continue
+                maxh = item["maxh"]
+                if item["frac"]:
+                    # 0.17.0: Höhenkappe – Bruchteil der SPALTENHÖHE
+                    # (Bild-Vorschau: 60 %), live bei Fenster-Resize.
+                    maxh = min(maxh, max(1, int(item["frac"] *
+                                                 self._preview_height())))
+                target = self._preview_width()
+                f = float(target) / sw
+                if f > 1.0:
+                    if item["upscale"]:
+                        # Hochskalieren, aber begrenzt: kleine Quellen
+                        # (Office-Miniaturansichten) werden sonst unleserlich.
+                        f = min(f, item["maxup"])
+                    else:
+                        f = 1.0      # kleine Bilder nicht unscharf aufblasen
+                if f * sh > maxh:
+                    f = float(maxh) / sh
+                w = max(1, int(sw * f))
+                h = max(1, int(sh * f))
+                # 0.17.0: Zusätzlich HÖHE vergleichen – die Höhenkappe
+                # kann sich bei gleichbleibender Breite ändern (Fenster
+                # höher/niedriger gezogen).
+                if (abs(w - item["lastw"]) < 4
+                        and abs(h - item.get("lasth", -1)) < 4):
+                    continue
+                item["lastw"] = w
+                item["lasth"] = h
+                # Beim Hochskalieren qualitativ besser interpolieren
+                interp = (GdkPixbuf.InterpType.HYPER if f > 1.0
+                          else GdkPixbuf.InterpType.BILINEAR)
+                item["img"].set_from_pixbuf(src.scale_simple(w, h, interp))
+                # → REF PAN-BILD-1
+                if item["keeph"]:
+                    item["scroll"].set_min_content_height(h)
+                    item["scroll"].get_vadjustment().set_value(0)
+            except Exception:
+                pass
 
-
-def _uri_to_dir(uri):
-    try:
-        path, _ = GLib.filename_from_uri(uri)
-        return path
-    except Exception:
+    def _preview_width(self):
+        """
+        Breite, die Vorschau-Objekte zur Verfügung haben. Live aus der
+        aktuellen Fläche des Inhaltsbereichs (get_allocated_width),
+        damit die Vorschau mit der Panelbreite skalieren kann; die
+        Startbreite dient nur als Fallback, solange noch keine
+        Größenzuweisung erfolgt ist.
+        """
         try:
-            parsed = urllib.parse.urlparse(uri)
-            return urllib.parse.unquote(parsed.path)
+            w = self._content.get_allocated_width()
+            if w > 40:
+                # Innenabstand (Rahmen 8 px je Seite) abziehen
+                return max(PANEL_MIN_WIDTH - 20, w - 16)
+        except Exception:
+            pass
+        return PANEL_WIDTH - 40
+
+    def _preview_height(self):
+        """
+        0.17.0: Höhe des Inhaltsbereichs – Basis für die Höhenkappe
+        der Bild-Vorschau (max. 60 % der Spaltenhöhe, Nutzer-Wunsch:
+        unter dem Bild bleibt Platz für einen Trenner und zusätzliche
+        Informationen). Live aus der aktuellen Fläche, Fallback
+        solange noch keine Größenzuweisung erfolgt ist.
+        """
+        try:
+            h = self._content.get_allocated_height()
+            if h > 100:
+                return h
+        except Exception:
+            pass
+        return 600
+
+    def _source_language(self, path):
+        """
+        F44 (0.28.0): Sprache der Datei über den GtkSource-
+        LanguageManager raten (anhand des Namens). None heißt: keine
+        erkannte Sprache – dann bleibt es bei der normalen Text-
+        Vorschau.
+        """
+        try:
+            return GtkSource.LanguageManager.get_default().guess_language(
+                os.path.basename(path), None)
         except Exception:
             return None
 
-
-def _reconcile(st):
-    """
-    Panel an der rechten Kante des Nemo-Fensters verankern.
-    Technik: Das direkte Kindelement der Fenster-Hauptbox, das die
-    Dateiansicht enthält (der Nemo-'Pane'), wird in unser HPaned
-    verpackt: [ Pane | Panel ]. Das Panel sitzt damit zuverlässig am
-    rechten Rand und behält seine Position über Reiterwechsel hinweg.
-    """
-    window = st.window
-    view = find_view(window)
-    if view is None:
-        return
-
-    try:
-        kids = window.get_children()
-    except Exception:
-        return
-    top_box = kids[0] if kids else None
-    if not isinstance(top_box, Gtk.Container):
-        dbg("Injektion: unerwartete Fensterstruktur (%s)"
-            % type_name(top_box))
-        return
-
-    # Injektionsziel: das Widget, das DIREKT unter der Hauptbox auf dem
-    # Pfad von der Ansicht nach oben liegt. Wir folgen dazu schlicht den
-    # Eltern-Zeigern – das ist deterministisch und unabhängig von
-    # is_ancestor-Semantik-Spezialitäten.
-    target = None
-    node = view
-    while node is not None:
-        parent = node.get_parent()
-        if parent is top_box:
-            target = node
-            break
-        node = parent
-
-    if target is None:
-        chain = []
-        node = view
-        while node is not None:
-            chain.append(type_name(node))
-            node = node.get_parent()
-        dbg("Injektion: Ansicht hängt nicht unter der Hauptbox – "
-            "Kette nach oben: %s" % " < ".join(chain))
-        return
-
-    # Wichtig: Hängt die Ansicht bereits unter unserem HPaned, ist der
-    # gefundene Ziel-Knoten unser EIGENES HPaned – dann ist bereits
-    # alles injiziert und es darf NICHT nochmal passieren (sonst
-    # verpacken wir das Paned in sich selbst und zerstören den Baum).
-    if target is st.hpaned:
-        st._view_ok(view)
-        return
-
-    # Bereits korrekt injiziert?
-    if (st.hpaned.get_parent() is top_box
-            and st.hpaned.get_child1() is target):
-        st._view_ok(view)
-        return
-
-    # Neu injizieren: alten Zustand rückgängig machen
-    _detach(st)
-
-    try:
-        if isinstance(top_box, Gtk.Box):
-            pos = top_box.child_get_property(target, "position")
-            top_box.remove(target)
-            st.hpaned.pack1(target, True, False)
-            st.hpaned.pack2(st.panel, False, False)
-            top_box.pack_start(st.hpaned, True, True, 0)
-            top_box.reorder_child(st.hpaned, pos)
-        elif isinstance(top_box, Gtk.Grid):
-            left = top_box.child_get_property(target, "left-attach")
-            top = top_box.child_get_property(target, "top-attach")
-            width = top_box.child_get_property(target, "width")
-            height = top_box.child_get_property(target, "height")
-            # Validieren, BEVOR wir etwas entfernen – sonst droht ein
-            # irreparabel zerstörter Widget-Baum
-            if (not all(isinstance(v, int) and v >= 0 for v in (left, top))
-                    or not all(isinstance(v, int) and v >= 1
-                               for v in (width, height))):
-                dbg("Injektion: Grid-Eigenschaften nicht lesbar "
-                    "(%r, %r, %r, %r) – Vorgang abgebrochen, "
-                    "Nemo bleibt unangetastet" % (left, top, width, height))
-                return
-            top_box.remove(target)
-            st.hpaned.pack1(target, True, False)
-            st.hpaned.pack2(st.panel, False, False)
-            top_box.attach(st.hpaned, left, top, width, height)
-        else:
-            dbg("Injektion: Hauptbox ist weder Box noch Grid (%s)"
-                % type_name(top_box))
-            return
-        st.pos_pending = True
-        st.hpaned.show()
-        st.panel.show_all()
-        # F12 (0.12.0): Konfiguration erst NACH dem show_all anwenden
-        # – sonst würde eine verlangte Unsichtbarkeit beim Start
-        # sofort wieder überschrieben. getattr-Schutz, damit nicht
-        # passende Dateiversionen nie abstürzen können.
-        _apply = getattr(st.panel, "apply_start_settings", None)
-        if callable(_apply):
-            _apply()
-        dbg("Panel an Fensterrand injiziert (Ziel: %s)"
-            % type_name(target))
-    except Exception:
-        traceback.print_exc()
-        return
-
-    st._view_ok(view)
-
-
-def _detach(st):
-    """Panel aus dem Widget-Baum lösen und Originalstruktur wiederherstellen."""
-    parent = st.hpaned.get_parent()
-    if parent is None:
-        return
-    try:
-        child1 = st.hpaned.get_child1()
-        if child1 is None:
-            parent.remove(st.hpaned)
-            return
-        if isinstance(parent, Gtk.Box):
-            pos = parent.child_get_property(st.hpaned, "position")
-            parent.remove(st.hpaned)
-            st.hpaned.remove(child1)
-            parent.pack_start(child1, True, True, 0)
-            parent.reorder_child(child1, pos)
-        elif isinstance(parent, Gtk.Grid):
-            left = parent.child_get_property(st.hpaned, "left-attach")
-            top = parent.child_get_property(st.hpaned, "top-attach")
-            width = parent.child_get_property(st.hpaned, "width")
-            height = parent.child_get_property(st.hpaned, "height")
-            parent.remove(st.hpaned)
-            st.hpaned.remove(child1)
-            parent.attach(child1, left, top, width, height)
-        else:
-            parent.remove(st.hpaned)
-            st.hpaned.remove(child1)
-            parent.add(child1)
-    except Exception:
-        traceback.print_exc()
-
-
-def _connect_view_signals(st, view):
-    """
-    Auswahl-Signale dynamisch entdecken und verbinden. Statt einen
-    festen Signalnamen zu raten, werden im Teilbaum der Ansicht und
-    auf den AtkSelection-Objekten alle void-Signale mit 'select' im
-    Namen verbunden – so ist es egal, ob Nemo Striche oder Unter-
-    striche benutzt. Verbunden wird pro Widget; die Handler-IDs
-    landen als (Objekt, ID)-Paare in st.view_handlers.
-    """
-    names_found = set()
-
-    for w in walk(view):
+    def _source_scheme(self):
+        """
+        F44 (0.28.0): Farbschema ans System-Theme anpassen – dunkles
+        Theme (gtk-theme-name enthält „dark“ oder prefer-dark gesetzt)
+        bekommt ein dunkles Schema (oblivion, notfalls solarized-
+        dark), sonst das helle „classic“. Fehlt ein Kandidat, greift
+        der Widget-Default.
+        """
         try:
-            if not isinstance(w, Gtk.Widget) or not w.get_mapped():
-                continue
-        except Exception:
-            continue
-        for sig in selection_signals(w):
+            mgr = GtkSource.StyleSchemeManager.get_default()
+            ids = set(mgr.get_scheme_ids())
+            dark = False
             try:
-                hid = w.connect(
-                    sig,
-                    lambda *a, _w=w, _s=sig: (
-                        diag("Signal %s empfangen (%s)" % (_s, type_name(_w))),
-                        _dump_a11y_once(st),
-                        _refresh_soon(st))[-1])
+                settings = Gtk.Settings.get_default()
+                name = (settings.get_property("gtk-theme-name")
+                        or "").lower()
+                dark = ("dark" in name
+                        or bool(settings.get_property(
+                            "gtk-application-prefer-dark-theme")))
             except Exception:
-                continue
-            st.view_handlers.append((w, hid))
-            names_found.add(sig)
-
-    # Keine Signalhandler an ATK-Objekten registrieren. Diese Objekte sind
-    # beim Ordnerwechsel häufig kurzlebig und führten zu disconnect-Warnungen.
-
-    diag("Ansicht verbunden: %s – Auswahl-Signale: %s"
-        % (type_name(view), ", ".join(sorted(names_found)) or "KEINE"))
-
-
-def _dump_a11y_once(st):
-    """
-    Den a11y-Baum der Ansicht bis zu zweimal ausgeben: einmal nach dem
-    Verbinden (Grundzustand) und einmal beim ersten Auswahl-Signal
-    (Zustand nach dem Klick). Die Zeilen zeigen Tiefe, Kinderzahl,
-    Rolle, Namen, AtkSelection-Zähler sowie SELECTED/FOCUSED – damit
-    ist sichtbar, wo Nemo die Auswahl tatsächlich hergibt.
-    Nur bei VERBOSE_DIAG – im Alltagsbetrieb still.
-    """
-    if not VERBOSE_DIAG:
-        return
-    if st._a11y_dumps >= 2 or st.view is None:
-        return
-    st._a11y_dumps += 1
-    view = st.view
-    tag = "a11y[%s]" % type_name(view)
-    try:
-        if not isinstance(view, Gtk.Widget) or not view.get_mapped():
-            return
-        root = view.get_accessible()
-        if root is None:
-            dbg("%s: kein Accessible verfügbar" % tag)
-            return
-    except Exception:
-        dbg("%s: kein Accessible verfügbar" % tag)
-        return
-    budget = [45]
-
-    def rec(acc, depth):
-        if acc is None or depth > 10 or budget[0] <= 0:
-            return
-        n = -1
-        try:
-            n = acc.get_n_children()
-        except Exception as exc:
-            n = -1
-            # Ursache des scheinbar leeren a11y-Baums einmalig ausgeben.
-            if not getattr(_dump_a11y_once, "_n_children_err", None):
-                _dump_a11y_once._n_children_err = repr(exc)
-                dbg("%s: get_n_children() schlug fehl: %r – "
-                    "weitere Kinder werden blind über ref_child() probiert"
-                    % (tag, exc))
-        try:
-            role = acc.get_role()
-            try:
-                role = role.value_nick
-            except Exception:
-                role = str(role)
-        except Exception:
-            role = "?"
-        try:
-            name = acc.get_name() or ""
-        except Exception:
-            name = ""
-        extra = []
-        try:
-            extra.append("AtkSel=%d" % acc.get_selection_count())
-        except Exception:
-            pass
-        try:
-            ss = acc.get_state_set()
-            if ss is not None:
-                if ss.contains_state(Atk.StateType.SELECTED):
-                    extra.append("SELECTED")
-                if ss.contains_state(Atk.StateType.FOCUSED):
-                    extra.append("FOCUSED")
-                if ss.contains_state(Atk.StateType.ACTIVE):
-                    extra.append("ACTIVE")
-        except Exception:
-            pass
-        budget[0] -= 1
-        dbg("%s d%d kinder=%d rolle=%s name=%r %s"
-            % (tag, depth, n, role, name, " ".join(extra)))
-        for child in _atk_children(acc, max_children=60):
-            rec(child, depth + 1)
-
-    rec(root, 0)
-    dbg("%s – Ende der Diagnose" % tag)
-
-
-def _view_ok(self, view):
-    """Signal-Anmeldung (self ist hier ein PanelState via Erweiterung unten)."""
-    if self.view is not view:
-        for obj, hid in self.view_handlers:
-            try:
-                if obj.handler_is_connected(hid):
-                    obj.disconnect(hid)
-            except Exception:
-                # Objekt/Handler kann durch Nemo bereits abgebaut sein.
                 pass
-        self.view_handlers = []
-        self.view = view
-        self._a11y_dumps = 0
-        try:
-            _connect_view_signals(self, view)
-        except Exception:
-            traceback.print_exc()
-        _dump_a11y_once(self)
-        _refresh_soon(self)
-        # F40: Knopf nachrüsten (falls die Toolbar beim ersten Versuch
-        # noch nicht stand) – idempotent, kein Doppel-Packen.
-        self._install_toolbar_toggle()
-
-
-PanelState._view_ok = _view_ok
-
-
-def _refresh(st):
-    try:
-        # Immer die LIVE-Ansicht suchen: st.view kann nach einem
-        # Ordnerwechsel auf einen bereits abgebauten Slot zeigen.
-        view = find_view(st.window)
-        if view is None:
-            return
-        names, strategy = SelectionReader.read(view, st.dir_path)
-        # Diagnose pro konkretem Ansichtstyp, nicht nur einmal pro Fenster:
-        # Nemo kann beim Ansichtswechsel ListView gegen IconView austauschen.
-        diag_key = "_selection_diag_" + type_name(view)
-        if not getattr(st, diag_key, False):
-            setattr(st, diag_key, True)
-            diag("Auswahl-Diagnose: View=%s, Instanz.get_selection=%s, Instanz.peek_selection=%s, Nemo.view_get_selection=%s, Nemo.view_peek_selection=%s" % (
-                type_name(view),
-                callable(getattr(view, "get_selection", None)),
-                callable(getattr(view, "peek_selection", None)),
-                callable(getattr(Nemo, "view_get_selection", None)),
-                callable(getattr(Nemo, "view_peek_selection", None))))
-            _dump_widget_tree(view)
-        if names is None:
-            # Keine Strategie konnte lesen – gedrosselte Debug-Meldung
-            now = GLib.get_monotonic_time()
-            if now - st.none_dbg_at > 5000000:  # max. alle 5 Sekunden
-                st.none_dbg_at = now
-                dbg("Auswahl nicht lesbar (Ansicht: %s)" % type_name(view))
-            return
-        if names != st.last_sel:
-            dbg("Auswahl geändert: %r (via %s)" % (names, strategy))
-            st.last_sel = names
-            st.panel.set_selection(names, st.dir_path)
-    except Exception:
-        traceback.print_exc()
-
-
-def _refresh_soon(st):
-    """Auswahl-Refresh in den Main-Loop einplanen (Signal-Kontext verlassen)."""
-    GLib.idle_add(lambda: (_refresh(st), False)[1])
-
-
-def _poll(st):
-    """Timer: Reconciliation + Auswahl-Abgleich als Sicherheitsnetz."""
-    try:
-        _reconcile(st)
-        _refresh(st)
-    except Exception:
-        traceback.print_exc()
-    return True
-
-
-def _on_window_destroyed(window, st):
-    """
-    Fenster wird abgebaut (0.9.1): den 500-ms-Poll-Timer abräumen –
-    sonst liefe er als Zombie nach dem Fensterende ewig weiter.
-    """
-    try:
-        if st.poll_id:
-            GLib.source_remove(st.poll_id)
-        st.poll_id = 0
-    except Exception:
-        pass
-    return False
-
-
-def _get_state(window):
-    st = getattr(window, "_previewer_state", None)
-    if st is None:
-        st = PanelState(window)
-        window._previewer_state = st
-        # 0.9.1: Timer wieder abbauen, wenn das Fenster verschwindet.
-        try:
-            window.connect("destroy", _on_window_destroyed, st)
+            if dark:
+                for sid in ("oblivion", "solarized-dark"):
+                    if sid in ids:
+                        return mgr.get_scheme(sid)
+            if "classic" in ids:
+                return mgr.get_scheme("classic")
         except Exception:
             pass
-        st.poll_id = GLib.timeout_add(POLL_MS, _poll, st)
-        dbg("PanelState für Fenster angelegt")
-    return st
-
-
-def _on_crowbar_placed(crowbar, window, uri, tries):
-    """
-    Idle-Callback: crowbar ist jetzt im Baum → Panel injizieren.
-    0.9.1: Der Ordnerpfad wird hier NICHT mehr aus dem (eventuell
-    überholten) uri gesetzt – _get_widget schreibt st.dir_path bereits
-    synchron beim Anfordern der Crowbar. Eine alte Crowbar, die erst
-    NACH einer neueren platziert wird, konnte sonst den aktuellen
-    Pfad mit einem ALTEN Pfad überschreiben.
-    """
-    st = _get_state(window)
-    if crowbar.get_parent() is None:
-        tries[0] += 1
-        return tries[0] < 40  # noch nicht platziert → weiter zuwarten
-    _reconcile(st)
-    _refresh(st)
-    return False
-
-
-# ------- Provider-Klasse (dynamisch, damit NameAndDescProvider optional) ----
-
-def _is_desktop_window(window):
-    """Erkennt Desktop-Fenster, damit dort kein Vorschau-Panel landet."""
-    name = type_name(window)
-    # Cinnamon/Nemo-Versionen unterscheiden sich bei den konkreten Typnamen.
-    if "desktop" in name.lower():
-        return True
-    # Zusätzliche Prüfung des Widget-Baums: Desktop-Icon-Ansichten dürfen
-    # niemals als Anker für die Injektion dienen.
-    try:
-        for child in walk(window):
-            if type_name(child) == "NemoDesktopIconView":
-                return True
-    except Exception:
-        pass
-    return False
-
-
-def _get_widget(self, uri, window):
-    """LocationWidgetProvider: liefert die unsichtbare 'Brechstange'."""
-    window_type = type_name(window)
-    dbg("get_widget aufgerufen für %s (Fenstertyp: %s)" % (uri, window_type))
-    if _is_desktop_window(window):
-        dbg("Desktop-Fenster erkannt – kein Vorschau-Panel")
         return None
-    st = _get_state(window)
-    new_dir = _uri_to_dir(uri)
-    if new_dir != st.dir_path:
-        st.last_sel = None
-        st.panel.set_selection([], new_dir)
-    st.dir_path = new_dir   # sofort: neuer Ordner ist bekannt
-    crowbar = Gtk.Box()
-    crowbar.set_size_request(-1, 0)
-    crowbar.set_no_show_all(True)
-    tries = [0]
-    GLib.idle_add(_on_crowbar_placed, crowbar, window, uri, tries)
-    return crowbar
 
+    def _text_view(self, text, font="9", markup=None, linenumbers=False,
+                   source_path=None):
+        """
+        Fertig konfigurierter TextView im ScrolledWindow, gepackt in
+        self._content. font: Pango-Beschreibung; None belässt die
+        System-Schrift des GTK-Themes (also die Schriftgröße des
+        Systems) und ruft override_font gar nicht erst auf. markup:
+        optionaler Pango-Markup-String (muss vorher validiert sein);
+        ohne Markup wird der Rohtext gesetzt. linenumbers (F24):
+        Zeilennummern am linken Rand – nur von _render_text gesetzt
+        (Textdateien und endungslose Textdateien), gerenderte
+        Vorschauen (Markdown, E-Mail, E-Book, Font-Wasserfall)
+        bleiben ohne. source_path (F44, 0.28.0): Datei, deren Sprache
+        GtkSourceView raten soll – wird eine Sprache erkannt, zeigt
+        sich Syntax-Hervorhebung; ohne Binding oder Sprache bleibt
+        es beim normalen TextView.
+        """
+        # F44 (0.28.0): Quellcode hervorheben – nur wenn das GtkSource-
+        # Binding da ist, der LanguageManager eine Sprache erkennt UND
+        # die Einstellung text_syntax angeschaltet ist (0.28.1,
+        # Nutzer-Wunsch; Default an).
+        view = None
+        if (source_path is not None and HAVE_GTKSOURCE
+                and self._conf_text_syntax):
+            lang = self._source_language(source_path)
+            if lang is not None:
+                try:
+                    view = GtkSource.View()
+                    sbuf = GtkSource.Buffer()
+                    sbuf.set_language(lang)
+                    sbuf.set_style_scheme(self._source_scheme())
+                    view.set_buffer(sbuf)
+                    dbg("F44: Syntax-Hervorhebung aktiv (%s)"
+                        % lang.get_name())
+                except Exception as exc:
+                    dbg("Syntax-Hervorhebung nicht aktivierbar (%s) – "
+                        "zeige normalen Text" % exc)
+                    view = None
+        if view is None:
+            view = Gtk.TextView()
+        view.set_editable(False)
+        view.set_cursor_visible(False)
+        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        if font is not None:
+            view.override_font(Pango.FontDescription(font))
+        # Innenabstand, damit der Text nicht am Rand klebt
+        view.set_left_margin(10)
+        view.set_right_margin(10)
+        view.set_top_margin(8)
+        view.set_bottom_margin(8)
+        if linenumbers:
+            self._install_line_numbers(view, font)
+        buf = view.get_buffer()
+        if markup is not None:
+            buf.insert_markup(buf.get_end_iter(), markup, -1)
+        else:
+            buf.set_text(text)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_shadow_type(Gtk.ShadowType.IN)
+        scroll.add(view)
+        self._content.pack_start(scroll, True, True, 0)
+        # 0.16.2: Merker immer True setzen – „aktuelle Vorschau ist
+        # TextView-basiert (billig neu renderbar)“. Vorher stand hier
+        # der linenumbers-Schalter, deshalb wirkte der Einstellungs-
+        # Toggle nur beim Deaktivieren: Nach dem Abschalten war der
+        # Merker False und das erneute Aktivieren renderte nicht.
+        self._last_textish = True
+        return view
 
-def _get_name_and_desc(self):
-    return ["previewer:::"
-            "Angedockte Vorschau der ausgewählten Datei:::"]
-
-
-_bases = [GObject.GObject, Nemo.LocationWidgetProvider]
-if hasattr(Nemo, "NameAndDescProvider"):
-    _bases.append(Nemo.NameAndDescProvider)
-
-_provider_dict = {
-    "get_widget": _get_widget,
-    "get_name_and_desc": _get_name_and_desc,
-}
-
-Provider = type("NemoPreviewerProvider", tuple(_bases), _provider_dict)
-
-
-# ------------------------- Gtk-Protokoll-Filter ------------------------------
-# → REF ENT-FILTER-1
-
-_GTK_FOREACH_MSG = "gtk_container_foreach: assertion 'GTK_IS_CONTAINER"
-
-
-def _install_log_filter():
-    def handler(domain, level, message, *user_data):
-        if message and _GTK_FOREACH_MSG in message:
-            return
+    def _install_line_numbers(self, view, font=None):
+        """
+        F24 (0.16.0): Zeilennummern in den linken Rand des TextView
+        zeichnen – nicht in den Textbuffer. Damit sind sie von der
+        Auswahl ausgeschlossen und landen NIE im kopierten Text
+        (Nutzer-Wunsch: Nummern nicht kopierbar, Text schon), während
+        der Text selbst normal selektier- und kopierbar bleibt. Der
+        draw-Handler feuert bei jedem Neuzeichnen (auch beim
+        Scrollen) und zeichnet nur die sichtbaren Zeilen; umgebrochene
+        Zeilen bekommen ihre Nummer an der ersten visuellen Zeile.
+        """
+        ctx = view.get_style_context()
+        probe = view.create_pango_layout("00000")
+        # 0.16.3 (Nutzer-Wunsch): Die Nummern zeichnen sich etwas
+        # KLEINER als der Text – Grundgröße (Parameter oder Theme-
+        # Schrift) holen und auf 80 % skalieren. Die gleiche
+        # verkleinerte Probe misst unten die Randbreite, sodass
+        # Rand und Nummern-Schrift zusammenpassen. Floor auf 1 pt,
+        # damit winzige Größenangaben nicht auf 0 rutschen.
         try:
-            GLib.log_default_handler(domain, level, message)
+            if font is not None:
+                fd = Pango.FontDescription(font)
+            else:
+                fd = view.get_pango_context().get_font_description()
+            if fd is not None:
+                size = fd.get_size()
+                if size > 0:
+                    fd.set_size(max(int(size * 0.8), Pango.SCALE))
+                probe.set_font_description(fd)
         except Exception:
             pass
-    try:
-        GLib.log_set_handler("Gtk",
-                             GLib.LogLevelFlags.LEVEL_CRITICAL, handler)
-    except Exception:
-        pass
+        # 0.16.1: get_pixel_size() statt get_pixel_width() – die
+        # GI-Bindung bietet get_pixel_width nicht an (Testfeld:
+        # AttributeError im Moment der Randbreiten-Messung).
+        pw, _ph = probe.get_pixel_size()
+        view.set_left_margin(pw + 16)
+
+        reported = [False]
+
+        def _on_draw(view, cr):
+            # 0.16.2: Exceptions einmalig melden statt still pass –
+            # draw feuert oft, das Closure-Flag verhindert Log-Spam.
+            try:
+                vis = view.get_visible_rect()
+                it, _top = view.get_line_at_y(vis.y)
+                if it is None:
+                    return False
+                color = ctx.get_color(view.get_state_flags())
+                # 0.16.3 (Nutzer-Wunsch): Alpha 0.6 → 0.75 – auf
+                # hellem Grund waren die Nummern zu verwaschen;
+                # etwas dunkler, gut lesbar, aber klar kleiner
+                # als der Text und so unterscheidbar.
+                cr.set_source_rgba(color.red, color.green, color.blue,
+                                   color.alpha * 0.75)
+                margin = view.get_left_margin()
+                while True:
+                    y, _h = view.get_line_yrange(it)
+                    if y > vis.y + vis.height:
+                        break
+                    probe.set_text(str(it.get_line() + 1))
+                    pw, _ph = probe.get_pixel_size()
+                    _x, wy = view.buffer_to_window_coords(
+                        Gtk.TextWindowType.WIDGET, 0, y)
+                    Gtk.render_layout(ctx, cr, margin - pw - 8,
+                                      wy + 1, probe)
+                    if not it.forward_line():
+                        break
+            except Exception as exc:
+                if not reported[0]:
+                    reported[0] = True
+                    dbg("Zeilennummern-Zeichnung fehlgeschlagen: %r" % exc)
+            return False
+
+        # 0.16.2: connect_after statt connect – "draw" ist ein
+        # RUN_LAST-Signal; der User-Handler liefe VOR der Standard-
+        # zeichnung, die den Hintergrund füllt und die Nummern
+        # übermalt (Testfeld: Platz war da, Nummern blieben unsichtbar).
+        view.connect_after("draw", _on_draw)
+
+    # --- E-Books: EPUB, FictionBook, MOBI -----------------------------------
+
+    def _meta_grid(self, rows, container=None):
+        """
+        Schlüssel-Wert-Tabelle (dim-Label links, Wert rechts mit
+        END-Ellipsize und Tooltip) – zentraler Helfer für E-Book-,
+        EML-, Audio- und Video-Infos. 0.9.1: zuvor zusätzlich mehrfach
+        identisch inline gebaut; die Inline-Kopien sind entfallen.
+        F35: Jede Bezeichnung bekommt automatisch einen Doppelpunkt
+        am Ende (falls nicht bereits vorhanden).
+        F38: Mit optionalem container packt die Tabelle an jede
+        Stelle – Bild-Vorschauen geben ihren 40-%-Info-Bereich mit.
+        """
+        grid = Gtk.Grid()
+        grid.set_row_spacing(2)
+        grid.set_column_spacing(10)
+        for i, (k, v) in enumerate(rows):
+            # F35: Bezeichnungen enden auf Doppelpunkt.
+            if not k.endswith(":"):
+                k += ":"
+            kl = Gtk.Label(label=k)
+            kl.set_halign(Gtk.Align.END)
+            kl.get_style_context().add_class("dim-label")
+            vl = Gtk.Label(label=v)
+            vl.set_halign(Gtk.Align.START)
+            vl.set_ellipsize(Pango.EllipsizeMode.END)
+            vl.set_hexpand(True)
+            vl.set_tooltip_text(v)
+            grid.attach(kl, 0, i, 1, 1)
+            grid.attach(vl, 1, i, 1, 1)
+        # F38: container schlägt _content – Bild-Tabellen gehören in
+        # den 40-%-Info-Bereich der neuen Bild-Aufteilung.
+        target = container if container is not None else self._content
+        target.pack_start(grid, False, False, 0)
+
+    def _render_folder(self, path):
+        """
+        F43 (Nutzer-Wunsch): Die Ordner-Vorschau zeigt den Inhalt als
+        Liste statt nur eines Ordner-Icons – Ordner zuerst (fett),
+        dann Dateien, je alphabetisch; pro Zeile Icon, Name plus
+        „Ordner“ bzw. Größe. Seit 0.29.0 (Nutzer-Wunsch): Vor jedem
+        Namen das Typ-Icon aus dem Icon-Theme, die Liste trägt den
+        Innenabstand der Text-Vorschauen (10/10/8/8 px). Seit 0.30.0
+        (Nutzer-Wunsch): Die Icons sind symbolisch und folgen dem
+        System-Theme (Darkmode hell, Lightmode dunkel); versteckte
+        Einträge stehen nur in der Liste, wenn Nemo sie anzeigt
+        (Strg+H, org.nemo.preferences show-hidden-files), sonst weist
+        der Kopf-Hinweis sie zahlenmäßig aus (K1). Riesige Ordner: die ersten
+        300 Zeilen im Scroll-Fenster, Rest als Fußzeile – sonst
+        baute ein Ordner mit zehntausend Einträgen ebensoviele
+        Label-Widgets.
+        """
+        # → REF PAN-FOLDER-1
+        dirs, files = [], []
+        try:
+            with os.scandir(path) as it:
+                for entry in it:
+                    (dirs if entry.is_dir() else files).append(
+                        entry.name)
+        except Exception:
+            self._hint("Ordner")
+            return
+        total = len(dirs) + len(files)
+        if total == 0:
+            self._hint("Der Ordner ist leer.")
+            return
+        hidden = sum(1 for n in dirs + files if n.startswith("."))
+        unit = "Datei" if total == 1 else "Dateien"
+        if hidden > 0:
+            self._hint("Der Ordner enthält %d %s, davon %d versteckt."
+                       % (total, unit, hidden))
+        else:
+            self._hint("Der Ordner enthält %d %s." % (total, unit))
+        # 0.30.0 (Nutzer-Wunsch): Versteckte nur zeigen, wenn Nemo sie
+        # zeigt – die Liste folgt auf org.nemo.preferences show-hidden-
+        # files (Strg+H). Lässt sich die Einstellung nicht lesen
+        # (fremdes System), zeigen wir wie bisher alles.
+        show_hidden = True
+        try:
+            nemo_prefs = Gio.Settings.new("org.nemo.preferences")
+            show_hidden = nemo_prefs.get_boolean("show-hidden-files")
+        except Exception:
+            pass
+        if not show_hidden:
+            dirs = [n for n in dirs if not n.startswith(".")]
+            files = [n for n in files if not n.startswith(".")]
+        # F43: Anzeige-Reihenfolge – Ordner vor Dateien, je alphabet-
+        # isch (case-insensitiv). Sichtbare Versteckte stehen an
+        # ihrer alphabetischen Position, nur gedimmt.
+        shown = ([(n, True) for n in sorted(dirs, key=str.lower)]
+                 + [(n, False) for n in sorted(files, key=str.lower)])
+        if not shown:
+            return
+        rest = max(0, len(shown) - 300)
+        box = Gtk.ListBox()
+        box.set_selection_mode(Gtk.SelectionMode.NONE)
+        # 0.29.0 (Nutzer-Wunsch): derselbe Innenabstand wie bei den
+        # Text-Vorschauen (10/10/8/8 px)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        box.set_margin_top(8)
+        box.set_margin_bottom(8)
+        # 0.30.1: Icon-Theme EINMAL holen – der Zeilen-Loop fragt die
+        # Symbol-Varianten gegen das Theme ab
+        theme = Gtk.IconTheme.get_default()
+        for name, is_dir in shown[:300]:
+            # 0.29.0/0.30.0/0.30.1 (Nutzer-Wunsch/-Fund): Typ-Icon vor
+            # dem Namen – Ordner über inode/directory, Dateien über
+            # den Inhaltstyp, den Gio zum Namen rät. Strikt SYMBOLISCH:
+            # Symbol-Icons folgen der Vordergrundfarbe des System-
+            # Themes (Darkmode hell, Lightmode dunkel). 0.30.1: GTK
+            # lud bei fehlender -symbolic-Variante heimlich das
+            # farbige Voll-Icon (dunkle Platten im Darkmode) – die
+            # Kandidaten werden deshalb gegen Gtk.IconTheme geprüft
+            # und fehlende Varianten fallen auf die generischen
+            # Symbole zurück, nie auf das Voll-Icon.
+            ic = Gtk.Image()
+            try:
+                if is_dir:
+                    ctype = "inode/directory"
+                else:
+                    ctype = Gio.content_type_guess(name, None)[0]
+                sname = ("folder-symbolic" if is_dir
+                         else "text-x-generic-symbolic")
+                for base in Gio.content_type_get_icon(
+                        ctype).get_names():
+                    cand = base + "-symbolic"
+                    if theme.has_icon(cand):
+                        sname = cand
+                        break
+                ic.set_from_icon_name(sname, Gtk.IconSize.MENU)
+            except Exception:
+                ic.set_from_icon_name(
+                    "folder-symbolic" if is_dir
+                    else "text-x-generic-symbolic",
+                    Gtk.IconSize.MENU)
+            nm = Gtk.Label()
+            if is_dir:
+                nm.set_markup("<b>%s</b>"
+                              % GLib.markup_escape_text(name))
+            else:
+                nm.set_text(name)
+            nm.set_halign(Gtk.Align.START)
+            nm.set_hexpand(True)
+            nm.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+            nm.set_tooltip_text(name)
+            if name.startswith("."):
+                nm.get_style_context().add_class("dim-label")
+            side = Gtk.Label(label="Ordner" if is_dir else "")
+            if not is_dir:
+                try:
+                    side.set_text(human_size(
+                        os.stat(os.path.join(path, name)).st_size))
+                except Exception:
+                    pass
+            side.get_style_context().add_class("dim-label")
+            side.set_halign(Gtk.Align.END)
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                           spacing=6)
+            hbox.pack_start(ic, False, False, 0)
+            hbox.pack_start(nm, True, True, 0)
+            hbox.pack_start(side, False, False, 0)
+            box.add(hbox)
+        if rest > 0:
+            more = Gtk.Label(label="… und %d weitere" % rest)
+            more.get_style_context().add_class("dim-label")
+            more.set_halign(Gtk.Align.START)
+            box.add(more)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                          Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        scroll.add(box)
+        self._content.pack_start(scroll, True, True, 0)
+        dbg("Ordner-Liste: %d Einträge, %d Zeilen gebaut"
+            % (total, min(300, len(shown))))
+
+    def _render_generic(self):
+        mime, size, mtime = query_file_info(self._path)
+        big = Gtk.Image()
+        try:
+            icon = Gio.content_type_get_icon(mime or "text-x-generic")
+            big.set_from_gicon(icon, Gtk.IconSize.DIALOG)
+            big.set_pixel_size(96)
+        except Exception:
+            big.set_from_icon_name("text-x-generic", Gtk.IconSize.DIALOG)
+        self._content.pack_start(big, True, True, 0)
+
+    def _hint(self, text):
+        lbl = Gtk.Label(label=text)
+        lbl.set_line_wrap(True)
+        lbl.get_style_context().add_class("dim-label")
+        lbl.set_halign(Gtk.Align.START)
+        self._content.pack_start(lbl, False, False, 0)
+
+    def _on_panel_destroy(self, *a):
+        """Panel wird abgebaut: Wiedergabe und Timer stoppen (B3)."""
+        # 0.9.1: Abbau markieren – der child-watch einer noch laufenden
+        # LibreOffice-Konvertierung (_office_job_done) verwirft sein
+        # Ergebnis dann, statt auf das tote Panel zu rendern.
+        self._destroyed = True
+        self._stop_playback()
+        if self._playbin is not None:
+            try:
+                self._playbin.get_bus().remove_signal_watch()
+            except Exception:
+                pass
+
+    # --- Aktionen -----------------------------------------------------------
+
+    def _on_open_clicked(self, *a):
+        if not self._path or not os.path.exists(self._path):
+            return
+        try:
+            Gio.AppInfo.launch_default_for_uri(
+                GLib.filename_to_uri(self._path), None)
+        except Exception as e:
+            dbg("Öffnen fehlgeschlagen: %s" % e)
+
+    def _config_load(self):
+        """
+        F12 (0.12.0): Einstellungen aus CONF_FILE lesen. Ohne Datei
+        oder bei JEGLICHEM Fehler gelten die Defaults – eine kaputte
+        oder halb geschriebene Konfiguration darf Nemo niemals am
+        Start hindern. Neue Einstellungen docken als get_boolean/
+        get_string mit try/except hier an.
+        """
+        if _KEYFILE_CLS is None:
+            dbg("GLib.KeyFile fehlt im Binding – Konfiguration "
+                "bleibt auf Defaults")
+            return
+        try:
+            kf = _KEYFILE_CLS()
+            kf.load_from_file(CONF_FILE, _KEYFILE_FLAGS_NONE)
+            try:
+                self._conf_show_at_start = kf.get_boolean(
+                    "previewer", "show_at_start")
+            except Exception:
+                pass
+            try:
+                self._conf_text_linenumbers = kf.get_boolean(
+                    "previewer", "text_line_numbers")
+            except Exception:
+                pass
+            # F44-Nachtrag (0.28.1): Syntax-Hervorhebung an/aus.
+            try:
+                self._conf_text_syntax = kf.get_boolean(
+                    "previewer", "text_syntax")
+            except Exception:
+                pass
+            # F12 Teil 3 (0.27.0): Dokument-Deckel (PDF/Office) –
+            # Begrenzung ja/nein und maximale Seitenzahl (1–999).
+            try:
+                self._conf_doc_page_limit = kf.get_boolean(
+                    "previewer", "doc_page_limit")
+            except Exception:
+                pass
+            try:
+                p = kf.get_integer("previewer", "doc_max_pages")
+                if 1 <= p <= 999:
+                    self._conf_doc_max_pages = int(p)
+            except Exception:
+                pass
+            try:
+                w = kf.get_integer("previewer", "panel_width")
+                if PANEL_MIN_WIDTH <= w <= 2400:
+                    self._panel_width = int(w)
+            except Exception:
+                pass
+            self._panel_width_saved = self._panel_width
+        except Exception:
+            pass
+
+    def _config_save(self):
+        """
+        F12 (0.12.0): Einstellungen sofort in CONF_FILE schreiben
+        (Verzeichnis bei Bedarf anlegen). Aufgerufen nach jeder
+        Änderung im Einstellungsfenster – ein separater Speichern-
+        Knopf ist damit unnötig.
+        """
+        if _KEYFILE_CLS is None:
+            dbg("GLib.KeyFile fehlt im Binding – Konfiguration "
+                "nicht speicherbar")
+            return
+        try:
+            os.makedirs(CONF_DIR, exist_ok=True)
+            kf = _KEYFILE_CLS()
+            kf.set_boolean("previewer", "show_at_start",
+                           self._conf_show_at_start)
+            kf.set_boolean("previewer", "text_line_numbers",
+                           self._conf_text_linenumbers)
+            # F44-Nachtrag (0.28.1): Syntax-Hervorhebung mitspeichern.
+            kf.set_boolean("previewer", "text_syntax",
+                           self._conf_text_syntax)
+            # F12 Teil 3 (0.27.0): Dokument-Deckel mitspeichern.
+            kf.set_boolean("previewer", "doc_page_limit",
+                           self._conf_doc_page_limit)
+            kf.set_integer("previewer", "doc_max_pages",
+                           int(self._conf_doc_max_pages))
+            kf.set_integer("previewer", "panel_width",
+                           int(self._panel_width))
+            kf.save_to_file(CONF_FILE)
+        except Exception as exc:
+            dbg("Konfiguration nicht speicherbar: %s" % exc)
+
+    def apply_start_settings(self):
+        """
+        F12 (0.12.0): Geladene Konfiguration auf das Panel anwenden.
+        Wird vom Einstieg NACH dem show_all der Injizierung aufge-
+        rufen – sonst würde eine verlangte Unsichtbarkeit beim Start
+        sofort wieder überschrieben. Neue Start-Einstellungen docken
+        hier an.
+        """
+        if not self._conf_show_at_start:
+            self.hide()
+            dbg("Start-Einstellung: Vorschauspalte bleibt zu Beginn "
+                "ausgeblendet")
+
+    def _panel_width_schedule_save(self):
+        """
+        F12 (0.13.0): Gezogene Breite erst speichern, wenn der
+        Trenner stillsteht (~800 ms) – nicht bei jedem Zieh-Pixel.
+        Der laufende Timer wird dabei jeweils ersetzt.
+        """
+        try:
+            if self._panel_width_timer:
+                GLib.source_remove(self._panel_width_timer)
+            self._panel_width_timer = GLib.timeout_add(
+                800, self._panel_width_save)
+        except Exception:
+            self._panel_width_timer = 0
+
+    def _panel_width_save(self):
+        """
+        F12 (0.13.0): Breite in die conf schreiben, sobald sie sich
+        gegen den zuletzt gespeicherten Wert geändert hat. Ist das
+        Einstellungsfenster offen, zieht der SpinButton nach (außer
+        der Nutzer tippt dort gerade) und die „aktuell"-Zeile wird
+        frisch gesetzt.
+        """
+        self._panel_width_timer = 0
+        try:
+            if self._panel_width != self._panel_width_saved:
+                self._panel_width_saved = self._panel_width
+                self._config_save()
+                dbg("Panelbreite (gezogen) gespeichert: %d px"
+                    % self._panel_width)
+        except Exception:
+            pass
+        try:
+            if self._settings_spin is not None:
+                if not self._settings_spin.has_focus():
+                    self._settings_spin.set_value(self._panel_width)
+            self._update_width_hint()
+        except Exception:
+            pass
+        return False
+
+    def _apply_panel_width_live(self):
+        """
+        F12 (0.13.0): Neue Startbreite sofort anwenden, während das
+        Einstellungsfenster offen ist – der Nutzer sieht die Wirkung
+        direkt. Die Paned-Position wird so gesetzt, dass die
+        Vorschauspalte self._panel_width breit ist; geht es nicht
+        (Fenster zu klein), bleibt alles unverändert.
+        """
+        try:
+            parent = self.get_parent()
+            if parent is None:
+                return
+            total = parent.get_allocated_width()
+            if total > self._panel_width + 100:
+                parent.set_position(total - self._panel_width)
+        except Exception:
+            pass
 
 
-_install_log_filter()
 
-dbg("previewer (Einstieg) v%s bereit" % PREVIEWER_VERSION)
+PREVIEWER_VERSION = "0.30.1"
+dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
+    "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
+    "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
+    "Deckel und Fixes bleiben)"
+    % PREVIEWER_VERSION)
