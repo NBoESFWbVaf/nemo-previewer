@@ -4,7 +4,8 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.28.1 – F44-Nachtrag (Nutzer-Wunsch): Syntax-Hervorhebung ist EINSTELLBAR – Schlüssel text_syntax, Rubrik „Textdateien“, Default an; ausgeschaltet oder ohne GtkSource-Binding zeigt sich immer der schlichte Text.
+STAND: Version 0.29.0 – F43-Feinschliff (Nutzer-Wunsch): Ordner-Vorschau trägt Icons vor den Namen (Typ-Symbol aus dem Icon-Theme, MENU-Größe, mit Fallback) und den Innenabstand der Text-Vorschauen (10/10/8/8 px).
+F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung ist EINSTELLBAR – Schlüssel text_syntax, Rubrik „Textdateien“, Default an; ausgeschaltet oder ohne GtkSource-Binding zeigt sich immer der schlichte Text.
 F44 (0.28.0): Syntax-Hervorhebung in der Text-Vorschau – GtkSourceView
 (optionales Binding gir1.2-gtksource-4, dasselbe Modul wie xed),
 Sprache über den GtkSource-LanguageManager geraten, dunkles Theme
@@ -830,9 +831,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         """
         F43 (Nutzer-Wunsch): Die Ordner-Vorschau zeigt den Inhalt als
         Liste statt nur eines Ordner-Icons – Ordner zuerst (fett),
-        dann Dateien, je alphabetisch; pro Zeile Name plus „Ordner“
-        bzw. Größe. K1 bleibt: ALLE Einträge zählen, versteckte
-        separat ausweisen – sie stehen gedimmt MIT in der Liste,
+        dann Dateien, je alphabetisch; pro Zeile Icon, Name plus
+        „Ordner“ bzw. Größe. Seit 0.29.0 (Nutzer-Wunsch): Vor jedem
+        Namen das Typ-Icon aus dem Icon-Theme, die Liste trägt den
+        Innenabstand der Text-Vorschauen (10/10/8/8 px). K1 bleibt:
+        ALLE Einträge zählen, versteckte separat ausweisen – sie
+        stehen gedimmt MIT in der Liste,
         nichts fehlt stillschweigend. Riesige Ordner: die ersten
         300 Zeilen im Scroll-Fenster, Rest als Fußzeile – sonst
         baute ein Ordner mit zehntausend Einträgen ebensoviele
@@ -868,7 +872,29 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         rest = max(0, len(shown) - 300)
         box = Gtk.ListBox()
         box.set_selection_mode(Gtk.SelectionMode.NONE)
+        # 0.29.0 (Nutzer-Wunsch): derselbe Innenabstand wie bei den
+        # Text-Vorschauen (10/10/8/8 px)
+        box.set_margin_start(10)
+        box.set_margin_end(10)
+        box.set_margin_top(8)
+        box.set_margin_bottom(8)
         for name, is_dir in shown[:300]:
+            # 0.29.0 (Nutzer-Wunsch): Typ-Icon vor dem Namen – Ordner
+            # über inode/directory, Dateien über den Inhaltstyp, den
+            # Gio zum Namen rät; greift das Icon-Theme nicht, bleibt
+            # der klassische Fallback
+            ic = Gtk.Image()
+            try:
+                if is_dir:
+                    ctype = "inode/directory"
+                else:
+                    ctype = Gio.content_type_guess(name, None)[0]
+                ic.set_from_gicon(Gio.content_type_get_icon(ctype),
+                                  Gtk.IconSize.MENU)
+            except Exception:
+                ic.set_from_icon_name(
+                    "folder" if is_dir else "text-x-generic",
+                    Gtk.IconSize.MENU)
             nm = Gtk.Label()
             if is_dir:
                 nm.set_markup("<b>%s</b>"
@@ -892,6 +918,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             side.set_halign(Gtk.Align.END)
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                            spacing=6)
+            hbox.pack_start(ic, False, False, 0)
             hbox.pack_start(nm, True, True, 0)
             hbox.pack_start(side, False, False, 0)
             box.add(hbox)
@@ -1110,7 +1137,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.28.1"
+PREVIEWER_VERSION = "0.29.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
