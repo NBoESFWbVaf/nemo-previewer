@@ -874,6 +874,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ✅ 0.31.2 – F43-Fix II (Nutzer-Fund): WhiteSur liefert unter  
   -symbolic-Namen farbige Icons – jedes gewählte Symbol wird als  
   einfarbige Silhouette in der Vordergrundfarbe nachgezeichnet.
+  ✅ 0.31.3 – F46 + F43-Fix III (Nutzer-Fund): Die schwarzen  
+  Flächen waren der ungemalte Panel-Hintergrund – das Panel  
+  malt jetzt selbst (Stilklasse background); Silhouetten-Farbe  
+  kommt vom angedockten Panel (Lightmode-Icons waren weiß).
 
 ---
 
