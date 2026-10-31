@@ -4,7 +4,11 @@
 Previewer – Toolbar-Modul (previewer_toolbar.py)
 ================================================
 
-STAND: Version 0.33.0 – F48 (Nutzer-Wunsch): Neuer Schalter „Ordner-
+STAND: Version 0.34.0 – F12-Wasserfall (Nutzer-Wunsch): Rubrik
+„Schriftarten“ mit Wasserfall-Probetext-Feld der Schrift-Vorschau –
+speichert sofort (Key font_sample_text) und greift live auf die
+gerade angezeigte Schrift; der Platzhalter ist weg (→ REF
+TXT-FONT-2). F48 (Nutzer-Wunsch): Neuer Schalter „Ordner-
 inhalte in der Vorschau anzeigen“ in der Rubrik „Allgemein“ (Default
 an) – abgewählt zeigt ein markierter Ordner das schlichte Ordner-Icon
 mit Dateiinformationen statt der Inhaltsliste; Umschalten speichert
@@ -233,12 +237,29 @@ class PreviewToolbarMixin:
         dfbox.pack_start(prow, False, False, 0)
         box.pack_start(dframe, False, False, 0)
 
-        hint = Gtk.Label(
-            label="Weitere Einstellungen (Wasserfall-Probetext …)\n"
-                  "folgen hier in späteren Versionen.")
-        hint.get_style_context().add_class("dim-label")
-        hint.set_halign(Gtk.Align.START)
-        box.pack_start(hint, False, False, 0)
+        # F12 (0.34.0, Nutzer-Wunsch): Rubrik „Schriftarten“ mit dem
+        # Wasserfall-Probetext der Schrift-Vorschau – der Platzhalter
+        # („folgen hier in späteren Versionen“) weicht dem echten
+        # Feld. Eintrag greift live auf die gerade angezeigte
+        # Schrift (→ REF TXT-FONT-2).
+        fframe = Gtk.Frame(label="Schriftarten")
+        fframe.set_border_width(8)
+        ffbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                        spacing=8)
+        fframe.add(ffbox)
+        flabel = Gtk.Label(label="Wasserfall-Probetext")
+        flabel.set_halign(Gtk.Align.START)
+        ffbox.pack_start(flabel, False, False, 0)
+        self._settings_font_entry = Gtk.Entry()
+        self._settings_font_entry.set_text(self._conf_font_sample_text)
+        self._settings_font_entry.set_tooltip_text(
+            "Text für die Schrift-Vorschau – greift live auf die "
+            "gerade angezeigte Schrift. Leerer Text bleibt "
+            "ungespeichert.")
+        self._settings_font_entry.connect(
+            "changed", self._on_font_sample_changed)
+        ffbox.pack_start(self._settings_font_entry, True, True, 0)
+        box.pack_start(fframe, False, False, 0)
 
         btn_close = Gtk.Button.new_with_label("Schließen")
         btn_close.connect("clicked", lambda *a: win.destroy())
@@ -268,6 +289,21 @@ class PreviewToolbarMixin:
         self._conf_folder_contents = chk.get_active()
         self._config_save()
         if self._path and os.path.isdir(self._path):
+            self._render()
+
+    def _on_font_sample_changed(self, entry):
+        """
+        F12 (0.34.0, Nutzer-Wunsch): Wasserfall-Probetext sofort
+        speichern und live anwenden – ist gerade eine Schrift
+        markiert (.ttf/.otf/.ttc), baut sich der Wasserfall sofort
+        mit dem neuen Text auf. Leerer Text bleibt ungespeichert.
+        """
+        t = entry.get_text()
+        if t.strip():
+            self._conf_font_sample_text = t
+            self._config_save()
+        if self._path and os.path.splitext(
+                self._path.lower())[1] in (".ttf", ".otf", ".ttc"):
             self._render()
 
     def _on_linenumbers_toggled(self, chk):
@@ -379,7 +415,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.33.0"
+PREVIEWER_VERSION = "0.34.0"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)
