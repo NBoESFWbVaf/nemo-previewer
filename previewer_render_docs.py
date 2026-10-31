@@ -4,7 +4,7 @@
 Previewer – Renderer-Modul Dokumente (previewer_render_docs.py)
 ===============================================================
 
-STAND: Version 0.31.1 – F12 Teil 3/F14 (Nutzer-Wunsch): Der Seiten-
+STAND: Version 0.31.2 – F12 Teil 3/F14 (Nutzer-Wunsch): Der Seiten-
 Deckel ist einstellbar – ausgeschaltet zeigt die Vorschau ALLE
 Seiten, eingeschaltet die konfigurierte Anzahl (Default 20, wie
 bisher MAX_PDF_PAGES); das Seiten-Label steht jetzt über jedem
@@ -570,7 +570,7 @@ class DocsRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.31.1"
+PREVIEWER_VERSION = "0.31.2"
 dbg("previewer_render_docs %s geladen (F31: PDF-/Office-Renderer; "
     "Lese-Deckel und LibreOffice-Cache bleiben)"
     % PREVIEWER_VERSION)
