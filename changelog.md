@@ -6,6 +6,19 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.30.1\] – 2026-10-31
+
+### Fixed (Behoben)
+
+- Ordner-Vorschau: Icons strikt symbolisch (F43-Fix, Nutzer-Fund):  
+GTK lud bei fehlender -symbolic-Variante im Icon-Theme heimlich  
+das farbige Voll-Icon – im Darkmode zeigten sich dunkle Platten  
+mit schwarzem Rand, teils bei Ordnern, teils bei Dateitypen  
+ohne Symbol-Variante (etwa SVG, Archive). Die Symbol-Kandidaten  
+werden jetzt gegen Gtk.IconTheme.has\_icon geprüft; fehlt die  
+Themen-Variante, greifen die generischen Symbole (folder-  
+symbolic bzw. text-x-generic-symbolic) – nie das Voll-Icon
+
 ## \[0.30.0\] – 2026-10-31
 
 ### Changed (Geändert)
