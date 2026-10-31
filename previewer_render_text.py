@@ -4,7 +4,14 @@
 Previewer – Renderer-Modul Text (previewer_render_text.py)
 ==========================================================
 
-STAND: Version 0.33.0 – F44 (Nutzer-Wunsch): _render_text reicht
+STAND: Version 0.34.0 – F12-Wasserfall (Nutzer-Fund/-Wunsch): Der
+Textfarb-Fix – get_color() verlangt in GTK3 das State-Argument, der
+alte Aufruf ohne Argument warf IMMER eine TypeError, deren except
+den Fallback (fast schwarz) übrig ließ – der Wasserfall folgt jetzt
+mit get_color(Gtk.StateFlags.NORMAL) dem Theme. Neu: Der Probetext
+ist einstellbar (Key font_sample_text, Default der klassische Satz),
+Rubrik „Schriftarten“ im Einstellungsfenster, greift live (→ REF
+TXT-FONT-2). F44 (Nutzer-Wunsch):
 source_path an _text_view weiter – Quellcode-Dateien (.py, .sh, .c …)
 erscheinen mit Syntax-Hervorhebung (GtkSourceView im Panel-Kern,
 optionales Binding gir1.2-gtksource-4).
@@ -1839,10 +1846,18 @@ class TextRendererMixin:
             self._hint("Schrift konnte nicht eingebunden werden – der "
                        "Wasserfall zeigt die Ersatzschrift.")
 
-        # Textfarbe aus dem Theme übernehmen
+        # Textfarbe aus dem Theme übernehmen. F12-Fix (0.34.0,
+        # Nutzer-Fund): get_color() verlangt in GTK3 das State-
+        # Argument – der alte Aufruf ohne Argument warf IMMER eine
+        # TypeError, die der except-Block schluckte, deshalb malte
+        # der Fallback (fast schwarz) in jedem Theme; im Darkmode
+        # stand schwarzer Text auf dunkelgrauem Grund. Mit State-
+        # Flags.NORMAL liest der Aufruf dieselbe Farbe wie die
+        # Ordner-Icons (→ REF TXT-FONT-2).
         fg = (0.13, 0.13, 0.13)
         try:
-            c = self.get_style_context().get_color()
+            c = self.get_style_context().get_color(
+                Gtk.StateFlags.NORMAL)
             fg = (c.red, c.green, c.blue)
         except Exception:
             pass
@@ -1865,7 +1880,11 @@ class TextRendererMixin:
             text_fd.set_size(size * Pango.SCALE * s)
             text_l = Pango.Layout.new(fctx)
             text_l.set_font_description(text_fd)
-            text_l.set_text(_FONT_SAMPLE_TEXT, -1)
+            # F12 (0.34.0, Nutzer-Wunsch): Der Probetext kommt aus
+            # der Konfiguration – einstellbar im Einstellungsfenster
+            # (Rubrik „Schriftarten“), Default ist der klassische
+            # Satz (→ REF TXT-FONT-2).
+            text_l.set_text(self._conf_font_sample_text, -1)
             text_l.set_width(surf_w * Pango.SCALE)
             text_l.set_wrap(Pango.WrapMode.WORD_CHAR)
             pairs.append((tag_l, text_l))
@@ -1892,7 +1911,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.33.0"
+PREVIEWER_VERSION = "0.34.0"
 dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F44: "
     "Syntax-Hervorhebung via source_path; F31: "
     "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "
