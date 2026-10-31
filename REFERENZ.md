@@ -136,6 +136,17 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
             # (Executables, Core-Dumps) fallen durch und bleiben generisch.
 ```
 
+### PAN-F47-1 – Schnüffel-Fallback für opake Typen (F47)
+
+- **Modul:** previewer\_panel.py
+- **Ort:** `_render_inner`, neuer Zweig vor `self._render_generic()`; zusätzlich .theme/.old/.bak/.orig in \_TEXT\_EXTRAS und das neue \_OPAQUE\_TYPES am Modulkopf
+- **Anlass:** Nutzer-Fund (2026-10-31): Reine Textdateien bekamen keine Text-Vorschau, weil der Typ-Rater der MIME-Datenbank nur den NAMEN liest – index.theme galt als application/x-theme, .xsession-errors.old als application/x-trash („Sicherheitskopie"); .xsession-errors dagegen hat als Dotfile KEINE Endung (splitext zählt den führenden Punkt zum Namen) und lief dem F23-Schnüffler in die Arme. Fix: (1) .theme/.old/.bak/.orig in die Endungs-Whitelist \_TEXT\_EXTRAS (.swp bleibt draußen – Vim-Swap ist binär); (2) bei „opaken" Typen (application/x-trash, application/x-theme, application/octet-stream) lässt der Dispatch den Schnüffler über den INHALT entscheiden, bevor die Vorschau aufgibt – lesbarer Text bekommt die Text-Vorschau, Binärdateien fallen an der Schwelle (NULL-Bytes, ≥ 5 % Steuerzeichen in den ersten 4 KB). Damit sehen künftig auch unbekannte Endungen mit Textinhalt eine Vorschau.
+
+```text
+        elif mime in _OPAQUE_TYPES and _sniff_is_text(path):
+            self._render_text(path)
+```
+
 ### PAN-BILD-1 – Mindesthöhe bei keep\_height
 
 - **Modul:** previewer\_panel.py
