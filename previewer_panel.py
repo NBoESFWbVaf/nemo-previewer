@@ -4,8 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.4 – F46 II (Nutzer-Fund/-Wunsch): Die Stilklasse background allein genügte nicht – GtkBox malt von selbst KEINE CSS-Hintergrundfarbe; deshalb zeichnet das Panel im draw-Signal als Erstes den themed Hintergrund (Stil-Kontext des Nemo-Toplevels – der Panel-Kontext trägt bei WhiteSur-Dark womöglich keine aufgelöste Hintergrundfarbe) unter alle Kinder. Und die Ordner-Liste füllt die Spalte randlos – der Außenrand des Inhaltsbereichs wird dafür genullt, das Padding (10/10/8/8 px) liegt INNERHALB des Listenfensters.
-F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
+STAND: Version 0.31.5 – F46 III (Nutzer-Fund): Der 0.31.4-Hintergrund blieb ohne Wirkung – der Toplevel-Kontext löst in WhiteSur offenbar keine Hintergrundfarbe auf, und die Bildlaufleisten-Region liegt im eigenen GdkWindow des Scroll-Fensters, das die Panel-Malerei nie erreicht. Der Hintergrund-Painter läuft deshalb als Kette (Panel-Kontext, Toplevel, Inhalts-Platte, sonst aus der Vordergrundfarbe abgeleitete Grundfläche) und zusätzlich am Scroll-Fenster der Ordner-Liste; dbg „Panel-Hintergrund:" nennt Quelle und Kandidatenfarben (→ REF PAN-BG-2). F46 II (0.31.4, Nutzer-Wunsch): Ordner-Liste randlos – der Außenrand des Inhaltsbereichs wird dafür genullt, das Padding (10/10/8/8 px) liegt INNERHALB des Listenfensters.
 F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
@@ -191,6 +190,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # farbe – deshalb zeichnet das Panel im draw-Signal zuerst
         # den themed Hintergrund unter alle Kinder (→ REF PAN-BG-1).
         self.connect("draw", self._on_panel_draw)
+        # 0.31.5 (F46 III): Merker gegen dbg-Flut im draw-Signal –
+        # der Hintergrund-Painter protokolliert Quelle und Farben
+        # nur bei Wechsel (→ REF PAN-BG-2).
+        self._bg_dbg_key = None
 
         self._window = window
         self._path = None
@@ -310,17 +313,98 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self.connect("destroy", self._on_panel_destroy)
 
     def _on_panel_draw(self, widget, cr):
-        # 0.31.4 (F46 II, Nutzer-Fund): GtkBox ruft gtk_render_
-        # background nie selbst auf – hier manuell VOR allen Kind-
-        # widgets, damit keine Fläche ungemalt schwarz bleibt. Der
-        # Stil-Kontext des TOPLEVELS (Nemo-Fenster) liefert die
-        # Hintergrundfarbe – der Panel-Kontext trägt bei WhiteSur-
-        # Dark womöglich gar keine aufgelöste (→ REF PAN-BG-1).
-        Gtk.render_background(
-            widget.get_toplevel().get_style_context(), cr,
-            0, 0, widget.get_allocated_width(),
-            widget.get_allocated_height())
+        # 0.31.5 (F46 III, Nutzer-Fund): GtkBox ruft gtk_render_
+        # background nie selbst auf – deshalb malt dieser Haken den
+        # Hintergrund VOR allen Kindern. Er hängt zusätzlich am
+        # Scroll-Fenster der Ordner-Liste: Das trägt ein eigenes
+        # GdkWindow, das die Panel-Malerei sonst nie erreicht
+        # (→ REF PAN-BG-2).
+        self._paint_background(widget, cr)
         return False
+
+    def _bg_content_ctx(self):
+        """Stil-Kontext des gerenderten Inhalts (Liste/Text-Ansicht).
+
+        Dessen Fläche ist sichtbar gemalt – eine dort aufgelöste
+        Hintergrundfarbe ist garantiert echt und passt zur Platte.
+        """
+        target = None
+
+        def _visit(w):
+            nonlocal target
+            if target is not None:
+                return
+            if isinstance(w, (Gtk.ListBox, Gtk.TextView)):
+                target = w
+            elif isinstance(w, Gtk.Container):
+                w.foreach(_visit)
+
+        try:
+            content = self._content
+            if content is not None:
+                content.foreach(_visit)
+        except Exception:
+            pass
+        try:
+            return target.get_style_context()
+        except Exception:
+            return None
+
+    def _paint_background(self, widget, cr):
+        """Hintergrund unter alle Kinder malen – als Kette (F46 III).
+
+        Erste Quelle mit aufgelöster Farbe gewinnt; dbg nennt alle
+        Kandidaten, damit das Log zeigt, was das Theme liefert
+        (→ REF PAN-BG-2).
+        """
+        cands = [("Panel", self.get_style_context())]
+        try:
+            top = self.get_toplevel()
+            if top is not None and top is not self:
+                cands.append(("Toplevel", top.get_style_context()))
+        except Exception:
+            pass
+        content_ctx = self._bg_content_ctx()
+        if content_ctx is not None:
+            cands.append(("Inhalt", content_ctx))
+        ctx, used, report = None, None, []
+        for name, cctx in cands:
+            try:
+                rgba = cctx.get_background_color(
+                    Gtk.StateFlags.NORMAL)
+            except Exception:
+                rgba = None
+            report.append("%s=%s" % (
+                name, rgba.to_string() if rgba is not None else "-"))
+            if ctx is None and rgba is not None \
+                    and rgba.alpha > 0.0:
+                ctx, used = cctx, name
+        w, h = widget.get_allocated_width(), \
+            widget.get_allocated_height()
+        if ctx is not None:
+            Gtk.render_background(ctx, cr, 0, 0, w, h)
+        elif content_ctx is not None:
+            # Keine Farbe aufgelöst – aber die Platte malt ja
+            # sichtbar: Ihr Kontext rendert womöglich einen Farb-
+            # verlauf, den get_background_color nicht zeigt.
+            Gtk.render_background(content_ctx, cr, 0, 0, w, h)
+            used = "Inhalt-ungeprüft"
+        else:
+            # Letzte Rettung: aus der Vordergrundfarbe abgeleitete
+            # Grundfläche – hell im Lightmode, dunkel im Darkmode.
+            fg = self.get_style_context().get_color(
+                Gtk.StateFlags.NORMAL)
+            base = 0.92 if (fg.red + fg.green + fg.blue) / 3.0 \
+                > 0.5 else 0.12
+            cr.set_source_rgba(base, base, base, 1.0)
+            cr.rectangle(0, 0, w, h)
+            cr.fill()
+            used = "Vordergrund-abgeleitet"
+        key = "%s|%s" % (used, ";".join(report))
+        if key != self._bg_dbg_key:
+            self._bg_dbg_key = key
+            dbg("Panel-Hintergrund: quelle=%s – Kandidaten: %s"
+                % (used, "; ".join(report)))
 
 
     # ------------------------------ Selektion ------------------------------
@@ -1066,6 +1150,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                           Gtk.PolicyType.AUTOMATIC)
         scroll.set_vexpand(True)
         scroll.add(box)
+        # 0.31.5 (F46 III, Nutzer-Fund): Das Scroll-Fenster trägt
+        # ein eigenes GdkWindow – die Panel-Malerei erreicht seine
+        # Fläche (Bildlaufleisten-Region) sonst nie. Derselbe
+        # Hintergrund-Painter deshalb zusätzlich am Scroll-Fenster;
+        # ohne eigenes GdkWindow bliebe das Doppel-Malen unsichtbar
+        # (→ REF PAN-BG-2).
+        scroll.connect("draw", self._on_panel_draw)
         # 0.31.4 (Nutzer-Wunsch): Außenrand des Inhaltsbereichs für
         # die Ordner-Vorschau nullen – das Listenfenster füllt die
         # Spalte randlos, das Padding (10/10/8/8 px) liegt IN der
@@ -1073,7 +1164,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._content.set_border_width(0)
         self._content.pack_start(scroll, True, True, 0)
         dbg("Ordner-Liste: %d Einträge, %d Zeilen gebaut"
-            % (total, min(300, len(shown))))
+            " – Scroll-Fenster eigenes GdkWindow: %s"
+            % (total, min(300, len(shown)),
+               scroll.get_has_window()))
         # 0.31.1 (Nutzer-Fund): Inhaltstyp → gewähltes Symbol protokol-
         # lieren – zeigt das Log bei Icon-Problemen (F43-Diagnose),
         # welches Theme-Symbol je Typ tatsächlich lädt. Seit 0.31.2
@@ -1291,7 +1384,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.4"
+PREVIEWER_VERSION = "0.31.5"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
