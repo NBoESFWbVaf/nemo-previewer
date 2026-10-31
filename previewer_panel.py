@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.30.1 – F43-Fix (Nutzer-Fund): Strikt symbolische Icons in der Ordner-Vorschau – GTK lud bei fehlender -symbolic-Variante heimlich das farbige Voll-Icon (dunkle Platten mit hartem Rand im Darkmode); die Symbol-Kandidaten werden jetzt gegen Gtk.IconTheme geprüft.
+STAND: Version 0.31.0 – F43-Fix (Nutzer-Fund): Strikt symbolische Icons in der Ordner-Vorschau – GTK lud bei fehlender -symbolic-Variante heimlich das farbige Voll-Icon (dunkle Platten mit hartem Rand im Darkmode); die Symbol-Kandidaten werden jetzt gegen Gtk.IconTheme geprüft.
 F43-Feinschliff II (0.30.0, Nutzer-Wunsch): Ordner-Vorschau mit theme-folgenden symbolischen Icons (Darkmode hell, Lightmode dunkel); Ordner zuerst (F43); versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
 F43-Feinschliff (0.29.0, Nutzer-Wunsch): Ordner-Vorschau trägt Icons vor den Namen (Typ-Symbol aus dem Icon-Theme, MENU-Größe, mit Fallback) und den Innenabstand der Text-Vorschauen (10/10/8/8 px).
 F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung ist EINSTELLBAR – Schlüssel text_syntax, Rubrik „Textdateien“, Default an; ausgeschaltet oder ohne GtkSource-Binding zeigt sich immer der schlichte Text.
@@ -1172,7 +1172,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.30.1"
+PREVIEWER_VERSION = "0.31.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
