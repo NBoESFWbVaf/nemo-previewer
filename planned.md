@@ -871,6 +871,9 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ✅ 0.31.1 – F43-Diagnose (Nutzer-Fund): dbg „Ordner-Icons:"  
   protokolliert je Render das Abbild Inhaltstyp→gewähltes  
   Symbol, um die tatsächlich geladenen Theme-Symbole zu sehen.
+  ✅ 0.31.2 – F43-Fix II (Nutzer-Fund): WhiteSur liefert unter  
+  -symbolic-Namen farbige Icons – jedes gewählte Symbol wird als  
+  einfarbige Silhouette in der Vordergrundfarbe nachgezeichnet.
 
 ---
 
