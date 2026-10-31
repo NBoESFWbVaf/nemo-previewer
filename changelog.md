@@ -6,6 +6,19 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.2\] – 2026-10-31
+
+### Fixed (Behoben)
+
+- Symbol-Silhouetten (F43, Nutzer-Fund): Die 0.31.1-Diagnose zeigte,  
+  dass der Ladekurs durchweg -symbolic-Namen wählt – das WhiteSur-  
+  Theme liefert unter diesen Namen aber selbst farbige Icons  
+  (dunkle Platten im Darkmode). Die Ordner-Vorschau zeichnet deshalb  
+  jedes gewählte Symbol als einfarbige Silhouette in der  
+  Vordergrundfarbe der Liste nach: Alphakanal (Form) bleibt, RGB  
+  geht einheitlich auf die Textfarbe – Darkmode hell, Lightmode  
+  dunkel, egal was das Theme unter dem -symbolic-Namen einschmuggelt.
+
 ## \[0.31.1\] – 2026-10-31
 
 ### Added (Hinzugefügt)
