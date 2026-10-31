@@ -903,6 +903,11 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   zusätzlich per CSS-Regel (Klasse pvw-surface, Anwendungs-  
   priorität) auf Viewport und Bildlaufleisten; dbg ergänzt je  
   Widget die Eigen-Farbe des Widget-Kontexts (→ REF PAN-BG-2).
+  ✅ 0.31.8 – F46 VI (Nutzer-Fund): Der schwarze Hintergrund trat erstmals  
+  mit dem Randlos-Wunsch aus 0.31.4 auf – der Ordner-Zweig nullt den  
+  Außenrand deshalb nicht mehr (8 px von \_render\_inner bleiben);  
+  CSS-Regel zusätzlich auf Scroll-Fenster und Junction, dbg-Merker je  
+  Widget, CSS-dbg nur bei Farbwechsel (→ REF PAN-BG-2, PAN-FOLDER-1).
 
 ---
 

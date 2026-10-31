@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.7 – F46 V (Nutzer-Fund): 0.31.6 bewies Painter-Erfolg (dbg: alle vier Widgets malen, quelle=Panel, rgba(56,56,56,0.999)) und gesetzte Margins (10/10/8/8) – doch der schwarze Streifen blieb und das Padding fehlte optisch. Ursachen-Verdacht: Der draw-Painter malt VOR dem Widget-Standard-Draw, Theme-Flächen (Trough, Viewport) überdecken ihn; und die Margin-Streifen der Liste zeigen den Viewport-Hintergrund statt der Platte. Deshalb setzt jetzt eine CSS-Regel (Klasse pvw-surface, Anwendungspriorität über dem Theme) die Hintergrundfarbe auf Viewport und Bildlaufleisten, und dbg ergänzt je Widget die Eigen-Farbe des Widget-Kontexts (→ REF PAN-BG-2). F46 IV (0.31.6): Painter zusätzlich an Viewport und Bildlaufleisten, Widget-dbg, Margin-Rücklesen. F46 II (0.31.4, Nutzer-Wunsch): Ordner-Liste randlos – der Außenrand des Inhaltsbereichs wird dafür genullt, das Padding (10/10/8/8 px) liegt INNERHALB des Listenfensters.
+STAND: Version 0.31.8 – F46 VI (Nutzer-Fund): Der schwarze Hintergrund trat erstmals mit dem Randlos-Wunsch aus 0.31.4 auf – erst ohne den 8-px-Außenrand erreichte das eigene, transparente GdkWindow des Scroll-Fensters die Plattenkante. Der Ordner-Zweig nullt den Außenrand deshalb nicht mehr (der Rand von _render_inner bleibt). Zusätzlich deckt die CSS-Regel jetzt auch das Scroll-Fenster selbst und die Junction ab, der dbg-Merker des Hintergrund-Painters ist je Widget eigener (ein einzelner ließ die Zeilen endlos pendeln – Logflut), und die CSS-dbg-Zeile druckt nur noch bei Farbwechsel (→ REF PAN-BG-2, PAN-FOLDER-1). F46 V (0.31.7): CSS-Regel pvw-surface auf Viewport und Bildlaufleisten, Eigen-Farbe je Widget im dbg. F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
 F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
@@ -192,11 +192,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self.connect("draw", self._on_panel_draw)
         # 0.31.5 (F46 III): Merker gegen dbg-Flut im draw-Signal –
         # der Hintergrund-Painter protokolliert Quelle und Farben
-        # nur bei Wechsel (→ REF PAN-BG-2).
-        self._bg_dbg_key = None
+        # nur bei Wechsel; je Widget ein eigener Merker (0.31.8:
+        # Ein einzelner Wert ließ die Zeilen der vier Widgets
+        # endlos pendeln) (→ REF PAN-BG-2).
+        self._bg_dbg_keys = {}
         # 0.31.7 (F46 V): CSS-Regel für die Scroll-Flächen – der
         # Provider entsteht beim Ordner-Render (→ REF PAN-BG-2).
         self._surface_provider = None
+        # 0.31.8 (F46 VI): CSS-dbg-Zeile nur bei Farbwechsel.
+        self._surface_css_farbe = None
 
         self._window = window
         self._path = None
@@ -413,9 +417,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             cr.fill()
             used = "Vordergrund-abgeleitet"
         wname = type(widget).__name__
-        key = "%s|%s|%s" % (wname, used, ";".join(report))
-        if key != self._bg_dbg_key:
-            self._bg_dbg_key = key
+        # 0.31.8 (F46 VI): Merker je Widget – ein einzelner Wert
+        # ließ die dbg-Zeilen der vier Widgets endlos pendeln.
+        key = "%s|%s" % (used, ";".join(report))
+        if self._bg_dbg_keys.get(wname) != key:
+            self._bg_dbg_keys[wname] = key
             dbg("Panel-Hintergrund (%s): quelle=%s – Kandidaten: %s"
                 % (wname, used, "; ".join(report)))
 
@@ -456,6 +462,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             if farbe is None:
                 farbe = "rgb(56,56,56)"
             css = (
+                ".pvw-surface,"
+                ".pvw-surface junction,"
                 ".pvw-surface viewport,"
                 ".pvw-surface scrollbar,"
                 ".pvw-surface scrollbar trough,"
@@ -470,8 +478,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             for ctx in self._surface_css_contexts(scroll):
                 ctx.add_provider(
                     prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-            dbg("Panel-Hintergrund CSS: Regel für Viewport und "
-                "Bildlaufleisten installiert (Farbe %s)" % farbe)
+            # 0.31.8 (F46 VI): Nur bei Farbwechsel drucken – die
+            # Zeile lief sonst bei jeder Ordner-Auswahl erneut.
+            if self._surface_css_farbe != farbe:
+                self._surface_css_farbe = farbe
+                dbg("Panel-Hintergrund CSS: Regel für Scroll-Fenster, "
+                    "Viewport und Bildlaufleisten installiert "
+                    "(Farbe %s)" % farbe)
         except Exception as e:
             dbg("Panel-Hintergrund CSS: gescheitert – %s" % e)
 
@@ -1274,11 +1287,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # überdecken den Painter also. Die Fläche deshalb addi-
         # tional per CSS-Regel färben (→ REF PAN-BG-2).
         self._apply_surface_css(scroll)
-        # 0.31.4 (Nutzer-Wunsch): Außenrand des Inhaltsbereichs für
-        # die Ordner-Vorschau nullen – das Listenfenster füllt die
-        # Spalte randlos, das Padding (10/10/8/8 px) liegt IN der
-        # Platte (→ REF PAN-FOLDER-1).
-        self._content.set_border_width(0)
+        # 0.31.8 (F46 VI, Nutzer-Fund): Der Randlos-Wunsch (0.31.4)
+        # brieb erst den schwarzen Hintergrund hervor – ohne den
+        # 8-px-Außenrand erreichte das eigene, transparente
+        # GdkWindow des Scroll-Fensters die Plattenkante. Der Rand
+        # von _render_inner (8 px) bleibt deshalb auch hier stehen,
+        # so war es vor 0.31.4 ohne schwarze Ränder (→ REF
+        # PAN-FOLDER-1, PAN-BG-2).
         self._content.pack_start(scroll, True, True, 0)
         dbg("Ordner-Liste: %d Einträge, %d Zeilen gebaut"
             " – Scroll-Fenster eigenes GdkWindow: %s"
@@ -1505,7 +1520,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.7"
+PREVIEWER_VERSION = "0.31.8"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
