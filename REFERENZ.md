@@ -178,6 +178,20 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
         # Deckel bei Bildern.
 ```
 
+### PAN-FOLDER-2 – Ordner-Inhaltsliste einstellbar (F48)
+
+- **Modul:** previewer\_panel.py (Dispatch + Konfiguration), previewer\_toolbar.py (Schalter)
+- **Ort:** `_render_inner` am `is_dir`-Zweig; Defaults in `\_\_init\_\_`, Laden/Speichern in \_config\_load/\_config\_save (Schlüssel folder\_contents); Einstellungsfenster, Rubrik „Allgemein“
+- **Anlass:** Nutzer-Wunsch (2026-10-31): Die Ordner-Vorschau mit Inhaltsliste (F43) soll der obligatorische Standard bleiben – aber abschaltbar. Der Schalter „Ordnerinhalte in der Vorschau anzeigen“ (Default an, sofort gespeichert) zeigt bei Abwahl das schlichte Ordner-Icon mit Dateiinformationen (das Verhalten vor 0.23.0); das Umschalten baut einen gerade markierten Ordner live um (os.path.isdir auf \_path), Datei-Vorschauen bleiben unberührt. Unlesbare und leere Ordner behalten ihre Hinweise („Ordner“ / „Der Ordner ist leer.“), unabhängig vom Schalter.
+
+```text
+        if is_dir:
+            if self._conf_folder_contents:
+                self._render_folder(path)
+            else:
+                self._render_generic()
+```
+
 ### PAN-VCARD-1 – Visitenkarten-Dispatch (F7)
 
 - **Modul:** previewer\_panel.py
