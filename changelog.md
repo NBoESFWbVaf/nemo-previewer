@@ -6,6 +6,31 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.34.0\] – 2026-10-31
+
+### Fixed (Behoben)
+
+- Wasserfall-Textfarbe folgt dem Theme (F12, Nutzer-Fund): In der  
+  Schrift-Vorschau war der Wasserfall-Text schwarz – auch im  
+  Darkmode, wo schwarzer Text auf dunkelgrauem Grund kaum lesbar  
+  war. Ursache: StyleContext.get\_color() verlangt in GTK3 das  
+  State-Argument; der alte Aufruf ohne Argument warf IMMER eine  
+  TypeError, die der umgebende except-Block schluckte, sodass der  
+  Fallback (fast schwarz) stehen blieb. Jetzt liest der Aufruf  
+  get\_color(Gtk.StateFlags.NORMAL) dieselbe Theme-Farbe wie die  
+  Ordner-Icons (→ REF TXT-FONT-2).
+
+### Added (Hinzugefügt)
+
+- Wasserfall-Probetext einstellbar (F12, Nutzer-Wunsch): Der Text  
+  des Schrift-Wasserfalls ist nicht mehr fest im Quellcode  
+  verdrahtet. Neue Rubrik „Schriftarten“ im Einstellungsfenster  
+  mit Textfeld – Einträge speichern sofort  
+  (Konfigurations-Schlüssel font\_sample\_text, Default bleibt der  
+  klassische Satz) und bauen eine gerade angezeigte Schrift live  
+  neu auf; leerer Text bleibt ungespeichert  
+  (→ REF TXT-FONT-2).
+
 ## \[0.33.0\] – 2026-10-31
 
 ### Added (Hinzugefügt)
