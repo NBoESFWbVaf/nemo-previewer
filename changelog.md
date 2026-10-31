@@ -6,6 +6,28 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.11\] – 2026-10-31
+
+### Changed (Geändert)
+
+- Ordner-Liste IX (F46 IX, Nutzer-Beschreibung): Das 10/10/8/8-  
+  Innen-Padding sitzt jetzt IN der Platte – die Ränder hängen an  
+  den Zeilen-Inhalten (10 px seitlich, 8 px oben an der ersten und  
+  unten an der letzten Zeile) statt als Margins vor der ListBox.  
+  Die Themefläche der Platte füllt den Viewport randvoll; der  
+  schwarze Träger der Liste (Eltern-Ebene), den der Nutzer nur bei  
+  überlanger Liste sah, hat keine freiliegende Fläche mehr. Die  
+  Bildlaufleiste selbst war schon themefarben (→ REF  
+  PAN-FOLDER-1, PAN-BG-2).
+
+### Added (Hinzugefügt)
+
+- Panel-Scan (F46 IX): Die Pixelsonden lesen zusätzlich ein  
+  komplettes horizontales Farbprofil in Panelhöhe – Farbläufe  
+  komprimiert druckt das Log mit Schwarz-Pixel-Zähler und zeigt  
+  damit auch Streifen, zwischen denen keine feste Sonde sitzt  
+  (→ REF PAN-BG-2).
+
 ## \[0.31.10\] – 2026-10-31
 
 ### Fixed (Behoben)
