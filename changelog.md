@@ -6,234 +6,244 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.1\] – 2026-10-31
+
+### Added (Hinzugefügt)
+
+- Ordner-Icons-Diagnose (F43, Nutzer-Fund): Die dunklen Platten tauchten  
+  auch unter dem strengen Symbol-Ladekurs (0.30.1) wieder auf – deshalb  
+  protokolliert die Ordner-Vorschau je Render das Abbild Inhaltstyp→  
+  gewähltes Symbol als dbg-Zeile „Ordner-Icons:", damit das Log zeigt,  
+  welches Theme-Symbol je Typ tatsächlich lädt.
+
 ## \[0.31.0\] – 2026-10-31
 
 ### Added (Hinzugefügt)
 
 - Schritt-Trace für alle Funktionen (F45, Nutzer-Wunsch): Ein  
-zentraler sys.settrace-Hook (install\_step\_trace, im Einstieg  
-gesetzt) protokolliert jeden Aufruf samt Argumenten, jedes  
-Return und jede Ausnahme in allen acht Modulen – ohne eine  
-einzige bestehende Funktion anzufassen. Aktivierung über die  
-Umgebungsvariable NEMO\_PREVIEWER\_TRACE beim Start von Nemo:  
-1/call protokolliert Aufrufe, line zusätzlich jede ausgeführte  
-Zeile; ohne die Variable läuft kein Hook (null Overhead)
+  zentraler sys.settrace-Hook (install\_step\_trace, im Einstieg  
+  gesetzt) protokolliert jeden Aufruf samt Argumenten, jedes  
+  Return und jede Ausnahme in allen acht Modulen – ohne eine  
+  einzige bestehende Funktion anzufassen. Aktivierung über die  
+  Umgebungsvariable NEMO\_PREVIEWER\_TRACE beim Start von Nemo:  
+  1/call protokolliert Aufrufe, line zusätzlich jede ausgeführte  
+  Zeile; ohne die Variable läuft kein Hook (null Overhead)
 
 ## \[0.30.1\] – 2026-10-31
 
 ### Fixed (Behoben)
 
 - Ordner-Vorschau: Icons strikt symbolisch (F43-Fix, Nutzer-Fund):  
-GTK lud bei fehlender -symbolic-Variante im Icon-Theme heimlich  
-das farbige Voll-Icon – im Darkmode zeigten sich dunkle Platten  
-mit schwarzem Rand, teils bei Ordnern, teils bei Dateitypen  
-ohne Symbol-Variante (etwa SVG, Archive). Die Symbol-Kandidaten  
-werden jetzt gegen Gtk.IconTheme.has\_icon geprüft; fehlt die  
-Themen-Variante, greifen die generischen Symbole (folder-  
-symbolic bzw. text-x-generic-symbolic) – nie das Voll-Icon
+  GTK lud bei fehlender -symbolic-Variante im Icon-Theme heimlich  
+  das farbige Voll-Icon – im Darkmode zeigten sich dunkle Platten  
+  mit schwarzem Rand, teils bei Ordnern, teils bei Dateitypen  
+  ohne Symbol-Variante (etwa SVG, Archive). Die Symbol-Kandidaten  
+  werden jetzt gegen Gtk.IconTheme.has\_icon geprüft; fehlt die  
+  Themen-Variante, greifen die generischen Symbole (folder-  
+  symbolic bzw. text-x-generic-symbolic) – nie das Voll-Icon
 
 ## \[0.30.0\] – 2026-10-31
 
 ### Changed (Geändert)
 
 - Ordner-Vorschau: Icons folgen dem System-Theme (F43-Feinschliff II,  
-Nutzer-Wunsch): Symbolische Icons statt fester Symbole – im  
-Darkmode hell, im Lightmode dunkel. Ordner stehen wie gehabt vor  
-den Dateien (F43), versteckte Einträge erscheinen nur in der  
-Liste, wenn Nemo sie anzeigt (Strg+H, org.nemo.preferences  
-show-hidden-files) – sonst weist der Kopf-Hinweis sie zahlen-  
-mäßig aus (K1)
+  Nutzer-Wunsch): Symbolische Icons statt fester Symbole – im  
+  Darkmode hell, im Lightmode dunkel. Ordner stehen wie gehabt vor  
+  den Dateien (F43), versteckte Einträge erscheinen nur in der  
+  Liste, wenn Nemo sie anzeigt (Strg+H, org.nemo.preferences  
+  show-hidden-files) – sonst weist der Kopf-Hinweis sie zahlen-  
+  mäßig aus (K1)
 
 ## \[0.29.0\] – 2026-10-31
 
 ### Changed (Geändert)
 
 - Ordner-Vorschau mit Icons und Innenabstand (F43-Feinschliff,  
-Nutzer-Wunsch): Vor jedem Eintrag steht das Typ-Icon aus dem  
-Icon-Theme – Ordner-Symbol bzw. von Gio geratenes Datei-Symbol  
-in Menü-Größe, mit Fallback –, und die Liste trägt denselben  
-Innenabstand wie die Text-Vorschauen (10/10/8/8 px)  
+  Nutzer-Wunsch): Vor jedem Eintrag steht das Typ-Icon aus dem  
+  Icon-Theme – Ordner-Symbol bzw. von Gio geratenes Datei-Symbol  
+  in Menü-Größe, mit Fallback –, und die Liste trägt denselben  
+  Innenabstand wie die Text-Vorschauen (10/10/8/8 px)  
 - INSTALL.md: Installation auf git clone umgestellt (Nutzer-Umbau  
-übernommen): git im Pflichtpaket, eigene Abschnitte „Change  
-directory and clone git“ und „Create the needed directory …“,  
-Sammelzeile „All packages at once“ mit allen Paketen in einem  
-Rutsch; drei Schönheitsfehler gleich mitgeflickt: cd-Fortsetzung  
-mit &amp;&amp; statt Backslash (ergab kaputtes Bash), Schritt-Nummerie-  
-rung 1./2./3. statt 2./3./4., Überschrift um „directory“ ergänzt;  
-Log-Beispiel im Abschnitt Install von 0.3.1 auf 0.29.0 gebracht  
+  übernommen): git im Pflichtpaket, eigene Abschnitte „Change  
+  directory and clone git“ und „Create the needed directory …“,  
+  Sammelzeile „All packages at once“ mit allen Paketen in einem  
+  Rutsch; drei Schönheitsfehler gleich mitgeflickt: cd-Fortsetzung  
+  mit && statt Backslash (ergab kaputtes Bash), Schritt-Nummerie-  
+  rung 1./2./3. statt 2./3./4., Überschrift um „directory“ ergänzt;  
+  Log-Beispiel im Abschnitt Install von 0.3.1 auf 0.29.0 gebracht  
 - INSTALL.md: gir1.2-gtksource-4 (Syntax-Hervorhebung in der Text-  
-Vorschau, neu seit 0.28.0) im Block der optionalen Pakete ergänzt –  
-Mint 22 bringt es über xed praktisch immer mit, Debian 13 führt  
-denselben Namen; zusätzlich der Hinweis, dass die Audio-Wiedergabe  
-(autoaudiosink) das Plugin-Set gstreamer1.0-plugins-good braucht,  
-das Mint/Cinnamon mitbringt und minimales Debian nicht
+  Vorschau, neu seit 0.28.0) im Block der optionalen Pakete ergänzt –  
+  Mint 22 bringt es über xed praktisch immer mit, Debian 13 führt  
+  denselben Namen; zusätzlich der Hinweis, dass die Audio-Wiedergabe  
+  (autoaudiosink) das Plugin-Set gstreamer1.0-plugins-good braucht,  
+  das Mint/Cinnamon mitbringt und minimales Debian nicht  
 
 ## \[0.28.1\] – 2026-10-30
 
 ### Added (Hinzugefügt)
 
 - Syntax-Hervorhebung als Einstellung (F44-Nachtrag,  
-Nutzer-Wunsch): In der Rubrik „Textdateien“ umschaltbar  
-(Schlüssel text\_syntax), Standard aktiviert – abgehakt  
-zeigen Quellcode-Dateien immer den schlichten Text; der  
-Schalter greift sofort auf die laufende Vorschau
+  Nutzer-Wunsch): In der Rubrik „Textdateien“ umschaltbar  
+  (Schlüssel text\_syntax), Standard aktiviert – abgehakt  
+  zeigen Quellcode-Dateien immer den schlichten Text; der  
+  Schalter greift sofort auf die laufende Vorschau  
 
 ## \[0.28.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)
 
 - Syntax-Hervorhebung in der Text-Vorschau (F44, Nutzer-Wunsch):  
-Quellcode-Dateien (.py, .sh, .c, .js, .json, .xml …) erscheinen  
-eingefärbt wie im Editor – GtkSourceView (optionales Paket  
-gir1.2-gtksource-4, dasselbe Modul wie xed) rät die Sprache über  
-den Dateinamen; ohne Binding oder ohne erkannte Sprache bleibt die  
-Vorschau unverändert. Dunkles GTK-Theme bekommt ein dunkles  
-Farbschema (oblivion), helles das klassische; Zeilennummern (F24)  
-bleiben Randzeichnung und nicht kopierbar
+  Quellcode-Dateien (.py, .sh, .c, .js, .json, .xml …) erscheinen  
+  eingefärbt wie im Editor – GtkSourceView (optionales Paket  
+  gir1.2-gtksource-4, dasselbe Modul wie xed) rät die Sprache über  
+  den Dateinamen; ohne Binding oder ohne erkannte Sprache bleibt die  
+  Vorschau unverändert. Dunkles GTK-Theme bekommt ein dunkles  
+  Farbschema (oblivion), helles das klassische; Zeilennummern (F24)  
+  bleiben Randzeichnung und nicht kopierbar  
 
 ## \[0.27.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)
 
 - Einstellbarer Dokument-Deckel (F12 Teil 3, Nutzer-Wunsch): In der  
-neuen Rubrik „Dokumente“ des Einstellungsfensters festlegen, ob PDF-  
-und Office-Vorschauen begrenzt werden (Performance) oder unbegrenzt  
-alle Seiten zeigen; die maximale Seitenzahl ist frei wählbar (1–999,  
-Standard 20 wie bisher), Änderungen greifen sofort – auch auf das  
-gerade angezeigte Dokument  
+  neuen Rubrik „Dokumente“ des Einstellungsfensters festlegen, ob PDF-  
+  und Office-Vorschauen begrenzt werden (Performance) oder unbegrenzt  
+  alle Seiten zeigen; die maximale Seitenzahl ist frei wählbar (1–999,  
+  Standard 20 wie bisher), Änderungen greifen sofort – auch auf das  
+  gerade angezeigte Dokument  
 - Seitenanzeige über jedem Dokument (F14, Nutzer-Wunsch): Auch  
-einseitige PDF- und Office-Dokumente zeigen „Seite 1 von 1“
+  einseitige PDF- und Office-Dokumente zeigen „Seite 1 von 1“  
 
 ### Changed (Geändert)
 
-- Seitenanzeige einheitlich als „Seite X von Y“ (zuvor „Seite X/Y“)
+- Seitenanzeige einheitlich als „Seite X von Y“ (zuvor „Seite X/Y“)  
 
 ## \[0.26.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)
 
 - LDIF-Adressbücher und Windows-Kontakte als Visitenkarte (F7,  
-Nutzer-Wunsch): .ldif-Dateien (Thunderbird-/Mozilla-/Outlook-  
-Exporte, RFC 2849 mit Base64-Werten und jpegPhoto) und .contact-  
-Dateien (Windows-XML, namensraum-agnostisch) rendern dieselbe  
-Visitenkarte wie .vcf/.vcard
+  Nutzer-Wunsch): .ldif-Dateien (Thunderbird-/Mozilla-/Outlook-  
+  Exporte, RFC 2849 mit Base64-Werten und jpegPhoto) und .contact-  
+  Dateien (Windows-XML, namensraum-agnostisch) rendern dieselbe  
+  Visitenkarte wie .vcf/.vcard  
 
 ### Changed (Geändert)
 
 - Visitenkarten ohne Mengenbegrenzung (F7, Nutzer-Wunsch): Der  
-50-Karten-Deckel ist entfallen – alle Kontakte der Datei werden  
-gebaut und scrollbar angezeigt; bei einem einzelnen Kontakt zeigt  
-sich kein Scrollbalken
+  50-Karten-Deckel ist entfallen – alle Kontakte der Datei werden  
+  gebaut und scrollbar angezeigt; bei einem einzelnen Kontakt zeigt  
+  sich kein Scrollbalken  
 
 ## \[0.25.1\] – 2026-10-30
 
 ### Changed (Geändert)
 
 - Visitenkarten ohne Karten-Hintergrund (F7, Nutzer-Wunsch): Der  
-Karten-Rahmen bleibt transparent – im Darkmode schmerzt eine  
-weiße Kachel in den Augen; Schatten und Haarlinien-Rand bleiben  
+  Karten-Rahmen bleibt transparent – im Darkmode schmerzt eine  
+  weiße Kachel in den Augen; Schatten und Haarlinien-Rand bleiben  
 - Dezenterer Eckenradius (Nutzer-Wunsch): Um ein Drittel reduziert –  
-Visitenkarten wie Musikcover (Platzhalter-Kachel und Cover-Rahmen  
-mit Schatten) runden jetzt mit 56/960 statt 56/640 der kleineren  
-Kante
+  Visitenkarten wie Musikcover (Platzhalter-Kachel und Cover-Rahmen  
+  mit Schatten) runden jetzt mit 56/960 statt 56/640 der kleineren  
+  Kante  
 
 ## \[0.25.0\] – 2026-10-30
 
 ### Changed (Geändert)
 
 - vCard-Feinschliff (F7, Nutzer-Wunsch): Jede Visitenkarte trägt einen  
-rechteckigen Rahmen mit dem Eckenradius der eingebetteten Musikcover  
-(F34-Formel) und dem gleichen Schlagschatten; Dateien mit mehreren  
-Kontakten zeigen jetzt ALLE Karten untereinander, scrollbar – nicht  
-mehr nur den ersten (50-Karten-Deckel mit Rest-Hinweis)
+  rechteckigen Rahmen mit dem Eckenradius der eingebetteten Musikcover  
+  (F34-Formel) und dem gleichen Schlagschatten; Dateien mit mehreren  
+  Kontakten zeigen jetzt ALLE Karten untereinander, scrollbar – nicht  
+  mehr nur den ersten (50-Karten-Deckel mit Rest-Hinweis)  
 
 ## \[0.24.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)
 
 - vCard-Visitenkarte (F7, Teil 1, Nutzer-Wunsch): .vcf/.vcard-Dateien  
-(vCard 2.1, 3.0, 4.0) erscheinen als echte Visitenkarte – das  
-Kontakt-Foto kreisförmig (inline Base64 oder lokale URI), ohne Foto  
-ein kreisförmiger Platzhalter; darunter Name, Position/Firma und  
-die Kontaktdaten (Telefon, E-Mail, Web, Adresse, Geburtstag) als  
-Tabelle. Enthält die Datei mehrere Kontakte, wird der erste gezeigt;  
-ICS (Termine als Tabelle) bleibt offen
+  (vCard 2.1, 3.0, 4.0) erscheinen als echte Visitenkarte – das  
+  Kontakt-Foto kreisförmig (inline Base64 oder lokale URI), ohne Foto  
+  ein kreisförmiger Platzhalter; darunter Name, Position/Firma und  
+  die Kontaktdaten (Telefon, E-Mail, Web, Adresse, Geburtstag) als  
+  Tabelle. Enthält die Datei mehrere Kontakte, wird der erste gezeigt;  
+  ICS (Termine als Tabelle) bleibt offen  
 
 ## \[0.23.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)
 
 - Ordner-Vorschau als Inhalts-Liste (F43, Nutzer-Wunsch): Statt des  
-Ordner-Icons zeigt das Panel den Inhalt – Ordner zuerst (fett),  
-dann Dateien mit Größe, je alphabetisch; versteckte Einträge  
-gedimmt dabei, riesige Ordner die ersten 300 Zeilen mit Rest-  
-Hinweis
+  Ordner-Icons zeigt das Panel den Inhalt – Ordner zuerst (fett),  
+  dann Dateien mit Größe, je alphabetisch; versteckte Einträge  
+  gedimmt dabei, riesige Ordner die ersten 300 Zeilen mit Rest-  
+  Hinweis  
 
 ## \[0.22.0\] – 2026-10-30
 
 ### Added (Hinzugefügt)
 
 - Vorschau-Umschalter in Nemos Werkzeugleiste (F40, Nutzer-Wunsch):  
-Neben der Ansichtenauswahl sitzt ein Knopf, der die Vorschau-  
-Seitenleiste ein- und ausblendet – bei CSD in der Titelleiste,  
-klassisch als Umschalter direkt hinter den Ansichts-Knöpfen der  
-Nemo-Toolbar; das Icon ist builder-view-right-pane-symbolic (Icon-  
-Helfer mit Theme-Fallbacks), und der Zustand bleibt mit Strg+Alt+P  
-synchron
+  Neben der Ansichtenauswahl sitzt ein Knopf, der die Vorschau-  
+  Seitenleiste ein- und ausblendet – bei CSD in der Titelleiste,  
+  klassisch als Umschalter direkt hinter den Ansichts-Knöpfen der  
+  Nemo-Toolbar; das Icon ist builder-view-right-pane-symbolic (Icon-  
+  Helfer mit Theme-Fallbacks), und der Zustand bleibt mit Strg+Alt+P  
+  synchron
 - Foto-Informationen für RAW-Dateien (F42, Nutzer-Wunsch): NEF,  
-CR2, CR3, ARW, ORF, DNG &amp; Co. kann Gdk-Pixbuf meist nicht deko-  
-dieren – das Panel zeigt jetzt die Foto-Tabelle (Kamera, Datum,  
-Blende &amp; Co.) unter der Icon-Ansicht, wenn EXIF im Puffer steht  
+  CR2, CR3, ARW, ORF, DNG & Co. kann Gdk-Pixbuf meist nicht deko-  
+  dieren – das Panel zeigt jetzt die Foto-Tabelle (Kamera, Datum,  
+  Blende & Co.) unter der Icon-Ansicht, wenn EXIF im Puffer steht  
 - Alte MS-Office-Formate in der Vorschau (F39, Nutzer-Wunsch):  
-Binäre .doc-, .xls- und .ppt-Dateien sowie RTF-Dateien laufen über  
-die LibreOffice-Hintergrund-Konvertierung wie die OOXML-Formate  
-scharf ins PDF; da sie keine ZIP-Archive sind, gibt es keine  
-eingebettete Miniaturansicht – die Übergangsansicht zeigt Hinweise  
-zu Konvertierung, fehlendem LibreOffice oder gescheiterter  
-Konvertierung
+  Binäre .doc-, .xls- und .ppt-Dateien sowie RTF-Dateien laufen über  
+  die LibreOffice-Hintergrund-Konvertierung wie die OOXML-Formate  
+  scharf ins PDF; da sie keine ZIP-Archive sind, gibt es keine  
+  eingebettete Miniaturansicht – die Übergangsansicht zeigt Hinweise  
+  zu Konvertierung, fehlendem LibreOffice oder gescheiterter  
+  Konvertierung
 - „Location“ und benutzerdefinierte Felder in der Bild-Info-Tabelle  
-(F38, Nutzer-Wunsch): Falls vorhanden, zeigt die Tabelle die XMP-  
-„Location“ (IPTC Core, direkt nach dem Aufnahmeort) sowie beliebige  
-XMP-Felder aus nicht-standardisierten Namensräumen („Präfix:Name“)  
-– geparst mit Python-Bordmitteln im Worker-Thread, maximal zehn  
-Zusatzzeilen, jede nur mit vorhandenem Wert
+  (F38, Nutzer-Wunsch): Falls vorhanden, zeigt die Tabelle die XMP-  
+  „Location“ (IPTC Core, direkt nach dem Aufnahmeort) sowie beliebige  
+  XMP-Felder aus nicht-standardisierten Namensräumen („Präfix:Name“)  
+  – geparst mit Python-Bordmitteln im Worker-Thread, maximal zehn  
+  Zusatzzeilen, jede nur mit vorhandenem Wert
 
 ### Changed (Geändert)
 
 - Bild-Vorschau in 60/40-Aufteilung (F38, Nutzer-Wunsch): Die Spalte  
-teilt sich in einen 60-%-Bereich für das Bild (vertikal und horizon-  
-tahl mittig, über die volle Spaltenbreite) und einen 40-%-Bereich  
-für die Bildinformationen; die EXIF-/Maß-Tabelle (F36) läuft dort  
-hinein, die Aufteilung bleibt beim Fenster-Resize über einen Live-  
-Nachzug erhalten. SVG-Vorschauen nutzen dieselbe Aufteilung, ihre  
-Maß-Zeile steht im Info-Bereich
+  teilt sich in einen 60-%-Bereich für das Bild (vertikal und horizon-  
+  tahl mittig, über die volle Spaltenbreite) und einen 40-%-Bereich  
+  für die Bildinformationen; die EXIF-/Maß-Tabelle (F36) läuft dort  
+  hinein, die Aufteilung bleibt beim Fenster-Resize über einen Live-  
+  Nachzug erhalten. SVG-Vorschauen nutzen dieselbe Aufteilung, ihre  
+  Maß-Zeile steht im Info-Bereich
 - Neues Symbol für den Öffnen-Knopf (F40, Nutzer-Wunsch): Das Öffnen  
-der Datei in der Standardanwendung trägt jetzt das Stift-Symbol  
-(document-edit), nicht mehr das Dokument-Öffnen-Symbol; fehlt es  
-im Icon-Theme, greift der bisherige Name als Fallback
+  der Datei in der Standardanwendung trägt jetzt das Stift-Symbol  
+  (document-edit), nicht mehr das Dokument-Öffnen-Symbol; fehlt es  
+  im Icon-Theme, greift der bisherige Name als Fallback
 
 ### Removed (Entfernt)
 
 - Ausblenden-Knopf in der Panel-Kopfzeile (F40, Nutzer-Wunsch): Der  
-Schalter ist als Vorschau-Umschalter in Nemos Werkzeugleiste  
-gewandert (siehe Hinzugefügt) – Strg+Alt+P funktioniert unverändert
+  Schalter ist als Vorschau-Umschalter in Nemos Werkzeugleiste  
+  gewandert (siehe Hinzugefügt) – Strg+Alt+P funktioniert unverändert
 
 ### Fixed (Behoben)
 
 - Foto-Informationen aus HEIC/HEIF (F41/F42, Nutzer-Meldung): Das  
-EXIF liegt dort als „Exif“-Item mitten im Container – teils mit,  
-teils ohne APP1-Vorspann, teils erst am Ende der Datei. Ein zu-  
-fälliger früher „Exif“-Treffer in der Meta-Box brach die alte  
-Einzelsuche ab; jetzt sammelt der Parser validierte Kandidaten  
-im ganzen Puffer und nimmt den ersten mit EXIF  
+  EXIF liegt dort als „Exif“-Item mitten im Container – teils mit,  
+  teils ohne APP1-Vorspann, teils erst am Ende der Datei. Ein zu-  
+  fälliger früher „Exif“-Treffer in der Meta-Box brach die alte  
+  Einzelsuche ab; jetzt sammelt der Parser validierte Kandidaten  
+  im ganzen Puffer und nimmt den ersten mit EXIF  
 - Kaputte Office-Dateien zeigen ein Icon (K2): Statt einer nackten  
-Hinweiszeile sitzt die generische Icon-Ansicht als visueller Anker  
-über der Fehlermeldung  
+  Hinweiszeile sitzt die generische Icon-Ansicht als visueller Anker  
+  über der Fehlermeldung  
 - SVG-Vorschau über die Cairo-Route (K3): Intrinsisch kleine SVGs  
-füllen jetzt die Panelbreite (DPI-Rendern, Vektor bleibt scharf),  
-und der Aufruf nutzt die aktuelle librsvg-API statt des deprecated  
-get\_pixbuf(); ohne pycairo oder mit altem librsvg greift der  
-bisherige Pfad als Fallback
+  füllen jetzt die Panelbreite (DPI-Rendern, Vektor bleibt scharf),  
+  und der Aufruf nutzt die aktuelle librsvg-API statt des deprecated  
+  get\_pixbuf(); ohne pycairo oder mit altem librsvg greift der  
+  bisherige Pfad als Fallback
 
 ## \[0.21.0\] – 2026-10-30
 
