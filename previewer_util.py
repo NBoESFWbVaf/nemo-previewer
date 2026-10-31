@@ -4,10 +4,8 @@
 Previewer – Helfer-Modul (previewer_util.py)
 ===========================================
 
-STAND: Version 0.30.1 – F40: Neuer Helfer pick_icon (erstes im Icon-
-Thema vorhandenes Symbol, Fallback sonst) für den Nemo-Titelleisten-
-Umschalter und den Öffnen-Knopf. Die Basis-Helfer _pixbuf_from_bytes
-und _zf_read_capped (0.15.0/F31) bleiben unverändert.
+STAND: Version 0.31.0 – F45 (Nutzer-Wunsch): Schritt-Trace install_step_trace – ein zentraler sys.settrace-Hook protokolliert jeden Aufruf, jedes Return und jede Ausnahme aller Previewer-Funktionen (NEMO_PREVIEWER_TRACE=1/call bzw. =line); ohne die Variable läuft kein Hook (→ REF UT-TRACE-1).
+F40 (0.30.1): Neuer Helfer pick_icon (erstes im Icon-Theme vorhandenes Symbol, Fallback sonst) für den Nemo-Titelleisten-Umschalter und den Öffnen-Knopf. Die Basis-Helfer _pixbuf_from_bytes und _zf_read_capped (0.15.0/F31) bleiben unverändert.
 
 Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
 Hilfsfunktionen und die zentralen Konfigurations-Konstanten. Teil der
@@ -16,6 +14,7 @@ Installation: INSTALL.md im Repository).
 """
 
 import os
+import sys
 
 
 import gi
@@ -60,6 +59,61 @@ def diag(msg):
     """Diagnose-Ausgabe – nur sichtbar bei VERBOSE_DIAG=True."""
     if VERBOSE_DIAG:
         dbg(msg)
+
+
+# F45 (Nutzer-Wunsch): Schritt-Trace für alle Funktionen über einen
+# zentralen sys.settrace-Hook statt Einzel-Instrumentierung; Niveau
+# über NEMO_PREVIEWER_TRACE (1/call, line) – ohne die Variable kein
+# Hook. → REF UT-TRACE-1
+def install_step_trace():
+    """
+    F45 (Nutzer-Wunsch): sys.settrace-Hook installieren, wenn
+    NEMO_PREVIEWER_TRACE gesetzt ist (1/call oder line). Rückgabe
+    True, wenn der Trace läuft. Verfolgt nur Dateien mit Präfix
+    previewer_ – Nemo, GTK und fremde Extensions bleiben frei;
+    dbg/diag sind ausgenommen, damit der Logger sich nicht selbst
+    protokolliert; Fehler im Hook schalten still ab.
+    """
+    level = os.environ.get("NEMO_PREVIEWER_TRACE", "").strip().lower()
+    if level not in ("1", "call", "calls", "line", "lines"):
+        return False
+    want_lines = level.startswith("line")
+
+    def _fmt(val):
+        try:
+            s = repr(val)
+        except Exception:
+            s = "<keine Repräsentation>"
+        return s if len(s) <= 60 else s[:57] + "…"
+
+    def _tracer(frame, event, arg):
+        try:
+            base = os.path.basename(frame.f_code.co_filename)
+            if not base.startswith("previewer_"):
+                return None
+            name = frame.f_code.co_name
+            if name in ("dbg", "diag"):
+                return None
+            mod = base[:-3]
+            if event == "call":
+                keys = frame.f_code.co_varnames[:frame.f_code.co_argcount]
+                args = ", ".join(_fmt(frame.f_locals.get(k)) for k in keys)
+                dbg("TRACE→ %s:%s(%s)" % (mod, name, args))
+            elif event == "return":
+                dbg("TRACE← %s:%s = %s" % (mod, name, _fmt(arg)))
+            elif event == "exception":
+                dbg("TRACE! %s:%s hob %s: %s"
+                    % (mod, name, arg[0].__name__, _fmt(arg[1])))
+            elif event == "line" and want_lines:
+                dbg("TRACE· %s:%s L%d" % (mod, name, frame.f_lineno))
+            return _tracer
+        except Exception:
+            return None
+
+    sys.settrace(_tracer)
+    dbg("Schritt-Trace AN (Niveau: %s)"
+        % ("Zeile" if want_lines else "Aufruf"))
+    return True
 
 
 def pick_icon(names, fallback):
@@ -198,5 +252,5 @@ def _zf_read_capped(zf, name, cap):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.30.1"
+PREVIEWER_VERSION = "0.31.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
