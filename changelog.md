@@ -6,6 +6,19 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.31.0\] – 2026-10-31
+
+### Added (Hinzugefügt)
+
+- Schritt-Trace für alle Funktionen (F45, Nutzer-Wunsch): Ein  
+zentraler sys.settrace-Hook (install\_step\_trace, im Einstieg  
+gesetzt) protokolliert jeden Aufruf samt Argumenten, jedes  
+Return und jede Ausnahme in allen acht Modulen – ohne eine  
+einzige bestehende Funktion anzufassen. Aktivierung über die  
+Umgebungsvariable NEMO\_PREVIEWER\_TRACE beim Start von Nemo:  
+1/call protokolliert Aufrufe, line zusätzlich jede ausgeführte  
+Zeile; ohne die Variable läuft kein Hook (null Overhead)
+
 ## \[0.30.1\] – 2026-10-31
 
 ### Fixed (Behoben)
