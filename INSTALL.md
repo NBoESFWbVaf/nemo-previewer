@@ -60,6 +60,11 @@ sudo apt install libreoffice-core
 
 **All packages at once**
 
+  ```bash
+    sudo apt install nemo-python python3-gi git gir1.2-poppler-0.18 python3-cairo gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-good gir1.2-rsvg-2.0 gir1.2-gtksource-4 libreoffice-core
+  ```
+
+
 Everything else runs on Python standard library modules only.
 
 **Debian notes** (verified on Debian 13 "Trixie" with Cinnamon/Nemo)
@@ -78,8 +83,17 @@ carry the same names on both distributions
 ## Install
 
 ### Change directory and clone git
+  ```bash
+    cd /tmp && \
+    git clone https://github.com/NBoESFWbVaf/nemo-previewer.git
+  ```
 
-### Create the needed directory and copy all \*.py Files to this directory
+### Create the needed directory and copy all *.py Files to this directory
+  ```bash
+    mkdir -p ~/.local/share/nemo-python/extensions
+    cp /tmp/nemo-previewer/*.py ~/.local/share/nemo-python/extensions/
+  ```
+
 
 1. Restart Nemo:
   ```bash
@@ -87,14 +101,14 @@ carry the same names on both distributions
   ```
 2. Check the log. Each module reports its version on load:
   ```text
-   [previewer] previewer_util 0.30.1 geladen
-   [previewer] previewer_select 0.30.1 geladen
-   [previewer] previewer_render_media 0.30.1 geladen (...)
-   [previewer] previewer_render_docs 0.30.1 geladen (...)
-   [previewer] previewer_render_text 0.30.1 geladen (...)
-   [previewer] previewer_toolbar 0.30.1 geladen (...)
-   [previewer] previewer_panel 0.30.1 geladen (...)
-   [previewer] previewer (Einstieg) v0.30.1 bereit
+   [previewer] previewer_util 0.31.1 geladen
+   [previewer] previewer_select 0.31.1 geladen
+   [previewer] previewer_render_media 0.31.1 geladen (...)
+   [previewer] previewer_render_docs 0.31.1 geladen (...)
+   [previewer] previewer_render_text 0.31.1 geladen (...)
+   [previewer] previewer_toolbar 0.31.1 geladen (...)
+   [previewer] previewer_panel 0.31.1 geladen (...)
+   [previewer] previewer (Einstieg) v0.31.1 bereit
   ```
 
    Eight lines with the same version number — anything else means an old  
