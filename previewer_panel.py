@@ -4,7 +4,7 @@
 Previewer – Panel-Modul (previewer_panel.py)
 ============================================
 
-STAND: Version 0.31.9 – F46 VII (Nutzer-Fund): 0.31.8 lief sauber (eine bereit-Zeile, keine Flut) und dbg zeigte ALLE Flächen bemalt – auch das Scroll-Fenster löst jetzt rgba(56,56,56,0.999) auf (zuvor transparent) – dennoch blieb der schwarze Streifen laut Nutzer. Das Bild widerspricht dem Widget-Modell, deshalb reine Diagnose-Version: \_dbg\_pixels liest nach dem Malen echte Pixel (Pixelsonden in der Bildlaufleisten-Spalte – Kante und zwei Tiefen –, am Panelrand, auf der Platte und vor dem Panel) und protokolliert die Farben – das Log zeigt damit, WO Schwarz wirklich sitzt (→ REF PAN-BG-2). F46 VI (0.31.8): Randlos-Rücknahme, CSS auf Scroll-Fenster/Junction, dbg je Widget, CSS-dbg nur bei Farbwechsel. F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
+STAND: Version 0.31.10 – F46 VIII (Pixelsonden-Fund): Die Sonden aus 0.31.9 ertappten das Schwarz exklusiv bei pw-12 – im Streifen zwischen Plattenkante und Bildlaufleisten-Spalte, und nur, wenn die Leiste sichtbar ist; Viewport, Scroll-Fenster und Panel sind überall bemalt. Der Balken floatet als Overlay-Scrolling in einem eigenen Gdk-Fenster über dem Viewport, dessen ungemalte Teile schwarz bleiben – deshalb jetzt klassischer Inline-Balken (set_overlay_scrolling(False)), dann greifen Painter und CSS zuverlässig; die Pixelsonden bleiben zur Verifikation drin (→ REF PAN-BG-2). F46 VII (0.31.9): _dbg_pixels liest nach dem Malen echte Pixel (Pixelsonden in der Bildlaufleisten-Spalte, am Panelrand, auf der Platte und vor dem Panel) – das Log zeigt damit, WO Schwarz wirklich sitzt. F46 VI (0.31.8): Randlos-Rücknahme, CSS auf Scroll-Fenster/Junction, dbg je Widget, CSS-dbg nur bei Farbwechsel. F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
 F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
 F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
 F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
@@ -1308,6 +1308,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
                           Gtk.PolicyType.AUTOMATIC)
         scroll.set_vexpand(True)
+        # 0.31.10 (F46 VIII, Pixelsonden-Fund): Das Schwarz sitzt
+        # ausschließlich im Streifen zwischen Plattenkante und
+        # Bildlaufleisten-Spalte, nur solange die Leiste sichtbar
+        # ist – Overlay-Scrolling lässt den Balken in einem
+        # eigenen Gdk-Fenster über dem Viewport floaten, dessen
+        # ungemalte Teile schwarz bleiben. Klassischer Inline-
+        # Balken zwingt ihn ins normale Fenster-Stacking, damit
+        # greifen Painter und CSS zuverlässig (→ REF PAN-BG-2).
+        scroll.set_overlay_scrolling(False)
         scroll.add(box)
         # 0.31.5 (F46 III, Nutzer-Fund): Das Scroll-Fenster trägt
         # ein eigenes GdkWindow – die Panel-Malerei erreicht seine
@@ -1570,7 +1579,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.31.9"
+PREVIEWER_VERSION = "0.31.10"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
