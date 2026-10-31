@@ -926,6 +926,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   jetzt IN der Platte (Zeilen-Ränder statt ListBox-Margins), die  
   Platte füllt den Viewport randvoll; dazu Panel-Scan mit  
   Schwarz-Pixel-Zähler (→ REF PAN-FOLDER-1, PAN-BG-2).
+  ✅ 0.32.0 – F47 (Nutzer-Fund): „Textdateien" ohne Vorschau, weil  
+  der Typ-Rater den Namen liest (index.theme = x-theme, .old =  
+  x-trash „Sicherheitskopie") – Whitelist um .theme/.old/.bak/  
+  .orig erweitert UND Schnüffel-Fallback für opake Typen (x-trash,  
+  x-theme, octet-stream) vor dem generischen Platzhalter; der  
+  Inhalt entscheidet, Binäres fällt an der Steuerzeichen-Schwelle  
+  (→ REF PAN-F47-1).
 
 ---
 
