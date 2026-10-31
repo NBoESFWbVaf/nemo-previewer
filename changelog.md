@@ -6,6 +6,24 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.32.0\] – 2026-10-31
+
+### Added (Hinzugefügt)
+
+- Text-Vorschau für „opake" Dateitypen (F47, Nutzer-Fund): Der  
+  Typ-Rater liest nur den NAMEN – index.theme galt als  
+  application/x-theme, .xsession-errors.old als application/x-  
+  trash („Sicherheitskopie"), beide ohne Text-Vorschau, obwohl  
+  ihr Inhalt reiner Text ist; endungslose Dotfiles wie  
+  .xsession-errors kamen dagegen schon über den F23-Schnüffler  
+  zur Vorschau. Jetzt: (1) .theme/.old/.bak/.orig in der Endungs-  
+  Whitelist \_TEXT\_EXTRAS (.swp bleibt draußen, Vim-Swap ist  
+  binär); (2) bei opaken Typen (Sicherheitskopie, Theme,  
+  unbekannt/application/octet-stream) entscheidet der Schnüffler  
+  über den Inhalt, bevor die Vorschau aufgibt – lesbarer Text  
+  wird angezeigt, Binärdateien fallen an der Steuerzeichen-  
+  Schwelle (→ REF PAN-F47-1).
+
 ## \[0.31.11\] – 2026-10-31
 
 ### Changed (Geändert)
