@@ -6,6 +6,18 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.30.0\] – 2026-10-31
+
+### Changed (Geändert)
+
+- Ordner-Vorschau: Icons folgen dem System-Theme (F43-Feinschliff II,  
+Nutzer-Wunsch): Symbolische Icons statt fester Symbole – im  
+Darkmode hell, im Lightmode dunkel. Ordner stehen wie gehabt vor  
+den Dateien (F43), versteckte Einträge erscheinen nur in der  
+Liste, wenn Nemo sie anzeigt (Strg+H, org.nemo.preferences  
+show-hidden-files) – sonst weist der Kopf-Hinweis sie zahlen-  
+mäßig aus (K1)
+
 ## \[0.29.0\] – 2026-10-31
 
 ### Changed (Geändert)
