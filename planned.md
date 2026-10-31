@@ -862,7 +862,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   wie bei Textvorschauen (10/10/8/8 px).  
   ✅ 0.30.0 – Feinschliff II (Nutzer-Wunsch): Symbolische Icons  
   folgen dem System-Theme (Darkmode hell, Lightmode dunkel);  
-  versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
+  versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).  
+  ✅ 0.30.1 – Fix (Nutzer-Fund): Strikte Symbolik – Kandidaten gegen  
+  das Icon-Theme geprüft, kein heimliches Voll-Icon mehr (dunkle  
+  Platten im Darkmode).
 
 ---
 
