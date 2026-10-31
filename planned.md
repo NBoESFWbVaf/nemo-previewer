@@ -1,4 +1,4 @@
-# Nemo Previewer – Planung ([planned.md](http://planned.md))
+# Nemo Previewer – Planung (planned.md)
 
 Arbeitsdatei zur systematischen Ablage. Stand der Analyse: **Version 0.4.1**,  
 2026-10-27. Abgearbeitetes wird abgehakt; erledigte Punkte wandern mit der  
@@ -636,12 +636,11 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Optionales Binding gir1.2-gtksource-4 (dasselbe wie xed) – fehlt  
   es oder bleibt die Sprache unerkannt, zeigt sich die bisherige  
   Text-Vorschau.
-
+  
   ✅ 0.28.1 (Nutzer-Wunsch): Hervorhebung in den Einstellungen  
   umschaltbar (Rubrik „Textdateien", Schlüssel  
   text\_syntax), Default an – abgehakt zeigt sich immer der  
   schlichte Text; der Schalter greift live über \_last\_textish.
-
 ---
 
 ## Teil 3: Nach dem ersten Release (1.0.0)
@@ -780,12 +779,12 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   zieht live nach; Mittig via halign/valign CENTER, Tabelle via  
   \_meta\_grid mit container-Parameter.  
   ✅ 0.22.0 – top/bottom-Boxen mit Trenner, \_image\_split\_sync  
-  (Nachzug nur bei Änderung &gt; 2 px, kein Loop); \_image\_info\_box in  
+  (Nachzug nur bei Änderung > 2 px, kein Loop); \_image\_info\_box in  
   \_\_init\_\_ und \_clear\_content gepflegt; SVG-Maße ebenfalls im  
   Info-Bereich. Nach Streifen-Bug im Test: Mittig-Zentrierung am  
   BILD (halign/valign CENTER am Gtk.Image), NICHT am Scrolled-  
   Window – align=CENTER schrumpft Scrollbares auf die natürliche  
-  Breite \~0 (→ MED-SPLIT-1). Ergänzt (Nutzer-Wunsch, 2026-10-30):  
+  Breite ~0 (→ MED-SPLIT-1). Ergänzt (Nutzer-Wunsch, 2026-10-30):  
   „Location“ (XMP/IPTC Core) und benutzerdefinierte XMP-Felder aus  
   nicht-standardisierten Namensräumen (bis 10 Zusatzzeilen) in der  
   Info-Tabelle via \_xmp\_parse.
@@ -826,7 +825,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   (Nutzer-Meldung 2026-10-30) Aus HEIC-Bildern wurden keine Informa-  
   tionen angezeigt – EXIF steckt dort als „Exif“-Item ohne JPEG-  
   APP1-Vorspann im Meta-Container. **M** – *Skizze:* \_exif\_find\_tiff  
-  sucht die TIFF-Kopfmuster II\*/MM\* direkt in den ersten 4 MB und  
+  sucht die TIFF-Kopfmuster II*/MM* direkt in den ersten 4 MB und  
   validiert jeden Fund als IFD0-Struktur; der erste gültige Kopf  
   gewinnt, die JPEG-Route (APP1-Marker) bleibt unverändert.  
   ✅ 0.22.0 – \_exif\_parse ruft ohne APP1-Marker \_exif\_find\_tiff auf  
@@ -856,19 +855,22 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   rechts „Ordner“), dann Dateien (rechts Größe über human\_size), je  
   alphabetisch; versteckte gedimmt dabei (K1 bleibt), 300-Zeilen-  
   Deckel mit „… und N weitere“.  
-  ✅ 0.23.0 – \_render\_folder komplett umgebaut (→ REF PAN-FOLDER-1).  
+  ✅ 0.23.0 – \_render\_folder komplett umgebaut (→ REF PAN-FOLDER-1).
   ✅ 0.29.0 – Feinschliff (Nutzer-Wunsch): Icons vor den Namen  
   (Ordner- bzw. Dateityp-Symbol aus dem Icon-Theme), Innenabstand  
-  wie bei Textvorschauen (10/10/8/8 px).  
+  wie bei Textvorschauen (10/10/8/8 px).
   ✅ 0.30.0 – Feinschliff II (Nutzer-Wunsch): Symbolische Icons  
   folgen dem System-Theme (Darkmode hell, Lightmode dunkel);  
-  versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).  
+  versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
   ✅ 0.30.1 – Fix (Nutzer-Fund): Strikte Symbolik – Kandidaten gegen  
   das Icon-Theme geprüft, kein heimliches Voll-Icon mehr (dunkle  
-  Platten im Darkmode).  
+  Platten im Darkmode).
   ✅ 0.31.0 – Schritt-Trace (Nutzer-Wunsch): sys.settrace-Hook  
   protokolliert jeden Aufruf/Return/Ausnahme aller Funktionen;  
-  NEMO\_PREVIEWER\_TRACE=1 bzw. =line (→ REF UT-TRACE-1).
+  NEMO_PREVIEWER_TRACE=1 bzw. =line (→ REF UT-TRACE-1).
+  ✅ 0.31.1 – F43-Diagnose (Nutzer-Fund): dbg „Ordner-Icons:"  
+  protokolliert je Render das Abbild Inhaltstyp→gewähltes  
+  Symbol, um die tatsächlich geladenen Theme-Symbole zu sehen.
 
 ---
 
