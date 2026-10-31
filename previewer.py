@@ -24,7 +24,7 @@ Datei.
 
 Unterstützte Vorschauen
 -----------------------
-- Bilder (JPEG, PNG, WebP, GIF, TIFF, ... alles, was Gdk-Pixbuf kennt)
+- Bilder (JPEG, PNG, WebP, GIF, TIFF;test, ... alles, was Gdk-Pixbuf kennt)
 - Text/Quellcode (read-only, monospace; endungslose Textdateien werden
   über eine Inhaltsprüfung erkannt)
 - Markdown (.md): gerendert – Überschriften, Fett/Kursiv, Code, Listen
