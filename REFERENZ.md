@@ -708,6 +708,22 @@ except Exception:
             # dargestellt, nur die Festplatte/der Temp-Ordner atmet auf.
 ```
 
+### TXT-FONT-2 – Wasserfall: Theme-Farbe und Probetext (F12)
+
+- **Modul:** previewer\_render\_text.py (Farbe + Probetext), previewer\_panel.py (Konfiguration), previewer\_toolbar.py (Einstellungsfeld)
+- **Ort:** `_render_font` (Textfarbe und Wasserfall-Label); Defaults in `\_\_init\_\_`, Laden/Speichern in \_config\_load/\_config\_save (Schlüssel font\_sample\_text); Einstellungsfenster, Rubrik „Schriftarten“
+- **Anlass:** Nutzer-Fund (2026-10-31): Der Wasserfall-Text der Schrift-Vorschau war schwarz – auch im Darkmode, wo schwarzer Text auf dunkelgrauem Grund kaum lesbar ist. Ursache: StyleContext.get\_color() verlangt in GTK3 das State-Argument; der alte Aufruf ohne Argument warf IMMER eine TypeError, die der umgebende except-Block schluckte, sodass der Fallback (0.13, 0.13, 0.13 = fast schwarz) in jedem Theme stehen blieb. Jetzt liest der Aufruf get\_color(Gtk.StateFlags.NORMAL) dieselbe Theme-Farbe wie die Ordner-Icons; der Fallback bleibt als letzte Rückfallebene. Nutzer-Wunsch zusätzlich: Der Probetext ist nicht mehr fest im Quellcode verdrahtet (\_FONT\_SAMPLE\_TEXT bleibt nur als Default) – die neue Rubrik „Schriftarten“ im Einstellungsfenster bietet ein Entry (Key font\_sample\_text), speichert sofort und baut eine gerade angezeigte Schrift live neu auf (\_on\_font\_sample\_changed, Endungsprüfung .ttf/.otf/.ttc); leerer Text bleibt ungespeichert.
+
+```text
+        fg = (0.13, 0.13, 0.13)
+        try:
+            c = self.get_style_context().get_color(
+                Gtk.StateFlags.NORMAL)
+            fg = (c.red, c.green, c.blue)
+        except Exception:
+            pass
+```
+
 ### TXT-B6-1 – System-Schriftgröße für Markdown (B6)
 
 - **Modul:** previewer\_render\_text.py
