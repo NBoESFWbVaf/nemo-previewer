@@ -948,6 +948,16 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   im Einstellungsfenster (Key font_sample_text, Default der  
   klassische Satz), Einträge speichern sofort und greifen live auf  
   die gerade angezeigte Schrift (→ REF TXT-FONT-2).
+  ✅ 0.34.1 – F46 X + F40-Nachtrag (Nutzer-Funde): (1) Der linke  
+  Rand der Vorschauspalte – das Griff-Fenster des injizierten  
+  Gtk.Paned – war ungemalt und zeigte im Lightmode einen schwarzen  
+  Rahmen (im Darkmode unsichtbar); ein draw-Haken am Paned malt  
+  ihn mit der Panel-Ketten-Farbe (→ REF PAN-BG-2). (2) Der  
+  Umschalt-Knopf in Nemos Werkzeugleiste zeigte den offenen Zustand  
+  beim Start nicht an – notify::visible feuert nur bei Wechseln,  
+  das Panel ist beim Einpacken schon sichtbar; der Knopf  
+  synchronisiert jetzt direkt beim Einpacken  
+  (→ REF ENT-TOGGLE-1).
 
 ---
 
