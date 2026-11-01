@@ -6,6 +6,12 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.40.0\] – 2026-11-01
+
+### Changed (Geändert)
+
+- Spaghetti-Audit-Runde 1 (Nutzer-Auftrag „gesamten Code auf  \n  Spaghetti-Code untersuchen"): God-Functions zerlegt – das  \n  Einstellungsfenster baut sich aus vier Rubrik-Helfern (Allgemein,  \n  Textdateien, Dokumente, Schriftarten) statt aus einer 171-Zeilen-  \n  Funktion, \_render\_office\_thumb liest Paketdaten und No-ZIP-Hinweis  \n  über zwei Helfer mit Early-Returns statt 13 Verschachtelungsebenen,  \n  und \_apply_scale skaliert über den neuen Per-Bild-Helfer  \n  \_scale\_item (Tiefe 12 → 5). Die F46-Diagnose-Maschinerie ist  \n  zurückgebaut (\_dbg\_pixels mit Pixelsonden und Panel-Scan,  \n  \_dbg\_list\_margins, GdkWindow-Flag in der Ordner-Logzeile) – F46 ist  \n  seit 0.31.11 gelöst; die funktionalen Hintergrund-Painter, die  \n  CSS-Regel und die Ordner-Icons-Diagnosezeile bleiben. Verhalten  \n  unverändert.
+
 ## \[0.39.0\] – 2026-11-01
 
 ### Changed (Geändert)
