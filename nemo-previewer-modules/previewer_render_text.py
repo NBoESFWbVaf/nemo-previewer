@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.42.0
+previewer_render_text.py – Version 0.42.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -150,7 +150,7 @@ def _md_w(s):
 def _md_split_cells(row):
     """
     S9 (0.42.0): Eine Markdown-Zeile in Zellen teilen – führende und
-    abschließende Balken abtrennen; \| ist KEIN Trenner (GFM).
+    abschließende Balken abtrennen; ein per Backslash maskierter Balken ist KEIN Trenner (GFM).
     """
     s = row.strip()
     if s.startswith("|"):
@@ -1973,7 +1973,7 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-PREVIEWER_VERSION = "0.42.0"
+PREVIEWER_VERSION = "0.42.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "K4 markdown and read caps stay)"
