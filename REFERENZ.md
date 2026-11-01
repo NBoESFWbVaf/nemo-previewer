@@ -79,6 +79,25 @@ Ticket-Nummer (z. B. FILTER, VTABLE, HR).
 
 ## Panel-Kern (PAN)
 
+### ENT-MODDIR-1 – Modul-Unterordner nemo-previewer-modules (0.35.0)
+
+- **Modul:** previewer.py (Import-Pfad), INSTALL.md (Anleitung)
+- **Ort:** Import-Block vor `from previewer\_util import …`; dbg-Zeile nach install\_step\_trace; ACHTUNG-Meldung der Versionsprüfung
+- **Anlass:** Nutzer-Wunsch (2026-11-01): Der Extension-Ordner soll aufgeräumt werden – nur die Einstiegsdatei previewer.py bleibt direkt unter nemo-python/extensions liegen (Nemo lädt nur dort), die sieben Modul-Dateien wandern in den Unterordner nemo-previewer-modules. Der Einstieg ergänzt den bestehenden \_HERE-Mechanismus: \_MODDIR = Unterordner neben der Einstiegsdatei; existiert er, landet er per sys.path.insert(0) VOR dem Extension-Ordner auf dem Import-Pfad – flache Alt-Kopien (flaches Layout bis 0.34.1) verlieren dadurch gegen die Unterordner-Dateien, egal in welcher Reihenfolge eingefügt wird. Fehlt der Unterordner, läuft alles wie bisher flach (Rückwärts-Robustheit). dbg „Module-Ordner: …“ bestätigt den aktiven Pfad je Start; die ACHTUNG-Meldung der Versionsprüfung nennt jetzt beide Fundorte. Die Module importieren einander weiterhin über ihre schlichten Namen – kein Paket, kein \_\_init\_\_, der Import-Mechanismus bleibt unverändert.
+
+```text
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+# 0.35.0 (Nutzer-Wunsch): Die sieben Modul-Dateien liegen im
+# Unterordner nemo-previewer-modules – er steht im Import-Pfad
+# VOR dem Extension-Ordner, deshalb gewinnen die neuen Dateien
+# selbst dann, wenn flache Alt-Kopien im Extension-Ordner lagen
+# (→ REF ENT-MODDIR-1).
+_MODDIR = os.path.join(_HERE, "nemo-previewer-modules")
+if os.path.isdir(_MODDIR) and _MODDIR not in sys.path:
+    sys.path.insert(0, _MODDIR)
+```
+
 ### PAN-B8-1 – KeyFile-Resolver (B8)
 
 - **Modul:** previewer\_panel.py
