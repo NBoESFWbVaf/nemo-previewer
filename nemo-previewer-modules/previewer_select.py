@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_select.py – Version 0.38.1
+previewer_select.py – Version 0.39.0
 
 Selection detection: reads the currently selected file from the
 Nemo view via selection signals, vtable access and GTK/ATK
@@ -14,8 +14,6 @@ import sys
 import traceback
 import urllib.parse
 import ctypes
-import ctypes.util
-import glob
 
 import gi
 
@@ -32,13 +30,6 @@ if _HERE not in sys.path:
 from previewer_util import dbg, diag, type_name, walk
 
 
-# Nemo's private NemoView API is not exported through GI on some Mint
-# builds; wrappers call only the read-only peek_selection() API.
-_NATIVE_NEMO_API = None
-_NATIVE_NEMO_API_TRIED = False
-_NATIVE_NEMO_API_MESSAGE_SHOWN = False
-
-
 class _NativeGList(ctypes.Structure):
     pass
 
@@ -48,103 +39,6 @@ _NativeGList._fields_ = [
     ("next", ctypes.POINTER(_NativeGList)),
     ("prev", ctypes.POINTER(_NativeGList)),
 ]
-
-
-def _native_nemo_api():
-    global _NATIVE_NEMO_API, _NATIVE_NEMO_API_TRIED
-    global _NATIVE_NEMO_API_MESSAGE_SHOWN
-    if _NATIVE_NEMO_API_TRIED:
-        return _NATIVE_NEMO_API
-    _NATIVE_NEMO_API_TRIED = True
-
-    candidates = []
-    found = ctypes.util.find_library("nemo-private")
-    if found:
-        candidates.append(found)
-
-    # Nemo packages have used more than one private-library directory/name.
-    for pattern in (
-            "/usr/lib/*/nemo/libnemo-private.so*",
-            "/usr/lib/nemo/libnemo-private.so*",
-            "/usr/lib/*/libnemo-private.so*",
-            "/usr/lib/libnemo-private.so*",
-            "/lib/*/nemo/libnemo-private.so*",
-            "/lib/*/libnemo-private.so*"):
-        candidates.extend(glob.glob(pattern))
-    candidates.extend([
-        "libnemo-private.so.2", "libnemo-private.so",
-    ])
-    candidates = list(dict.fromkeys(candidates))
-
-    errors = []
-    lib = None
-    selected_path = None
-    for candidate in candidates:
-        try:
-            probe = ctypes.CDLL(candidate)
-        except Exception as exc:
-            errors.append("%s: %s" % (candidate, exc))
-            continue
-
-        missing = [name for name in (
-            "nemo_view_get_type", "nemo_view_peek_selection",
-            "nemo_file_get_uri") if not hasattr(probe, name)]
-        if missing:
-            errors.append("%s: Symbole fehlen: %s" %
-                          (candidate, ",".join(missing)))
-            continue
-        lib = probe
-        selected_path = candidate
-        break
-
-    if lib is None:
-        if not _NATIVE_NEMO_API_MESSAGE_SHOWN:
-            diag("Nemo-C-Auswahl-API nicht verfügbar; Bibliothekskandidaten=%r; Details=%r" %
-                (candidates, errors[:8]))
-            _NATIVE_NEMO_API_MESSAGE_SHOWN = True
-        return None
-
-    try:
-        view_get_type = lib.nemo_view_get_type
-        peek_selection = lib.nemo_view_peek_selection
-        file_get_uri = lib.nemo_file_get_uri
-        view_get_type.restype = ctypes.c_size_t
-        peek_selection.argtypes = [ctypes.c_void_p]
-        peek_selection.restype = ctypes.c_void_p
-        file_get_uri.argtypes = [ctypes.c_void_p]
-        file_get_uri.restype = ctypes.c_void_p
-
-        gobj_name = ctypes.util.find_library("gobject-2.0") or "libgobject-2.0.so.0"
-        glib_name = ctypes.util.find_library("glib-2.0") or "libglib-2.0.so.0"
-        gobj = ctypes.CDLL(gobj_name)
-        glib = ctypes.CDLL(glib_name)
-        is_a = gobj.g_type_check_instance_is_a
-        is_a.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
-        is_a.restype = ctypes.c_int
-        g_free = glib.g_free
-        g_free.argtypes = [ctypes.c_void_p]
-        g_free.restype = None
-
-        _NATIVE_NEMO_API = {
-            "lib": lib,
-            "path": selected_path,
-            "view_type": view_get_type,
-            "peek_selection": peek_selection,
-            "file_get_uri": file_get_uri,
-            "is_a": is_a,
-            "g_free": g_free,
-        }
-        if not _NATIVE_NEMO_API_MESSAGE_SHOWN:
-            dbg("Nemo C selection API loaded from %s; NemoView GType check on" %
-                selected_path)
-            _NATIVE_NEMO_API_MESSAGE_SHOWN = True
-        return _NATIVE_NEMO_API
-    except Exception as exc:
-        if not _NATIVE_NEMO_API_MESSAGE_SHOWN:
-            dbg("Nemo C selection API setup failed: %s" % exc)
-            _NATIVE_NEMO_API_MESSAGE_SHOWN = True
-        _NATIVE_NEMO_API = None
-        return None
 
 
 def _gobject_pointer(widget):
@@ -196,17 +90,6 @@ def _read_cptr(addr, offset=0):
             addr + offset, ctypes.POINTER(ctypes.c_void_p)).contents.value
     except Exception:
         return None
-
-
-def _read_size(addr, offset=0):
-    """size_t (z.B. GTyp) aus dem Prozessspeicher lesen."""
-    if not addr:
-        return 0
-    try:
-        return ctypes.cast(
-            addr + offset, ctypes.POINTER(ctypes.c_size_t)).contents.value
-    except Exception:
-        return 0
 
 
 # ---------------------------------------------------------------------------
@@ -492,57 +375,13 @@ def _nemo_file_name_from_ptr(file_ptr):
     return _iface_file_name(api, file_ptr)
 
 
-def _read_native_nemo_selection(view):
-    """Return (names, supported); names=[] is a valid empty selection."""
-    api = _native_nemo_api()
-    if api is None:
-        return None, False
-
-    ptr = _gobject_pointer(view)
-    if not ptr:
-        return None, False
-
-    try:
-        view_type = api["view_type"]()
-        if not view_type or not api["is_a"](ptr, view_type):
-            return None, False
-
-        node_addr = api["peek_selection"](ptr)
-        names = []
-        seen = set()
-        limit = 0
-        while node_addr and node_addr not in seen and limit < 4096:
-            seen.add(node_addr)
-            node = ctypes.cast(node_addr, ctypes.POINTER(_NativeGList)).contents
-            file_ptr = node.data
-            if file_ptr:
-                uri_ptr = api["file_get_uri"](file_ptr)
-                if uri_ptr:
-                    try:
-                        uri = ctypes.string_at(uri_ptr).decode("utf-8", "replace")
-                    finally:
-                        api["g_free"](uri_ptr)
-                    if uri:
-                        # 0.9.1: basename via the shared helper
-                        # (previously implemented identically inline).
-                        name = _name_from_uri(uri)
-                        if name:
-                            names.append(name)
-            node_addr = ctypes.cast(node.next, ctypes.c_void_p).value
-            limit += 1
-        return names, True
-    except Exception as exc:
-        dbg("Nemo C selection unreadable: %s" % exc)
-        return None, False
-
-
 def _dump_widget_tree(view, max_widgets=100):
     """Diagnose actual GTK descendants and their selection-related methods."""
-    diag("Widget-Baum-Diagnose beginnt")
+    diag("Widget tree dump starts")
     count = 0
     for w in walk(view):
         if count >= max_widgets:
-            diag("Widget-Baum-Diagnose gekürzt (Limit %d)" % max_widgets)
+            diag("Widget tree dump truncated (limit %d)" % max_widgets)
             break
         count += 1
         methods = []
@@ -560,9 +399,9 @@ def _dump_widget_tree(view, max_widgets=100):
             mapped = bool(w.get_mapped())
         except Exception:
             mapped = False
-        diag("Widget[%d]: %s mapped=%s Methoden=%s" %
+        diag("Widget[%d]: %s mapped=%s methods=%s" %
             (count, type_name(w), mapped, ",".join(methods) or "-"))
-    diag("Widget-Baum-Diagnose Ende (%d Widgets)" % count)
+    diag("Widget tree dump end (%d widgets)" % count)
 
 
 # --------------------- Signal discovery & a11y helpers ----------------------
@@ -665,17 +504,23 @@ def _atk_children(acc, max_children=200):
     return children
 
 
+def _a11y_root(view):
+    """Mapped a11y root of the view (None if the view is unusable).
+
+    Never call ATK on a view that is hidden or being torn down."""
+    try:
+        if not isinstance(view, Gtk.Widget) or not view.get_mapped():
+            return None
+        return view.get_accessible()
+    except Exception:
+        return None
+
+
 def _atk_selection_objects(view, max_depth=12):
     """Alle AtkSelection-Implementoren im a11y-Baum der Ansicht sammeln."""
     implementors = []
-    # Never call ATK on a view that is hidden or being torn down.
-    try:
-        if not isinstance(view, Gtk.Widget) or not view.get_mapped():
-            return implementors
-        root = view.get_accessible()
-        if root is None:
-            return implementors
-    except Exception:
+    root = _a11y_root(view)
+    if root is None:
         return implementors
 
     def collect(acc, depth):
@@ -744,33 +589,6 @@ def find_view(window):
     return None
 
 
-def find_paned_above(widget):
-    """Der erste Gtk.Paned oberhalb von widget (ohne widget selbst)."""
-    p = widget.get_parent()
-    while p is not None:
-        if isinstance(p, Gtk.Paned):
-            return p
-        p = p.get_parent()
-    return None
-
-
-def find_slot_box(view):
-    """
-    Die Gtk.Box, die die Ansicht direkt enthält (Slot-Box).
-    Annahme (wie bei nemo-terminal): Die Slot-Box hängt unter einem
-    Gtk.Paned und enthält [Location-Widget-Box, Ansicht].
-    """
-    p = view.get_parent()
-    last_box = None
-    while p is not None:
-        if isinstance(p, Gtk.Box):
-            last_box = p
-        if isinstance(p, Gtk.Paned):
-            return last_box
-        p = p.get_parent()
-    return last_box
-
-
 # ============================ Selection readers =============================
 
 class SelectionReader:
@@ -783,9 +601,8 @@ class SelectionReader:
         Auswahl nicht lesbar war. Es werden ALLE Strategien befragt und
         das erste NICHT-LEERE Ergebnis gewinnt:
         1. NemoView.peek_selection über den Klassen-VTable (primäre API)
-        2. NemoView.get_selection()/GI/CTypes, falls verfügbar
-        3. Gtk.IconView-/Gtk.TreeView-Auswahl
-        4. ATK Selection, SELECTED-State und Fokus als Fallback
+        2. Gtk.IconView-/Gtk.TreeView-Auswahl
+        3. ATK Selection, SELECTED-State und Fokus als Fallback
         Meldet eine Strategie [] (lesbar, aber nichts selektiert), wird
         trotzdem weitergefragt – eine 'blinde' Strategie blockiert so
         nie die anderen.
@@ -795,10 +612,6 @@ class SelectionReader:
                 # NemoView.peek_selection via the vtable is the
                 # authoritative source: it works in every view.
                 ("nemo-vtable", lambda: SelectionReader._read_nemo_vtable(
-                    view, dir_path)),
-                # NemoView.get_selection() typically returns NemoFile
-                # objects on Nemo 6.x; GTK/ATK fallbacks come last.
-                ("nemo-selection", lambda: SelectionReader._read_nemo_selection(
                     view, dir_path)),
                 ("iconview", lambda: SelectionReader._read_icon_view(
                     view, dir_path)),
@@ -859,100 +672,6 @@ class SelectionReader:
             return None
         if not supported:
             return None
-        return names
-
-    @staticmethod
-    def _read_nemo_selection(view, dir_path):
-        """Liest NemoFile-Objekte zuerst über Nemo's native C-API.
-
-        Einige Mint-GI-Builds exportieren NemoView nicht als Nemo.View.
-        In diesem Fall wird die read-only Funktion nemo_view_peek_selection()
-        aus libnemo-private verwendet, nachdem der GObject-Zeiger gegen den
-        registrierten NemoView-GType geprüft wurde. Falls das nicht geht,
-        bleiben die GI-basierten und GTK-Fallbacks aktiv.
-        """
-        native_names, native_supported = _read_native_nemo_selection(view)
-        if native_supported:
-            return native_names
-
-        selected = None
-        for method_name in ("get_selection", "peek_selection"):
-            getter = getattr(view, method_name, None)
-            if callable(getter):
-                try:
-                    selected = getter()
-                    break
-                except Exception:
-                    selected = None
-            # Fallback: C functions from nemo-view.h may appear through
-            # GI as module functions (some Mint builds export no Nemo.View).
-            api_names = {
-                "get_selection": ("view_get_selection", "get_selection"),
-                "peek_selection": ("view_peek_selection", "peek_selection"),
-            }.get(method_name, ())
-            for api_name in api_names:
-                try:
-                    api = getattr(Nemo, api_name, None)
-                    if callable(api):
-                        selected = api(view)
-                        break
-                except Exception:
-                    selected = None
-            if selected is not None:
-                break
-        if selected is None:
-            return None
-        try:
-            selected = list(selected)
-        except Exception:
-            # Some GI bindings return GList elements as .data/.next
-            # chains instead of an iterable Python list.
-            chain = []
-            node = selected
-            seen = set()
-            while node is not None and id(node) not in seen and len(chain) < 4096:
-                seen.add(id(node))
-                item = getattr(node, "data", None)
-                if item is not None:
-                    chain.append(item)
-                node = getattr(node, "next", None)
-            if not chain:
-                return None
-            selected = chain
-
-        names = []
-        for item in selected:
-            name = None
-            for attr in ("get_name", "get_display_name"):
-                try:
-                    method = getattr(item, attr, None)
-                    if callable(method):
-                        value = method()
-                        if value:
-                            name = os.path.basename(str(value))
-                            break
-                except Exception:
-                    pass
-            if not name:
-                for attr in ("get_uri", "get_uri_scheme"):
-                    try:
-                        method = getattr(item, attr, None)
-                        uri = method() if callable(method) else None
-                        if uri and isinstance(uri, str) and "://" in uri:
-                            name = Gio.File.new_for_uri(uri).get_basename()
-                            break
-                    except Exception:
-                        pass
-            if not name:
-                try:
-                    method = getattr(item, "get_location", None)
-                    location = method() if callable(method) else None
-                    if location is not None:
-                        name = location.get_basename()
-                except Exception:
-                    pass
-            if name and (not dir_path or os.path.exists(os.path.join(dir_path, name))):
-                names.append(name)
         return names
 
     @staticmethod
@@ -1033,13 +752,8 @@ class SelectionReader:
         alle Objekte mit ATK-State SELECTED sammeln und deren Namen
         übernehmen. Liefert die Namen oder None (Baum nicht auswertbar).
         """
-        try:
-            if not isinstance(view, Gtk.Widget) or not view.get_mapped():
-                return None
-            root = view.get_accessible()
-            if root is None:
-                return None
-        except Exception:
+        root = _a11y_root(view)
+        if root is None:
             return None
         selected = []
 
@@ -1075,13 +789,8 @@ class SelectionReader:
         """
         if not dir_path:
             return None
-        try:
-            if not isinstance(view, Gtk.Widget) or not view.get_mapped():
-                return None
-            root = view.get_accessible()
-            if root is None:
-                return None
-        except Exception:
+        root = _a11y_root(view)
+        if root is None:
             return None
         hits = []
 
@@ -1206,7 +915,7 @@ class SelectionReader:
                             mode = tsel.get_mode()
                         except Exception:
                             mode = "?"
-                        diag("GtkTreeView-Auswahl-Diagnose: Widget=%s, Auswahlmodus=%s, markierte_Pfade=%r, Modellspalten=%s, Modellzeilen=%s" % (
+                        diag("GtkTreeView selection diagnostics: widget=%s, mode=%s, selected paths=%r, model columns=%s, model rows=%s" % (
                             type_name(w), mode, paths, ncols, nrows))
                     # A zero-row model may be a transient tree, not
                     # the file model – let ATK/native fallbacks inspect.
@@ -1234,5 +943,5 @@ class SelectionReader:
 
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.38.1"
+PREVIEWER_VERSION = "0.39.0"
 dbg("previewer_select %s loaded" % PREVIEWER_VERSION)
