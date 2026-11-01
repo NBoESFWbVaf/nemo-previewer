@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer.py – Version 0.36.0
+previewer.py – Version 0.37.0
 
 Entry point and Nemo integration: injects the preview panel into
 every Nemo window, loads the seven modules from the
@@ -21,16 +21,13 @@ gi.require_version('Atk', '1.0')
 
 from gi.repository import GObject, Nemo, Gtk, GLib, Atk
 
-# Geschwister-Module finden, egal wie nemo-python diese Datei geladen hat.
+# Find sibling modules, however nemo-python loaded this file.
 import os
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
-# 0.35.0 (Nutzer-Wunsch): Die sieben Modul-Dateien liegen im
-# Unterordner nemo-previewer-modules – er steht im Import-Pfad
-# VOR dem Extension-Ordner, deshalb gewinnen die neuen Dateien
-# selbst dann, wenn flache Alt-Kopien im Extension-Ordner lagen
-# (→ REF ENT-MODDIR-1).
+# 0.35.0: the seven modules live in the nemo-previewer-modules
+# subfolder, placed first on the import path (→ REF ENT-MODDIR-1).
 _MODDIR = os.path.join(_HERE, "nemo-previewer-modules")
 if os.path.isdir(_MODDIR) and _MODDIR not in sys.path:
     sys.path.insert(0, _MODDIR)
@@ -42,11 +39,10 @@ from previewer_util import (
     pick_icon,
     install_step_trace,
 )
-# F45 (Nutzer-Wunsch): Schritt-Trace gleich nach dem util-Import
-# setzen – so laufen schon die Modul-Importe und später jede
-# Funktion unter dem Hook (NEMO_PREVIEWER_TRACE, → REF UT-TRACE-1).
+# F45: set the step trace right after the util import – module imports
+# and every function then run under the hook (→ REF UT-TRACE-1).
 install_step_trace()
-# 0.35.0: Modul-Unterordner im Log bestätigen (→ REF ENT-MODDIR-1).
+# 0.35.0: confirm the module subfolder in the log (→ REF ENT-MODDIR-1).
 dbg("Module-Ordner: %s"
     % (_MODDIR if os.path.isdir(_MODDIR)
        else "(flache Installation)"))
@@ -56,10 +52,9 @@ from previewer_select import (
 )
 from previewer_panel import PreviewPanel
 
-# PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
-# prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
-# Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.36.0"
+# PREVIEWER_VERSION must be identical in all eight modules; the entry
+# point checks loaded modules and warns about outdated copies.
+PREVIEWER_VERSION = "0.37.0"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -97,8 +92,8 @@ class PanelState:
         self._a11y_dumps = 0
         self.toggle_btn = None
         self.hpaned.connect("size-allocate", self._on_size_allocate)
-        # F46 X (0.34.1): Das Griff-Fenster des Paned untermalen –
-        # im Lightmode zeigte der linke Rand sonst schwarz.
+        # F46 X (0.34.1): paint the Paned handle window – in light mode
+        # the left edge otherwise showed black.
         self.hpaned.connect("draw", self._on_hpaned_draw)
 
     def _install_toolbar_toggle(self):
@@ -108,18 +103,16 @@ class PanelState:
         Der Zustand bleibt synchron: Strg+Alt+P und der Knopf
         schalten dasselbe Panel, notify::visible zieht nach.
         """
-        # → REF ENT-TOGGLE-1
-        # Idempotent: Die Versöhnung läuft mehrfach – ein bereits
-        # gepackter Knopf (am Fenster-Objekt gemerkt) wird nicht
-        # doppelt hinzugefügt.
+        # Idempotent: reconciliation may run repeatedly; a button
+        # already packed is never added twice. → REF ENT-TOGGLE-1
         if self.toggle_btn is not None or getattr(
                 self.window, "_previewer_toggle", None) is not None:
             return
         icon = pick_icon(("builder-view-right-pane-symbolic",
                           "view-right-pane", "sidebar-show-symbolic",
                           "sidebar-symbolic"), "pan-end-symbolic")
-        # Route 1: Titelleiste als GtkHeaderBar (Desktops mit CSD) –
-        # Knopf per pack_end rechts hinten anfügen.
+        # Route 1: title bar as GtkHeaderBar (CSD desktops) – add the
+        # button at the far right via pack_end.
         try:
             bar = self.window.get_titlebar()
         except Exception:
@@ -132,10 +125,8 @@ class PanelState:
             self._pack_toggle(btn, icon, "Titelleiste",
                               lambda b: bar.pack_end(b))
             return
-        # Route 2: klassisches Nemo – die Ansichts-Knöpfe sitzen in
-        # einer GtkToolbar (NemoToolbar ist ein GtkBox drumherum).
-        # Diese im Widget-Baum suchen und den Umschalter als ToolItem
-        # direkt hinter die Ansichts-Knöpfe setzen.
+        # Route 2: classic Nemo – the view buttons sit in a GtkToolbar
+        # (NemoToolbar is a GtkBox around it); insert right after them.
         toolbar = self._find_first_widget(
             self.window, lambda w: isinstance(w, Gtk.Toolbar))
         if toolbar is None:
@@ -151,17 +142,14 @@ class PanelState:
     def _pack_toggle(self, btn, icon, where, pack):
         """F40: Knopf fertigmachen, einpacken, verkabeln, loggen."""
         btn.set_tooltip_text("Vorschau-Seitenleiste (Strg+Alt+P)")
-        # F40-Nachtrag (0.34.1, Nutzer-Fund): Anfangs-Zustand
-        # synchronisieren – notify::visible feuert nur bei Wechseln,
-        # das Panel ist beim Einpacken schon sichtbar, der Knopf
-        # blieb also inaktiv. set_active VOR dem toggled-Connect
-        # stößt nichts an (→ REF ENT-TOGGLE-1).
+        # F40: sync the initial state – notify::visible only fires on
+        # change; set_active before connecting triggers nothing (→ REF ENT-TOGGLE-1).
         btn.set_active(self.panel.get_visible())
         btn.connect("toggled", self._on_toolbar_toggle)
         self.toggle_btn = btn
         pack(btn)
-        # Zustand nachziehen, wenn das Panel woanders umgeschaltet
-        # wird (Strg+Alt+P, Start-Einstellung show_at_start).
+        # Track state when the panel is toggled elsewhere (Ctrl+Alt+P,
+        # show_at_start setting).
         self.panel.connect("notify::visible", self._on_panel_visibility)
         try:
             self.window._previewer_toggle = btn
@@ -241,10 +229,8 @@ class PanelState:
     def _on_size_allocate(self, paned, alloc):
         if not self.pos_pending:
             return
-        # F12 (0.13.0): Startbreite aus der Konfiguration (das Panel
-        # liest sie im Konstruktor aus nemo-previewer.conf, inklusive
-        # der per Ziehen gewählten Breite als künftige Startbreite);
-        # ohne Konfiguration gilt der Default PANEL_WIDTH (300 px).
+        # F12: start width from the config (incl. a dragged width as
+        # the future start width); default PANEL_WIDTH without config.
         width = getattr(self.panel, "_panel_width", None) or PANEL_WIDTH
         if alloc.width > width + 200:
             paned.set_position(alloc.width - width)
@@ -286,10 +272,8 @@ def _reconcile(st):
             % type_name(top_box))
         return
 
-    # Injektionsziel: das Widget, das DIREKT unter der Hauptbox auf dem
-    # Pfad von der Ansicht nach oben liegt. Wir folgen dazu schlicht den
-    # Eltern-Zeigern – das ist deterministisch und unabhängig von
-    # is_ancestor-Semantik-Spezialitäten.
+    # Injection target: the widget DIRECTLY under the main box on the
+    # path up from the view – found by following parent pointers.
     target = None
     node = view
     while node is not None:
@@ -309,21 +293,19 @@ def _reconcile(st):
             "Kette nach oben: %s" % " < ".join(chain))
         return
 
-    # Wichtig: Hängt die Ansicht bereits unter unserem HPaned, ist der
-    # gefundene Ziel-Knoten unser EIGENES HPaned – dann ist bereits
-    # alles injiziert und es darf NICHT nochmal passieren (sonst
-    # verpacken wir das Paned in sich selbst und zerstören den Baum).
+    # If the view already sits under our HPaned, the found node IS our
+    # own HPaned – already injected; re-injecting would destroy the tree.
     if target is st.hpaned:
         st._view_ok(view)
         return
 
-    # Bereits korrekt injiziert?
+    # Already correctly injected?
     if (st.hpaned.get_parent() is top_box
             and st.hpaned.get_child1() is target):
         st._view_ok(view)
         return
 
-    # Neu injizieren: alten Zustand rückgängig machen
+    # Inject anew: undo the old state
     _detach(st)
 
     try:
@@ -339,8 +321,8 @@ def _reconcile(st):
             top = top_box.child_get_property(target, "top-attach")
             width = top_box.child_get_property(target, "width")
             height = top_box.child_get_property(target, "height")
-            # Validieren, BEVOR wir etwas entfernen – sonst droht ein
-            # irreparabel zerstörter Widget-Baum
+            # Validate BEFORE removing anything – otherwise the widget
+            # tree can be destroyed beyond repair.
             if (not all(isinstance(v, int) and v >= 0 for v in (left, top))
                     or not all(isinstance(v, int) and v >= 1
                                for v in (width, height))):
@@ -359,10 +341,8 @@ def _reconcile(st):
         st.pos_pending = True
         st.hpaned.show()
         st.panel.show_all()
-        # F12 (0.12.0): Konfiguration erst NACH dem show_all anwenden
-        # – sonst würde eine verlangte Unsichtbarkeit beim Start
-        # sofort wieder überschrieben. getattr-Schutz, damit nicht
-        # passende Dateiversionen nie abstürzen können.
+        # F12: apply the config only AFTER show_all – requested
+        # invisibility would otherwise be overridden at startup.
         _apply = getattr(st.panel, "apply_start_settings", None)
         if callable(_apply):
             _apply()
@@ -437,8 +417,8 @@ def _connect_view_signals(st, view):
             st.view_handlers.append((w, hid))
             names_found.add(sig)
 
-    # Keine Signalhandler an ATK-Objekten registrieren. Diese Objekte sind
-    # beim Ordnerwechsel häufig kurzlebig und führten zu disconnect-Warnungen.
+    # Never register signal handlers on ATK objects: they are often
+    # short-lived on folder changes and caused disconnect warnings.
 
     diag("Ansicht verbunden: %s – Auswahl-Signale: %s"
         % (type_name(view), ", ".join(sorted(names_found)) or "KEINE"))
@@ -480,7 +460,7 @@ def _dump_a11y_once(st):
             n = acc.get_n_children()
         except Exception as exc:
             n = -1
-            # Ursache des scheinbar leeren a11y-Baums einmalig ausgeben.
+            # Log the cause of the seemingly empty a11y tree once.
             if not getattr(_dump_a11y_once, "_n_children_err", None):
                 _dump_a11y_once._n_children_err = repr(exc)
                 dbg("%s: get_n_children() schlug fehl: %r – "
@@ -532,7 +512,7 @@ def _view_ok(self, view):
                 if obj.handler_is_connected(hid):
                     obj.disconnect(hid)
             except Exception:
-                # Objekt/Handler kann durch Nemo bereits abgebaut sein.
+                # Object/handler may already be torn down by Nemo.
                 pass
         self.view_handlers = []
         self.view = view
@@ -543,8 +523,8 @@ def _view_ok(self, view):
             traceback.print_exc()
         _dump_a11y_once(self)
         _refresh_soon(self)
-        # F40: Knopf nachrüsten (falls die Toolbar beim ersten Versuch
-        # noch nicht stand) – idempotent, kein Doppel-Packen.
+        # F40: add the button later (if the toolbar was not there yet)
+        # – idempotent, no double packing.
         self._install_toolbar_toggle()
 
 
@@ -553,14 +533,14 @@ PanelState._view_ok = _view_ok
 
 def _refresh(st):
     try:
-        # Immer die LIVE-Ansicht suchen: st.view kann nach einem
-        # Ordnerwechsel auf einen bereits abgebauten Slot zeigen.
+        # Always look up the LIVE view: st.view may point to an
+        # already torn-down slot after a folder change.
         view = find_view(st.window)
         if view is None:
             return
         names, strategy = SelectionReader.read(view, st.dir_path)
-        # Diagnose pro konkretem Ansichtstyp, nicht nur einmal pro Fenster:
-        # Nemo kann beim Ansichtswechsel ListView gegen IconView austauschen.
+        # Diagnostics per concrete view type, not once per window:
+        # Nemo may swap ListView for IconView on view switches.
         diag_key = "_selection_diag_" + type_name(view)
         if not getattr(st, diag_key, False):
             setattr(st, diag_key, True)
@@ -572,9 +552,9 @@ def _refresh(st):
                 callable(getattr(Nemo, "view_peek_selection", None))))
             _dump_widget_tree(view)
         if names is None:
-            # Keine Strategie konnte lesen – gedrosselte Debug-Meldung
+            # No strategy could read – throttled debug message
             now = GLib.get_monotonic_time()
-            if now - st.none_dbg_at > 5000000:  # max. alle 5 Sekunden
+            if now - st.none_dbg_at > 5000000:  # at most every 5 seconds
                 st.none_dbg_at = now
                 dbg("Auswahl nicht lesbar (Ansicht: %s)" % type_name(view))
             return
@@ -620,7 +600,7 @@ def _get_state(window):
     if st is None:
         st = PanelState(window)
         window._previewer_state = st
-        # 0.9.1: Timer wieder abbauen, wenn das Fenster verschwindet.
+        # 0.9.1: tear down the timer when the window disappears.
         try:
             window.connect("destroy", _on_window_destroyed, st)
         except Exception:
@@ -642,22 +622,22 @@ def _on_crowbar_placed(crowbar, window, uri, tries):
     st = _get_state(window)
     if crowbar.get_parent() is None:
         tries[0] += 1
-        return tries[0] < 40  # noch nicht platziert → weiter zuwarten
+        return tries[0] < 40  # not placed yet → keep waiting
     _reconcile(st)
     _refresh(st)
     return False
 
 
-# ------- Provider-Klasse (dynamisch, damit NameAndDescProvider optional) ----
+# ------- Provider class (dynamic, so NameAndDescProvider stays optional) ----
 
 def _is_desktop_window(window):
     """Erkennt Desktop-Fenster, damit dort kein Vorschau-Panel landet."""
     name = type_name(window)
-    # Cinnamon/Nemo-Versionen unterscheiden sich bei den konkreten Typnamen.
+    # Cinnamon/Nemo versions differ in their concrete type names.
     if "desktop" in name.lower():
         return True
-    # Zusätzliche Prüfung des Widget-Baums: Desktop-Icon-Ansichten dürfen
-    # niemals als Anker für die Injektion dienen.
+    # Extra widget-tree check: desktop icon views must never serve
+    # as the anchor for the injection.
     try:
         for child in walk(window):
             if type_name(child) == "NemoDesktopIconView":
@@ -679,7 +659,7 @@ def _get_widget(self, uri, window):
     if new_dir != st.dir_path:
         st.last_sel = None
         st.panel.set_selection([], new_dir)
-    st.dir_path = new_dir   # sofort: neuer Ordner ist bekannt
+    st.dir_path = new_dir   # immediately: new folder is known
     crowbar = Gtk.Box()
     crowbar.set_size_request(-1, 0)
     crowbar.set_no_show_all(True)
@@ -705,7 +685,7 @@ _provider_dict = {
 Provider = type("NemoPreviewerProvider", tuple(_bases), _provider_dict)
 
 
-# ------------------------- Gtk-Protokoll-Filter ------------------------------
+# ------------------------- Gtk protocol filter -------------------------------
 # → REF ENT-FILTER-1
 
 _GTK_FOREACH_MSG = "gtk_container_foreach: assertion 'GTK_IS_CONTAINER"

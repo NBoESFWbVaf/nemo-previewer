@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.36.0
+previewer_render_text.py – Version 0.37.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -46,11 +46,10 @@ from previewer_util import (
     _zf_read_capped, _pixbuf_from_bytes,
 )
 
-# --- Optionale Module (Fehlen ist kein Fehler, nur weniger Vorschau) ---
+# --- Optional modules (missing ones just reduce the previews) ---
 
-# PangoCairo + pycairo, um den Schrift-Wasserfall mit einem eigenen,
-# FRISCHEN Pango-FontMap vorzurendern – GTKs Standard-FontMap wird beim
-# Start gebaut und überliest zur Laufzeit hinzugefügte Schriften.
+# PangoCairo + pycairo to pre-render the font waterfall with its own
+# FRESH Pango font map – GTK's default map is built at startup.
 HAVE_PANGOCAIRO = False
 try:
     import cairo  # pycairo
@@ -60,28 +59,25 @@ try:
 except Exception:
     pass
 
-# 0.9.2 (Audit „Pufferüberlauf/OOM“): Deckel gegen Dekompressions- und
-# Dekodierbomben – ein präpariertes Bild/PDF/EPUB/DOCX/EML darf Nemo
-# niemals durch Riesen-Allokationen abschießen.
-_EML_FILE_CAP = 2 * 1024 * 1024      # .eml: Kopfzeilen + Körper-Anfang
-_VCARD_FILE_CAP = 8 * 1024 * 1024    # vCard: Eigenschaften + Foto-B64
+# 0.9.2 (audit "buffer overflow/OOM"): caps against decompression
+# and decoding bombs – crafted files must never blow up Nemo.
+_EML_FILE_CAP = 2 * 1024 * 1024      # .eml: headers + start of the body
+_VCARD_FILE_CAP = 8 * 1024 * 1024    # vCard: properties + base64 photo
 
-# --- Markdown -> Pango-Markup (Vorschau-Qualität, kein voller Parser) ---
+# --- Markdown -> Pango markup (preview quality, not a full parser) ---
 
 def _pango_escape(s):
     """Text für Pango-Markup entschärfen (& < >)."""
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-_MD_BULLETS = ("\u2022", "\u25e6", "\u25aa")   # • ◦ ▪ je Listenebene
+_MD_BULLETS = ("\u2022", "\u25e6", "\u25aa")   # • ◦ ▪ per list level
 
-# GFM-Tabellen: Gesamtbudget in Anzeigespalten – ausgelegt aufs
-# 300-px-Standardpanel (Monospace). Kürzere Spalten bleiben ggf.
-# unter dem Budget, breite Tabellen brechen innerhalb der Spalten
-# mehrzeilig um, statt das TextView zum Zeilenumbruch zu zwingen.
+# GFM tables: total budget in display columns – sized for the
+# 300 px default panel (monospace); wide tables wrap inside cells.
 _MD_TABLE_BUDGET = 44
-_MD_TABLE_MIN = 4      # Mindestbreite je Spalte
-_MD_TABLE_FIT = 24    # Spalten bis hierher werden bevorzugt NICHT umgebrochen
+_MD_TABLE_MIN = 4      # minimum width per column
+_MD_TABLE_FIT = 24    # columns up to here preferably stay unwrapped
 
 
 def _md_inline(t):
@@ -89,8 +85,8 @@ def _md_inline(t):
     *kursiv*, _kursiv_, ~~durchgestrichen~~ (GFM), `code`,
     [Link](url) – auch mit runden Klammern in der URL –,
     <https://Autolink>, ![Bild](url)."""
-    # Backslash-Escapes zuerst (CommonMark): \[ wird zu [ – der
-    # Rest dieser Funktion läuft ohnehin auf gescapetem Text
+    # Backslash escapes first (CommonMark): \[ becomes [ – the
+    # rest of this function runs on escaped text anyway.
     t = re.sub(r"\\(\W)", r"\1", t)
     t = re.sub(r"\*\*\*(.+?)\*\*\*", r"<b><i>\1</i></b>", t)
     t = re.sub(r"___(.+?)___", r"<b><i>\1</i></b>", t)
@@ -172,7 +168,7 @@ def _md_table(lines, i):
             s = s[1:]
         if s.endswith("|") and not s.endswith("\\|"):
             s = s[:-1]
-        # GFM: \| ist ein maskierter Balken, KEIN Spaltentrenner
+        # GFM: \| is an escaped bar, NOT a column separator
         return [re.sub(r"\\(\|)", r"\1", c).strip()
                 for c in re.split(r"(?<!\\)\|", s)]
 
@@ -209,10 +205,9 @@ def _md_table(lines, i):
             if k < len(r):
                 demand[k] = max(demand[k], _md_w(plain(r[k])))
 
-    # Spaltenbreiten: schmale Spalten voll bedienen, den Rest
-    # nach Bedarf auf die breiten Spalten verteilen – im Rahmen
-    # des Gesamtbudgets
-    sep_w = 3 * (cols - 1)          # " │ " zwischen den Spalten
+    # Column widths: fully serve narrow columns, distribute the
+    # rest among the wide ones – within the total budget.
+    sep_w = 3 * (cols - 1)          # " │ " between the columns
     avail = max(0, _MD_TABLE_BUDGET - sep_w)
     widths = [min(d, _MD_TABLE_MIN) for d in demand]
     bigs = [k for k in range(cols)
@@ -243,16 +238,15 @@ def _md_table(lines, i):
             widths[k] += 1
     for k in range(cols):
         widths[k] = min(widths[k], demand[k])
-    # Sicherheitsnetz: selbst bei absurd vielen Spalten die
-    # breiteste schrumpfen, bis das Budget hält
+    # Safety net: even with absurdly many columns, shrink the
+    # widest until the budget holds.
     while (sum(widths) + sep_w > _MD_TABLE_BUDGET
            and max(widths) > 1):
         widths[widths.index(max(widths))] -= 1
 
     def wrap_cell(cell, w):
-        # Zelle in Anzeigesegmente der Breite w brechen (Wort-
-        # Umbruch, überlange Wörter hart). Passt alles in eine
-        # Zeile, bleibt die Zelle mitsamt ihrem Markup unangetastet.
+        # Break a cell into display segments of width w (word wrap,
+        # hard-break for overlong words). Fits: keep cell unchanged.
         w = max(1, w)
         if _md_w(plain(cell)) <= w:
             return [cell]
@@ -339,7 +333,7 @@ def _markdown_to_pango(text):
     while i < n:
         line = lines[i]
         stripped = line.strip()
-        # --- Code-Zäune (``` … ```) ---
+        # --- Code fences (``` … ```) ---
         if stripped.startswith("```"):
             in_code = not in_code
             out.append("")
@@ -353,9 +347,9 @@ def _markdown_to_pango(text):
             out.append("")
             i += 1
             continue
-        # --- Setext-Überschriften: Textzeile + ===== / ------ ---
-        # (\x29 = Hex-Escape für die schließende Klammer – hält die
-        # Zeichenklasse aus der Paren-Diff-Bilanz heraus)
+        # --- Setext headings: text line + ===== / ------ ---
+        # (\x29 = hex escape for the closing paren – keeps the
+        # char class out of the paren-diff balance)
         if (i + 1 < n
                 and not re.match(r"^(#|>|`|\||[-*+]\s|\d+[\x29.]\s)",
                                  stripped)
@@ -373,7 +367,7 @@ def _markdown_to_pango(text):
                 out.append(_md_heading(2, stripped))
                 i += 2
                 continue
-        # --- Trennlinien (auch mit Leerzeichen: - - - / * * *) ---
+        # --- Horizontal rules (spaces allowed: - - - / * * *) ---
         if re.fullmatch(r"((?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})",
                         stripped):
             if out and out[-1] != "":
@@ -381,7 +375,7 @@ def _markdown_to_pango(text):
             out.append(_md_hr())
             i += 1
             continue
-        # --- ATX-Überschriften (# … ######, auch mit End-#) ---
+        # --- ATX headings (# … ######, trailing # allowed) ---
         m = re.match(r"^(#{1,6})\s+(.*?)(?:\s+#+)?$", stripped)
         if m:
             if out and out[-1] != "":
@@ -389,7 +383,7 @@ def _markdown_to_pango(text):
             out.append(_md_heading(len(m.group(1)), m.group(2)))
             i += 1
             continue
-        # --- GFM-Tabellen ---
+        # --- GFM tables ---
         tbl = _md_table(lines, i)
         if tbl is not None:
             if out and out[-1] != "":
@@ -399,7 +393,7 @@ def _markdown_to_pango(text):
                 out.append("")
             i = tbl[1]
             continue
-        # --- Zitate (mehrfach verschachtelt: >, >>, > >) ---
+        # --- Block quotes (nestable: >, >>, > >) ---
         m = re.match(r"^(>+)(.*)$", stripped)
         if m:
             depth = len(m.group(1))
@@ -411,7 +405,7 @@ def _markdown_to_pango(text):
                        % _md_inline(_pango_escape(body)))
             i += 1
             continue
-        # --- Task-Listen (GFM): - [x] erledigt / - [ ] offen ---
+        # --- Task lists (GFM): - [x] done / - [ ] open ---
         m = re.match(r"^(\s*)([-*+])\s+\[([ xX])\]\s+(.*)$", line)
         if m:
             lvl = len(m.group(1)) // 2
@@ -423,7 +417,7 @@ def _markdown_to_pango(text):
                        + " " + body)
             i += 1
             continue
-        # --- Unsortierte Listen mit Ebenen ---
+        # --- Unordered lists with levels ---
         m = re.match(r"^(\s*)([-*+])\s+(.*)$", line)
         if m:
             lvl = len(m.group(1)) // 2
@@ -432,7 +426,7 @@ def _markdown_to_pango(text):
                        + _md_inline(_pango_escape(m.group(3))))
             i += 1
             continue
-        # --- Sortierte Listen (1. / "1)" ) ---
+        # --- Ordered lists (1. / "1)") ---
         m = re.match(r"^(\s*)(\d{1,3})([\x29.])\s+(.*)$", line)
         if m:
             lvl = len(m.group(1)) // 2
@@ -456,7 +450,7 @@ def _html_to_text(text):
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
-# --- E-Books: EPUB, FictionBook, MOBI (nur Python-Bordmittel) ---------------
+# --- E-books: EPUB, FictionBook, MOBI (stdlib only) -------------------------
 
 
 def _xml_local(tag):
@@ -489,13 +483,13 @@ def _palmdoc_decompress(data):
                         out.append(out[start])
                         start += 1
         else:
-            out.append(0x20)              # Leerzeichen + (Byte ^ 0x80)
+            out.append(0x20)              # space + (byte ^ 0x80)
             out.append(b ^ 0x80)
     return bytes(out)
 
 
-_EBOOK_CHUNK_CAP = 2 * 1024 * 1024     # R4: max. Bytes je Spine-Dokument
-_EBOOK_COVER_CAP = 16 * 1024 * 1024    # R4: max. Bytes für Cover-Bilder
+_EBOOK_CHUNK_CAP = 2 * 1024 * 1024     # R4: max bytes per spine document
+_EBOOK_COVER_CAP = 16 * 1024 * 1024    # R4: max bytes for cover images
 
 
 def _epub_data(path):
@@ -530,8 +524,8 @@ def _epub_data(path):
             _zf_read_capped(zf, opf_path, _EBOOK_CHUNK_CAP))
 
         title = author = lang = None
-        manifest = {}          # id -> (href, Medientyp)
-        spine = []             # hrefs in Lesereihenfolge
+        manifest = {}          # id -> (href, media type)
+        spine = []             # hrefs in reading order
         cover_id = None
         for el in root.iter():
             tag = _xml_local(el.tag)
@@ -558,8 +552,8 @@ def _epub_data(path):
                     and cover_id is None):
                 cover_id = el.get("content")
 
-        # Cover-Bilddaten (Manifest, sonst Heuristik: Dateiname enthält
-        # "cover" und sieht nach Bild aus)
+        # Cover image data (manifest, else heuristic: file name
+        # contains "cover" and looks like an image)
         cover = None
         if cover_id in manifest:
             try:
@@ -578,7 +572,7 @@ def _epub_data(path):
                     except KeyError:
                         pass
 
-        # Textanfang: Spine-Dokumente in Lesereihenfolge zu Text bereinigen
+        # Text start: clean spine documents in reading order into text
         parts = []
         total = 0
         for idref in spine:
@@ -587,8 +581,8 @@ def _epub_data(path):
             href, mtype, props = manifest.get(idref, (None, None, ""))
             if not href:
                 continue
-            # R6: EPUB3-Navigationsdatei (properties="nav") ist das
-            # Inhaltsverzeichnis, nicht Buchtext – überspringen.
+            # R6: the EPUB3 navigation file (properties="nav") is the
+            # table of contents, not book text – skip it.
             if "nav" in props.split():
                 continue
             if mtype and "html" not in mtype and "xml" not in mtype:
@@ -661,7 +655,7 @@ def _fb2_data(path):
                 break
     text = "\n".join(lines)[:MAX_EBOOK_CHARS]
 
-    # Cover: eingebettete <binary>-Ressource (base64)
+    # Cover: embedded <binary> resource (base64)
     cover = None
     if cover_ref:
         for el in root.iter():
@@ -678,10 +672,8 @@ def _fb2_data(path):
     return rows, cover, text
 
 
-_MOBI_MAX_BYTES = 8 * 1024 * 1024   # MOBI: nur bis hier lesen – Text-Datensätze
+_MOBI_MAX_BYTES = 8 * 1024 * 1024   # MOBI: read only up to here – text records sit at the file start
                                      # stehen ohnehin am Dateianfang; Records
-                                     # jenseits der Deckel überspringt der
-                                     # Offset-Check unten still
 
 
 def _mobi_data(path):
@@ -700,7 +692,7 @@ def _mobi_data(path):
 
     title = data[0:32].split(b"\x00")[0].decode("utf-8", "replace").strip()
     num_rec = struct.unpack(">H", data[76:78])[0]
-    # Datensatz-Tabelle ab Offset 78: je 8 Bytes, Offset in den ersten 3
+    # Record table at offset 78: 8 bytes each, offset in the first 3
     rec_offs = []
     for i in range(num_rec):
         p = 78 + 8 * i
@@ -729,7 +721,7 @@ def _mobi_data(path):
         if len(r0) >= 84:
             first_non_book = struct.unpack(">I", r0[80:84])[0]
         first_non_book = max(1, min(first_non_book, len(recs)))
-        # EXTH-Header: Eintrag Typ 100 = Autor
+        # EXTH header: entry type 100 = author
         pos = r0.find(b"EXTH", 24)
         if pos >= 0 and len(r0) >= pos + 12:
             count = struct.unpack(">I", r0[pos + 8:pos + 12])[0]
@@ -769,18 +761,16 @@ def _mobi_data(path):
     rows = [(k, v) for k, v in (("Titel", title), ("Autor", author)) if v]
     return rows, None, text
 
-# --- Schriftarten: Wasserfall für TrueType/OpenType (Bordmittel) ------------
+# --- Fonts: waterfall for TrueType/OpenType (stdlib) -------------------------
 
 _FONT_SIZES = (8, 11, 14, 18, 24, 36)
 _FONT_SAMPLE_TEXT = ("Zwölf Boxkämpfer jagen Viktor quer über den "
                      "großen Sylter Deich")
-# Prozess-Zustand (kein global-Schlüsselwort, siehe Projekt-Konvention):
-# temporärer Ordner für die Fontconfig-Übernahme, bereits übernommene
-# Pfade und die geordnete Liste der Kopien im Temp-Ordner (R5-Deckel)
+# Process state (no global keyword, project convention): temp dir
+# for the fontconfig takeover, taken-over paths, ordered copy list.
 _FONT_STATE = {"tmpdir": None, "added": set(), "copies": []}
-# R5: Temp-Ordner auf 64 Kopien deckeln – fontconfig behält gelöschte
-# Schriften im Speicher, bis der Prozess endet; der Ordner selbst
-# darf aber nicht bis zum Reboot/Absturz unendlich wachsen.
+# R5: cap the temp dir at 64 copies – fontconfig keeps deleted
+# fonts in memory until the process ends; the dir must not grow forever.
 _FONT_COPY_LIMIT = 64
 
 
@@ -838,9 +828,9 @@ def _font_info(path):
             continue
         raw = data[s:s + ln]
         try:
-            if plat in (0, 3):            # Unicode bzw. Windows: UTF-16BE
+            if plat in (0, 3):            # Unicode or Windows: UTF-16BE
                 text = raw.decode("utf-16-be", "replace")
-            else:                          # Mac & Co.: grob Latin-1
+            else:                          # Mac etc.: roughly Latin-1
                 text = raw.decode("latin-1", "replace")
         except Exception:
             continue
@@ -867,10 +857,8 @@ def _fc_add_font_file(path):
     try:
         if state["tmpdir"] is None:
             state["tmpdir"] = tempfile.mkdtemp(prefix="previewer-font-")
-        # Zielname mit Hash des QUELLPFADS: zwei Schriften mit gleichem
-        # Dateinamen aus verschiedenen Ordnern dürfen sich nicht ins
-        # Gehege kommen (B1) – sonst sähe der Wasserfall immer die
-        # zuerst kopierte Datei.
+        # Target name with a hash of the SOURCE path: two fonts with
+        # the same file name must not clash (B1) – first copy would win.
         stem, ext = os.path.splitext(os.path.basename(path))
         digest = hashlib.sha1(os.path.abspath(path).encode(
             "utf-8", "replace")).hexdigest()[:8]
@@ -910,13 +898,13 @@ def _font_known(font_map, family):
                 return True
         return False
     except Exception:
-        return True      # Prüfung unmöglich – nicht blocken
+        return True      # check impossible – do not block
 
 
-# ============================ Renderer: Text ================================
+# ============================ Renderer: text ================================
 
 
-# --- vCard (F7): Parser und Karten-Helfer --------------------------------
+# --- vCard (F7): parser and card helpers ------------------------------------
 
 def _vcard_unfold(text):
     """
@@ -953,7 +941,7 @@ def _vcard_split(line):
     parts = head.split(";")
     name = parts[0].strip().upper()
     if "." in name:
-        # vCard-3.0-Gruppenpräfix (item1.TEL): abtrennen
+        # vCard 3.0 group prefix (item1.TEL): strip it
         name = name.split(".")[-1]
     params = {}
     for p in parts[1:]:
@@ -1170,7 +1158,7 @@ def _vcard_placeholder(size=160):
         return None
 
 
-# --- LDIF (F7): Adressbuch-Exporte als Visitenkarten ---------------------
+# --- LDIF (F7): address book exports as cards --------------------------------
 
 def _ldif_unfold(text):
     """LDIF-Zeilenfortsetzung (Zeile beginnt mit Leerzeichen, RFC 2849)."""
@@ -1236,8 +1224,8 @@ def _ldif_record(attrs):
         card.append(("NICKNAME", {}, v))
     for v in vals("birthday"):
         card.append(("BDAY", {}, v))
-    # jpegPhoto: LDIF-Wert ist Base64 und bleibt ROHER Text – das
-    # Karten-Foto dekodiert (ENCODING=B wie bei vCard inline).
+    # jpegPhoto: the LDIF value is base64 and stays RAW text – the
+    # card photo decodes it (ENCODING=B, as in vCard inline).
     for v in vals("jpegphoto"):
         card.append(("PHOTO", {"ENCODING": ["B"]}, v))
     return card or None
@@ -1262,7 +1250,7 @@ def _ldif_parse(text):
     for line in _ldif_unfold(text):
         s = line.strip()
         if not s or s == "-":
-            # Leerzeile oder LDIF-Änderungstrenner: Satzgrenze
+            # Blank line or LDIF change separator: record boundary
             flush()
             continue
         if s.startswith("#") or s.lower().startswith("version:"):
@@ -1287,7 +1275,7 @@ def _ldif_parse(text):
     return cards
 
 
-# --- Windows-Kontakte (F7): .contact-XML als Visitenkarten ----------------
+# --- Windows contacts (F7): .contact XML as cards ----------------------------
 
 _CONTACT_ADDR_TAGS = ("street", "city", "locality", "state", "region",
                       "postalcode", "zip", "countryregion", "country")
@@ -1401,10 +1389,8 @@ def _contact_parse(text):
 class TextRendererMixin:
     """Mixin: Renderer für Text, Markdown, EML, E-Book, Schrift, vCard."""
 
-    # --- gemeinsame Helfer für Text-Ansichten (Audit 0.9.1) ---------------
-    # Der TextView-Bau war zuvor FÜNF Mal nahezu identisch implementiert
-    # (Text, Markdown, EML-Körper, E-Book, Office-Textauszug), das
-    # gekappte Datei-Lesen zwei Mal (Text, Markdown).
+    # --- Shared helpers for text views (audit 0.9.1): TextView building
+    # was previously duplicated ~five times; capped file reading twice. ---
 
     def _read_text_file(self, path):
         """Datei gekappt lesen: (Text, truncated) – Text und Markdown."""
@@ -1424,12 +1410,10 @@ class TextRendererMixin:
         except Exception as e:
             self._hint("Konnte Datei nicht lesen: %s" % e)
             return
-        # F24 (0.16.0): Zeilennummern laut Einstellung „Textdateien“
-        # (Default an); sie sind Randzeichnung, nicht Textbuffer –
-        # kopiert wird nur der Text selbst.
-        # F44 (0.28.0): source_path reicht den Dateinamen an _text_view
-        # weiter – der Panel-Kern rät daraus die Sprache und schaltet
-        # auf GtkSourceView um, wenn das Binding vorhanden ist.
+        # F24: line numbers per the "Text files" setting (default on);
+        # margin drawing, not text buffer – only the text is copied.
+        # F44: source_path passes the file name to _text_view – the
+        # panel core infers the language and switches to GtkSourceView.
         self._text_view(text, font="Monospace 9",
                         linenumbers=self._conf_text_linenumbers,
                         source_path=path)
@@ -1451,10 +1435,8 @@ class TextRendererMixin:
         markup = _markdown_to_pango(text)
         valid = True
         try:
-            # Markup VOR dem Einfügen validieren: GTK bricht bei
-            # ungültigem Markup STILL ab (keine Ausnahme!) und die
-            # Vorschau bliebe leer. Jetzt: prüfen und im Zweifel
-            # den Rohtext zeigen statt gar nichts.
+            # Validate markup BEFORE inserting: GTK silently bails
+            # on invalid markup (no exception!) – show raw text instead.
             Pango.parse_markup(markup, -1, "\x00")
         except Exception as exc:
             valid = False
@@ -1473,9 +1455,8 @@ class TextRendererMixin:
         """
         try:
             with open(path, "rb") as fh:
-                # 0.9.2: Lese-Deckel – die Kopfzeilen stehen ohnehin
-                # oben; ein mehr-GB-.eml würde die sonst ganze Datei
-                # in den Speicher ziehen und Nemo einfrieren.
+                # 0.9.2: read cap – headers sit at the top anyway; a
+                # multi-GB .eml would otherwise freeze Nemo.
                 raw = fh.read(_EML_FILE_CAP)
             msg = email.message_from_bytes(raw, policy=policy.default)
         except Exception as e:
@@ -1492,8 +1473,8 @@ class TextRendererMixin:
                 val = None
             if val:
                 rows.append((label, str(val)[:160]))
-        # 0.9.1: Kopfzeilen über den zentralen Tabellen-Helfer
-        # (zuvor identisch inline gebaut).
+        # 0.9.1: headers via the central table helper (previously
+        # built identically inline).
         self._meta_grid(rows)
 
         body = self._eml_body(msg)
@@ -1529,7 +1510,7 @@ class TextRendererMixin:
             except Exception:
                 pass
         if not text.strip():
-            # Fallback: erster text/plain-Teil, falls get_body versagte.
+            # Fallback: first text/plain part if get_body failed.
             try:
                 for p in msg.walk():
                     if p.get_content_type() == "text/plain":
@@ -1558,9 +1539,8 @@ class TextRendererMixin:
         # → REF TXT-VCARD-1
         try:
             with open(path, "rb") as fh:
-                # Lese-Deckel: Kontakt-Fotos liegen als Base64 IN der
-                # Datei – ein paar MB sind üblich, ein paar Dutzend
-                # wären eine Bombe für Nemo.
+                # Read cap: contact photos sit as base64 IN the
+                # file – a few MB are normal, dozens would be a bomb.
                 raw = fh.read(_VCARD_FILE_CAP)
         except Exception as e:
             self._hint("Visitenkarte konnte nicht geöffnet werden: %s"
@@ -1568,8 +1548,8 @@ class TextRendererMixin:
             return
         text = raw.decode("utf-8", "replace")
         lower = path.lower()
-        # Format nach Endung – alle drei Parser liefern dieselbe
-        # Karten-Struktur (→ REF TXT-VCARD-1).
+        # Format by extension – all three parsers yield the same
+        # card structure (→ REF TXT-VCARD-1).
         if lower.endswith(".ldif"):
             cards = _ldif_parse(text)
         elif lower.endswith(".contact"):
@@ -1581,9 +1561,8 @@ class TextRendererMixin:
                        "Öffnen-Knopf betrachten.")
             self._render_generic()
             return
-        # Kein Karten-Deckel (Nutzer-Wunsch): ALLE Kontakte werden
-        # gebaut und erscheinen untereinander scrollbar; die einzige
-        # Grenze bleibt der Lese-Deckel über der Datei selbst.
+        # No card cap (user request): ALL contacts are built and
+        # scroll below each other; only the file read cap remains.
         stack = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         stack.set_margin_start(6)
         stack.set_margin_end(6)
@@ -1639,8 +1618,8 @@ class TextRendererMixin:
         note = _vcard_first(card, "NOTE")
         if note:
             rows.append(("Notiz", note.replace("\n", " ")[:120]))
-        # Zeilen-Deckel: Adressbuch-Exporte tragen gern Dutzende
-        # Telefonnummern – nach 14 Zeilen ist Schluss mit Hinweis.
+        # Line cap: address book exports love dozens of phone
+        # numbers – stop after 14 lines with a hint.
         if len(rows) > 14:
             rows = rows[:14]
             rows.append(("Weitere", "… Angaben in der Datei"))
@@ -1660,15 +1639,15 @@ class TextRendererMixin:
         if pb is not None:
             img = Gtk.Image.new_from_pixbuf(pb)
         else:
-            # Kein Cairo, kein Foto: Icon-Notnagel aus dem Theme.
+            # No Cairo, no photo: fallback icon from the theme.
             img = Gtk.Image.new_from_icon_name(
                 pick_icon(("avatar-default-symbolic", "avatar-default",
                            "contact-new-symbolic"), "avatar-default"),
                 Gtk.IconSize.DIALOG)
 
         inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        # Innenabstand: 8 px Luft für den Schatten (pad in
-        # _vcard_card_draw) plus 10 px Rand bis zum Kartenrand.
+        # Padding: 8 px of air for the shadow (pad in _vcard_card_draw)
+        # plus 10 px margin up to the card border.
         inner.set_margin_start(18)
         inner.set_margin_end(18)
         inner.set_margin_top(16)
@@ -1710,8 +1689,8 @@ class TextRendererMixin:
         mode tut ein weißer Kachelgrund in den Augen weh. Rückgabe
         False: GTK zeichnet die Widgets danach OBEN drauf.
         """
-        # Rahmen und Schatten brauchen KEIN pycairo – der draw-
-        # Callback bekommt seinen Cairo-Kontext von GTK geliefert.
+        # Border and shadow need NO pycairo – the draw callback
+        # receives its Cairo context from GTK.
         try:
             w = widget.get_allocated_width()
             h = widget.get_allocated_height()
@@ -1726,9 +1705,8 @@ class TextRendererMixin:
                 self._cover_round_path(cr, pad + dx - i, pad + dy - i,
                                        cw + 2 * i, ch + 2 * i, r + i)
                 cr.fill()
-            # Keine Füllung – die Karte bleibt transparent, nur der
-            # Haarlinien-Rand markiert sie (Nutzer-Wunsch 0.25.1:
-            # weißer Grund schmerzt im Darkmode in den Augen).
+            # No fill – the card stays transparent, only the hairline
+            # border marks it (0.25.1: white hurts in dark mode).
             self._cover_round_path(cr, pad, pad, cw, ch, r)
             cr.set_source_rgba(0.0, 0.0, 0.0, 0.10)
             cr.set_line_width(1.0)
@@ -1767,8 +1745,8 @@ class TextRendererMixin:
             self._hint("Kein lesbarer Text gefunden – Datei über den "
                        "Öffnen-Knopf betrachten.")
             return
-        # 0.9.1: Textanfang über den gemeinsamen TextView-Helfer
-        # (zuvor identisch inline gebaut).
+        # 0.9.1: text start via the shared TextView helper
+        # (previously built identically inline).
         self._text_view(text)
 
     def _render_epub(self, path):
@@ -1812,7 +1790,7 @@ class TextRendererMixin:
             dbg("Schrift konnte Fontconfig nicht hinzugefügt werden: %s"
                 % path)
 
-        # Frischer FontMap + eigener Kontext: sieht die neue Familie.
+        # Fresh font map + own context: sees the new family.
         try:
             fctx = PangoCairo.FontMap.new().create_context()
         except Exception as e:
@@ -1825,14 +1803,8 @@ class TextRendererMixin:
             self._hint("Schrift konnte nicht eingebunden werden – der "
                        "Wasserfall zeigt die Ersatzschrift.")
 
-        # Textfarbe aus dem Theme übernehmen. F12-Fix (0.34.0,
-        # Nutzer-Fund): get_color() verlangt in GTK3 das State-
-        # Argument – der alte Aufruf ohne Argument warf IMMER eine
-        # TypeError, die der except-Block schluckte, deshalb malte
-        # der Fallback (fast schwarz) in jedem Theme; im Darkmode
-        # stand schwarzer Text auf dunkelgrauem Grund. Mit State-
-        # Flags.NORMAL liest der Aufruf dieselbe Farbe wie die
-        # Ordner-Icons (→ REF TXT-FONT-2).
+        # Theme text color. F12 fix (0.34.0): get_color() requires a
+        # state in GTK3; StateFlags.NORMAL reads the theme color (→ REF TXT-FONT-2).
         fg = (0.13, 0.13, 0.13)
         try:
             c = self.get_style_context().get_color(
@@ -1841,8 +1813,8 @@ class TextRendererMixin:
         except Exception:
             pass
 
-        # Doppelt vorrendern und live herunterskalieren: bleibt auch
-        # beim Verziehen des Trenners scharf.
+        # Pre-render at double size and scale down live: stays
+        # sharp even while dragging the divider.
         s = 2
         surf_w = max(200, self._preview_width() * s)
         pad = 8 * s
@@ -1859,10 +1831,8 @@ class TextRendererMixin:
             text_fd.set_size(size * Pango.SCALE * s)
             text_l = Pango.Layout.new(fctx)
             text_l.set_font_description(text_fd)
-            # F12 (0.34.0, Nutzer-Wunsch): Der Probetext kommt aus
-            # der Konfiguration – einstellbar im Einstellungsfenster
-            # (Rubrik „Schriftarten“), Default ist der klassische
-            # Satz (→ REF TXT-FONT-2).
+            # F12: the sample text comes from the configuration –
+            # editable in the "Fonts" section (→ REF TXT-FONT-2).
             text_l.set_text(self._conf_font_sample_text, -1)
             text_l.set_width(surf_w * Pango.SCALE)
             text_l.set_wrap(Pango.WrapMode.WORD_CHAR)
@@ -1890,7 +1860,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.36.0"
+PREVIEWER_VERSION = "0.37.0"
 dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F44: "
     "Syntax-Hervorhebung via source_path; F31: "
     "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "

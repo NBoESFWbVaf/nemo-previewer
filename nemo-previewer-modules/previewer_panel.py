@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.36.0
+previewer_panel.py – Version 0.37.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -49,11 +49,8 @@ try:
 except Exception:
     pass
 
-# F47 (Nutzer-Fund): .theme und die Backup-Endungen gelten der
-# MIME-Datenbank als application/x-theme bzw. application/x-trash
-# („Sicherheitskopie") – nicht als Text. Die Endungen stehen
-# deshalb zusätzlich in der Whitelist; .swp bleibt bewusst draußen
-# (Vim-Swap ist binär).
+# F47: the MIME database types .theme and backup endings as
+# x-theme/x-trash, not text – whitelisted; binary .swp stays out.
 _TEXT_EXTRAS = {
     '.py', '.sh', '.bash', '.zsh', '.js', '.ts', '.json', '.yaml', '.yml',
     '.toml', '.ini', '.cfg', '.conf', '.csv', '.log', '.md', '.rst',
@@ -63,20 +60,15 @@ _TEXT_EXTRAS = {
     '.theme', '.old', '.bak', '.orig',
 }
 
-# F47 (Nutzer-Fund): „Opake" Typen – die Datenbank sagt nicht
-# text/*, obwohl der Inhalt oft lesbarer Text ist: Sicherungs-
-# kopien (x-trash), Theme-Beschreibungen (x-theme), unbekannte
-# Dateien (octet-stream). Der Dispatch lässt bei diesen Typen
-# den Schnüffler über den INHALT entscheiden, bevor die Vorschau
-# aufgibt (→ REF PAN-F47-1).
+# F47: "opaque" types – the database does not say text/* although
+# the content often is readable; the sniffer decides (→ REF PAN-F47-1).
 _OPAQUE_TYPES = {
     "application/x-trash", "application/x-theme",
     "application/octet-stream",
 }
 
-# F12 (0.12.0): Konfiguration der Vorschauspalte – GLib-natives
-# INI-Format, braucht keine zusätzliche Abhängigkeit. Verzeichnis
-# wird beim ersten Speichern angelegt.
+# F12: configuration of the preview column – GLib-native INI
+# format, no extra dependency; created on first save.
 CONF_DIR = os.path.expanduser("~/.config/nemo-previewer")
 CONF_FILE = os.path.join(CONF_DIR, "nemo-previewer.conf")
 # → REF PAN-B8-1
@@ -133,9 +125,8 @@ def _silhouette(theme, sname, fg, size=16):
             return None
         pb = info.load_icon()
         if pb is None or not pb.get_has_alpha():
-            # Ohne Alphakanal ist das Icon eine Vollfläche – die
-            # Nachzeichnung käme als farbige Platte zurück, dann
-            # lieber unverändert laden.
+            # Without an alpha channel the icon is a solid slab –
+            # the redraw would come back colored; load unchanged.
             return None
         w, h = pb.get_width(), pb.get_height()
         src = pb.get_pixels()
@@ -169,24 +160,19 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
     def __init__(self, window):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.set_size_request(PANEL_MIN_WIDTH, -1)
-        # 0.31.3 (F46, Nutzer-Fund): Stilklasse background – das
-        # Panel malt seine leeren Flächen selbst, sonst blieben
-        # sie ungemalt schwarz (→ REF PAN-BG-1).
+        # 0.31.3 (F46): style class background – the panel paints
+        # its empty areas itself, else they stay black (→ REF PAN-BG-1).
         self.get_style_context().add_class("background")
-        # 0.31.4 (F46 II): GtkBox malt selbst KEINE CSS-Hintergrund-
-        # farbe – deshalb zeichnet das Panel im draw-Signal zuerst
-        # den themed Hintergrund unter alle Kinder (→ REF PAN-BG-1).
+        # 0.31.4 (F46 II): GtkBox paints NO CSS background itself –
+        # the panel draws the themed background first in draw (→ REF PAN-BG-1).
         self.connect("draw", self._on_panel_draw)
-        # 0.31.5 (F46 III): Merker gegen dbg-Flut im draw-Signal –
-        # der Hintergrund-Painter protokolliert Quelle und Farben
-        # nur bei Wechsel; je Widget ein eigener Merker (0.31.8:
-        # Ein einzelner Wert ließ die Zeilen der vier Widgets
-        # endlos pendeln) (→ REF PAN-BG-2).
+        # 0.31.5 (F46 III): flag against dbg flooding in draw – the
+        # painter logs only on change, per widget (→ REF PAN-BG-2).
         self._bg_dbg_keys = {}
-        # 0.31.7 (F46 V): CSS-Regel für die Scroll-Flächen – der
-        # Provider entsteht beim Ordner-Render (→ REF PAN-BG-2).
+        # 0.31.7 (F46 V): CSS rule for the scroll areas – the
+        # provider is created in the folder render (→ REF PAN-BG-2).
         self._surface_provider = None
-        # 0.31.8 (F46 VI): CSS-dbg-Zeile nur bei Farbwechsel.
+        # 0.31.8 (F46 VI): CSS dbg line only on color change.
         self._surface_css_farbe = None
 
         self._window = window
@@ -195,74 +181,58 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._playbin = None
         self._progress_timer = 0
         self._render_width = 0
-        # 0.17.0: Spaltenhöhe für die Bild-Höhenkappe mitverfolgen
-        # (max. 60 % der Spalte, Nutzer-Wunsch).
+        # 0.17.0: track the column height for the image height cap
+        # (max 60% of the column, user request).
         self._render_height = 0
-        # Skalierbare Vorschauen (R3): JEDES Bild bringt seine Parameter
-        # als eigenen Dict-Eintrag mit (siehe _scaled_image) – so sind
-        # beliebig viele live-skalierte Bilder pro Vorschau möglich,
-        # ohne sich gegenseitig zu überschreiben.
+        # Scalable previews (R3): every image carries its parameters
+        # as its own dict entry (see _scaled_image) – no clashes.
         self._scale_items = []
-        # F38: 40-%-Info-Bereich der Bild-Aufteilung (gesetzt, sobald
-        # _pack_image_capped die Spalte für eine Bild-Vorschau teilt).
+        # F38: 40% info area of the image split (set when
+        # _pack_image_capped splits the column for an image preview).
         self._image_info_box = None
-        # Hintergrund-Konvertierung für Office-Dokumente (LibreOffice → PDF)
+        # Background conversion for office documents (LibreOffice → PDF)
         self._office_job = None
         self._office_failed = set()
-        # 0.9.1: Panel-Abbau merken – der child-watch einer laufenden
-        # LibreOffice-Konvertierung darf dann nicht mehr rendern.
+        # 0.9.1: remember panel teardown – a running LibreOffice
+        # child-watch must not render after that.
         self._destroyed = False
-        # Mehrseitige PDF-Vorschau: Quell-Pixbufs je Seite + Anzeige-Images
+        # Multi-page PDF preview: source pixbufs per page + display images
         self._pdf_src = None
         self._pdf_imgs = None
         self._pdf_box = None
         self._pdf_last_w = 0
         # → REF PAN-R2-1
         self._pdf_gen = 0
-        # F14: Seitenanzeige der PDF-Vorschau + Gesamtzahl der Seiten
+        # F14: page indicator of the PDF preview + total page count
         self._pdf_page_label = None
         self._pdf_count = 0
         # → REF PAN-F12-1
         self._conf_show_at_start = True
-        # F48 (Nutzer-Wunsch): Die Ordner-Vorschau mit Inhaltsliste
-        # ist der obligatorische Standard – der Schalter „Ordner-
-        # inhalte in der Vorschau anzeigen“ im Einstellungsfenster
-        # (Default an) stellt bei Bedarf auf das schlichte Ordner-
-        # Icon mit Dateiinformationen um (→ REF PAN-FOLDER-2).
+        # F48: folder preview with contents list is the mandatory
+        # default; the settings switch toggles the plain icon (→ REF PAN-FOLDER-2).
         self._conf_folder_contents = True
-        # F12 (0.34.0, Nutzer-Wunsch): Wasserfall-Probetext der
-        # Schrift-Vorschau – Default ist der klassische Satz aus
-        # previewer_render_text; überschreibbar im Einstellungs-
-        # fenster (Rubrik „Schriftarten“) (→ REF TXT-FONT-2).
+        # F12: waterfall sample text of the font preview – default
+        # is the classic sentence, editable in the settings (→ REF TXT-FONT-2).
         self._conf_font_sample_text = _FONT_SAMPLE_TEXT
-        # F24 (0.16.0): Zeilennummern in der reinen Text-Vorschau –
-        # Default laut Nutzer-Wunsch AN, umschaltbar im Einstellungs-
-        # fenster (Rubrik „Textdateien“).
+        # F24: line numbers in the plain text preview – default ON
+        # (user request), toggleable in the settings ("Text files").
         self._conf_text_linenumbers = True
-        # F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung
-        # als EINSTELLUNG – Rubrik „Textdateien“, Default an; greift
-        # live über _last_textish.
+        # F44: syntax highlighting as a SETTING – "Text files"
+        # section, default on; applies live via _last_textish.
         self._conf_text_syntax = True
-        # F12 Teil 3 (0.27.0): Dokument-Deckel einstellbar – PDF- und
-        # Office-Vorschauen begrenzen (Performance) oder komplett
-        # anzeigen. Defaults: Begrenzung AN mit 20 Seiten – genau das
-        # bis dahin fest verdrahtete Verhalten (MAX_PDF_PAGES im
-        # Docs-Modul).
+        # F12 part 3: document cap configurable – limit PDF/office
+        # previews or show all; default matches the old hard cap.
         self._conf_doc_page_limit = True
         self._conf_doc_max_pages = 20
-        # F12 Teil 3: Merker – ist die AKTUELLE Vorschau eine PDF-/Office-
-        # Seitenansicht? Dann wirken Deckel-Änderungen sofort (Gegen-
-        # stück zu _last_textish der Zeilennummern).
+        # F12 part 3: marker – is the CURRENT preview a PDF/office
+        # page view? Cap changes then apply immediately.
         self._last_docview = False
-        # Merker: Ist die AKTUELLE Vorschau TextView-basiert, der
-        # Zeilennummern-Toggle also billig anwendbar? (Damit der
-        # Einstellungs-Toggle nur solche Vorschauen neu rendert,
-        # statt z.B. Audio-Player oder Office-Konvertierung.)
+        # Marker: is the CURRENT preview TextView-based, i.e. the
+        # line-number toggle is cheap to apply? The settings toggle
+        # then re-renders only those previews.
         self._last_textish = False
-        # Standardbreite beim Start: Default PANEL_WIDTH (300 px,
-        # Nutzer-Wunsch). Eine per Ziehen gewählte Breite wird zur
-        # künftigen Startbreite und landet entprellt in der conf;
-        # _panel_width_saved verhindert Doppel-Schreibvorgänge.
+        # Start width: default PANEL_WIDTH (300 px, user request); a
+        # dragged width becomes the future start width, debounced.
         self._panel_width = PANEL_WIDTH
         self._panel_width_saved = PANEL_WIDTH
         self._panel_width_timer = 0
@@ -272,16 +242,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._settings_pages_spin = None
         self._config_load()
 
-        # --- Kopfzeile (F35: nur noch Bedienelemente – Icon, Name,
-        # Typ, Größe und Datum stehen bereits in der Nemo-Liste und
-        # wären dort Doppelungen) ---
+        # --- Header (F35: controls only – icon, name, type, size
+        # and date already sit in the Nemo list) ---
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         header.set_border_width(6)
 
-        # Öffnen-Knopf (F40: Systemausführungs-Symbol statt Dokument-
-        # Öffnen – es startet ja die Datei in IHRER Anwendung). Der
-        # Ausblenden-Knopf ist als Vorschau-Umschalter in Nemos
-        # Titelleiste aufgewacht (→ REF ENT-TOGGLE-1).
+        # Open button (F40: system run icon). The hide button moved
+        # to Nemo's title bar as the preview toggle (→ REF ENT-TOGGLE-1).
         btn_open = Gtk.Button.new_from_icon_name(
             pick_icon(("document-edit-symbolic", "document-edit",
                        "edit-symbolic", "text-editor-symbolic"),
@@ -296,34 +263,30 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
         self.pack_start(self._separator, False, False, 0)
 
-        # --- Vorschau-Bereich ---
+        # --- Preview area ---
         self._content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self._content.set_border_width(8)
         self.pack_start(self._content, True, True, 0)
-        # Vorschau passt ihre Größe an, wenn die Panelbreite (Gtk.Paned-
-        # Trenner) verändert wird: entprelltes Neu-Rendern bei Breiten-
-        # änderung.
+        # The preview resizes when the panel width (Gtk.Paned
+        # divider) changes: debounced re-render on width changes.
         self._content.connect("size-allocate",
                               self._on_content_size_allocate)
 
 
-        # --- F19: Toolbar am unteren Rand der Vorschauspalte ---
-        # Aufbau inkl. Einstellungs-Knopf, CSS-Feintuning und Tasten-
-        # kürzel (Strg+Alt+P) liegt im Toolbar-Modul (F29).
+        # --- F19: toolbar at the bottom of the preview column ---
+        # Construction, settings button, CSS and shortcut (Ctrl+Alt+P)
+        # live in the toolbar module (F29).
         self._build_toolbar(window)
 
         self._show_placeholder()
 
-        # B3: Beim Abbauen des Panels Wiedergabe und Timer sauber stoppen
+        # B3: on panel teardown, cleanly stop playback and timer
         self.connect("destroy", self._on_panel_destroy)
 
     def _on_panel_draw(self, widget, cr):
-        # 0.31.5 (F46 III, Nutzer-Fund): GtkBox ruft gtk_render_
-        # background nie selbst auf – deshalb malt dieser Haken den
-        # Hintergrund VOR allen Kindern. Er hängt zusätzlich am
-        # Scroll-Fenster der Ordner-Liste: Das trägt ein eigenes
-        # GdkWindow, das die Panel-Malerei sonst nie erreicht
-        # (→ REF PAN-BG-2).
+        # 0.31.5 (F46 III): GtkBox never calls gtk_render_background
+        # itself – this hook paints the background before all children,
+        # additionally on the scroll window of the folder list (→ REF PAN-BG-2).
         self._paint_background(widget, cr)
         return False
 
@@ -384,9 +347,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             if ctx is None and rgba is not None \
                     and rgba.alpha > 0.0:
                 ctx, used = cctx, name
-        # 0.31.7 (F46 V): Eigen-Farbe des Widget-Kontexts proto-
-        # kollieren – zeigt, was das Theme DORT selbst malt und
-        # womöglich über den Painter legt (→ REF PAN-BG-2).
+        # 0.31.7 (F46 V): log the widget context's own color – shows
+        # what the theme paints there itself (→ REF PAN-BG-2).
         try:
             eigen = widget.get_style_context().get_background_color(
                 Gtk.StateFlags.NORMAL)
@@ -398,14 +360,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if ctx is not None:
             Gtk.render_background(ctx, cr, 0, 0, w, h)
         elif content_ctx is not None:
-            # Keine Farbe aufgelöst – aber die Platte malt ja
-            # sichtbar: Ihr Kontext rendert womöglich einen Farb-
-            # verlauf, den get_background_color nicht zeigt.
+            # No color resolved – but the slab paints visibly: its
+            # context may render a gradient get_background_color hides.
             Gtk.render_background(content_ctx, cr, 0, 0, w, h)
             used = "Inhalt-ungeprüft"
         else:
-            # Letzte Rettung: aus der Vordergrundfarbe abgeleitete
-            # Grundfläche – hell im Lightmode, dunkel im Darkmode.
+            # Last resort: base area derived from the foreground
+            # color – light in light mode, dark in dark mode.
             fg = self.get_style_context().get_color(
                 Gtk.StateFlags.NORMAL)
             base = 0.92 if (fg.red + fg.green + fg.blue) / 3.0 \
@@ -415,8 +376,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             cr.fill()
             used = "Vordergrund-abgeleitet"
         wname = type(widget).__name__
-        # 0.31.8 (F46 VI): Merker je Widget – ein einzelner Wert
-        # ließ die dbg-Zeilen der vier Widgets endlos pendeln.
+        # 0.31.8 (F46 VI): flag per widget – a single value let the
+        # dbg lines of the four widgets oscillate endlessly.
         key = "%s|%s" % (used, ";".join(report))
         if self._bg_dbg_keys.get(wname) != key:
             self._bg_dbg_keys[wname] = key
@@ -476,8 +437,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             for ctx in self._surface_css_contexts(scroll):
                 ctx.add_provider(
                     prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-            # 0.31.8 (F46 VI): Nur bei Farbwechsel drucken – die
-            # Zeile lief sonst bei jeder Ordner-Auswahl erneut.
+            # 0.31.8 (F46 VI): print only on color change – the
+            # line would otherwise repeat on every folder selection.
             if self._surface_css_farbe != farbe:
                 self._surface_css_farbe = farbe
                 dbg("Panel-Hintergrund CSS: Regel für Scroll-Fenster, "
@@ -559,11 +520,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     pass
             if fund:
                 dbg("Panel-Pixel: " + "; ".join(fund))
-            # 0.31.11 (F46 IX): Panel-Scan – ein komplettes
-            # horizontales Farbprofil in Panelhöhe, Farbläufe
-            # komprimiert, mit Schwarz-Pixel-Zähler. Zeigt auch
-            # Streifen, zwischen denen keine feste Sonde sitzt
-            # (→ REF PAN-BG-2).
+            # 0.31.11 (F46 IX): panel scan – a full horizontal color
+            # profile with black-pixel counter; also shows stripes
+            # without a fixed probe between them (→ REF PAN-BG-2).
             pos = self.translate_coordinates(top, 0, ph // 2)
             if pos is not None:
                 pb = Gdk.pixbuf_get_from_window(
@@ -598,11 +557,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         return False
 
 
-    # ------------------------------ Selektion ------------------------------
+    # ------------------------------ Selection ------------------------------
 
     def set_selection(self, names, dir_path):
         """Auswahl setzen und Vorschau neu rendern (names = Dateinamen)."""
-        # Audio-Player immer sauber stoppen, wenn sich etwas ändert
+        # Always cleanly stop the audio player when something changes
         self._stop_playback()
 
         if not names:
@@ -624,13 +583,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
     def _clear_content(self):
         for child in list(self._content.get_children()):
             self._content.remove(child)
-        # Skalier-Quellen freigeben (Speicher der vollen Auflösung)
+        # Release scale sources (memory of the full resolution)
         self._scale_items = []
-        # F38: Info-Bereich der letzten Bild-Vorschau freigeben.
+        # F38: release the info area of the last image preview.
         self._image_info_box = None
-        # ebenso die Quell-Pixbufs der PDF-Seiten; die Render-Generation
-        # hochzählen, damit laufende Idle-Nachschub-Schritte (R2)
-        # abbrechen, statt in eine verwaiste Ansicht hinein zu malen.
+        # likewise the PDF page pixbufs; bump the render generation
+        # so running idle feed steps (R2) abort instead of painting.
         self._pdf_src = None
         self._pdf_imgs = None
         self._pdf_box = None
@@ -638,16 +596,16 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._pdf_page_label = None
         self._pdf_count = 0
         self._pdf_gen += 1
-        # F24: War die gerade abgebaute Vorschau eine Text-Vorschau?
+        # F24: was the just torn-down preview a text preview?
         self._last_textish = False
-        # F12 Teil 3: War sie eine Dokument-Seitenansicht (PDF/Office)?
+        # F12 part 3: was it a document page view (PDF/office)?
         self._last_docview = False
 
     def _show_placeholder(self):
-        # F35: Die frühere Kopfzeile ist entfallen – der Platzhalter-
-        # Text im Inhaltsbereich genügt als Zustandsmeldung.
+        # F35: the former header is gone – the placeholder text in
+        # the content area suffices as a status message.
         self._clear_content()
-        # Nemo-Logo, mittig (horizontal und vertikal) in der Spalte
+        # Nemo logo, centered (horizontal and vertical) in the column
         logo = Gtk.Image()
         logo_name = "folder"
         try:
@@ -688,10 +646,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
     def _render_inner(self):
         path = self._path
         self._clear_content()
-        # 0.31.4 (F46 II, Nutzer-Wunsch): Außenrand des Inhalts-
-        # bereichs pro Render auf 8 px zurücksetzen – Renderer, die
-        # randlos füllen (Ordner-Liste), nullen ihn selbst (→ REF
-        # PAN-BG-1).
+        # 0.31.4 (F46 II): reset the content area's outer margin to
+        # 8 px per render – edgeless renderers zero it themselves (→ REF PAN-BG-1).
         self._content.set_border_width(8)
 
         if len(self._names) > 1:
@@ -702,28 +658,25 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._content.pack_start(extra, False, False, 0)
 
         if not path or not os.path.exists(path):
-            # F35: Der Name steht in der Nemo-Liste – übrig bleibt nur
-            # der Warnhinweis, und zwar im Inhaltsbereich.
+            # F35: the name sits in the Nemo list – only the warning
+            # hint remains, in the content area.
             self._hint("(Datei nicht gefunden)")
             return
 
         mime, size, mtime = query_file_info(path)
         is_dir = os.path.isdir(path)
 
-        # F35: Die frühere Kopfzeilen-Füllung (Icon, Name, Typ · Größe ·
-        # Änderungsdatum) ist entfallen – die Nemo-Liste zeigt all das
-        # bereits neben der Vorschau-Spalte.
+        # F35: the former header fill (icon, name, type · size ·
+        # modified date) is gone – the Nemo list shows all of that
+        # next to the preview column.
 
         uri = GLib.filename_to_uri(path)
         lower = path.lower()
 
-        # --- nach Typ rendern ---
+        # --- render by type ---
         if is_dir:
-            # F48 (Nutzer-Wunsch): Die Inhaltsliste ist der
-            # obligatorische Standard; der Schalter „Ordnerinhalte
-            # in der Vorschau anzeigen“ (Default an) stellt bei
-            # Abwahl auf das schlichte Ordner-Icon mit Datei-
-            # informationen um (→ REF PAN-FOLDER-2).
+            # F48: the contents list is the mandatory default; the
+            # settings switch toggles the plain folder icon (→ REF PAN-FOLDER-2).
             if self._conf_folder_contents:
                 self._render_folder(path)
             else:
@@ -733,8 +686,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         elif (mime.startswith("image/") or
               mime == "application/x-xpixmap" or
               lower.endswith((".heic", ".heif", ".hif"))):
-            # F42: HEIC-Endungen als Backup, falls shared-mime-info
-            # den Typ (noch) nicht kennt.
+            # F42: HEIC endings as a backup in case shared-mime-info
+            # does not know the type (yet).
             self._render_image(path)
         elif mime == "application/pdf" or lower.endswith(".pdf"):
             if HAVE_POPPLER:
@@ -761,8 +714,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._render_eml(path)
         elif (lower.endswith((".vcf", ".vcard", ".ldif", ".contact"))
               or mime == "text/vcard"):
-            # F7: Visitenkartenformate – vCard, LDIF, Windows-Contact
-            # (Renderer im Text-Modul).
+            # F7: contact card formats – vCard, LDIF, Windows
+            # contact (renderers in the text module).
             # → REF PAN-VCARD-1
             self._render_vcard(path)
         elif mime == "application/epub+zip" or lower.endswith(".epub"):
@@ -787,19 +740,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # → REF PAN-F23-1
             self._render_text(path)
         elif mime in _OPAQUE_TYPES and _sniff_is_text(path):
-            # F47 (Nutzer-Fund): Der Typ-Rater liest nur den NAMEN –
-            # index.theme galt als Theme, .xsession-errors.old als
-            # „Sicherheitskopie", beide ohne Text-Vorschau, obwohl
-            # ihr Inhalt reiner Text ist. Bei diesen „opaken" Typen
-            # entscheidet deshalb der Schnüffler über den INHALT,
-            # bevor die Vorschau aufgibt; Binärdateien fallen wie
-            # immer an der Steuerzeichen-Schwelle (→ REF
-            # PAN-F47-1).
+            # F47: the type rater reads only the NAME – for these
+            # "opaque" types the sniffer decides by CONTENT before
+            # the preview gives up (→ REF PAN-F47-1).
             self._render_text(path)
         else:
             self._render_generic()
 
-    # --- einzelne Renderer --------------------------------------------------
+    # --- individual renderers --------------------------------------------------
 
     def _on_content_size_allocate(self, widget, allocation):
         """
@@ -819,10 +767,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     and width != self._panel_width):
                 self._panel_width = width
                 self._panel_width_schedule_save()
-            # 0.17.0: Höhenänderungen (Fenster-Resize) lösen ebenfalls
-            # eine Live-Anpassung aus – die Bild-Höhenkappe koppelt an
-            # die aktuelle Spaltenhöhe. Vor dem 12-px-Filter, sonst
-            # bliebe die Kappe bei kleineren Fensterzügen stehen.
+            # 0.17.0: height changes (window resize) also trigger a
+            # live adjustment – the height cap follows the column.
             if (height > 100
                     and abs(height - self._render_height) >= 12):
                 self._render_height = height
@@ -869,13 +815,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         Gibt den fertigen Container (Gtk.ScrolledWindow) zurück.
         """
         img = Gtk.Image()
-        # Horizontal mittig: kleine Vorschauen (Cover, Office-Miniatur)
-        # kleben nicht am linken Rand, sondern sitzen zentriert.
+        # Horizontally centered: small previews (cover, office
+        # thumbnail) do not stick to the left edge.
         img.set_halign(Gtk.Align.CENTER)
         img.set_valign(Gtk.Align.START)
         scroll = Gtk.ScrolledWindow()
-        # AUTOMATIC in beide Richtungen: bricht die Weitergabe der
-        # Kind-Minimalbreite nach oben ab, das Pane bleibt frei ziehbar.
+        # AUTOMATIC in both directions: stops the child minimum
+        # width from propagating – the pane stays freely draggable.
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scroll.add(img)
         item = {"img": img, "scroll": scroll, "src": src, "maxh": max_h,
@@ -903,32 +849,31 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     continue
                 maxh = item["maxh"]
                 if item["frac"]:
-                    # 0.17.0: Höhenkappe – Bruchteil der SPALTENHÖHE
-                    # (Bild-Vorschau: 60 %), live bei Fenster-Resize.
+                    # 0.17.0: height cap – fraction of the COLUMN
+                    # HEIGHT (image preview: 60%), live on resize.
                     maxh = min(maxh, max(1, int(item["frac"] *
                                                  self._preview_height())))
                 target = self._preview_width()
                 f = float(target) / sw
                 if f > 1.0:
                     if item["upscale"]:
-                        # Hochskalieren, aber begrenzt: kleine Quellen
-                        # (Office-Miniaturansichten) werden sonst unleserlich.
+                        # Upscale, but limited: small sources
+                        # (office thumbnails) else blur.
                         f = min(f, item["maxup"])
                     else:
-                        f = 1.0      # kleine Bilder nicht unscharf aufblasen
+                        f = 1.0      # do not blur up small images
                 if f * sh > maxh:
                     f = float(maxh) / sh
                 w = max(1, int(sw * f))
                 h = max(1, int(sh * f))
-                # 0.17.0: Zusätzlich HÖHE vergleichen – die Höhenkappe
-                # kann sich bei gleichbleibender Breite ändern (Fenster
-                # höher/niedriger gezogen).
+                # 0.17.0: also compare HEIGHT – the cap can change
+                # at constant width (window taller/shorter).
                 if (abs(w - item["lastw"]) < 4
                         and abs(h - item.get("lasth", -1)) < 4):
                     continue
                 item["lastw"] = w
                 item["lasth"] = h
-                # Beim Hochskalieren qualitativ besser interpolieren
+                # Interpolate better when upscaling
                 interp = (GdkPixbuf.InterpType.HYPER if f > 1.0
                           else GdkPixbuf.InterpType.BILINEAR)
                 item["img"].set_from_pixbuf(src.scale_simple(w, h, interp))
@@ -950,7 +895,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         try:
             w = self._content.get_allocated_width()
             if w > 40:
-                # Innenabstand (Rahmen 8 px je Seite) abziehen
+                # Subtract the padding (8 px border per side)
                 return max(PANEL_MIN_WIDTH - 20, w - 16)
         except Exception:
             pass
@@ -1033,10 +978,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         sich Syntax-Hervorhebung; ohne Binding oder Sprache bleibt
         es beim normalen TextView.
         """
-        # F44 (0.28.0): Quellcode hervorheben – nur wenn das GtkSource-
-        # Binding da ist, der LanguageManager eine Sprache erkennt UND
-        # die Einstellung text_syntax angeschaltet ist (0.28.1,
-        # Nutzer-Wunsch; Default an).
+        # F44: highlight source code – only if the GtkSourceView
+        # binding exists, a language is detected AND text_syntax is on.
         view = None
         if (source_path is not None and HAVE_GTKSOURCE
                 and self._conf_text_syntax):
@@ -1061,7 +1004,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         if font is not None:
             view.override_font(Pango.FontDescription(font))
-        # Innenabstand, damit der Text nicht am Rand klebt
+        # Padding so the text does not stick to the border
         view.set_left_margin(10)
         view.set_right_margin(10)
         view.set_top_margin(8)
@@ -1078,11 +1021,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         scroll.set_shadow_type(Gtk.ShadowType.IN)
         scroll.add(view)
         self._content.pack_start(scroll, True, True, 0)
-        # 0.16.2: Merker immer True setzen – „aktuelle Vorschau ist
-        # TextView-basiert (billig neu renderbar)“. Vorher stand hier
-        # der linenumbers-Schalter, deshalb wirkte der Einstellungs-
-        # Toggle nur beim Deaktivieren: Nach dem Abschalten war der
-        # Merker False und das erneute Aktivieren renderte nicht.
+        # 0.16.2: always set the marker True ("current preview is
+        # TextView-based"); previously the line-number switch sat
+        # here, so the toggle only worked on disable.
         self._last_textish = True
         return view
 
@@ -1099,12 +1040,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         """
         ctx = view.get_style_context()
         probe = view.create_pango_layout("00000")
-        # 0.16.3 (Nutzer-Wunsch): Die Nummern zeichnen sich etwas
-        # KLEINER als der Text – Grundgröße (Parameter oder Theme-
-        # Schrift) holen und auf 80 % skalieren. Die gleiche
-        # verkleinerte Probe misst unten die Randbreite, sodass
-        # Rand und Nummern-Schrift zusammenpassen. Floor auf 1 pt,
-        # damit winzige Größenangaben nicht auf 0 rutschen.
+        # 0.16.3: the numbers draw a bit SMALLER than the text –
+        # take the base size and scale to 80%, floored at 1 pt.
         try:
             if font is not None:
                 fd = Pango.FontDescription(font)
@@ -1117,27 +1054,25 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 probe.set_font_description(fd)
         except Exception:
             pass
-        # 0.16.1: get_pixel_size() statt get_pixel_width() – die
-        # GI-Bindung bietet get_pixel_width nicht an (Testfeld:
-        # AttributeError im Moment der Randbreiten-Messung).
+        # 0.16.1: get_pixel_size() instead of get_pixel_width() –
+        # the GI binding does not offer the latter.
         pw, _ph = probe.get_pixel_size()
         view.set_left_margin(pw + 16)
 
         reported = [False]
 
         def _on_draw(view, cr):
-            # 0.16.2: Exceptions einmalig melden statt still pass –
-            # draw feuert oft, das Closure-Flag verhindert Log-Spam.
+            # 0.16.2: report exceptions once instead of silent pass
+            # – draw fires often; the closure flag prevents log spam.
             try:
                 vis = view.get_visible_rect()
                 it, _top = view.get_line_at_y(vis.y)
                 if it is None:
                     return False
                 color = ctx.get_color(view.get_state_flags())
-                # 0.16.3 (Nutzer-Wunsch): Alpha 0.6 → 0.75 – auf
-                # hellem Grund waren die Nummern zu verwaschen;
-                # etwas dunkler, gut lesbar, aber klar kleiner
-                # als der Text und so unterscheidbar.
+                # 0.16.3: alpha 0.6 → 0.75 – the numbers were too
+                # washed out on light backgrounds; still smaller
+                # than the text and so distinguishable.
                 cr.set_source_rgba(color.red, color.green, color.blue,
                                    color.alpha * 0.75)
                 margin = view.get_left_margin()
@@ -1159,13 +1094,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     dbg("Zeilennummern-Zeichnung fehlgeschlagen: %r" % exc)
             return False
 
-        # 0.16.2: connect_after statt connect – "draw" ist ein
-        # RUN_LAST-Signal; der User-Handler liefe VOR der Standard-
-        # zeichnung, die den Hintergrund füllt und die Nummern
-        # übermalt (Testfeld: Platz war da, Nummern blieben unsichtbar).
+        # 0.16.2: connect_after instead of connect – "draw" is a
+        # RUN_LAST signal; the default fill would paint over the
+        # numbers.
         view.connect_after("draw", _on_draw)
 
-    # --- E-Books: EPUB, FictionBook, MOBI -----------------------------------
+    # --- E-books: EPUB, FictionBook, MOBI ------------------------------------
 
     def _meta_grid(self, rows, container=None):
         """
@@ -1182,7 +1116,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         grid.set_row_spacing(2)
         grid.set_column_spacing(10)
         for i, (k, v) in enumerate(rows):
-            # F35: Bezeichnungen enden auf Doppelpunkt.
+            # F35: labels end with a colon.
             if not k.endswith(":"):
                 k += ":"
             kl = Gtk.Label(label=k)
@@ -1195,8 +1129,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             vl.set_tooltip_text(v)
             grid.attach(kl, 0, i, 1, 1)
             grid.attach(vl, 1, i, 1, 1)
-        # F38: container schlägt _content – Bild-Tabellen gehören in
-        # den 40-%-Info-Bereich der neuen Bild-Aufteilung.
+        # F38: container beats _content – image tables belong in the
+        # 40% info area of the new image split.
         target = container if container is not None else self._content
         target.pack_start(grid, False, False, 0)
 
@@ -1238,10 +1172,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                        % (total, unit, hidden))
         else:
             self._hint("Der Ordner enthält %d %s." % (total, unit))
-        # 0.30.0 (Nutzer-Wunsch): Versteckte nur zeigen, wenn Nemo sie
-        # zeigt – die Liste folgt auf org.nemo.preferences show-hidden-
-        # files (Strg+H). Lässt sich die Einstellung nicht lesen
-        # (fremdes System), zeigen wir wie bisher alles.
+        # 0.30.0: show hidden files only if Nemo shows them (follows
+        # show-hidden-files, Ctrl+H); unreadable → show everything.
         show_hidden = True
         try:
             nemo_prefs = Gio.Settings.new("org.nemo.preferences")
@@ -1251,9 +1183,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if not show_hidden:
             dirs = [n for n in dirs if not n.startswith(".")]
             files = [n for n in files if not n.startswith(".")]
-        # F43: Anzeige-Reihenfolge – Ordner vor Dateien, je alphabet-
-        # isch (case-insensitiv). Sichtbare Versteckte stehen an
-        # ihrer alphabetischen Position, nur gedimmt.
+        # F43: display order – folders before files, alphabetical
+        # (case-insensitive); visible hidden files in place, dimmed.
         shown = ([(n, True) for n in sorted(dirs, key=str.lower)]
                  + [(n, False) for n in sorted(files, key=str.lower)])
         if not shown:
@@ -1261,41 +1192,27 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         rest = max(0, len(shown) - 300)
         box = Gtk.ListBox()
         box.set_selection_mode(Gtk.SelectionMode.NONE)
-        # 0.31.11 (F46 IX, Nutzer-Beschreibung): Das 10/10/8/8-
-        # Innen-Padding gehört IN die Platte, nicht als Rand davor:
-        # ListBox-Ränder legen den Träger der Liste (Viewport)
-        # frei, und genau dort zeigte sich das Schwarz bei über-
-        # langer Liste. Die ListBox füllt deshalb randvoll; das
-        # Padding sitzt als Ränder an den Zeilen-Inhalten (unten) –
-        # die Plattenfarbe reicht bis an den Viewport-Rand (→ REF
+        # 0.31.11 (F46 IX): the 10/10/8/8 padding belongs INSIDE the
+        # slab – ListBox margins would expose the list's viewport,
+        # exactly where the black showed with long lists (→ REF
         # PAN-FOLDER-1, PAN-BG-2).
-        # 0.30.1: Icon-Theme EINMAL holen – der Zeilen-Loop fragt die
-        # Symbol-Varianten gegen das Theme ab
+        # 0.30.1: fetch the icon theme ONCE – the row loop queries
+        # the symbol variants against the theme
         theme = Gtk.IconTheme.get_default()
         picked = {}
-        # 0.31.2 (Nutzer-Fund): WhiteSur liefert unter -symbolic-
-        # Namen selbst farbige Icons (dunkle Platten im Darkmode,
-        # bestätigt durch die 0.31.1-Diagnose) – deshalb zeichnet
-        # die Ordner-Vorschau jedes gewählte Symbol als einfarbige
-        # Silhouette in der Vordergrundfarbe der Liste nach (Form
-        # bleibt, RGB einheitlich auf die Textfarbe). 0.31.3: Die
-        # Farbe kommt vom ANGEDOCKTEN Panel statt von der frisch
-        # gebauten, noch nicht im Fenster hängenden Liste (→ REF
-        # PAN-FOLDER-1).
+        # 0.31.2: WhiteSur ships colored icons under -symbolic names
+        # (dark slabs in dark mode) – the folder preview redraws every
+        # chosen symbol as a monochrome silhouette in the list's
+        # foreground color (→ REF PAN-FOLDER-1).
         fg = self.get_style_context().get_color(Gtk.StateFlags.NORMAL)
         sil = {}
         letzte_zeile = None
         for nr, (name, is_dir) in enumerate(shown[:300]):
-            # 0.29.0/0.30.0/0.30.1 (Nutzer-Wunsch/-Fund): Typ-Icon vor
-            # dem Namen – Ordner über inode/directory, Dateien über
-            # den Inhaltstyp, den Gio zum Namen rät. Strikt SYMBOLISCH:
-            # Symbol-Icons folgen der Vordergrundfarbe des System-
-            # Themes (Darkmode hell, Lightmode dunkel). 0.30.1: GTK
-            # lud bei fehlender -symbolic-Variante heimlich das
-            # farbige Voll-Icon (dunkle Platten im Darkmode) – die
-            # Kandidaten werden deshalb gegen Gtk.IconTheme geprüft
-            # und fehlende Varianten fallen auf die generischen
-            # Symbole zurück, nie auf das Voll-Icon.
+            # 0.29.0–0.30.1: type icon before the name – folders via
+            # inode/directory, files via the content type Gio guesses
+            # from the name. Strictly SYMBOLIC so icons follow the
+            # theme's foreground color; missing variants fall back
+            # to generic symbols, never to the colored full icon.
             ic = Gtk.Image()
             try:
                 if is_dir:
@@ -1345,9 +1262,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             side.set_halign(Gtk.Align.END)
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                            spacing=6)
-            # 0.31.11 (F46 IX): Padding der Platte – 10 px Seiten-
-            # abstand am Zeilen-Inhalt, oben 8 px an der ersten
-            # Zeile. Die Platte selbst füllt den Viewport randvoll.
+            # 0.31.11 (F46 IX): padding of the slab – 10 px side
+            # padding on the row content, 8 px above the first row.
             hbox.set_margin_start(10)
             hbox.set_margin_end(10)
             if nr == 0:
@@ -1361,40 +1277,33 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             more = Gtk.Label(label="… und %d weitere" % rest)
             more.get_style_context().add_class("dim-label")
             more.set_halign(Gtk.Align.START)
-            # 0.31.11 (F46 IX): gleiche Zeilen-Polsterung.
+            # 0.31.11 (F46 IX): same row padding.
             more.set_margin_start(10)
             more.set_margin_end(10)
             box.add(more)
             letzte_zeile = more
-        # 0.31.11 (F46 IX): Padding unten – 8 px am letzten
-        # Zeilen-Inhalt statt ListBox-Rand.
+        # 0.31.11 (F46 IX): padding at the bottom – 8 px on the last
+        # row content instead of a ListBox margin.
         if letzte_zeile is not None:
             letzte_zeile.set_margin_bottom(8)
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
                           Gtk.PolicyType.AUTOMATIC)
         scroll.set_vexpand(True)
-        # 0.31.10 (F46 VIII, Pixelsonden-Fund): Das Schwarz sitzt
-        # ausschließlich im Streifen zwischen Plattenkante und
-        # Bildlaufleisten-Spalte, nur solange die Leiste sichtbar
-        # ist – Overlay-Scrolling lässt den Balken in einem
-        # eigenen Gdk-Fenster über dem Viewport floaten, dessen
-        # ungemalte Teile schwarz bleiben. Klassischer Inline-
-        # Balken zwingt ihn ins normale Fenster-Stacking, damit
-        # greifen Painter und CSS zuverlässig (→ REF PAN-BG-2).
+        # 0.31.10 (F46 VIII): the black sits only in the strip between
+        # slab edge and scrollbar while the bar is visible – overlay
+        # scrolling floats it in its own Gdk window whose unpainted
+        # parts stay black; a classic inline bar pulls it into the
+        # normal stacking so painter and CSS apply (→ REF PAN-BG-2).
         scroll.set_overlay_scrolling(False)
         scroll.add(box)
-        # 0.31.5 (F46 III, Nutzer-Fund): Das Scroll-Fenster trägt
-        # ein eigenes GdkWindow – die Panel-Malerei erreicht seine
-        # Fläche (Bildlaufleisten-Region) sonst nie. Derselbe
-        # Hintergrund-Painter deshalb zusätzlich am Scroll-Fenster;
-        # ohne eigenes GdkWindow bliebe das Doppel-Malen unsichtbar
-        # (→ REF PAN-BG-2).
+        # 0.31.5 (F46 III): the scroll window carries its own
+        # GdkWindow – the panel painting never reaches its area
+        # otherwise; the same background painter hooks it too (→ REF PAN-BG-2).
         scroll.connect("draw", self._on_panel_draw)
-        # 0.31.6 (F46 IV, Nutzer-Fund): Auch der Viewport ist ein
-        # eigenes GdkWindow; die Bildlaufleisten entstehen erst
-        # beim Realisieren. Beide bekommen denselben Painter
-        # (→ REF PAN-BG-2).
+        # 0.31.6 (F46 IV): the viewport is another own GdkWindow;
+        # the scrollbars appear only on realizing. Both get the
+        # same painter (→ REF PAN-BG-2).
         try:
             vp = scroll.get_child()
             if vp is not None:
@@ -1402,39 +1311,30 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         except Exception:
             pass
         scroll.connect("realize", self._on_scroll_realized)
-        # 0.31.7 (F46 V, Nutzer-Fund): Der Painter-Malte-Erfolg
-        # war belegt, der Streifen blieb trotzdem – Theme-Flächen
-        # überdecken den Painter also. Die Fläche deshalb addi-
-        # tional per CSS-Regel färben (→ REF PAN-BG-2).
+        # 0.31.7 (F46 V): the painter provably painted, the strip
+        # stayed anyway – theme areas cover the painter; color the
+        # area additionally via a CSS rule (→ REF PAN-BG-2).
         self._apply_surface_css(scroll)
-        # 0.31.8 (F46 VI, Nutzer-Fund): Der Randlos-Wunsch (0.31.4)
-        # brieb erst den schwarzen Hintergrund hervor – ohne den
-        # 8-px-Außenrand erreichte das eigene, transparente
-        # GdkWindow des Scroll-Fensters die Plattenkante. Der Rand
-        # von _render_inner (8 px) bleibt deshalb auch hier stehen,
-        # so war es vor 0.31.4 ohne schwarze Ränder (→ REF
-        # PAN-FOLDER-1, PAN-BG-2).
+        # 0.31.8 (F46 VI): the edgeless wish (0.31.4) first exposed
+        # the black background – without the 8 px outer margin the
+        # scroll window's own transparent GdkWindow reached the slab
+        # edge. The margin of _render_inner stays (→ REF PAN-FOLDER-1, PAN-BG-2).
         self._content.pack_start(scroll, True, True, 0)
         dbg("Ordner-Liste: %d Einträge, %d Zeilen gebaut"
             " – Scroll-Fenster eigenes GdkWindow: %s"
             % (total, min(300, len(shown)),
                scroll.get_has_window()))
-        # 0.31.6 (F46 IV, Nutzer-Fund): Margins nach dem Realisieren
-        # zurücklesen – zeigt, ob Theme-CSS die Widget-Ränder
-        # überschreibt (Verdacht gegen das verschwundene Padding).
+        # 0.31.6 (F46 IV): read the margins back after realizing –
+        # shows whether theme CSS overrides the widget borders.
         GLib.idle_add(self._dbg_list_margins, box)
-        # 0.31.9 (F46 VII, Nutzer-Fund): Pixelsonden – alle Flächen
-        # malen laut dbg Grau, der Nutzer sieht weiterhin Schwarz.
-        # Die Sonden lesen nach dem Malen echte Pixel und zeigen,
-        # WO Schwarz wirklich sitzt (→ REF PAN-BG-2).
+        # 0.31.9 (F46 VII): pixel probes – every area logs gray yet
+        # the user keeps seeing black; the probes read real pixels
+        # after painting and show WHERE black actually sits (→ REF PAN-BG-2).
         GLib.timeout_add(600, self._dbg_pixels)
-        # 0.31.1 (Nutzer-Fund): Inhaltstyp → gewähltes Symbol protokol-
-        # lieren – zeigt das Log bei Icon-Problemen (F43-Diagnose),
-        # welches Theme-Symbol je Typ tatsächlich lädt. Seit 0.31.2
-        # zusätzlich die Zahl der als Silhouette nachgezeichneten
-        # Symbole – stimmt sie mit der Zahl der gewählten nicht
-        # überein, lief das Theme doch wieder Farbe herein. Seit
-        # 0.31.3 steht die entnommene Vordergrundfarbe mit im Log.
+        # 0.31.1: log content type → chosen symbol – with icon
+        # problems the log shows which theme symbol actually loads
+        # per type; since 0.31.2 also the count of silhouettes and
+        # since 0.31.3 the extracted foreground color.
         dbg("Ordner-Icons: " + ", ".join(
             "%s→%s" % kv for kv in sorted(picked.items()))
             + " – als Silhouette nachgezeichnet: %d/%d"
@@ -1464,9 +1364,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     def _on_panel_destroy(self, *a):
         """Panel wird abgebaut: Wiedergabe und Timer stoppen (B3)."""
-        # 0.9.1: Abbau markieren – der child-watch einer noch laufenden
-        # LibreOffice-Konvertierung (_office_job_done) verwirft sein
-        # Ergebnis dann, statt auf das tote Panel zu rendern.
+        # 0.9.1: mark teardown – the child-watch of a running
+        # LibreOffice conversion then drops its result.
         self._destroyed = True
         self._stop_playback()
         if self._playbin is not None:
@@ -1475,7 +1374,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             except Exception:
                 pass
 
-    # --- Aktionen -----------------------------------------------------------
+    # --- Actions --------------------------------------------------------------
 
     def _on_open_clicked(self, *a):
         if not self._path or not os.path.exists(self._path):
@@ -1506,13 +1405,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     "previewer", "show_at_start")
             except Exception:
                 pass
-            # F48: Ordner-Inhaltsliste an/aus.
+            # F48: folder contents list on/off.
             try:
                 self._conf_folder_contents = kf.get_boolean(
                     "previewer", "folder_contents")
             except Exception:
                 pass
-            # F12 (0.34.0): Wasserfall-Probetext der Schrift-Vorschau.
+            # F12: waterfall sample text of the font preview.
             try:
                 t = kf.get_string("previewer", "font_sample_text")
                 if t and t.strip():
@@ -1524,14 +1423,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     "previewer", "text_line_numbers")
             except Exception:
                 pass
-            # F44-Nachtrag (0.28.1): Syntax-Hervorhebung an/aus.
+            # F44: syntax highlighting on/off.
             try:
                 self._conf_text_syntax = kf.get_boolean(
                     "previewer", "text_syntax")
             except Exception:
                 pass
-            # F12 Teil 3 (0.27.0): Dokument-Deckel (PDF/Office) –
-            # Begrenzung ja/nein und maximale Seitenzahl (1–999).
+            # F12 part 3: document cap (PDF/office) – limit on/off
+            # and the maximum page count (1–999).
             try:
                 self._conf_doc_page_limit = kf.get_boolean(
                     "previewer", "doc_page_limit")
@@ -1569,18 +1468,18 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             kf = _KEYFILE_CLS()
             kf.set_boolean("previewer", "show_at_start",
                            self._conf_show_at_start)
-            # F48: Ordner-Inhaltsliste an/aus mitspeichern.
+            # F48: persist the folder contents list on/off.
             kf.set_boolean("previewer", "folder_contents",
                            self._conf_folder_contents)
-            # F12 (0.34.0): Wasserfall-Probetext mitspeichern.
+            # F12: persist the waterfall sample text.
             kf.set_string("previewer", "font_sample_text",
                           self._conf_font_sample_text)
             kf.set_boolean("previewer", "text_line_numbers",
                            self._conf_text_linenumbers)
-            # F44-Nachtrag (0.28.1): Syntax-Hervorhebung mitspeichern.
+            # F44: persist syntax highlighting.
             kf.set_boolean("previewer", "text_syntax",
                            self._conf_text_syntax)
-            # F12 Teil 3 (0.27.0): Dokument-Deckel mitspeichern.
+            # F12 part 3: persist the document cap.
             kf.set_boolean("previewer", "doc_page_limit",
                            self._conf_doc_page_limit)
             kf.set_integer("previewer", "doc_max_pages",
@@ -1664,7 +1563,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.36.0"
+PREVIEWER_VERSION = "0.37.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "

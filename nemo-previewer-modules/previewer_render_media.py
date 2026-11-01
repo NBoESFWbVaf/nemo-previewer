@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.36.0
+previewer_render_media.py – Version 0.37.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -35,9 +35,9 @@ from previewer_util import (
     _pixbuf_from_bytes,
 )
 
-# --- Optionale Module (Fehlen ist kein Fehler, nur weniger Vorschau) ---
+# --- Optional modules (missing ones just reduce the previews) ---
 
-# GStreamer für Audio-/Video-Metadaten (Discoverer) und Wiedergabe.
+# GStreamer for audio/video metadata (Discoverer) and playback.
 HAVE_GST = False
 try:
     gi.require_version('Gst', '1.0')
@@ -48,8 +48,8 @@ try:
 except Exception:
     pass
 
-# librsvg für die SVG-Vorschau: GdkPixbuf bringt (seit gdk-pixbuf 2.42)
-# keinen eigenen SVG-Loader mehr mit.
+# librsvg for the SVG preview: GdkPixbuf has had no built-in SVG
+# loader since gdk-pixbuf 2.42.
 HAVE_RSVG = False
 try:
     gi.require_version('Rsvg', '2.0')
@@ -58,7 +58,7 @@ try:
 except Exception:
     pass
 
-# PangoCairo + pycairo, um das Platzhalter-Cover (F18) zu zeichnen.
+# PangoCairo + pycairo to draw the placeholder cover tile (F18).
 HAVE_PANGOCAIRO = False
 try:
     import cairo  # pycairo
@@ -68,9 +68,8 @@ try:
 except Exception:
     pass
 
-# K3: Cairo allein genügt für die SVG-DPI-Route (siehe _rsvg_cairo_pb):
-# render_document ersetzt das in neuerem librsvg deprecated
-# get_pixbuf() und rendert zusätzlich beliebig groß.
+# K3: Cairo alone suffices for the SVG-DPI route (see _rsvg_cairo_pb):
+# render_document replaces the deprecated get_pixbuf() and renders big.
 HAVE_CAIRO = False
 try:
     import cairo  # pycairo
@@ -79,8 +78,8 @@ except Exception:
     pass
 
 
-# Prozess-Zustand für die Medien-Erkundung (Konvention: Modul-Dict statt
-# global): wurde das GI-Warm-up bereits erledigt?
+# Process state for media probing (convention: module dict, no
+# global): was the GI warm-up already done?
 _MEDIA_STATE = {"warmed": False}
 
 
@@ -100,10 +99,8 @@ def _media_gi_warmup():
     _MEDIA_STATE["warmed"] = True
 
     def _touch(base, dotted):
-        # Lazy Pfad-Auflösung: Ein fehlendes Symbol (z.B. Gst.PlayFlags
-        # ist im Mint-22-Binding NICHT vorhanden) darf hier NIE eine
-        # AttributeError werfen – sonst reißt der Warm-up die gesamte
-        # Medien-Vorschau mit (Lehre aus dem 0.6.0-Test).
+        # Lazy path resolution: a missing symbol (e.g. Gst.PlayFlags
+        # is absent from the Mint 22 binding) must never raise here.
         try:
             obj = base
             for part in dotted.split("."):
@@ -131,13 +128,12 @@ def _media_gi_warmup():
         _touch(Gst, dotted)
 
 
-# 0.9.2 (Audit „Pufferüberlauf/OOM“): Deckel gegen Dekompressions- und
-# Dekodierbomben – ein präpariertes Bild/PDF/EPUB/DOCX/EML darf Nemo
-# niemals durch Riesen-Allokationen abschießen.
-_IMAGE_FILE_CAP = 64 * 1024 * 1024   # Bilddatei: Rohbytes vor Dekodierung
-_MEDIA_IMAGE_CAP = 32 * 1024 * 1024  # eingebettetes Cover aus Medien-Tags
+# 0.9.2 (audit "buffer overflow/OOM"): caps against decompression
+# and decoding bombs – crafted files must never blow up Nemo.
+_IMAGE_FILE_CAP = 64 * 1024 * 1024   # image file: raw bytes before decoding
+_MEDIA_IMAGE_CAP = 32 * 1024 * 1024  # embedded cover from media tags
 
-# --- F36: Foto-Metadaten (EXIF) mit Python-Bordmitteln --------------------
+# --- F36: photo metadata (EXIF) with stdlib only -----------------------------
 
 _EXIF_TYPE_SIZE = {1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1, 9: 4, 10: 8}
 
@@ -152,7 +148,7 @@ def _exif_read_ifd(data, base, bo, off, out, depth=0):
     try:
         n = struct.unpack_from(bo + "H", data, off)[0]
         if n > 512 or off + 2 + n * 12 > len(data):
-            return                      # B7: Bomben-Deckel
+            return                      # B7: bomb cap
         for i in range(n):
             e = off + 2 + i * 12
             tag, typ, cnt = struct.unpack_from(bo + "HHI", data, e)
@@ -232,8 +228,8 @@ def _exif_dms(tags, tag, bo):
         return None
 
 
-# F38: Standard-XMP-Namensräume – alles DARÜBER hinaus gilt als
-# „vom Benutzer definiert“ und landet als eigene Tabellen-Zeile hier.
+# F38: standard XMP namespaces – anything BEYOND counts as
+# "user-defined" and lands in its own table row here.
 _XMP_STD = {"exif", "tiff", "x", "xmp", "xmpMM", "xmpBJ", "xmpRights",
             "xmpDM", "xap", "xapMM", "xapBJ", "xapRights", "dc",
             "photoshop", "Iptc4xmpCore", "Iptc", "aux", "crs", "crss",
@@ -271,10 +267,8 @@ def _xmp_parse(data):
         if start < 0 or end < 0 or end <= start:
             return out
         xmp = data[start:end + 12].decode("utf-8", "replace")
-        # F38: „Location“ – textlicher Ort aus IPTC Core (digikam,
-        # Lightroom & Co. füllen ihn im Ort-Dialog), Attribute zuerst:
-        # Adobe-Tools schreiben einfache Werte gern als Attribut der
-        # rdf:Description statt als eigenes Element.
+        # F38: "Location" – textual place from IPTC Core (digikam,
+        # Lightroom); Adobe tools may write simple values as attributes.
         m = (re.search(r'<[^>]*Iptc4xmpCore:Location="([^"]+)"', xmp)
              or re.search(
                  r"<Iptc4xmpCore:Location>(.*?)</Iptc4xmpCore:Location>",
@@ -283,10 +277,8 @@ def _xmp_parse(data):
             loc = _xmp_clean(m.group(1))
             if loc:
                 out["Location"] = loc
-        # F38: benutzerdefinierte Felder – Element-Form: Öffnungs-Tags
-        # scannen und das passende Schluss-Tag suchen, NICHT als
-        # verschachtelten Gesamt-Match (→ REF MED-XMP-1: sonst
-        # verschluckt <x:xmpmeta> als erster Treffer das Dokument).
+        # F38: user-defined fields – element form: opening tags and
+        # matching end tags, never one nested match (→ REF MED-XMP-1).
         custom = {}
         for m in re.finditer(r"<(\w+):(\w+)[^>]*>", xmp):
             pfx, name = m.group(1), m.group(2)
@@ -298,8 +290,8 @@ def _xmp_parse(data):
             val = _xmp_clean(xmp[m.end():close])
             if val:
                 custom.setdefault("%s:%s" % (pfx, name), val)
-        # F38: benutzerdefinierte Felder – Attribut-Form (einfache
-        # Werte ohne eigenes Element, von Adobe-Tools bevorzugt).
+        # F38: user-defined fields – attribute form (simple values
+        # without their own element, preferred by Adobe tools).
         for m in re.finditer(r'(\w+):(\w+)="([^"]+)"', xmp):
             pfx, name, val = m.group(1), m.group(2), m.group(3)
             val = _xmp_clean(val)
@@ -360,26 +352,26 @@ def _exif_bases(data):
         seen.add(base)
         out.append((base, magic))
 
-    # 1. „Exif“-Marker überall im Puffer (F41 suchte nur 256 KB).
+    # 1. "Exif" marker anywhere in the buffer (F41 scanned only 256 KB).
     pos = data.find(marker)
     while pos >= 0:
         base = pos + 6
-        # F36: Puffer zwischen Marker und TIFF-Kopf überlesen (0x00/
-        # 0x20-Padding, teils Samsung/Olympus) – der Kopf folgt erst.
+        # F36: skip padding between marker and TIFF head (0x00/0x20,
+        # partly Samsung/Olympus) – the head follows later.
         stop = base + 16
         while base < stop and data[base:base + 1] in (nul, b" "):
             base += 1
         head = data[base:base + 2]
         add(base, "<" if head == b"II" else ">", True)
         pos = data.find(marker, pos + 1)
-    # 2. Direkte TIFF-Köpfe (II*/MM*) überall im Puffer.
+    # 2. Direct TIFF heads (II*/MM*) anywhere in the buffer.
     for pat, bo in ((b"II*" + nul, "<"), (b"MM" + nul + b"*", ">")):
         pos = data.find(pat)
         while pos >= 0:
             add(pos, bo, True)
             pos = data.find(pat, pos + 1)
-    # 3. Olympus ORF: IIRO/IIRS statt II*/MM* – der IFD0-Pointer
-    # liegt trotzdem bei Offset 4, nur die 42-Magie fehlt.
+    # 3. Olympus ORF: IIRO/IIRS instead of II*/MM* – the IFD0
+    # pointer still sits at offset 4, only the 42 magic is missing.
     for pat in (b"IIRO", b"IIRS"):
         pos = data.find(pat)
         while pos >= 0:
@@ -429,8 +421,8 @@ def _exif_parse_at(data, base, magic=True):
         ifd0 = base + struct.unpack_from(bo + "I", data, base + 4)[0]
         tags = {}
         _exif_read_ifd(data, base, bo, ifd0, tags)
-        # F36: Kameramodell – viele Modelle wiederholen den Hersteller
-        # im Modell-Namen („Canon“ + „Canon EOS …“): nur dann kürzen.
+        # F36: camera model – many models repeat the maker in the
+        # model name ("Canon" + "Canon EOS …"): shorten only then.
         make = _exif_str(tags.get(0x010F))
         model = _exif_str(tags.get(0x0110))
         if model:
@@ -440,17 +432,16 @@ def _exif_parse_at(data, base, magic=True):
                 out["Kameramodell"] = "%s %s" % (make, model)
             else:
                 out["Kameramodell"] = model
-        # F36: Aufnahmedatum – Original vor digitalisiert vor Datei-
-        # Datum; Hersteller schreiben das echte Datum teils nur an
-        # einer der drei Stellen.
+        # F36: date taken – original before digitized before file
+        # date; makers may write the real date in only one spot.
         for tag in (0x9003, 0x9004, 0x0132):
             dt = _exif_str(tags.get(tag))
             if dt and len(dt) >= 16 and dt[4] == ":" and dt[7] == ":":
                 out["Aufnahmedatum"] = "%s.%s.%s %s" % (
                     dt[8:10], dt[5:7], dt[0:4], dt[11:16])
                 break
-        # F36: Belichtungszeit – Direktwert, sonst APEX-Zeitwert
-        # (t = 2^-av; manche Kompakte schreiben nur den).
+        # F36: exposure time – direct value, else APEX time value
+        # (t = 2^-av; some compacts only write that one).
         t = _exif_frac(tags.get(0x829A), bo)
         if t is None:
             av = _exif_frac(tags.get(0x9201), bo)
@@ -464,7 +455,7 @@ def _exif_parse_at(data, base, magic=True):
                 out["Belichtungszeit"] = "%d s" % int(t)
             else:
                 out["Belichtungszeit"] = "%.1f s" % t
-        # F36: Blende – FNumber, sonst APEX-Öffnung (N = 2^(av/2)).
+        # F36: aperture – FNumber, else APEX opening (N = 2^(av/2)).
         fn = _exif_frac(tags.get(0x829D), bo)
         if fn is None:
             av = _exif_frac(tags.get(0x9202), bo)
@@ -472,8 +463,8 @@ def _exif_parse_at(data, base, magic=True):
                 fn = 2.0 ** (av / 2.0)
         if fn:
             out["Blende"] = "f/%.1f" % fn
-        # F36: „Zoom“ als Brennweite, plus 35-mm-Äquivalent, wenn es
-        # abweicht (Vollformat-Kameras tragen kein eigenes Tag).
+        # F36: "zoom" as focal length, plus 35 mm equivalent when it
+        # differs (full-frame cameras carry no own tag).
         fl = _exif_frac(tags.get(0x920A), bo)
         fl35 = _exif_num(tags.get(0xA405), bo)
         if fl:
@@ -483,20 +474,20 @@ def _exif_parse_at(data, base, magic=True):
             out["Brennweite"] = txt
         elif fl35:
             out["Brennweite"] = "%d mm" % fl35
-        # F36: ISO – klassische ISOSpeedRatings, sonst ISOSpeed.
+        # F36: ISO – classic ISOSpeedRatings, else ISOSpeed.
         iso = _exif_num(tags.get(0x8827), bo)
         if iso is None:
             iso = _exif_num(tags.get(0x8833), bo)
         if iso:
             out["ISO"] = str(iso)
-        # F42 (RAW): Pixelmaße – ohne Dekodierung die einzige Größen-
-        # quelle (A002/A003 aus dem ExifIFD).
+        # F42 (RAW): pixel dimensions – the only size source without
+        # decoding (A002/A003 from the ExifIFD).
         pw = _exif_num(tags.get(0xA002), bo)
         ph = _exif_num(tags.get(0xA003), bo)
         if pw and ph:
             out["Maße"] = "%d × %d px" % (pw, ph)
-        # F36: Aufnahmeort – GPS-Gradminuten in Dezimalgrade; die
-        # Referenz-Buchstaben (N/S, E/W) gibt das jeweilige GPS-Tag.
+        # F36: location – GPS deg/min/sec to decimal degrees; the
+        # reference letters (N/S, E/W) come from the GPS tags.
         lat = _exif_dms(tags, 0x0002, bo)
         lon = _exif_dms(tags, 0x0004, bo)
         if lat is not None and lon is not None:
@@ -530,7 +521,7 @@ def _exif_rows(exif, xmp):
             rows.append((key, xmp[key]))
     return rows
 
-# ========================== Renderer: Medien ================================
+# ========================== Renderer: media =================================
 
 
 class MediaRendererMixin:
@@ -546,13 +537,8 @@ class MediaRendererMixin:
         """
         # → REF MED-SPLIT-1
         top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        # F38-Streifen-Fix: Mittig macht DAS BILD, nicht der Scroll.
-        # align=CENTER schrumpft einen ScrolledWindow auf seine
-        # NATÜRLICHE Breite – ein scrollbares Widget kann sie auf
-        # ~0 senken, das auf Spaltenbreite skalierte Bild wäre also
-        # nur ein schmaler Streifen. Das Gtk.Image sitzt via
-        # Viewport im Scroll; halign/valign CENTER am Bild zentriert
-        # es in beiden Richtungen im 60-%-Bereich.
+        # F38 strip fix: never align=CENTER the ScrolledWindow (it
+        # shrinks to ~0); halign/valign CENTER on the image instead.
         try:
             vp = scroll.get_child()
             img = vp.get_child() if vp is not None else None
@@ -563,14 +549,13 @@ class MediaRendererMixin:
             pass
         top.pack_start(scroll, True, True, 0)
         bottom = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        # F38: Info-Bereich – _meta_grid packt die Bild-Tabelle hierher.
+        # F38: info area – _meta_grid packs the image table here.
         self._image_info_box = bottom
         top.set_size_request(-1,
                              max(80, int(self._preview_height() * 0.6)))
         top.connect("size-allocate", self._image_split_sync)
-        # F38: expand=False hält die Höhe auf der 60-%-Anforderung –
-        # expand/fill wirken in einer vertikalen GtkBox nur auf die
-        # HÖHE; die Breite quer gibt die Box Kindern ohnehin voll.
+        # F38: expand=False keeps the height at the 60% request –
+        # expand/fill in a vertical GtkBox only affect the HEIGHT.
         self._content.pack_start(top, False, True, 0)
         sep = Gtk.Separator.new(Gtk.Orientation.HORIZONTAL)
         sep.set_margin_top(8)
@@ -610,8 +595,8 @@ class MediaRendererMixin:
             w, h = float(dim[0]), float(dim[1])
             if w <= 0 or h <= 0:
                 return None
-            # K3: Ziel ist die Panelbreite (kleine SVGs wachsen scharf
-            # mit, Vektor statt Raster-Upcast), Höhe gedeckelt.
+            # K3: the target is the panel width (small SVGs grow
+            # sharp, vector instead of raster upscaling); height capped.
             f = float(self._preview_width()) / w
             if h * f > MAX_IMAGE_HEIGHT:
                 f = float(MAX_IMAGE_HEIGHT) / h
@@ -657,8 +642,8 @@ class MediaRendererMixin:
             if got is not None:
                 pb, dims = got
             else:
-                # K3-Fallback: der bisherige, in neuerem librsvg
-                # deprecated Pfad – funktioniert bis dahin.
+                # K3 fallback: the old path, deprecated in newer
+                # librsvg – works until then.
                 try:
                     pb = handle.get_pixbuf()
                 except Exception as e:
@@ -676,7 +661,7 @@ class MediaRendererMixin:
             info = Gtk.Label(label="%d × %d px" % dims)
             info.get_style_context().add_class("dim-label")
             info.set_halign(Gtk.Align.START)
-            # F38: Maße in den Info-Bereich der Spalten-Aufteilung.
+            # F38: dimensions into the info area of the column split.
             box = getattr(self, "_image_info_box", None) or self._content
             box.pack_start(info, False, False, 0)
         except Exception:
@@ -720,9 +705,8 @@ class MediaRendererMixin:
             except Exception as exc:
                 data, err = None, exc
                 dbg("Bild-Lesen fehlgeschlagen (%s): %s" % (path, exc))
-            # F36: EXIF gleich im Worker auswerten – reine Byte-Arbeit
-            # ohne Gdk-Objekte, passend zur R1/B7-Thread-Disziplin.
-            # F38: XMP (Location + benutzerdefinierte Felder) ebenso.
+            # F36: evaluate EXIF right in the worker – pure byte
+            # work, fitting the R1/B7 thread discipline. F38: XMP too.
             if data:
                 exif = _exif_parse(data)
                 xmp = _xmp_parse(data)
@@ -736,8 +720,8 @@ class MediaRendererMixin:
         try:
             threading.Thread(target=work, daemon=True).start()
         except Exception:
-            # Rettungsanker: Thread nicht startbar → synchron lesen,
-            # die Dekodierung übernimmt _image_probe_done direkt.
+            # Lifeline: thread not startable → read synchronously,
+            # _image_probe_done decodes directly.
             data, err, exif, xmp = None, None, None, None
             try:
                 with open(path, "rb") as fh:
@@ -769,14 +753,13 @@ class MediaRendererMixin:
         """
         if self._path != path:
             dbg("Bild-Ergebnis verworfen, Auswahl wechselte: %s" % path)
-            return False      # Auswahl hat inzwischen gewechselt
+            return False      # selection changed meanwhile
         self._clear_content()
         pb, orig = None, {}
         if data is not None:
             try:
-                # Decode-Deckel (0.9.2) bleibt: set_size verkleinert
-                # zur DEKODIERzeit – Bomben-Bilder kosten nur die
-                # gedeckelte Fläche.
+                # The decode cap (0.9.2) stays: set_size shrinks at
+                # DECODE time – bomb images only cost the capped area.
                 pb = _pixbuf_from_bytes(
                     data, max_w=target_w, max_h=2 * MAX_IMAGE_HEIGHT,
                     orig=orig)
@@ -790,12 +773,8 @@ class MediaRendererMixin:
             except Exception:
                 pb = None
         if pb is None:
-            # F42 (Nutzer-Wunsch): RAW-Dateien (NEF, CR2, CR3, ARW,
-            # ORF, DNG, PEF …) kann Gdk-Pixbuf meist nicht dekodie-
-            # ren – das EXIF/XMP steht aber schon im Puffer. Foto-
-            # Tabelle unter der Icon-Ansicht statt nur der Fehler-
-            # meldung; ohne EXIF bleibt es beim alten Hinweis
-            # (→ REF MED-EXIF-3).
+            # F42: Gdk-Pixbuf mostly cannot decode RAW (NEF, CR2 …);
+            # EXIF/XMP are in the buffer – show a photo table (→ REF MED-EXIF-3).
             rows = []
             if exif and "Maße" in exif:
                 rows.append(("Maße", exif["Maße"]))
@@ -809,13 +788,12 @@ class MediaRendererMixin:
                 return False
             self._hint("Konnte Bild nicht laden: %s" % (err or "unbekannt"))
             self._render_generic()
-            # Auch dieser Fallback packt NACH dem show_all() des
-            # Render-Durchlaufs – ohne eigenes show_all unsichtbar.
+            # This fallback also packs AFTER the render pass's
+            # show_all() – invisible without its own show_all.
             self._content.show_all()
             return False
-        # EXIF-Ausrichtung anwenden: Fotos, die die Drehung nur im
-        # Orientation-Tag tragen (typisch bei Smartphone-Kameras),
-        # würden sonst quer oder auf dem Kopf liegen.
+        # Apply the EXIF orientation: photos that only carry the
+        # rotation in the Orientation tag would otherwise lie sideways.
         try:
             pb = pb.apply_embedded_orientation()
         except Exception:
@@ -828,20 +806,18 @@ class MediaRendererMixin:
                                     keep_height=True, frac_h=0.6)
         self._pack_image_capped(scroll)
         try:
-            # Maße: die ORIGINALMAßE aus dem Datei-Kopf (size-prepared,
-            # vor der Deckelung), nicht die gedeckelte Dekodiergröße –
-            # sonst hieße ein 50-MP-Foto plötzlich „1024 px". Das
-            # Hoch-/Querformat folgt dem orientierten Bild (EXIF).
+            # Dimensions: the ORIGINAL sizes from the file header
+            # (size-prepared, before capping), not the decode size.
             w = orig.get("w", pb.get_width())
             h = orig.get("h", pb.get_height())
             if (w > h) != (pb.get_width() > pb.get_height()):
                 w, h = h, w
-            # F36: Maße-Zeile ist in der Foto-Info-Tabelle aufgegangen;
-            # alle weiteren Zeilen nur, wenn EXIF sie hergibt.
+            # F36: the dimensions row moved into the photo info
+            # table; further rows only if EXIF provides them.
             rows = [("Höhe", "%d px" % h), ("Breite", "%d px" % w)]
-            # F42: EXIF/XMP-Zeilen gemeinsam mit dem RAW-Fallback.
+            # F42: EXIF/XMP rows together with the RAW fallback.
             rows += _exif_rows(exif, xmp)
-            # F38: Tabelle in den 40-%-Info-Bereich der Aufteilung.
+            # F38: table into the 40% info area of the split.
             self._meta_grid(rows, self._image_info_box)
         except Exception:
             pass
@@ -883,20 +859,18 @@ class MediaRendererMixin:
             try:
                 disc = GstPbutils.Discoverer.new(10 * Gst.SECOND)
             except (AttributeError, TypeError):
-                # Neuere PyGObject-Builds mappen gst_discoverer_new
-                # NICHT als Konstruktor – deshalb explizit .new(),
-                # mit Fallback für ältere Builds.
+                # Newer PyGObject builds do not map gst_discoverer_new
+                # as a constructor – use explicit .new() with fallback.
                 disc = GstPbutils.Discoverer(10 * Gst.SECOND)
-            # Attribut-Auflösung IM GTK-Thread; der Worker ruft nur das
-            # fertige Callable auf. discover_uri = korrekter Name,
-            # discover_uri_sync nur als Defensiv-Fallback.
+            # Attribute resolution IN the GTK thread; the worker only
+            # calls the finished callable (discover_uri, sync fallback).
             probe = getattr(disc, "discover_uri", None)
             if probe is None:
                 probe = disc.discover_uri_sync
         except Exception as e:
             dbg("Discoverer nicht anlegbar: %s" % e)
-            # Ohne Discoverer trotzdem die UI aufbauen (Platzhalter,
-            # Player) – nicht im Hinweis stecken bleiben.
+            # Without the Discoverer still build the UI (placeholder,
+            # player) – do not get stuck on the hint.
             GLib.idle_add(self._media_probe_done, path, uri, finish,
                           {}, -1, None)
             return
@@ -911,15 +885,13 @@ class MediaRendererMixin:
                     for key, gst_tag in (("title", Gst.TAG_TITLE),
                                          ("artist", Gst.TAG_ARTIST),
                                          ("album", Gst.TAG_ALBUM),
-                                         # F35: Genre – reines String-Tag.
+                                         # F35: genre – plain string tag.
                                          ("genre", Gst.TAG_GENRE)):
                         ok, val = taglist.get_string(gst_tag)
                         if ok and val:
                             tags[key] = val
-                    # F33: erweiterte Musik-Tags in eigener Klammern –
-                    # ein Fehler hier darf nie auch noch das Cover
-                    # kosten. Konstanten per getattr mit String-Fallback
-                    # (der kanonische GStreamer-Tag-Name ist beides).
+                    # F33: extended music tags in their own brackets –
+                    # an error here must never cost the cover too.
                     try:
                         for key, gst_tag in (
                                 ("album_artist",
@@ -931,8 +903,8 @@ class MediaRendererMixin:
                             ok, val = taglist.get_string(gst_tag)
                             if ok and val:
                                 tags[key] = val
-                        # Codec-Fallback: der Container (z. B. „Ogg“),
-                        # wenn der Audio-Codec selbst fehlt.
+                        # Codec fallback: the container (e.g. "Ogg")
+                        # if the audio codec itself is missing.
                         if "codec" not in tags:
                             ok, val = taglist.get_string(
                                 getattr(Gst, "TAG_CONTAINER_FORMAT",
@@ -950,17 +922,16 @@ class MediaRendererMixin:
                         tags["year"] = self._tag_year(taglist)
                     except Exception as e:
                         dbg("Tag-Erweiterung (F33) fehlgeschlagen: %s" % e)
-                    # Bild-Bytes sammeln (nicht dekodieren – das passiert
-                    # erst im GTK-Thread). Videos: Standbild bevorzugt;
-                    # Audio: eingebettetes Cover bevorzugt.
+                    # Collect image bytes (decoding happens in the
+                    # GTK thread). Videos: still image; audio: cover.
                     order = ((Gst.TAG_PREVIEW_IMAGE, Gst.TAG_IMAGE) if video
                              else (Gst.TAG_IMAGE, Gst.TAG_PREVIEW_IMAGE))
                     for gst_tag in order:
                         ok, sample = taglist.get_sample(gst_tag)
                         if ok and sample:
                             buf = sample.get_buffer()
-                            # 0.9.2: Byte-Deckel – eingebettete Cover
-                            # können sonst beliebig groß sein.
+                            # 0.9.2: byte cap – embedded covers can
+                            # be arbitrarily large otherwise.
                             image_bytes = buf.extract_dup(
                                 0, min(buf.get_size(), _MEDIA_IMAGE_CAP))
                             break
@@ -974,23 +945,23 @@ class MediaRendererMixin:
     def _media_probe_done(self, path, uri, finish, tags, duration,
                           image_bytes):
         """R1: Rückkehr der Hintergrund-Erkundung in den GTK-Main-Loop."""
-        # Auswahl hat inzwischen gewechselt – Ergebnis verwerfen.
+        # Selection changed meanwhile – drop the result.
         if self._path != path:
             return False
         pixbuf = None
         if image_bytes:
             try:
-                # 0.9.2: bewachter Loader mit Decode-Deckel (siehe
-                # _pixbuf_from_bytes) statt rohem PixbufLoader.
+                # 0.9.2: guarded loader with a decode cap (see
+                # _pixbuf_from_bytes) instead of a raw PixbufLoader.
                 pixbuf = _pixbuf_from_bytes(image_bytes)
             except Exception as exc:
                 dbg("Medien-Bild nicht darstellbar: %s" % exc)
-        # Lese-Hinweis entfernen und die eigentliche Vorschau aufbauen.
+        # Remove the reading hint and build the actual preview.
         self._clear_content()
         try:
             finish(path, uri, tags, duration, pixbuf)
         except Exception:
-            # Gleicher Schutz wie in _render: nie werfen, immer Fallback.
+            # Same guard as in _render: never raise, always fall back.
             dbg("Fehler beim Aufbauen der Medien-Vorschau (%r):" % path)
             traceback.print_exc()
             try:
@@ -998,8 +969,8 @@ class MediaRendererMixin:
                 self._render_generic()
             except Exception:
                 pass
-        # Erst hier gepackte Widgets liegen NACH dem show_all() des
-        # Render-Durchlaufs – sie brauchen daher ihr eigenes show_all.
+        # Widgets packed only here sit AFTER the render pass's
+        # show_all() – they need their own show_all.
         self._content.show_all()
         return False
 
@@ -1025,9 +996,8 @@ class MediaRendererMixin:
                 raise ValueError("PangoCairo nicht verfügbar")
             surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
             cr = cairo.Context(surf)
-            # Abgerundete Ecken als Beschneidungspfad; außerhalb bleibt
-            # die Fläche transparent – die Kachel wirkt auf jedem Theme.
-            # 0.25.1 (Nutzer-Wunsch): um ein Drittel dezenter als F34.
+            # Rounded corners as a clip path; the area outside
+            # stays transparent (0.25.1: a third subtler than F34).
             r = 56.0 * 2.0 / 3.0
             cr.new_sub_path()
             cr.arc(size - r, r, r, -0.5 * math.pi, 0.0)
@@ -1036,7 +1006,7 @@ class MediaRendererMixin:
             cr.arc(r, r, r, math.pi, 1.5 * math.pi)
             cr.close_path()
             cr.clip()
-            # Diagonaler Verlauf (Farbpaar je Medientyp)
+            # Diagonal gradient (color pair per media type)
             pat = cairo.LinearGradient(0.0, 0.0, size, size)
             pat.add_color_stop_rgba(0.0, grad[0][0], grad[0][1], grad[0][2],
                                    1.0)
@@ -1044,8 +1014,8 @@ class MediaRendererMixin:
                                    1.0)
             cr.set_source(pat)
             cr.paint()
-            # Filmperforation (nur Video-Kachel): halbtransparente
-            # Lochreihen am oberen und unteren Rand.
+            # Film perforation (video tile only): semi-transparent
+            # hole rows at the top and bottom edges.
             if perforations:
                 cr.set_source_rgba(1.0, 1.0, 1.0, 0.16)
                 for i in range(8):
@@ -1053,8 +1023,8 @@ class MediaRendererMixin:
                     cr.rectangle(x, 20.0, 34.0, 26.0)
                     cr.rectangle(x, size - 46.0, 34.0, 26.0)
                 cr.fill()
-            # Symbol halbtransparent weiß, mittig (Pango findet selbst
-            # eine Schrift mit dem Glyph – Serife zuerst).
+            # Symbol in semi-transparent white, centered (Pango
+            # finds a font with the glyph itself – serif first).
             layout = PangoCairo.create_layout(cr)
             layout.set_text(glyph, -1)
             font = Pango.FontDescription()
@@ -1070,7 +1040,7 @@ class MediaRendererMixin:
         except Exception as exc:
             dbg("Platzhalter-Cover nicht zeichenbar (%s) – Icon-Fallback"
                 % exc)
-        # Fallback: Datei-Icon auf dunklem, deckendem Grund
+        # Fallback: file icon on a dark, opaque background
         pb = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8,
                                   size, size)
         pb.fill(0x151a22ff)
@@ -1106,7 +1076,7 @@ class MediaRendererMixin:
         except Exception:
             total = None
         if num is None:
-            # String-Fallback: „3/12“ trägt die Gesamtzahl gleich mit.
+            # String fallback: "3/12" carries the total count along.
             tail = ""
             try:
                 ok, val = taglist.get_string(num_tag)
@@ -1177,26 +1147,24 @@ class MediaRendererMixin:
             w, h = pb.get_width(), pb.get_height()
             if w < 8 or h < 8:
                 return pb
-            # Gleiche Rundung wie die Platzhalter-Kachel: 56/960 der
-            # Kantenlänge (min(w, h)), mit der Anzeige skaliert.
-            # 0.25.1 (Nutzer-Wunsch): um ein Drittel dezenter – F34
-            # rundete noch mit 56/640.
+            # Same rounding as the placeholder tile: 56/960 of the
+            # smaller edge (0.25.1: a third subtler than F34's 56/640).
             r = max(2.0, min(w, h) * 56.0 / 960.0)
             pad = max(6, int(min(w, h) * 0.02))
-            # F35: Schatten nach rechts und unten versetzt – dort 3 px
-            # mehr Fläche – und transparenter als in F34.
+            # F35: shadow offset right and down – 3 px more area
+            # there – and more transparent than in F34.
             dx = max(2, pad // 2)
             dy = max(2, pad // 2)
             ow, oh = w + 2 * pad + 3, h + 2 * pad + 3
             surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, ow, oh)
             cr = cairo.Context(surf)
-            # Schatten: sechs gestapelte, nach außen wachsende Kacheln.
+            # Shadow: six stacked tiles growing outward.
             for i in range(6, 0, -1):
                 cr.set_source_rgba(0.0, 0.0, 0.0, 0.04)
                 self._cover_round_path(cr, pad + dx - i, pad + dy - i,
                                        w + 2 * i, h + 2 * i, r + i)
                 cr.fill()
-            # Kachel: Ecken-Beschneidung, dann das Cover hinein.
+            # Tile: corner clipping, then the cover inside.
             cr.save()
             self._cover_round_path(cr, pad, pad, w, h, r)
             cr.clip()
@@ -1215,26 +1183,25 @@ class MediaRendererMixin:
         (Nutzer-Wunsch): Die Leiste sitzt mit etwas Abstand UNTER dem
         Cover, die Informationen folgen darunter – nicht mehr darüber.
         """
-        # F18: Ohne eingebettetes Cover (oder wenn es nicht dekodierbar
-        # war) die Platzhalter-Kachel zeigen – Dateien mit und ohne Bild
-        # haben damit das gleiche, ruhige Erscheinungsbild.
+        # F18: without an embedded cover (or if it was not
+        # decodable) show the placeholder tile – a uniform, calm look.
         if cover is None:
             cover = self._media_cover_placeholder()
-        # F34: Ecken wie die Platzhalter-Kachel, dazu ein kleiner
-        # Schatten – Datei-Cover und Platzhalter sehen gleich aus.
+        # F34: corners like the placeholder tile plus a small
+        # shadow – file cover and placeholder look the same.
         cover = self._cover_shadowed(cover)
         scroll = self._scaled_image(cover, 320, upscale=False,
                                     keep_height=True)
-        # F33: Abstand zwischen Cover und Abspielleiste.
+        # F33: spacing between cover and play bar.
         scroll.set_margin_bottom(10)
         self._content.pack_start(scroll, False, False, 0)
 
-        # --- Abspielleiste (F33: zwischen Cover und Informationen) ---
+        # --- Play bar (F33: between cover and information) ---
         self._playbin_set_uri(uri)
         self._player_bar(duration)
 
         def _num_row(label, num, total):
-            # F33: „x von y“ – erst die Gesamtzahl, sonst nur die Zahl.
+            # F33: "x of y" – the total count first, else just the number.
             if num:
                 rows.append((label, ("%d von %d" % (num, total))
                              if total else str(num)))
@@ -1248,8 +1215,8 @@ class MediaRendererMixin:
             rows.append(("Länge", format_seconds(duration)))
         _num_row("Titelnummer", tags.get("track"),
                  tags.get("track_total"))
-        # F35: Jahr als eigene Zeile UNTER dem Album – Bezeichnung
-        # „Zuerst erschienen“ (Basis: F33-Jahresermittlung).
+        # F35: year as its own row BELOW the album – label
+        # "First released" (based on the F33 year detection).
         if "album" in tags:
             rows.append(("Album", tags["album"]))
         if tags.get("year"):
@@ -1260,13 +1227,12 @@ class MediaRendererMixin:
                  tags.get("disc_total"))
         if "codec" in tags:
             rows.append(("Codec", tags["codec"]))
-        # F35: Genre – nur die Zeile zeigen, wenn das Tag existiert.
+        # F35: genre – only show the row if the tag exists.
         if "genre" in tags:
             rows.append(("Genre", tags["genre"]))
 
-        # 0.9.1: Info-Tabelle über den zentralen Helfer (zuvor inline
-        # identisch gebaut – jetzt wie EML/E-Book einheitlich). F35:
-        # Doppelpunkte an den Bezeichnungen setzt _meta_grid zentral.
+        # 0.9.1: info table via the central helper (previously
+        # inline). F35: colons are set centrally in _meta_grid.
         self._meta_grid(rows)
 
     def _playbin_set_uri(self, uri):
@@ -1302,8 +1268,8 @@ class MediaRendererMixin:
         self._seek_scale.set_draw_value(False)
         self._seek_scale.set_hexpand(True)
         self._seek_scale.connect("change-value", self._on_seek)
-        # Während der Nutzer am Slider zieht, darf der Timer den Slider
-        # nicht zurückschieben (sonst springt er unter der Hand weg).
+        # While the user drags the slider, the timer must not push
+        # it back (it would jump away under the hand).
         self._seek_dragging = False
         self._seek_scale.connect("button-press-event", self._on_seek_press)
         self._seek_scale.connect("button-release-event",
@@ -1312,7 +1278,7 @@ class MediaRendererMixin:
 
         self._pos_label = Gtk.Label(label="0:00")
         player_box.pack_start(self._pos_label, False, False, 0)
-        # F33: etwas Abstand zwischen Abspielleiste und Informationen.
+        # F33: some spacing between play bar and information.
         player_box.set_margin_bottom(6)
         self._content.pack_start(player_box, False, False, 0)
 
@@ -1377,8 +1343,8 @@ class MediaRendererMixin:
 
     def _finish_video(self, path, uri, tags, duration, image):
         """R1-Fortsetzung: Kachel und Infos aufbauen."""
-        # F22: Ohne eingebettetes Vorschaubild die generische Kachel
-        # zeigen – Abspiel-Dreieck und Filmperforation statt Noten.
+        # F22: without an embedded preview image show the generic
+        # tile – play triangle and film perforation instead of notes.
         if image is None:
             image = self._media_cover_placeholder(
                 glyph="▶", fallback_icon="video-x-generic",
@@ -1393,11 +1359,11 @@ class MediaRendererMixin:
             rows.append(("Titel", tags["title"]))
         if duration >= 0:
             rows.append(("Länge", format_seconds(duration)))
-        # 0.9.1: Info-Tabelle über den zentralen Helfer (zuvor inline
-        # identisch gebaut – jetzt wie EML/E-Book/Audio einheitlich).
+        # 0.9.1: info table via the central helper (previously
+        # inline, now uniform like EML/e-book/audio).
         self._meta_grid(rows)
 
-    # --- Audio-Player-Logik -------------------------------------------------
+    # --- Audio player logic ---------------------------------------------------
 
     def _on_play_pause(self, *a):
         if self._playbin is None:
@@ -1411,9 +1377,8 @@ class MediaRendererMixin:
             self._playbin.set_state(Gst.State.PLAYING)
             self._btn_play.set_image(Gtk.Image.new_from_icon_name(
                 "media-playback-pause-symbolic", Gtk.IconSize.BUTTON))
-            # B3: Timer läuft nur, solange eine Wiedergabe existiert –
-            # nach Pause/Stop wird er im _tick_player bzw. beim Wechsel
-            # abgeräumt; hier wieder anlegen, falls er weg ist.
+            # B3: the timer only runs while playback exists – after
+            # pause/stop it is cleared; recreate it here if gone.
             self._ensure_progress_timer()
 
     def _on_seek(self, scale, scroll_type, value):
@@ -1439,8 +1404,8 @@ class MediaRendererMixin:
             ok, state, pending = self._playbin.get_state(0)
             if (state != Gst.State.PLAYING
                     and pending != Gst.State.PLAYING):
-                # Wiedergabe läuft (oder läuft an) nicht – Timer aus;
-                # _on_play_pause legt ihn bei erneutem Start wieder an.
+                # Playback is not running (or starting) – timer off;
+                # _on_play_pause re-creates it on the next start.
                 self._progress_timer = 0
                 return False
             ok, pos = self._playbin.query_position(Gst.Format.TIME)
@@ -1453,7 +1418,7 @@ class MediaRendererMixin:
                     self._update_seek_pos(pos)
         except Exception:
             pass
-        return True  # weiterlaufen
+        return True  # keep running
 
     def _ensure_seek_range(self, dur_ns):
         """Slider-Bereich an die echte Dauer (ns) anpassen, falls nötig."""
@@ -1470,28 +1435,28 @@ class MediaRendererMixin:
     def _update_seek_pos(self, pos_ns):
         """Slider auf die aktuelle Position (ns) schieben."""
         if getattr(self, "_seek_dragging", False):
-            return          # Nutzer zieht gerade – nicht reinschieben
+            return          # user is dragging – do not push
         scale = getattr(self, "_seek_scale", None)
         if scale is None:
             return
         sec = pos_ns / Gst.SECOND
         adj = scale.get_adjustment()
-        # Schwellwert klein genug für kurze Stücke, aber groß genug,
-        # dass der Slider nicht bei jedem Tick zittert.
+        # Threshold small enough for short tracks, large enough so
+        # the slider does not jitter on every tick.
         if abs(adj.get_value() - sec) > 0.75:
             scale.set_value(sec)
 
     def _on_seek_press(self, widget, event):
         self._seek_dragging = True
-        return False        # GTK soll das Event weiterverarbeiten
+        return False        # let GTK keep processing the event
 
     def _on_seek_release(self, widget, event):
         self._seek_dragging = False
-        return False        # GTK soll das Event weiterverarbeiten
+        return False        # let GTK keep processing the event
 
     def _stop_playback(self):
-        # B3: Timer aufräumen (lief sonst ewig weiter, auch nach
-        # Fensterabbau) und Player sauber auf NULL legen.
+        # B3: tear down the timer (it otherwise runs forever, even
+        # after window destruction) and cleanly NULL the player.
         if self._progress_timer:
             GLib.source_remove(self._progress_timer)
             self._progress_timer = 0
@@ -1503,7 +1468,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.36.0"
+PREVIEWER_VERSION = "0.37.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)

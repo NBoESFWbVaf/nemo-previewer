@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.36.0
+previewer_toolbar.py – Version 0.37.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -35,7 +35,7 @@ class PreviewToolbarMixin:
     """Mixin: ActionBar (F19) + Einstellungsfenster (F12) des Panels."""
 
     def _build_toolbar(self, window):
-        # --- F19: Toolbar am unteren Rand der Vorschauspalte (0.11.0) ---
+        # --- F19: toolbar at the bottom of the preview column (0.11.0) ---
         # → REF TB-F19-1
         self._toolbar_sep = Gtk.Separator(
             orientation=Gtk.Orientation.HORIZONTAL)
@@ -58,7 +58,7 @@ class PreviewToolbarMixin:
         except Exception:
             pass
 
-        # Tastenkürzel zum Wieder-Einblenden
+        # keyboard shortcut to unhide the panel
         try:
             accel = Gtk.AccelGroup()
             window.add_accel_group(accel)
@@ -118,9 +118,8 @@ class PreviewToolbarMixin:
         chk.connect("toggled", self._on_show_at_start_toggled)
         fbox.pack_start(chk, False, False, 0)
 
-        # F48 (Nutzer-Wunsch): Ordner-Inhaltsliste an/aus – Default
-        # an; abgewählt zeigt ein markierter Ordner das schlichte
-        # Ordner-Icon mit Dateiinformationen (→ REF PAN-FOLDER-2).
+        # F48: folder contents list on/off – default on; off shows the
+        # plain folder icon with file info (→ REF PAN-FOLDER-2).
         chk = Gtk.CheckButton(
             label="Ordnerinhalte in der Vorschau anzeigen")
         chk.set_tooltip_text(
@@ -157,10 +156,9 @@ class PreviewToolbarMixin:
         fbox.pack_start(wrow, False, False, 0)
         box.pack_start(frame, False, False, 0)
 
-        # --- F24 (0.16.0): Rubrik „Textdateien“ --------------------------
-        # Nur die reine Text-Vorschau (Textdateien und endungslose
-        # Textdateien) – gerenderte Vorschauen (Markdown, E-Mail,
-        # E-Book, Font-Wasserfall) bleiben ohne Nummern.
+        # --- F24 (0.16.0): "Text files" section ------------------------
+        # Plain text preview only (incl. extensionless files) – rendered
+        # previews (Markdown, e-mail, e-book, fonts) have no line numbers.
         tframe = Gtk.Frame(label="Textdateien")
         tfbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         tfbox.set_border_width(8)
@@ -174,8 +172,8 @@ class PreviewToolbarMixin:
         ln.set_active(self._conf_text_linenumbers)
         ln.connect("toggled", self._on_linenumbers_toggled)
         tfbox.pack_start(ln, False, False, 0)
-        # F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung
-        # als Schalter – Default an, sofort speichern und live wirken.
+        # F44: syntax highlighting as a switch – default on, saved
+        # immediately and applied live.
         syn = Gtk.CheckButton(
             label="Syntax-Hervorhebung in Quellcode-Dateien")
         syn.set_tooltip_text(
@@ -187,7 +185,7 @@ class PreviewToolbarMixin:
         tfbox.pack_start(syn, False, False, 0)
         box.pack_start(tframe, False, False, 0)
 
-        # --- F12 Teil 3 (0.27.0): Rubrik „Dokumente“ (PDF/Office) ----
+        # --- F12 part 3 (0.27.0): "Documents" section (PDF/Office) ----
         dframe = Gtk.Frame(label="Dokumente (PDF und Office)")
         dfbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         dfbox.set_border_width(8)
@@ -221,11 +219,8 @@ class PreviewToolbarMixin:
         dfbox.pack_start(prow, False, False, 0)
         box.pack_start(dframe, False, False, 0)
 
-        # F12 (0.34.0, Nutzer-Wunsch): Rubrik „Schriftarten“ mit dem
-        # Wasserfall-Probetext der Schrift-Vorschau – der Platzhalter
-        # („folgen hier in späteren Versionen“) weicht dem echten
-        # Feld. Eintrag greift live auf die gerade angezeigte
-        # Schrift (→ REF TXT-FONT-2).
+        # F12: "Fonts" section with the waterfall sample text – the
+        # entry applies live to the shown font (→ REF TXT-FONT-2).
         fframe = Gtk.Frame(label="Schriftarten")
         fframe.set_border_width(8)
         ffbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
@@ -259,7 +254,7 @@ class PreviewToolbarMixin:
         self._settings_pages_spin = None
 
     def _on_show_at_start_toggled(self, chk):
-        # Sofort speichern – kein separater Speichern-Knopf nötig.
+        # Save immediately – no separate save button needed.
         self._conf_show_at_start = chk.get_active()
         self._config_save()
 
@@ -399,7 +394,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.36.0"
+PREVIEWER_VERSION = "0.37.0"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)

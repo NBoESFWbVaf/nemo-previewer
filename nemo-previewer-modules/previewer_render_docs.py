@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.36.0
+previewer_render_docs.py – Version 0.37.0
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -35,9 +35,9 @@ from previewer_util import (
     _zf_read_capped, _pixbuf_from_bytes,
 )
 
-# --- Optionale Module (Fehlen ist kein Fehler, nur weniger Vorschau) ---
+# --- Optional modules (missing ones just reduce the previews) ---
 
-# Poppler + pycairo für die PDF-Vorschau (Seiten als Pixbuf).
+# Poppler + pycairo for the PDF preview (pages as pixbufs).
 HAVE_POPPLER = False
 try:
     import cairo  # pycairo
@@ -47,15 +47,15 @@ try:
 except Exception:
     pass
 
-# LibreOffice für die scharfe Office-Vorschau (Hintergrundkonvertierung
-# nach PDF). Fehlt es, bleibt die eingebettete Miniaturansicht.
+# LibreOffice for the sharp office preview (background conversion
+# to PDF); without it, the embedded thumbnail remains.
 SOFFICE = None
 try:
     SOFFICE = shutil.which("soffice")
 except Exception:
     SOFFICE = None
 
-# Cache für LibreOffice-Konvertierungen: ~/.cache/previewer/<hash>.pdf
+# LibreOffice conversion cache: ~/.cache/previewer/<hash>.pdf
 def office_cache_dir():
     """Cache-Ordner ~/.cache/previewer (wird bei Bedarf angelegt)."""
     d = os.path.join(GLib.get_user_cache_dir(), "previewer")
@@ -73,17 +73,16 @@ def office_cache_path(path):
     return os.path.join(office_cache_dir(), key + ".pdf")
 
 
-# Office-Dokumente sind ZIP-Archive: eingebettete Miniaturansicht zeigen
-# und/oder einen Textauszug. Ohne neue Pakete (nur Python-Bordmittel).
+# Office documents are ZIP archives: show the embedded thumbnail
+# and/or a text excerpt – no new packages needed (stdlib only).
 _OFFICE_EXTS = {
     ".odt", ".ods", ".odp", ".odg", ".odf",          # OpenDocument
     ".docx", ".xlsx", ".pptx",                        # MS Office (OOXML)
     ".doc", ".xls", ".ppt",                           # MS Office (F39)
     ".rtf",                                           # RTF (F39)
 }
-# F39: Office-Formate OHNE ZIP-Anteil – keine eingebettete
-# Miniaturansicht, einzig die LibreOffice-Konvertierung bringt eine
-# Vorschau: die binären MS-Formate und RTF.
+# F39: office formats WITHOUT a ZIP part – no embedded thumbnail;
+# only LibreOffice can preview these (binary MS formats and RTF).
 _OFFICE_NOZIP_EXTS = {".doc", ".xls", ".ppt", ".rtf"}
 _OFFICE_THUMBS = (
     "Thumbnails/thumbnail.png",                       # ODF
@@ -108,9 +107,8 @@ def _extract_office_text(zf, names):
     if not entry:
         return ""
     try:
-        # 0.9.2: Lese-Deckel gegen Dekompressionsbomben – auch der
-        # Textauszug braucht nur den Anfang des Dokuments (die Grenze
-        # _OFFICE_MAX_TEXT_CHARS schneidet ohnehin weit davor).
+        # 0.9.2: read caps against decompression bombs – the text
+        # excerpt only needs the document start anyway.
         root = ElementTree.fromstring(
             _zf_read_capped(zf, entry, _OFFICE_XML_CAP))
     except Exception:
@@ -130,19 +128,17 @@ def _extract_office_text(zf, names):
     return text.strip()[:_OFFICE_MAX_TEXT_CHARS]
 
 
-# PDF: alle Seiten bis zu dieser Obergrenze scrollbar untereinander –
-# seit 0.27.0 (F12 Teil 3) nur noch der DEFAULT: Wirksam ist die
-# Einstellung doc_max_pages (doc_page_limit aus = unbegrenzt).
+# PDF: pages up to this default limit stay scrollable – the
+# doc_max_pages setting is effective (page limit off = unlimited).
 MAX_PDF_PAGES = 20
-# 0.9.2 (Audit „Pufferüberlauf/OOM“): Deckel gegen Dekompressions- und
-# Dekodierbomben – ein präpariertes Bild/PDF/EPUB/DOCX/EML darf Nemo
-# niemals durch Riesen-Allokationen abschießen.
-_PDF_PIXEL_BUDGET = 4096 * 4096      # Fläche je PDF-Seite (sonst ~1,6 GB)
-_OFFICE_THUMB_CAP = 16 * 1024 * 1024  # eingebettete Office-Miniatur
+# 0.9.2 (audit "buffer overflow/OOM"): caps against decompression
+# and decoding bombs – crafted files must never blow up Nemo.
+_PDF_PIXEL_BUDGET = 4096 * 4096      # area per PDF page (else ~1.6 GB)
+_OFFICE_THUMB_CAP = 16 * 1024 * 1024  # embedded office thumbnail
 _OFFICE_XML_CAP = 2 * 1024 * 1024     # content.xml / word/document.xml
 
 
-# ========================= Renderer: Dokumente ==============================
+# ========================= Renderer: documents ==============================
 
 
 class DocsRendererMixin:
@@ -151,9 +147,8 @@ class DocsRendererMixin:
     def _pdf_page_pixbuf(self, page, target_w):
         """Eine PDF-Seite auf target_w Pixel Breite rendern (weiße Unterlage)."""
         pw, ph = page.get_size()
-        # Mit doppelter Zielbreite rendern, damit die Live-Skalierung
-        # auch beim Ziehen des Trenners scharf bleibt; extrem hohe
-        # Seiten werden gedeckelt (Platz und Speicher).
+        # Render at double target width so live scaling stays sharp
+        # while dragging; extreme pages get capped (space, memory).
         scale = min(float(target_w) / max(pw, 1.0),
                     2.0 * MAX_IMAGE_HEIGHT / max(ph, 1.0))
         scale = max(0.2, min(3.0, scale))
@@ -164,8 +159,8 @@ class DocsRendererMixin:
             w, h = max(1, int(w * f)), max(1, int(h * f))
         surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
         cr = cairo.Context(surf)
-        # Weiße Unterlage: PDF-Seiten dürfen transparente Flächen haben –
-        # ohne Unterlage sähen sie auf dunklen Themes unleserlich schwarz aus.
+        # White backing: PDF pages may have transparent areas –
+        # without it they would look unreadably black on dark themes.
         cr.set_source_rgb(1.0, 1.0, 1.0)
         cr.paint()
         cr.scale(scale, scale)
@@ -210,9 +205,8 @@ class DocsRendererMixin:
         cap = self._pdf_page_cap()
         count = n if cap == 0 else min(n, cap)
         self._pdf_count = count
-        # F12 Teil 3: Die aktuelle Vorschau ist eine Dokument-Seiten-
-        # ansicht – Deckel-Änderungen aus den Einstellungen wirken
-        # live darauf (Merker _last_docview).
+        # F12 part 3: the current preview is a document page view –
+        # cap changes from the settings apply live (marker _last_docview).
         self._last_docview = True
         dbg("PDF geöffnet: %d Seite(n), zeige %d untereinander "
             "(scrollbar; Deckel %s)"
@@ -222,7 +216,7 @@ class DocsRendererMixin:
         self._pdf_src = []
         self._pdf_imgs = []
         self._pdf_box = box
-        # Seite 1 sofort – erst danach ist das Panel benutzbar.
+        # Page 1 immediately – only then is the panel usable.
         try:
             pb = self._pdf_page_pixbuf(doc.get_page(0), src_w)
             img = Gtk.Image()
@@ -237,9 +231,8 @@ class DocsRendererMixin:
             self._hint("PDF konnte nicht gerendert werden.")
             self._pdf_box = None
             return
-        # F14 (0.27.0, Nutzer-Wunsch): Seitenanzeige über dem
-        # scrollbaren Bereich – IMMER, auch einseitige Dokumente zeigen
-        # „Seite 1 von 1“; beim Scrollen zählt sie nach.
+        # F14: page indicator above the scrollable area – ALWAYS, even
+        # one-page documents show "Page 1 of 1"; counts while scrolling.
         self._pdf_page_label = Gtk.Label(label="Seite 1 von %d" % count)
         self._pdf_page_label.get_style_context().add_class("dim-label")
         self._content.pack_start(self._pdf_page_label, False, False, 0)
@@ -250,9 +243,8 @@ class DocsRendererMixin:
                                          self._on_pdf_scrolled)
         self._content.pack_start(scroll, True, True, 0)
         self._apply_pdf_scale()
-        # R2: restliche Seiten je eine pro Idle-Durchlauf nachschieben.
-        # Die Generation wird MITGEBEN (nicht später gelesen), damit der
-        # Schritt eindeutig weiß, zu welchem Render-Durchlauf er gehört.
+        # R2: feed the remaining pages one per idle cycle. The
+        # generation is passed along so each step knows its render pass.
         if count > 1:
             GLib.idle_add(self._pdf_idle_step, doc, path, src_w, count, 1,
                           self._pdf_gen)
@@ -269,9 +261,8 @@ class DocsRendererMixin:
         werden. Rückkehr False: nicht automatisch wiederholen, der
         Nachschub wird jeweils explizit neu angesetzt."""
         try:
-            # Abbruch, wenn inzwischen ein neuer Render-Durchlauf lief
-            # (Generation hochgezählt) oder die PDF-Ansicht entsorgt
-            # wurde (Stale-Check).
+            # Abort if a newer render pass ran meanwhile (generation
+            # bumped) or the PDF view was disposed (stale check).
             if gen != self._pdf_gen or self._pdf_box is None:
                 return False
             pb = self._pdf_page_pixbuf(doc.get_page(i), src_w)
@@ -282,9 +273,8 @@ class DocsRendererMixin:
             img.show()
             self._pdf_src.append(pb)
             self._pdf_imgs.append(img)
-            # Nur die neue Seite skalieren – _apply_pdf_scale springt
-            # dank Breiten-Schwellenwert früh ab, wenn sich die Panel-
-            # breite nicht geändert hat, und würde sie sonst übersehen.
+            # Scale only the new page – _apply_pdf_scale returns early
+            # via its width threshold if the panel width did not change.
             self._pdf_scale_one(pb, img, self._preview_width())
         except Exception as exc:
             dbg("PDF-Seite %d nicht renderbar: %s" % (i + 1, exc))
@@ -319,7 +309,7 @@ class DocsRendererMixin:
     def _pdf_scale_one(self, src, img, target):
         """Eine PDF-Seite auf die Zielbreite skalieren und zuweisen."""
         sw, sh = src.get_width(), src.get_height()
-        f = min(float(target) / sw, 1.0)   # nicht hochskalieren
+        f = min(float(target) / sw, 1.0)   # never upscale
         w = max(1, int(sw * f))
         h = max(1, int(sh * f))
         img.set_from_pixbuf(
@@ -362,11 +352,11 @@ class DocsRendererMixin:
                 except Exception as exc:
                     dbg("Office-PDF-Vorschau fehlgeschlagen (%s): %s"
                         % (path, exc))
-                    # Halb gepackte Reste der PDF-Ansicht entfernen,
-                    # bevor die Miniaturansicht gepackt wird.
+                    # Remove half-packed leftovers of the PDF view
+                    # before packing the thumbnail.
                     self._clear_content()
-                    # Ungültiges Cache-PDF: als gescheitert merken, sonst
-                    # würde jede Neudarstellung erneut konvertieren.
+                    # Invalid cache PDF: remember it as failed, or
+                    # every redraw would convert again.
                     self._office_failed.add(path)
             failed = path in self._office_failed
             self._render_office_thumb(path, converting=not failed)
@@ -382,16 +372,15 @@ class DocsRendererMixin:
         ist, wird ersatzweise ein Textauszug gezeigt. Bei converting=True
         läuft parallel die LibreOffice-Konvertierung – dann mit Hinweis.
         """
-        # F39: Office-Formate ohne ZIP-Anteil (binär + RTF) – der Weg
-        # über Miniaturansicht/Textauszug läuft hier ins
-        # Leere (→ REF DOC-LEGACY-1).
+        # F39: office formats without a ZIP part (binary + RTF) – the
+        # thumbnail/text route leads nowhere here (→ REF DOC-LEGACY-1).
         if os.path.splitext(path)[1].lower() in _OFFICE_NOZIP_EXTS:
             if converting:
                 self._hint("Scharfe Vorschau wird im Hintergrund "
                            "erstellt (LibreOffice) – einen Moment …")
             elif SOFFICE and HAVE_POPPLER:
-                # F39: Konvertierung angetreten, aber ohne Ergebnis
-                # (kaputte Datei) – nicht endlos erneut ansetzen.
+                # F39: conversion ran but produced no result (broken
+                # file) – do not retry endlessly.
                 self._hint("Scharfe Vorschau konnte nicht erstellt "
                            "werden – Datei über den Öffnen-Knopf "
                            "betrachten.")
@@ -408,9 +397,8 @@ class DocsRendererMixin:
                 for member in _OFFICE_THUMBS:
                     if member in names:
                         try:
-                            # 0.9.2: Lese-Deckel – ein präpariertes
-                            # DOCX könnte eine Riesen-Miniatur als
-                            # Dekompressionsbombe packen.
+                            # 0.9.2: read cap – a crafted DOCX
+                            # could pack a giant thumbnail bomb.
                             thumb = _zf_read_capped(zf, member,
                                                     _OFFICE_THUMB_CAP)
                         except Exception:
@@ -418,15 +406,15 @@ class DocsRendererMixin:
                         break
                 text = _extract_office_text(zf, names)
         except Exception as e:
-            # K2 (2026-10-30): Nur die Hinweiszeile wirkt leer – das
-            # Datei-Icon gibt der Fehlermeldung einen visuellen Anker.
+            # K2 (2026-10-30): only the hint line looks empty – the
+            # file icon gives the error message a visual anchor.
             self._render_generic()
             self._hint("Office-Dokument konnte nicht geöffnet werden: %s" % e)
             return
         shown = False
         if thumb:
             try:
-                # 0.9.2: bewachter Loader mit Decode-Deckel.
+                # 0.9.2: guarded loader with a decode cap.
                 pb = _pixbuf_from_bytes(thumb)
                 if pb is not None:
                     # → REF DOC-UPSCALE-1
@@ -437,11 +425,10 @@ class DocsRendererMixin:
                     shown = True
             except Exception:
                 pass
-        # Text nur als Ersatzvorschau, wenn keine Miniaturansicht
-        # eingebettet war.
+        # Text only as a fallback preview if no thumbnail was embedded.
         if not shown and text.strip():
-            # 0.9.1: über den gemeinsamen TextView-Helfer (zuvor inline
-            # identisch gebaut).
+            # 0.9.1: via the shared TextView helper (previously
+            # built identically inline).
             self._text_view(text, font="Monospace 9")
             shown = True
         if not shown:
@@ -451,7 +438,7 @@ class DocsRendererMixin:
             self._hint("Scharfe Vorschau wird im Hintergrund erstellt "
                        "(LibreOffice) – einen Moment …")
 
-    # --- Office: scharfe Vorschau via LibreOffice --------------------------
+    # --- Office: sharp preview via LibreOffice ------------------------------
 
     def _office_cached_pdf(self, path):
         """Frisch konvertiertes PDF aus dem Cache oder None."""
@@ -468,11 +455,11 @@ class DocsRendererMixin:
     def _office_start_job(self, path):
         """LibreOffice-Konvertierung im Hintergrund starten."""
         if self._office_job is not None:
-            return          # es läuft bereits eine Konvertierung
+            return          # a conversion is already running
         if not SOFFICE or not HAVE_POPPLER:
             return
         if path in self._office_failed:
-            return          # bereits gescheitert – nicht endlos erneut
+            return          # already failed – no endless retries
         self._office_job = path
         tmpdir = tempfile.mkdtemp(prefix="previewer-office-")
         out_pdf = os.path.join(
@@ -496,9 +483,8 @@ class DocsRendererMixin:
         """Konvertierung beendet: Ergebnis cachen, Vorschau auffrischen."""
         path, tmpdir, out_pdf = data
         self._office_job = None
-        # 0.9.1: Panel ist bereits abgebaut (Fenster zu, Reiter weg) –
-        # Ergebnis verwerfen und nur den Temp-Ordner aufräumen; ein
-        # Rendern auf das tote Panel wäre vergebliche Liebesmüh'.
+        # 0.9.1: panel already torn down (window closed, tab gone) –
+        # drop the result and just clean up the temp dir.
         if getattr(self, "_destroyed", False):
             shutil.rmtree(tmpdir, ignore_errors=True)
             return
@@ -506,9 +492,9 @@ class DocsRendererMixin:
             if os.path.exists(out_pdf):
                 cache_ok = False
                 try:
-                    # shutil.move statt os.replace: /tmp liegt häufig auf
-                    # einem eigenen Gerät (tmpfs) – rename(2) scheitert dann
-                    # mit EXDEV, move kopiert in dem Fall.
+                    # shutil.move instead of os.replace: /tmp often
+                    # sits on its own device (tmpfs) – rename(2)
+                    # would fail with EXDEV, move copies instead.
                     shutil.move(out_pdf, office_cache_path(path))
                     cache_ok = True
                 except Exception as exc:
@@ -521,20 +507,18 @@ class DocsRendererMixin:
                         self._office_failed.clear()
                     if self._path == path:
                         try:
-                            # Übergangs-Miniaturansicht mit ihrem
-                            # „wird konvertiert"-Hinweis entfernen,
-                            # sonst steht die scharfe Ansicht UNTER
-                            # der Miniaturansicht.
+                            # Remove the transitional thumbnail with
+                            # its hint – it would cover the sharp view.
                             self._clear_content()
                             self._render_pdf(out_pdf)
                         except Exception as exc:
                             dbg("Office-PDF aus Temp-Ordner nicht "
                                 "darstellbar (%s): %s" % (path, exc))
                 elif self._path == path:
-                    self._render()   # scharfe Seitenansicht zeigen
+                    self._render()   # show the sharp page view
             else:
-                # Gescheiterte Konvertierung merken – verhindert eine
-                # Endlosschleife aus erneuten Konvertierungsversuchen.
+                # Remember a failed conversion – prevents an
+                # endless loop of retry attempts.
                 self._office_failed.add(path)
                 if len(self._office_failed) > 256:
                     self._office_failed.clear()
@@ -543,8 +527,8 @@ class DocsRendererMixin:
                         "(Status %s) – Miniaturansicht bleibt" % status)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
-        # Wartet die aktuelle Auswahl auf ihre Konvertierung, direkt die
-        # nächste starten (es läuft ja keine mehr).
+        # If the current selection is waiting for its conversion,
+        # start the next one right away (none is running anymore).
         try:
             cur = self._path
             if (cur and os.path.splitext(cur.lower())[1] in _OFFICE_EXTS
@@ -557,7 +541,7 @@ class DocsRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.36.0"
+PREVIEWER_VERSION = "0.37.0"
 dbg("previewer_render_docs %s geladen (F31: PDF-/Office-Renderer; "
     "Lese-Deckel und LibreOffice-Cache bleiben)"
     % PREVIEWER_VERSION)

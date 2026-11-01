@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_select.py – Version 0.36.0
+previewer_select.py – Version 0.37.0
 
 Selection detection: reads the currently selected file from the
 Nemo view via selection signals, vtable access and GTK/ATK
@@ -32,10 +32,8 @@ if _HERE not in sys.path:
 from previewer_util import dbg, diag, type_name, walk
 
 
-# Nemo's private NemoView API is not exported through the installed GI
-# namespace on some Linux Mint builds. These wrappers call only the
-# read-only nemo_view_peek_selection() API, after validating the GObject
-# pointer against NemoView's registered GType.
+# Nemo's private NemoView API is not exported through GI on some Mint
+# builds; wrappers call only the read-only peek_selection() API.
 _NATIVE_NEMO_API = None
 _NATIVE_NEMO_API_TRIED = False
 _NATIVE_NEMO_API_MESSAGE_SHOWN = False
@@ -165,14 +163,14 @@ def _gobject_pointer(widget):
         capsule = None
     if capsule is None:
         return None
-    # Variante 1: einige PyGObject-Builds liefern gleich die Adresse.
+    # Variant 1: some PyGObject builds return the address directly.
     if isinstance(capsule, int):
         return capsule
     try:
         get_pointer = ctypes.pythonapi.PyCapsule_GetPointer
         get_pointer.argtypes = [ctypes.py_object, ctypes.c_char_p]
         get_pointer.restype = ctypes.c_void_p
-        # Erst mit exaktem Namen probieren …
+        # Try with the exact name first …
         try:
             get_name = ctypes.pythonapi.PyCapsule_GetName
             get_name.argtypes = [ctypes.py_object]
@@ -183,7 +181,7 @@ def _gobject_pointer(widget):
                 return ptr
         except Exception:
             pass
-        # … dann namenlos (NULL-Name akzeptiert nur namenlose Kapseln).
+        # … then nameless (a NULL name only accepts nameless capsules).
         return get_pointer(capsule, None)
     except Exception:
         return None
@@ -212,7 +210,7 @@ def _read_size(addr, offset=0):
 
 
 # ---------------------------------------------------------------------------
-# Native Auswahl über den Klassen-VTable von NemoView (peek_selection).
+# Native selection via the NemoView class vtable (peek_selection).
 # → REF SEL-VTABLE-1
 
 _NATIVE_VTABLE_API = None
@@ -250,10 +248,11 @@ def _native_vtable_api():
             "view_gtype": view_gtype,
             "file_gtype": file_gtype,
             "iface_gtype": iface_gtype,
-            # NemoViewClass: Eltern-Klasse + 12 Zeiger bis peek_selection
+            # NemoViewClass: parent class + 12 pointers up to
+            # peek_selection.
             "peek_offset": parent_size + 12 * ptr_size,
-            # NemoFileInfoInterface: GTypeInterface-Kopf (2 Zeiger),
-            # dann is_gone(0), get_name(1), get_uri(2)
+            # NemoFileInfoInterface: interface head (2 pointers), then
+            # is_gone/get_name/get_uri.
             "iface_name_off": 3 * ptr_size,
             "iface_uri_off": 4 * ptr_size,
         }
@@ -281,7 +280,7 @@ def _native_vtable_api():
         return None
 
 
-# --- Wildcall-Schutz (0.9.2, Audit „Pufferüberlauf/OOM“) ------------------
+# --- Wildcall guard (0.9.2, audit "buffer overflow/OOM") --------------------
 # → REF SEL-WILDCALL-1
 _NEMO_TEXT_RANGES = None
 
@@ -320,9 +319,8 @@ def _ptr_in_nemo(ranges, ptr):
     return bool(ranges) and any(lo <= ptr < hi for lo, hi in ranges)
 
 
-# --- gemeinsame Helfer (Audit 0.9.1: Logik war zuvor mehrfach identisch
-# in _vtable_selection_names, _nemo_file_name_from_ptr und
-# _read_native_nemo_selection implementiert) ------------------------------
+# --- shared helpers (audit 0.9.1: this logic was previously
+# duplicated identically in three places) ----------------------------------
 
 def _name_from_uri(uri):
     """Dateiname (Basename) aus einer Nemo-URI – ein Ort, eine Wahrheit."""
@@ -393,8 +391,8 @@ def _vtable_selection_names(view):
         return None, False
     ptr = _gobject_pointer(view)
     if not ptr or not api["is_a"](ptr, api["view_gtype"]):
-        # Einmalig melden, WARUM die VTable-Route die Ansicht ablehnt –
-        # sonst scheitert diese Wache lautlos (siehe Symbolansicht).
+        # Log once WHY the vtable route rejects this view –
+        # otherwise this guard fails silently (see symbol view).
         if not _VTABLE_GUARD_WARNED:
             _VTABLE_GUARD_WARNED = True
             info = ["ptr=%r" % ptr]
@@ -405,8 +403,8 @@ def _vtable_selection_names(view):
             except Exception as exc:
                 info.append("__gpointer__-Fehler: %r" % exc)
             try:
-                # is_a nie mit NULL-Zeiger aufrufen – das wäre ein
-                # Segfault im Nemo-Prozess (try/except hilft dort nicht).
+                # Never call is_a with a NULL pointer – that would
+                # segfault the Nemo process (no try/except there).
                 info.append("is_a=%r" % (api["is_a"](ptr, api["view_gtype"])
                                         if ptr else None))
             except Exception as exc:
@@ -430,8 +428,8 @@ def _vtable_selection_names(view):
                 dbg("VTable-API: peek_selection-Zeiger ist NULL – deaktiviert")
             _NATIVE_VTABLE_BROKEN = True
             return None, False
-        # 0.9.2: Wildcall-Schutz – der Zeiger wird GECALLT und muss
-        # deshalb innerhalb von Nemo liegen.
+        # 0.9.2: wildcall guard – the pointer gets CALLED and must
+        # therefore lie inside Nemo.
         if not _ptr_in_nemo(_nemo_addr_ranges(), peek_ptr):
             if not _NATIVE_VTABLE_BROKEN:
                 dbg("VTable-API: peek_selection-Zeiger liegt außerhalb "
@@ -456,17 +454,16 @@ def _vtable_selection_names(view):
         seen.add(node)
         data = _read_cptr(node)                     # GList.data = NemoFile*
         if data:
-            # Plausibilitätsprüfung: Instanz muss wirklich ein NemoFile sein
-            # (Der GTyp steht in der Klasse, nicht in der Instanz – deshalb
-            # der Weg über g_type_check_instance_is_a.)
+            # Sanity check: the instance must really be a NemoFile (the
+            # GType lives in the class, hence g_type_check_instance_is_a).
             if not api["is_a"](data, api["file_gtype"]):
                 if not _NATIVE_VTABLE_BROKEN:
                     dbg("VTable-API: Auswahl-Element ist kein NemoFile – "
                         "deaktiviert")
                 _NATIVE_VTABLE_BROKEN = True
                 return None, False
-            # 0.9.1: Name/URI über den gemeinsamen Interface-Helfer
-            # (zuvor identisch inline implementiert).
+            # 0.9.1: name/URI via the shared interface helper
+            # (previously implemented identically inline).
             name = _iface_file_name(api, data)
             if name:
                 names.append(name)
@@ -526,8 +523,8 @@ def _read_native_nemo_selection(view):
                     finally:
                         api["g_free"](uri_ptr)
                     if uri:
-                        # 0.9.1: Basename über den gemeinsamen Helfer
-                        # (zuvor identisch inline implementiert).
+                        # 0.9.1: basename via the shared helper
+                        # (previously implemented identically inline).
                         name = _name_from_uri(uri)
                         if name:
                             names.append(name)
@@ -568,10 +565,10 @@ def _dump_widget_tree(view, max_widgets=100):
     diag("Widget-Baum-Diagnose Ende (%d Widgets)" % count)
 
 
-# --------------------- Signal-Entdeckung & a11y-Helfer -----------------------
+# --------------------- Signal discovery & a11y helpers ----------------------
 
-# Zwischenablage-/X11-Auswahl-Signale von GtkWidget: heißen zwar
-# "selection…", haben aber mit der DATEI-Auswahl nichts zu tun.
+# GtkWidget clipboard/X11 selection signals are named "selection…"
+# but have nothing to do with the FILE selection.
 _CLIPBOARD_SIGNALS = {
     "selection-get", "selection-received", "selection-clear-event",
     "selection-request-event",
@@ -590,7 +587,7 @@ def _signals_of_gtype(gtype):
             q = GObject.signal_query(sid)
             name = q.signal_name
             if q.return_type != GObject.TYPE_NONE:
-                continue   # Handler müsste etwas zurückgeben – zu riskant
+                continue   # handler would have to return a value – too risky
         except Exception:
             continue
         if name and "select" in name.lower() and name not in _CLIPBOARD_SIGNALS:
@@ -658,8 +655,8 @@ def _atk_children(acc, max_children=200):
             except Exception:
                 pass
         return children
-    # Unbekannte Kinderzahl: blind probieren; ref_child wirft beim ersten
-    # ungültigen Index, das ist das natürliche Ende.
+    # Unknown child count: probe blindly; ref_child throws on the first
+    # invalid index – the natural end.
     for i in range(max_children):
         try:
             children.append(acc.ref_child(i))
@@ -671,7 +668,7 @@ def _atk_children(acc, max_children=200):
 def _atk_selection_objects(view, max_depth=12):
     """Alle AtkSelection-Implementoren im a11y-Baum der Ansicht sammeln."""
     implementors = []
-    # Niemals ATK auf einer gerade versteckten/abgebauten Ansicht aufrufen.
+    # Never call ATK on a view that is hidden or being torn down.
     try:
         if not isinstance(view, Gtk.Widget) or not view.get_mapped():
             return implementors
@@ -686,7 +683,7 @@ def _atk_selection_objects(view, max_depth=12):
             return
         try:
             acc.get_selection_count()
-            implementors.append(acc)   # AtkSelection implementiert
+            implementors.append(acc)   # implements AtkSelection
         except Exception:
             pass
         for child in _atk_children(acc):
@@ -707,8 +704,8 @@ def is_nemo_view(w):
     Ansichtsnamen, nie über 'beginnt mit Nemo + endet auf View'.
     """
     name = type_name(w)
-    # NemoDesktopIconView gehört zum Desktop-Hintergrund, nicht zu einem
-    # normalen Dateibrowserfenster. Niemals daran ein Panel injizieren.
+    # NemoDesktopIconView belongs to the desktop background, not to a
+    # normal file browser window – never inject a panel there.
     if name == "NemoDesktopIconView":
         return False
     if name in ("NemoIconView", "NemoListView", "NemoCompactView"):
@@ -740,7 +737,7 @@ def find_view(window):
                 if w.get_mapped() and w.get_realized():
                     return w
             except Exception:
-                # Das Widget kann gerade zerstört werden.
+                # The widget may be mid-destruction.
                 continue
     except Exception:
         pass
@@ -774,7 +771,7 @@ def find_slot_box(view):
     return last_box
 
 
-# ============================ Auswahl-Leser ================================
+# ============================ Selection readers =============================
 
 class SelectionReader:
     """Liest die aktuelle Auswahl der Nemo-Ansicht – mehrstufig."""
@@ -795,15 +792,12 @@ class SelectionReader:
         """
         empty_source = None
         for source, fetch in (
-                # NemoView.peek_selection über den VTable ist die
-                # maßgebliche Quelle: Sie funktioniert in ALLEN Ansichten
-                # (Icon, Liste, Kompakt), weil die Ansicht selbst gefragt
-                # wird. Alles andere sind Fallbacks.
+                # NemoView.peek_selection via the vtable is the
+                # authoritative source: it works in every view.
                 ("nemo-vtable", lambda: SelectionReader._read_nemo_vtable(
                     view, dir_path)),
-                # NemoView.get_selection() liefert auf Nemo 6.x typischerweise
-                # NemoFile-Objekte und ist die maßgebliche API. Erst danach
-                # werden GTK- und ATK-Fallbacks versucht.
+                # NemoView.get_selection() typically returns NemoFile
+                # objects on Nemo 6.x; GTK/ATK fallbacks come last.
                 ("nemo-selection", lambda: SelectionReader._read_nemo_selection(
                     view, dir_path)),
                 ("iconview", lambda: SelectionReader._read_icon_view(
@@ -834,13 +828,13 @@ class SelectionReader:
             if not n:
                 continue
             if dir_path and not os.path.exists(os.path.join(dir_path, n)):
-                # Name gehört vermutlich zu keinem Dateieintrag
+                # Name probably does not belong to a file entry
                 continue
             out.append(n)
         if out:
             return out
-        # Nichts auflösbar? Rohnamen behalten – so zeigt das Panel,
-        # WAS gelesen wurde (wichtig für die Diagnose).
+        # Nothing resolvable? Keep the raw name – the panel then shows
+        # WHAT was read (important for diagnostics).
         return [n.strip() for n in names if (n or "").strip()]
 
     @staticmethod
@@ -890,9 +884,8 @@ class SelectionReader:
                     break
                 except Exception:
                     selected = None
-            # Fallback: C-Funktionen aus nemo-view.h können durch GI als
-            # Modul-Funktionen erscheinen, obwohl Nemo.View selbst nicht
-            # als Python-Attribut exportiert wird (wie bei manchen Mint-Builds).
+            # Fallback: C functions from nemo-view.h may appear through
+            # GI as module functions (some Mint builds export no Nemo.View).
             api_names = {
                 "get_selection": ("view_get_selection", "get_selection"),
                 "peek_selection": ("view_peek_selection", "peek_selection"),
@@ -912,8 +905,8 @@ class SelectionReader:
         try:
             selected = list(selected)
         except Exception:
-            # Manche GI-Bindings geben GList-Elemente als .data/.next-Kette
-            # zurück statt als direkt iterierbare Python-Liste.
+            # Some GI bindings return GList elements as .data/.next
+            # chains instead of an iterable Python list.
             chain = []
             node = selected
             seen = set()
@@ -966,8 +959,8 @@ class SelectionReader:
     def _read_icon_view(view, dir_path):
         """Direkte GTK-Auswahl für Gtk.IconView-basierte Nemo-Ansichten."""
         for w in walk(view):
-            # Nemo kann eine eigene Widget-Klasse verwenden, die nicht als
-            # Gtk.IconView typisiert ist, aber dieselben Auswahlmethoden anbietet.
+            # Nemo may use its own widget class that is not typed as
+            # Gtk.IconView but offers the same selection methods.
             try:
                 get_selected_items = getattr(w, "get_selected_items", None)
                 get_model = getattr(w, "get_model", None)
@@ -984,8 +977,8 @@ class SelectionReader:
                     except Exception:
                         continue
                     candidates = []
-                    # Nemo-Modellspalten unterscheiden sich je nach Version;
-                    # Dateiname über tatsächliche Existenz im Ordner prüfen.
+                    # Nemo model columns differ per version; check the
+                    # file name against actual existence in the folder.
                     for col in range(min(8, model.get_n_columns())):
                         try:
                             val = model.get_value(it, col)
@@ -999,7 +992,7 @@ class SelectionReader:
                                   os.path.exists(os.path.join(dir_path, v))), None)
                     if match:
                         names.append(match)
-                # Eine leere Liste ist hier eine gültige, direkt lesbare Auswahl.
+                # An empty list here is a valid, directly readable selection.
                 return names
             except Exception:
                 continue
@@ -1030,7 +1023,7 @@ class SelectionReader:
             except Exception:
                 continue
         if implementors:
-            return []          # lesbar, aber nichts selektiert
+            return []          # readable, but nothing selected
         return None
 
     @staticmethod
@@ -1135,7 +1128,7 @@ class SelectionReader:
            auflöst; sonst den ersten String, ganz am Ende den Namen aus
            Stufe 1 übernehmen.
         """
-        # --- Stufe 1: Spalte 0 (NemoFile-Wrapper oder roher Zeiger) ---
+        # --- Stage 1: column 0 (NemoFile wrapper or raw pointer) ---
         fallback_name = ""
         try:
             raw = model.get_value(it, 0)
@@ -1169,7 +1162,7 @@ class SelectionReader:
             except Exception:
                 fallback_name = ""
 
-        # --- Stufe 2: alle Stringspalten scannen ---
+        # --- Stage 2: scan all string columns ---
         try:
             n_cols = model.get_n_columns()
         except Exception:
@@ -1183,7 +1176,7 @@ class SelectionReader:
                 continue
             if isinstance(val, str) and val.strip():
                 candidates.append(val.strip())
-        # Auflösbaren Kandidaten bevorzugen, der eine echte Datei benennt
+        # Prefer a resolvable candidate that names a real file
         for cand in candidates:
             if not dir_path or os.path.exists(os.path.join(dir_path, cand)):
                 return cand
@@ -1215,10 +1208,8 @@ class SelectionReader:
                             mode = "?"
                         diag("GtkTreeView-Auswahl-Diagnose: Widget=%s, Auswahlmodus=%s, markierte_Pfade=%r, Modellspalten=%s, Modellzeilen=%s" % (
                             type_name(w), mode, paths, ncols, nrows))
-                    # A zero-row model can be a transient/auxiliary tree
-                    # rather than Nemo's populated file model. Do not report
-                    # this as a successful empty selection; allow ATK/native
-                    # fallbacks to inspect the real view.
+                    # A zero-row model may be a transient tree, not
+                    # the file model – let ATK/native fallbacks inspect.
                     if model is None:
                         continue
                     try:
@@ -1242,6 +1233,6 @@ class SelectionReader:
         return None
 
 
-# Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.36.0"
+# Version: checked at load time by the entry point (previewer.py).
+PREVIEWER_VERSION = "0.37.0"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.36.0
+previewer_util.py – Version 0.37.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -20,33 +20,29 @@ gi.require_version('GdkPixbuf', '2.0')
 
 from gi.repository import Gtk, Gdk, Gio, GLib, GdkPixbuf
 
-# ------------------------------ Konfiguration ------------------------------
-# F12 (0.13.0): Startbreite laut Nutzer-Wunsch per Default 300 px –
-# konfigurierbar im Einstellungsfenster („Standardbreite beim Start")
-# und in ~/.config/nemo-previewer/nemo-previewer.conf; eine per Ziehen
-# gewählte Breite wird dort automatisch zur künftigen Startbreite.
-PANEL_WIDTH = 300          # Standard-Startbreite des Panels in Pixeln
-PANEL_MIN_WIDTH = 260      # kleinste erlaubte Breite (durch Ziehen)
-POLL_MS = 500              # Timer für Auswahl-Abgleich (Sicherheitsnetz)
+# ------------------------------ Configuration ------------------------------
+# F12: default start width, configurable in the settings window and
+# the keyfile; a dragged width becomes the new start width.
+PANEL_WIDTH = 300          # panel start width in pixels
+PANEL_MIN_WIDTH = 260      # smallest allowed width while dragging
+POLL_MS = 500              # selection polling timer (safety net)
 MAX_TEXT_BYTES = 256 * 1024
 MAX_TEXT_LINES = 2000
 MAX_IMAGE_HEIGHT = 1600
-MAX_EBOOK_CHARS = 30000    # Buchtext-Anfang in der E-Book-Vorschau
+MAX_EBOOK_CHARS = 30000    # book text shown in the e-book preview
 TOGGLE_ACCEL_KEY = Gdk.KEY_p
 TOGGLE_ACCEL_MODS = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.MOD1_MASK
 
 
-# ------------------------------ Hilfsfunktionen -----------------------------
+# ------------------------------- Helpers -----------------------------------
 
 def dbg(msg):
     """Debug-Ausgabe – sichtbar, wenn Nemo im Terminal gestartet wird."""
     print("[previewer] %s" % msg)
 
 
-# Diagnose-Ausgaben (a11y-/Widget-/Auswahl-Dumps, Signal-Meldungen) sind
-# im Alltagsbetrieb still. Auf True setzen, wenn eine neue Nemo-Version
-# oder ein neues System untersucht werden soll – dann erscheinen die
-# ausführlichen Dumps wie in der Entwicklungsphase.
+# Verbose diagnostics (dumps, signals) stay silent in daily use; set
+# True to investigate a new Nemo version or a new system.
 VERBOSE_DIAG = True
 
 
@@ -56,10 +52,8 @@ def diag(msg):
         dbg(msg)
 
 
-# F45 (Nutzer-Wunsch): Schritt-Trace für alle Funktionen über einen
-# zentralen sys.settrace-Hook statt Einzel-Instrumentierung; Niveau
-# über NEMO_PREVIEWER_TRACE (1/call, line) – ohne die Variable kein
-# Hook. → REF UT-TRACE-1
+# F45: step trace for all functions via one central sys.settrace
+# hook; level via NEMO_PREVIEWER_TRACE (1/call, line). → REF UT-TRACE-1
 def install_step_trace():
     """
     F45 (Nutzer-Wunsch): sys.settrace-Hook installieren, wenn
@@ -195,7 +189,7 @@ def content_type_description(mime):
 
 
 
-# --- Gemeinsame Basis-Helfer (F31: früher in previewer_panel.py) ---
+# --- Shared base helpers (F31: formerly in previewer_panel.py) ---
 
 def _pixbuf_from_bytes(data, max_w=4096, max_h=4096, orig=None):
     """
@@ -246,6 +240,6 @@ def _zf_read_capped(zf, name, cap):
 
 
 
-# Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.36.0"
+# Version: checked at load time by the entry point (previewer.py).
+PREVIEWER_VERSION = "0.37.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
