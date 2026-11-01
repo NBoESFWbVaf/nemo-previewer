@@ -972,6 +972,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   dreizeiliger englischer Kurzbeschreibung; die STAND-Historien  
   sind aus den Dateien entfernt (Verweis auf changelog.md und  
   REFERENZ.md, die die Geschichte tragen).
+  ✅ 0.37.0 – Kommentar-Cleanup (Nutzer-Wunsch): Alle #-Kommentare  
+  der acht Python-Dateien auf max. zwei Zeilen gekürzt und auf  
+  Englisch übersetzt; F-Marker, Versionshinweise und REF-Verweise  
+  bleiben erhalten, Docstrings und Modul-Köpfe unangetastet.
 
 ---
 
