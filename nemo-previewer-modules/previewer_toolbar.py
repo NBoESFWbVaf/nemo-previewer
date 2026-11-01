@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.41.0
+previewer_toolbar.py – Version 0.42.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -55,8 +55,8 @@ class PreviewToolbarMixin:
                 b"actionbar { padding-top: 3px; padding-bottom: 4px; }")
             self._toolbar.get_style_context().add_provider(
                 css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("toolbar/_build_toolbar: suppressed: %s" % e)
 
         # keyboard shortcut to unhide the panel
         try:
@@ -64,8 +64,8 @@ class PreviewToolbarMixin:
             window.add_accel_group(accel)
             accel.connect(TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
                           Gtk.AccelFlags.VISIBLE, self._on_toggle_accel)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("toolbar/_build_toolbar: suppressed: %s" % e)
 
     def _on_settings_clicked(self, button):
         """
@@ -90,14 +90,14 @@ class PreviewToolbarMixin:
             try:
                 self._settings_win.present()
                 return
-            except Exception:
-                self._settings_win = None
+            except Exception as e:
+                dbg("toolbar/_open_settings_window: suppressed: %s" % e)
         win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         win.set_title("Nemo-Previewer – Einstellungen")
         try:
             win.set_transient_for(self._window)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("toolbar/_open_settings_window: suppressed: %s" % e)
         win.set_default_size(420, -1)
         win.set_border_width(12)
         win.connect("destroy", self._on_settings_win_destroyed)
@@ -357,8 +357,8 @@ class PreviewToolbarMixin:
             self._conf_doc_max_pages = value
             self._config_save()
             self._rerender_docs()
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("toolbar/_on_doc_max_pages_changed: suppressed: %s" % e)
 
     def _rerender_docs(self):
         """
@@ -384,8 +384,8 @@ class PreviewToolbarMixin:
             self._panel_width = value
             self._config_save()
             self._apply_panel_width_live()
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("toolbar/_on_start_width_changed: suppressed: %s" % e)
 
     def _on_toggle_accel(self, group, accelerable, key, mods):
         if self.get_visible():
@@ -395,7 +395,7 @@ class PreviewToolbarMixin:
         return True
 
 
-PREVIEWER_VERSION = "0.41.0"
+PREVIEWER_VERSION = "0.42.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
