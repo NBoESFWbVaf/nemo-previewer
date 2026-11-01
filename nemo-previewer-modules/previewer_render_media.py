@@ -1,29 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Previewer – Renderer-Modul Medien (previewer_render_media.py)
-=============================================================
+nemo-previewer
+previewer_render_media.py – Version 0.36.0
 
-STAND: Version 0.35.0 – Dezenz (Nutzer-Wunsch): Cover-Eckenradius um
-ein Drittel reduziert, 56/960 statt 56/640 der kleineren Kante –
-Platzhalter-Kachel und Cover-Rahmen runden gleich mit. F38
-(Nutzer-Wunsch): Die Bild-Spalte ist in
-einen 60-%-Bereich (Bild, vertikal und horizontal mittig) und einen
-40-%-Bereich (Info-Tabelle) geteilt, live an die Spaltenhöhe gekop-
-pelt; Streifen-Fix (Mittig-Zentrierung am Bild statt am Scrolled-
-Window, siehe MED-SPLIT-1) und XMP-Ergänzung: „Location“ (IPTC
-Core) plus benutzerdefinierte XMP-Felder in der Tabelle. K3: SVG
-über die Cairo-Route DPI-artig auf Panelbreite gerendert (→ REF
-MED-SVG-DPI-1). F41/F42 (Nutzer-Meldung): HEIC/HEIF- und RAW-EXIF –
-_exif_bases sammelt validierte Kandidaten im ganzen Puffer (Marker,
-TIFF-Köpfe, ORF-Köpfe), die Schleife nimmt den ersten mit EXIF;
-RAW ohne Dekodierung zeigt die Foto-Tabelle unter dem Icon (→ REF
-MED-EXIF-3). F36-Basis (EXIF-Parser mit APEX-Fallbacks), F35/
-F34/F33 unberührt. (0.15.0/F31: aus dem Panel-Kern hierher gezogen.)
-
-Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
-previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
-sein – der Einstieg prüft das beim Laden.
+Media renderers: images and SVG (EXIF-aware), audio with player
+and seek bar, video info tiles.
 """
 
 import os
@@ -1521,7 +1503,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.35.0"
+PREVIEWER_VERSION = "0.36.0"
 dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
     "Renderer; R9/B7-Disziplin und Deckel bleiben)"
     % PREVIEWER_VERSION)

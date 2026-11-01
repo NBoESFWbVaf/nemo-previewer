@@ -1,94 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Previewer
-=========
+nemo-previewer
+previewer.py – Version 0.36.0
 
-STAND: Version 0.35.0 (Nutzer-Wunsch): Die sieben Modul-Dateien liegen im Unterordner nemo-previewer-modules – der Einstieg stellt ihn vor den Importen auf den Import-Pfad (vor den Extension-Ordner, flache Alt-Kopien gewinnen deshalb nie); im Extension-Ordner liegt nur noch diese Einstiegsdatei (→ REF ENT-MODDIR-1). F46 X (0.34.1, Nutzer-Fund): Der linke Rand der Vorschauspalte (Griff-Fenster des injizierten Gtk.Paned) ist ungemalt und zeigte im Lightmode einen schwarzen Rahmen – ein draw-Haken am Paned malt ihn jetzt mit der Panel-Ketten-Farbe (→ REF PAN-BG-2). F40-Nachtrag (Nutzer-Fund): Der Knopf in Nemos Werkzeugleiste synchronisiert seinen Anfangs-Zustand direkt beim Einpacken – das Panel ist da schon sichtbar, notify::visible feuerte nie, der Knopf blieb inaktiv (→ REF ENT-TOGGLE-1). F45 (Nutzer-Wunsch): Der Einstieg installiert
-gleich zu Anfang den Schritt-Trace (install_step_trace, → REF
-UT-TRACE-1): NEMO_PREVIEWER_TRACE=1/call protokolliert jeden Funktions-
-Aufruf samt Argumenten, jedes Return und jede Ausnahme, =line
-zusätzlich jede ausgeführte Zeile; ohne die Variable läuft kein Hook.
-F40 (0.30.1, Nutzer-Wunsch): Umschalt-Knopf für die Vorschau-Seitenleiste in Nemos Werkzeugleiste (rechts, neben der Ansichtenauswahl; CSD-Titelleiste oder klassische Toolbar), synchron mit Strg+Alt+P (→ REF ENT-TOGGLE-1).
-Dies ist die EINSTIEGS-Datei der acht zusammengehörigen Dateien
-(previewer.py, previewer_panel.py, previewer_select.py,
-previewer_util.py, previewer_toolbar.py, previewer_render_media.py,
-previewer_render_docs.py, previewer_render_text.py) – die sieben
-Module liegen im Unterordner nemo-previewer-modules neben dieser
-Einstiegsdatei, alle müssen die gleiche Version tragen.
-Projekt-Repository: https://github.com/NBoESFWbVaf/nemo-previewer
-(Versionsverlauf: changelog.md im Repository).
-
-Eine Nemo-Python-Extension namens "Previewer": dockt rechts im Nemofenster
-ein Panel an und zeigt eine gerenderte Vorschau der aktuell selektierten
-Datei.
-
-Unterstützte Vorschauen
------------------------
-- Bilder (JPEG, PNG, WebP, GIF, TIFF, ... alles, was Gdk-Pixbuf kennt)
-- Text/Quellcode (read-only, monospace; endungslose Textdateien werden
-  über eine Inhaltsprüfung erkannt)
-- Markdown (.md): gerendert – Überschriften, Fett/Kursiv, Code, Listen
-- E-Mail-Dateien (.eml): Kopfzeilen und Textkörper
-- PDF (alle Seiten scrollbar untereinander; benötigt gir1.2-poppler)
-- Office-Dokumente (ODT/ODS/ODP, DOCX/XLSX/PPTX): scharfe Seitenansicht
-  über LibreOffice-Hintergrundkonvertierung nach PDF (Cache in
-  ~/.cache/previewer); ohne LibreOffice die eingebettete Miniaturansicht
-- Audio (Tags, Cover, Play/Pause mit Seek-Leiste; via GStreamer)
-- Video (Kachel mit Tags und Dauer; Abspielen über den Öffnen-Knopf)
-- Ordner und alles andere: Icon + Dateiinformationen
-
-Installation
-------------
-Siehe INSTALL.md im Repository (Anleitung in Englisch).
-
-Bedienung
----------
-- Panel ein-/ausblenden: Strg+Alt+P oder den Umschalt-Knopf in Nemos
-  Werkzeugleiste (neben der Ansichtenauswahl)
-- Trenner zwischen Dateiansicht und Panel ist verschiebbar (Gtk.Paned)
-- Play/Pause & Seek bei Audio über die Bedienelemente im Panel
-- PDF: alle Seiten untereinander, im Vorschau-Bereich scrollbar
-
-Technik (für Interessierte)
----------------------------
-Das offizielle Nemo-Extension-API bietet keinen "Side-Panel-Provider".
-Das Panel nutzt deshalb die bewährte Crowbar-Technik von nemo-terminal:
-Über Nemo.LocationWidgetProvider erhält man ein Referenz-Widget im Slot,
-steigt im Widget-Baum auf und verpackt den Fenster-Inhaltsbereich (den
-Nemo-Pane) in ein horizontales Gtk.Paned, dessen zweite Hälfte das
-Vorschau-Panel ist – es sitzt damit fest an der rechten Fensterrandkante.
-
-Die Auswahl wird ermittelt über (previewer_select.py):
-- direkte Auswahl über NemoView.peek_selection: der Funktionszeiger
-  wird aus dem Klassen-VTable von NemoView gelesen (libnemo-private
-  ist auf Mint 22 statisch gelinkt, es gibt keine ladbare .so); die
-  NemoFile-Einträge werden über ihr NemoFileInfo-Interface befragt,
-- Auswahl-Signale, die zur Laufzeit entdeckt und verbunden werden –
-  im Widget-Teilbaum der Ansicht und auf den ATK-Objekten; so ist es
-  egal, wie Nemo seine Signale genau benennt,
-- Gtk.IconView-/Gtk.TreeView-Auswahl als Fallback (das Nemo-Listenmodell
-  trägt den Dateinamen erst in den Attribut-Spalten; Spalte 0 enthält
-  das NemoFile-Objekt),
-- ATK-Selection, ATK-Zustände und Fokus nur als Fallback,
-- als Sicherheitsnetz einen leichtgewichtigen Timer.
-
-Office-Dokumente: LibreOffice konvertiert im Hintergrund (soffice
---headless --convert-to pdf) einmalig nach PDF; das Ergebnis wird unter
-~/.cache/previewer gecacht (Key = Hash des Dateipfads; gültig, solange
-die Quelldatei nicht neuer ist als das Cache-PDF). Poppler rendert daraus
-alle Seiten scharf, untereinander scrollbar und live skalierbar. Während
-der Konvertierung zeigt das Panel die eingebettete ZIP-Miniaturansicht
-mit Hinweis.
-
-Alle Zugriffe sind defensiv gekapselt (try/except), damit die Extension
-Nemo niemals zum Absturz bringen kann. Alles läuft im Nemo-Prozess.
-
-Getestet gegen Nemo 6.x unter Linux Mint 22. Da interne Widget-Strukturen
-von Nemo-Updates geändert werden könnten, ist die Injektion mit Fallbacks
-und Reconciliation (Prüfung pro Timer-Tick) abgesichert.
-
-Autor: für Mirakuli Teebaum, 2026. Lizenz: GPLv3 oder später.
+Entry point and Nemo integration: injects the preview panel into
+every Nemo window, loads the seven modules from the
+nemo-previewer-modules subfolder and enforces the version lock.
 """
 
 import sys
@@ -141,7 +59,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.35.0"
+PREVIEWER_VERSION = "0.36.0"
 import previewer_util
 import previewer_select
 import previewer_panel

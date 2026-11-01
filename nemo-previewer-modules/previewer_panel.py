@@ -1,42 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Previewer – Panel-Modul (previewer_panel.py)
-============================================
+nemo-previewer
+previewer_panel.py – Version 0.36.0
 
-STAND: Version 0.35.0 – F12-Wasserfall (Nutzer-Fund/-Wunsch): Der Probetext der Schrift-Vorschau ist jetzt einstellbar (Key font_sample_text, Default der klassische Satz), die Rubrik „Schriftarten“ im Einstellungsfenster greift live; der Wasserfall-Text folgt dem Theme (→ REF TXT-FONT-2). F48 (Nutzer-Wunsch): Ordner-Vorschau obligatorisch – die Inhaltsliste bleibt der Standard für markierte Ordner; der neue Schalter „Ordnerinhalte in der Vorschau anzeigen“ (Default an, Key folder_contents) stellt bei Abwahl auf das schlichte Ordner-Icon mit Dateiinformationen um, Umschalten greift live (→ REF PAN-FOLDER-2). F47 (0.32.0): Text-Vorschau für opake Typen (Whitelist + Schnüffel-Fallback); F46 (0.31.11, GELÖST): Padding in der Platte statt ListBox-Margin; F46 VIII (0.31.10): Overlay-Scrolling aus; F46 II (0.31.4): Panel zeichnet Hintergrund per draw-Haken.
-F46 + F43-Fix III (0.31.3, Nutzer-Fund): Screenshots klärten auf – das Schwarze war der ungemalte Panel-Hintergrund (Stilklasse background half allein nicht), und die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste (Lightmode-Icons waren weiß und unsichtbar).
-F43-Fix II (0.31.2, Nutzer-Fund): WhiteSur liefert unter -symbolic-Namen selbst farbige Icons – deshalb zeichnet die Ordner-Vorschau jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe nach (Alphakanal/Form bleibt, RGB einheitlich auf die Textfarbe).
-F43-Diagnose (0.31.1, Nutzer-Fund): Die dunklen Platten kehrten trotz des strengen Symbol-Ladekurses zurück; die Ordner-Vorschau protokollierte deshalb je Render das Abbild Inhaltstyp→gewähltes Symbol (dbg „Ordner-Icons:", um zu sehen, WELCHES Theme-Symbol je Typ tatsächlich lädt.
-F43-Fix (0.30.1, Nutzer-Fund): Strikt symbolische Icons in der Ordner-Vorschau – GTK lud bei fehlender -symbolic-Variante heimlich das farbige Voll-Icon (dunkle Platten mit hartem Rand im Darkmode); die Symbol-Kandidaten werden gegen Gtk.IconTheme geprüft.
-F43-Feinschliff II (0.30.0, Nutzer-Wunsch): Ordner-Vorschau mit theme-folgenden symbolischen Icons (Darkmode hell, Lightmode dunkel); Ordner zuerst (F43); versteckte Einträge nur, wenn Nemo sie anzeigt (Strg+H).
-F43-Feinschliff (0.29.0, Nutzer-Wunsch): Ordner-Vorschau trägt Icons vor den Namen (Typ-Symbol aus dem Icon-Theme, MENU-Größe, mit Fallback) und den Innenabstand der Text-Vorschauen (10/10/8/8 px).
-F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung ist EINSTELLBAR – Schlüssel text_syntax, Rubrik „Textdateien“, Default an; ausgeschaltet oder ohne GtkSource-Binding zeigt sich immer der schlichte Text.
-F44 (0.28.0): Syntax-Hervorhebung in der Text-Vorschau – GtkSourceView
-(optionales Binding gir1.2-gtksource-4, dasselbe Modul wie xed),
-Sprache über den GtkSource-LanguageManager geraten, dunkles Theme
-bekommt ein dunkles Schema (→ REF PAN-F44-1).
-F12 Teil 3/F14 (0.27.0): Der Seiten-Deckel für PDF- und Office-
-Dokumente ist EINSTELLBAR – conf-Schlüssel
-doc_page_limit/doc_max_pages, Defaults wie bisher (Begrenzung an,
-20 Seiten); Merker _last_docview lässt Deckel-Änderungen live auf
-die aktuelle Dokument-Vorschau wirken (→ REF PAN-F12-1).
-F7 (0.26.0): Visitenkartenformate – vCard (.vcf/.vcard), LDIF
-(.ldif), Windows-Contact (.contact) – rendert die Visitenkarte aus
-dem Text-Modul (→ REF PAN-VCARD-1). F43: Ordner-Vorschau zeigt den
-Inhalt als Liste statt nur eines Ordner-Icons (→ REF PAN-FOLDER-1).
-F40: Kopfzeile trägt nur noch den Öffnen-Knopf (Stift-Symbol
-document-edit) – der Ausblenden-Knopf ist in Nemos Werkzeugleiste
-gewandert. F38: _meta_grid bekommt einen optionalen container – die
-EXIF-Tabelle der Bild-Vorschau packt in den 40-%-Info-Bereich der
-neuen Aufteilung. Sonstiger Stand: Zeilennummern als Randzeichnung –
-dunkler (Alpha 0.75) und in 80 % der Textschriftgröße –, connect_after-
-Draw, Merker _last_textish markiert TextView-basierte Vorschauen.
-Schlüssel text_line_numbers, Rubrik „Textdateien“ im Toolbar-Modul.
-
-Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
-previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
-sein – der Einstieg prüft das beim Laden.
+Panel core: file-type dispatch, preview widgets and configuration;
+inherits the toolbar and renderer mixins and paints the panel
+background.
 """
 
 import os
@@ -1694,7 +1664,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.35.0"
+PREVIEWER_VERSION = "0.36.0"
 dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
     "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
     "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "

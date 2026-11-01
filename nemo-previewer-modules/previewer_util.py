@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Previewer – Helfer-Modul (previewer_util.py)
-===========================================
+nemo-previewer
+previewer_util.py – Version 0.36.0
 
-STAND: Version 0.35.0 – F45 (Nutzer-Wunsch): Schritt-Trace install_step_trace – ein zentraler sys.settrace-Hook protokolliert jeden Aufruf, jedes Return und jede Ausnahme aller Previewer-Funktionen (NEMO_PREVIEWER_TRACE=1/call bzw. =line); ohne die Variable läuft kein Hook (→ REF UT-TRACE-1).
-F40 (0.30.1): Neuer Helfer pick_icon (erstes im Icon-Theme vorhandenes Symbol, Fallback sonst) für den Nemo-Titelleisten-Umschalter und den Öffnen-Knopf. Die Basis-Helfer _pixbuf_from_bytes und _zf_read_capped (0.15.0/F31) bleiben unverändert.
-
-Gemeinsame Bausteine der Nemo-Extension "Previewer": Logging, kleine
-Hilfsfunktionen und die zentralen Konfigurations-Konstanten. Teil der
-achtteiligen Extension (Einstieg und Übersicht: previewer.py;
-Installation: INSTALL.md im Repository).
+Shared helpers and constants: logging and diagnostics, step
+trace, type helpers, pixbuf and byte-reading helpers.
 """
 
 import os
@@ -252,5 +247,5 @@ def _zf_read_capped(zf, name, cap):
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.35.0"
+PREVIEWER_VERSION = "0.36.0"
 dbg("previewer_util %s geladen" % PREVIEWER_VERSION)

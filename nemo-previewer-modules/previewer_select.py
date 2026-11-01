@@ -1,25 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Previewer – Auswahl-Modul (previewer_select.py)
-===============================================
+nemo-previewer
+previewer_select.py – Version 0.36.0
 
-STAND: Version 0.35.0 – F38/F43: Keine Änderungen an der Auswahl-Logik –
-nur Versions-Sync (die langerklärten Kommentarblöcke stehen als
-Marker in REFERENZ.md, F28).
-
-Erkennt die in Nemo markierten Dateien – mehrstufig und defensiv:
-
-1. NemoView.peek_selection über den Klassen-VTable (primäre API; läuft
-   in allen Ansichten: Symbol, Liste, Kompakt)
-2. NemoView.get_selection() über GI bzw. die native C-API, falls verfügbar
-3. Gtk.IconView-/Gtk.TreeView-Auswahl als Fallback
-4. ATK-Selection, ATK-Zustände und Fokus als letzter Rückhalt
-
-Außerdem: Erkennung echter Nemo-Dateiansichten (is_nemo_view/find_view),
-Laufzeit-Entdeckung der Auswahl-Signale und Diagnose-Helfer.
-
-Gehört zur vierteiligen Extension "Previewer" (siehe previewer.py).
+Selection detection: reads the currently selected file from the
+Nemo view via selection signals, vtable access and GTK/ATK
+fallbacks.
 """
 
 import os
@@ -1256,5 +1243,5 @@ class SelectionReader:
 
 
 # Version: wird beim Laden vom Einstieg (previewer.py) geprüft.
-PREVIEWER_VERSION = "0.35.0"
+PREVIEWER_VERSION = "0.36.0"
 dbg("previewer_select %s geladen" % PREVIEWER_VERSION)

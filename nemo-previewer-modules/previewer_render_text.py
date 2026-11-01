@@ -1,32 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Previewer – Renderer-Modul Text (previewer_render_text.py)
-==========================================================
+nemo-previewer
+previewer_render_text.py – Version 0.36.0
 
-STAND: Version 0.35.0 – F12-Wasserfall (Nutzer-Fund/-Wunsch): Der
-Textfarb-Fix – get_color() verlangt in GTK3 das State-Argument, der
-alte Aufruf ohne Argument warf IMMER eine TypeError, deren except
-den Fallback (fast schwarz) übrig ließ – der Wasserfall folgt jetzt
-mit get_color(Gtk.StateFlags.NORMAL) dem Theme. Neu: Der Probetext
-ist einstellbar (Key font_sample_text, Default der klassische Satz),
-Rubrik „Schriftarten“ im Einstellungsfenster, greift live (→ REF
-TXT-FONT-2). F44 (Nutzer-Wunsch):
-source_path an _text_view weiter – Quellcode-Dateien (.py, .sh, .c …)
-erscheinen mit Syntax-Hervorhebung (GtkSourceView im Panel-Kern,
-optionales Binding gir1.2-gtksource-4).
-F7-Formate (0.27.0): LDIF-Adressbücher
-(.ldif) und Windows-Kontakte (.contact, XML) rendern ebenfalls als
-Visitenkarte; Karten-Deckel ENTFERNT – alle Kontakte erscheinen
-scrollbar. Dezenz in 0.25.1: transparente Karten, Eckenradius um
-ein Drittel dezenter (56/960 statt 56/640). F7-Feinschliff in
-0.25.0: Rahmen im Cover-Stil, ALLE Karten scrollbar. F7-Grundstock
-in 0.24.0: .vcf/.vcard als Karte mit rundem Foto (inline Base64
-oder lokale URI), sonst runder Platzhalter (→ REF TXT-VCARD-1).
-
-Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
-previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
-sein – der Einstieg prüft das beim Laden.
+Text renderers: plain text and source code, Markdown, e-mail,
+e-books, vCards and the font waterfall preview.
 """
 
 import os
@@ -1911,7 +1890,7 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.35.0"
+PREVIEWER_VERSION = "0.36.0"
 dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F44: "
     "Syntax-Hervorhebung via source_path; F31: "
     "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "

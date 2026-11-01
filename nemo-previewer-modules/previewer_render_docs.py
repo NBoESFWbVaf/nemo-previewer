@@ -1,24 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Previewer – Renderer-Modul Dokumente (previewer_render_docs.py)
-===============================================================
+nemo-previewer
+previewer_render_docs.py – Version 0.36.0
 
-STAND: Version 0.35.0 – F12 Teil 3/F14 (Nutzer-Wunsch): Der Seiten-
-Deckel ist einstellbar – ausgeschaltet zeigt die Vorschau ALLE
-Seiten, eingeschaltet die konfigurierte Anzahl (Default 20, wie
-bisher MAX_PDF_PAGES); das Seiten-Label steht jetzt über jedem
-Dokument – auch einseitige zeigen „Seite 1 von 1“ – und zählt im
-Format „Seite X von Y“. F39: Ältere Office-Formate ohne ZIP-Anteil
-(.doc/.xls/.ppt, RTF) werden über die LibreOffice-Konvertierung
-scharf gerendert; die Übergangsansicht zeigt saubere Hinweise
-(→ REF DOC-LEGACY-1). K2: Kaputtes Office-ZIP zeigt das Datei-Icon
-neben der Fehlermeldung. (0.15.0/F31: aus dem Panel-Kern hierher
-gezogen; Lese- und Decode-Deckel 0.9.2 unverändert.)
-
-Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
-previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
-sein – der Einstieg prüft das beim Laden.
+Document renderers: PDF as scrollable pages, office documents
+via LibreOffice background conversion with caching.
 """
 
 import os
@@ -570,7 +557,7 @@ class DocsRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.35.0"
+PREVIEWER_VERSION = "0.36.0"
 dbg("previewer_render_docs %s geladen (F31: PDF-/Office-Renderer; "
     "Lese-Deckel und LibreOffice-Cache bleiben)"
     % PREVIEWER_VERSION)

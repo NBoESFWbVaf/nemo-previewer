@@ -1,27 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Previewer – Toolbar-Modul (previewer_toolbar.py)
-================================================
+nemo-previewer
+previewer_toolbar.py – Version 0.36.0
 
-STAND: Version 0.35.0 – F12-Wasserfall (Nutzer-Wunsch): Rubrik
-„Schriftarten“ mit Wasserfall-Probetext-Feld der Schrift-Vorschau –
-speichert sofort (Key font_sample_text) und greift live auf die
-gerade angezeigte Schrift; der Platzhalter ist weg (→ REF
-TXT-FONT-2). F48 (Nutzer-Wunsch): Neuer Schalter „Ordner-
-inhalte in der Vorschau anzeigen“ in der Rubrik „Allgemein“ (Default
-an) – abgewählt zeigt ein markierter Ordner das schlichte Ordner-Icon
-mit Dateiinformationen statt der Inhaltsliste; Umschalten speichert
-sofort (Key folder_contents) und rendert einen gerade markierten
-Ordner live um (→ REF PAN-FOLDER-2). F44-Nachtrag (Nutzer-Wunsch): Umschalter
-„Syntax-Hervorhebung“ in der Rubrik „Textdateien“ (Default an),
-greift live über _last_textish. Die Rubrik „Dokumente“ (F12 Teil 3),
-die ActionBar (F19), Strg+Alt+P und der 0.15.0-Stand (F29: Mixin-
-Modul) bleiben unverändert.
-
-Gehört zur jetzt achtteiligen Extension "Previewer" (siehe
-previewer.py); PREVIEWER_VERSION muss in allen Modulen identisch
-sein – der Einstieg prüft das beim Laden.
+Panel toolbar and settings window: action bar, preview toggle,
+Ctrl+Alt+P shortcut and all preference widgets.
 """
 
 import sys
@@ -415,7 +399,7 @@ class PreviewToolbarMixin:
 
 
 
-PREVIEWER_VERSION = "0.35.0"
+PREVIEWER_VERSION = "0.36.0"
 dbg("previewer_toolbar %s geladen (F29: ActionBar, Einstellungs-"
     "fenster und Tastenkürzel Strg+Alt+P als eigenes Mixin)"
     % PREVIEWER_VERSION)
