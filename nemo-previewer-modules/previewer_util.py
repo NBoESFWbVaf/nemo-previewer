@@ -73,8 +73,8 @@ def install_step_trace():
     def _fmt(val):
         try:
             s = repr(val)
-        except Exception as e:
-            dbg("util/_fmt: suppressed: %s" % e)
+        except Exception:
+            s = "<keine Repräsentation>"
         return s if len(s) <= 60 else s[:57] + "…"
 
     def _tracer(frame, event, arg):
@@ -98,8 +98,8 @@ def install_step_trace():
             elif event == "line" and want_lines:
                 dbg("TRACE· %s:%s L%d" % (mod, name, frame.f_lineno))
             return _tracer
-        except Exception as e:
-            dbg("util/_tracer: suppressed: %s" % e)
+        except Exception:
+            return None
 
     sys.settrace(_tracer)
     dbg("Step trace ON (level: %s)"
@@ -129,8 +129,8 @@ def walk(widget):
     if isinstance(widget, Gtk.Container):
         try:
             children = widget.get_children()
-        except Exception as e:
-            dbg("util/walk: suppressed: %s" % e)
+        except Exception:
+            children = []
         for child in children:
             yield from walk(child)
 
@@ -138,15 +138,15 @@ def walk(widget):
 def type_name(w):
     try:
         return w.__gtype__.name
-    except Exception as e:
-        dbg("util/type_name: suppressed: %s" % e)
+    except Exception:
+        return ""
 
 
 def human_size(num):
     try:
         return GLib.format_size(num)
-    except Exception as e:
-        dbg("util/human_size: suppressed: %s" % e)
+    except Exception:
+        return "%d B" % num
 
 
 def format_seconds(sec):
