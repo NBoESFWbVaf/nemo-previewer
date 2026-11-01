@@ -77,12 +77,12 @@ CONF_FILE = os.path.join(CONF_DIR, "nemo-previewer.conf")
 # → REF PAN-B8-1
 try:
     _KEYFILE_CLS = GLib.KeyFile
-except AttributeError as e:
-    dbg("panel/module-level: suppressed: %s" % e)
+except AttributeError:
+    _KEYFILE_CLS = getattr(GLib, "Keyfile", None)
 try:
     _KEYFILE_FLAGS_NONE = GLib.KeyFileFlags.NONE
-except AttributeError as e:
-    dbg("panel/module-level: suppressed: %s" % e)
+except AttributeError:
+    _KEYFILE_FLAGS_NONE = 0
 
 
 def _sniff_is_text(path, probe=4096):
@@ -101,8 +101,8 @@ def _sniff_is_text(path, probe=4096):
     try:
         with open(path, "rb") as fh:
             head = fh.read(probe)
-    except Exception as e:
-        dbg("panel/_sniff_is_text: suppressed: %s" % e)
+    except Exception:
+        return False
     if not head or b"\x00" in head:
         return False
     ctrl = sum(1 for b in head if b < 9 or 14 <= b <= 31 or b == 127)
@@ -151,8 +151,8 @@ def _silhouette(theme, sname, fg, size=16):
         return GdkPixbuf.Pixbuf.new_from_bytes(
             GLib.Bytes.new(bytes(out)),
             GdkPixbuf.Colorspace.RGB, True, 8, w, h, w * 4)
-    except Exception as e:
-        dbg("panel/_silhouette: suppressed: %s" % e)
+    except Exception:
+        return None
 
 # ================================ Panel ====================================
 
@@ -315,8 +315,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_bg_content_ctx: suppressed: %s" % e)
         try:
             return target.get_style_context()
-        except Exception as e:
-            dbg("panel/_bg_content_ctx: suppressed: %s" % e)
+        except Exception:
+            return None
 
     def _derived_base(self):
         """Contrast-correct base from the panel fg color (0.38.1, F46
@@ -347,8 +347,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             try:
                 rgba = cctx.get_background_color(
                     Gtk.StateFlags.NORMAL)
-            except Exception as e:
-                dbg("panel/_paint_background: suppressed: %s" % e)
+            except Exception:
+                rgba = None
             report.append("%s=%s" % (
                 name, rgba.to_string() if rgba is not None else "-"))
             if ctx is None and rgba is not None \
@@ -453,7 +453,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 dbg("Panel bg CSS: rule for scroll areas installed "
                     "(color %s)" % farbe)
         except Exception as e:
-            dbg("panel/_apply_surface_css: suppressed: %s" % e)
+            dbg("Panel bg CSS: failed – %s" % e)
 
     def _surface_css_contexts(self, scroll):
         """Stil-Kontexte, die die Flächen-Regel zusätzlich brauchen
@@ -537,8 +537,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         try:
             logo.set_from_icon_name(logo_name, Gtk.IconSize.DIALOG)
             logo.set_pixel_size(96)
-        except Exception as e:
-            dbg("panel/_show_placeholder: suppressed: %s" % e)
+        except Exception:
+            logo.set_from_icon_name("folder", Gtk.IconSize.DIALOG)
         lbl = Gtk.Label(label="Wähle eine Datei aus,\num eine Vorschau zu sehen.")
         lbl.set_line_wrap(True)
         lbl.get_style_context().add_class("dim-label")
@@ -554,8 +554,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         """Vorschau für self._path aufbauen. Nie werfen – immer Fallback."""
         try:
             self._render_inner()
-        except Exception as e:
-            dbg("panel/_render: suppressed: %s" % e)
+        except Exception:
+            dbg("Render error for %r:" % self._path)
             traceback.print_exc()
             try:
                 self._render_generic()
@@ -838,8 +838,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         try:
             return GtkSource.LanguageManager.get_default().guess_language(
                 os.path.basename(path), None)
-        except Exception as e:
-            dbg("panel/_source_language: suppressed: %s" % e)
+        except Exception:
+            return None
 
     def _source_scheme(self):
         """
@@ -907,7 +907,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     dbg("F44: syntax highlighting on (%s)"
                         % lang.get_name())
                 except Exception as exc:
-                    dbg("panel/_text_view: suppressed: %s" % exc)
+                    dbg("Syntax highlighting unavailable (%s) – "
                         "showing plain text" % exc)
                     view = None
         if view is None:
@@ -984,7 +984,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     if not it.forward_line():
                         break
             except Exception as exc:
-                dbg("panel/_install_line_numbers: suppressed: %s" % exc)
+                if not reported[0]:
                     reported[0] = True
                     dbg("Line number draw failed: %r" % exc)
             return False
@@ -1025,8 +1025,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 ic.set_from_pixbuf(sil[sname])
             else:
                 ic.set_from_icon_name(sname, Gtk.IconSize.MENU)
-        except Exception as e:
-            dbg("panel/_folder_symbol: suppressed: %s" % e)
+        except Exception:
+            ic.set_from_icon_name(
                 "folder-symbolic" if is_dir
                 else "text-x-generic-symbolic",
                 Gtk.IconSize.MENU)
@@ -1128,8 +1128,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 for entry in it:
                     (dirs if entry.is_dir() else files).append(
                         entry.name)
-        except Exception as e:
-            dbg("panel/_render_folder: suppressed: %s" % e)
+        except Exception:
+            pack_hint(self._content, "Ordner")
             return
         total = len(dirs) + len(files)
         if total == 0:
@@ -1207,8 +1207,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             icon = Gio.content_type_get_icon(mime or "text-x-generic")
             big.set_from_gicon(icon, Gtk.IconSize.DIALOG)
             big.set_pixel_size(96)
-        except Exception as e:
-            dbg("panel/_render_generic: suppressed: %s" % e)
+        except Exception:
+            big.set_from_icon_name("text-x-generic", Gtk.IconSize.DIALOG)
         self._content.pack_start(big, True, True, 0)
 
     def _on_panel_destroy(self, *a):
@@ -1232,7 +1232,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             Gio.AppInfo.launch_default_for_uri(
                 GLib.filename_to_uri(self._path), None)
         except Exception as e:
-            dbg("panel/_on_open_clicked: suppressed: %s" % e)
+            dbg("Open failed: %s" % e)
 
     def _config_load(self):
         """
@@ -1335,7 +1335,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                            int(self._panel_width))
             kf.save_to_file(CONF_FILE)
         except Exception as exc:
-            dbg("panel/_config_save: suppressed: %s" % exc)
+            dbg("Config not saved: %s" % exc)
 
     def apply_start_settings(self):
         """
