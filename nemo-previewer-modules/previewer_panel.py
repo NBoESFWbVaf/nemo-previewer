@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.39.0
+previewer_panel.py – Version 0.40.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -476,94 +476,6 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             pass
         return ctxs
 
-    def _dbg_list_margins(self, box):
-        """Effektive ListBox-Margins auslesen (F46 IV) – deckt auf,
-        ob Theme-CSS die Widget-Ränder überschreibt."""
-        try:
-            dbg("Folder list margins: start=%d end=%d top=%d bottom=%d"
-                % (box.get_margin_start(), box.get_margin_end(),
-                   box.get_margin_top(), box.get_margin_bottom()))
-        except Exception:
-            pass
-        return False
-
-    def _dbg_pixels(self):
-        """F46 VII: Pixelsonden – alle dbg-Flächen malen Grau, der
-        Nutzer sieht trotzdem Schwarz. Nach dem Malen echte Pixel
-        lesen; das Log verrät, WO Schwarz wirklich sitzt (→ REF
-        PAN-BG-2)."""
-        try:
-            top = self.get_toplevel()
-            if top is None or top.get_window() is None:
-                return False
-            win = top.get_window()
-            pw = self.get_allocated_width()
-            ph = self.get_allocated_height()
-            punkte = [
-                ("Kante", pw - 2, ph // 2),
-                ("Spalte-1", pw - 5, ph // 2),
-                ("Spalte-2", pw - 12, ph // 2),
-                ("Platten-Rand", pw - 22, ph // 2),
-                ("Spalte-oben", pw - 5, 40),
-                ("Spalte-unten", pw - 5, ph - 40),
-                ("PanelRand-links", 5, ph // 2),
-                ("Platten-Mitte", pw // 2, 60),
-                ("VorPanel-links", -12, ph // 2),
-            ]
-            fund = []
-            for name, x, y in punkte:
-                try:
-                    pos = self.translate_coordinates(top, x, y)
-                    if pos is None:
-                        continue
-                    pb = Gdk.pixbuf_get_from_window(
-                        win, pos[0], pos[1], 1, 1)
-                    if pb is None:
-                        continue
-                    rgb = pb.get_pixels()
-                    fund.append("%s[%d,%d]=rgb(%d,%d,%d)"
-                                % (name, x, y, rgb[0], rgb[1],
-                                   rgb[2]))
-                except Exception:
-                    pass
-            if fund:
-                dbg("Panel pixels: " + "; ".join(fund))
-            # 0.31.11 (F46 IX): panel scan – a full horizontal color
-            # profile with black-pixel counter; also shows stripes
-            # without a fixed probe between them (→ REF PAN-BG-2).
-            pos = self.translate_coordinates(top, 0, ph // 2)
-            if pos is not None:
-                pb = Gdk.pixbuf_get_from_window(
-                    win, pos[0], pos[1], pw, 1)
-                if pb is not None:
-                    px = pb.get_pixels()
-                    nc = pb.get_n_channels()
-                    runs = []
-                    start = 0
-                    farbe = None
-                    for i in range(pw):
-                        f = (px[i * nc], px[i * nc + 1],
-                             px[i * nc + 2])
-                        if f != farbe:
-                            if farbe is not None:
-                                runs.append((start, i - 1, farbe))
-                            farbe = f
-                            start = i
-                    runs.append((start, pw - 1, farbe))
-                    schwarz = sum(e - a + 1
-                                  for a, e, f in runs
-                                  if f == (0, 0, 0))
-                    teile = ["%d-%d:rgb(%d,%d,%d)"
-                             % (a, e, f[0], f[1], f[2])
-                             for a, e, f in runs]
-                    if len(teile) > 40:
-                        teile = teile[:40] + ["…"]
-                    dbg("Panel scan[y=%d] black=%dpx: %s"
-                        % (ph // 2, schwarz, " ".join(teile)))
-        except Exception as e:
-            dbg("Panel pixels: failed – %s" % e)
-        return False
-
 
     # ------------------------------ Selection ------------------------------
 
@@ -845,52 +757,56 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         """Angezeigte Pixbufs ALLER registrierten Vorschau-Bilder an die
         aktuelle Panelbreite anpassen (R3: Liste statt Einzel-Slot;
         Einträge sind Daten-Dicts, siehe _scaled_image)."""
-        if not self._scale_items:
-            return
-        for item in self._scale_items:
+        for item in self._scale_items or ():
             try:
-                src = item["src"]
-                if src is None:
-                    continue
-                sw, sh = src.get_width(), src.get_height()
-                if sw <= 0 or sh <= 0:
-                    continue
-                maxh = item["maxh"]
-                if item["frac"]:
-                    # 0.17.0: height cap – fraction of the COLUMN
-                    # HEIGHT (image preview: 60%), live on resize.
-                    maxh = min(maxh, max(1, int(item["frac"] *
-                                                 self._preview_height())))
-                target = self._preview_width()
-                f = float(target) / sw
-                if f > 1.0:
-                    if item["upscale"]:
-                        # Upscale, but limited: small sources
-                        # (office thumbnails) else blur.
-                        f = min(f, item["maxup"])
-                    else:
-                        f = 1.0      # do not blur up small images
-                if f * sh > maxh:
-                    f = float(maxh) / sh
-                w = max(1, int(sw * f))
-                h = max(1, int(sh * f))
-                # 0.17.0: also compare HEIGHT – the cap can change
-                # at constant width (window taller/shorter).
-                if (abs(w - item["lastw"]) < 4
-                        and abs(h - item.get("lasth", -1)) < 4):
-                    continue
-                item["lastw"] = w
-                item["lasth"] = h
-                # Interpolate better when upscaling
-                interp = (GdkPixbuf.InterpType.HYPER if f > 1.0
-                          else GdkPixbuf.InterpType.BILINEAR)
-                item["img"].set_from_pixbuf(src.scale_simple(w, h, interp))
-                # → REF PAN-BILD-1
-                if item["keeph"]:
-                    item["scroll"].set_min_content_height(h)
-                    item["scroll"].get_vadjustment().set_value(0)
+                self._scale_item(item)
             except Exception:
                 pass
+
+    def _scale_item(self, item):
+        """EIN Vorschau-Bild an die Panelbreite anpassen (R3/0.17.0) –
+        Höhen-Deckel frisch, Upscale begrenzt, bei unter 4 px Änderung
+        auslassen (Early-Return statt Schachtelung)."""
+        src = item["src"]
+        if src is None:
+            return
+        sw, sh = src.get_width(), src.get_height()
+        if sw <= 0 or sh <= 0:
+            return
+        maxh = item["maxh"]
+        if item["frac"]:
+            # 0.17.0: height cap – fraction of the COLUMN
+            # HEIGHT (image preview: 60%), live on resize.
+            maxh = min(maxh, max(1, int(item["frac"] *
+                                        self._preview_height())))
+        target = self._preview_width()
+        f = float(target) / sw
+        if f > 1.0:
+            if item["upscale"]:
+                # Upscale, but limited: small sources
+                # (office thumbnails) else blur.
+                f = min(f, item["maxup"])
+            else:
+                f = 1.0      # do not blur up small images
+        if f * sh > maxh:
+            f = float(maxh) / sh
+        w = max(1, int(sw * f))
+        h = max(1, int(sh * f))
+        # 0.17.0: also compare HEIGHT – the cap can change
+        # at constant width (window taller/shorter).
+        if (abs(w - item["lastw"]) < 4
+                and abs(h - item.get("lasth", -1)) < 4):
+            return
+        item["lastw"] = w
+        item["lasth"] = h
+        # Interpolate better when upscaling
+        interp = (GdkPixbuf.InterpType.HYPER if f > 1.0
+                  else GdkPixbuf.InterpType.BILINEAR)
+        item["img"].set_from_pixbuf(src.scale_simple(w, h, interp))
+        # → REF PAN-BILD-1
+        if item["keeph"]:
+            item["scroll"].set_min_content_height(h)
+            item["scroll"].get_vadjustment().set_value(0)
 
     def _preview_width(self):
         """
@@ -1329,16 +1245,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # edge. The margin of _render_inner stays (→ REF PAN-FOLDER-1, PAN-BG-2).
         self._content.pack_start(scroll, True, True, 0)
         dbg("Folder list: %d entries, %d rows built"
-            " – scroll window own GdkWindow: %s"
-            % (total, min(300, len(shown)),
-               scroll.get_has_window()))
-        # 0.31.6 (F46 IV): read the margins back after realizing –
-        # shows whether theme CSS overrides the widget borders.
-        GLib.idle_add(self._dbg_list_margins, box)
-        # 0.31.9 (F46 VII): pixel probes – every area logs gray yet
-        # the user keeps seeing black; the probes read real pixels
-        # after painting and show WHERE black actually sits (→ REF PAN-BG-2).
-        GLib.timeout_add(600, self._dbg_pixels)
+            % (total, min(300, len(shown))))
         # 0.31.1: log content type → chosen symbol – with icon
         # problems the log shows which theme symbol actually loads
         # per type; since 0.31.2 also the count of silhouettes and
@@ -1569,7 +1476,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             pass
 
 
-PREVIEWER_VERSION = "0.39.0"
+PREVIEWER_VERSION = "0.40.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
