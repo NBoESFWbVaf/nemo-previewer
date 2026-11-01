@@ -6,6 +6,17 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.38.1\] – 2026-11-01
+
+### Fixed (Behoben)
+
+- Lightmode-Rand links behoben (F46 XI, Nutzer-Fund): Zwei Farb-Bugs in  
+  previewer_panel.py – die Notfall-Ableitung in \_paint\_background war  
+  invertiert (heller Vordergrund ergab eine helle statt dunkle Basis  
+  und umgekehrt – im Lightmode malte der Notfall fast schwarz), und der  
+  CSS-Fallback in \_apply\_surface\_css lag hart auf rgb(56,56,56);  
+  beide Ableitungen sind jetzt kontrast-richtig und FG-abgeleitet.
+
 ## \[0.38.0\] – 2026-11-01
 
 ### Changed (Geändert)
