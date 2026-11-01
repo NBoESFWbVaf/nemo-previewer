@@ -109,14 +109,14 @@ carry the same names on both distributions
   ```
 2. Check the log. Each module reports its version on load:
   ```text
-   [previewer] previewer_util 0.37.0 geladen
-   [previewer] previewer_select 0.37.0 geladen
-   [previewer] previewer_render_media 0.37.0 geladen (...)
-   [previewer] previewer_render_docs 0.37.0 geladen (...)
-   [previewer] previewer_render_text 0.37.0 geladen (...)
-   [previewer] previewer_toolbar 0.37.0 geladen (...)
-   [previewer] previewer_panel 0.37.0 geladen (...)
-   [previewer] previewer (Einstieg) v0.37.0 bereit
+   [previewer] previewer_util 0.38.0 loaded
+   [previewer] previewer_select 0.38.0 loaded
+   [previewer] previewer_render_media 0.38.0 loaded (...)
+   [previewer] previewer_render_docs 0.38.0 loaded (...)
+   [previewer] previewer_render_text 0.38.0 loaded (...)
+   [previewer] previewer_toolbar 0.38.0 loaded (...)
+   [previewer] previewer_panel 0.38.0 loaded (...)
+   [previewer] previewer (entry) v0.38.0 ready
   ```
 
    Eight lines with the same version number — anything else means an old  
@@ -179,7 +179,7 @@ NEMO_PREVIEWER_TRACE=1 nemo --no-desktop
 
 | Symptom                                           | Cause and fix                                                                                                  |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| No `geladen`/`bereit` lines in the log            | `nemo-python` missing, `previewer.py` not in `~/.local/share/nemo-python/extensions/`, or the modules not in the `nemo-previewer-modules` subfolder                          |
+| No `loaded`/`ready` lines in the log            | `nemo-python` missing, `previewer.py` not in `~/.local/share/nemo-python/extensions/`, or the modules not in the `nemo-previewer-modules` subfolder                          |
 | Version warning in the log, or different versions | Mixed old/new files — copy **all eight** files again (entry point in `extensions/`, modules in the `nemo-previewer-modules` subfolder); flat leftovers in `extensions/` never win, delete them                          |
 | Panel loads but stays empty                       | Watch the terminal; renderers log errors there. A missing preview type usually just needs its optional package |
 | Office preview converts over and over             | Old version before 0.3.x — update; the cache failed on `/tmp` being a separate device                          |
