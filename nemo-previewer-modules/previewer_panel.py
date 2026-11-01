@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.37.0
+previewer_panel.py – Version 0.38.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -381,7 +381,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         key = "%s|%s" % (used, ";".join(report))
         if self._bg_dbg_keys.get(wname) != key:
             self._bg_dbg_keys[wname] = key
-            dbg("Panel-Hintergrund (%s): quelle=%s – Kandidaten: %s"
+            dbg("Panel bg (%s): source=%s – candidates: %s"
                 % (wname, used, "; ".join(report)))
 
     def _on_scroll_realized(self, sc):
@@ -441,11 +441,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # line would otherwise repeat on every folder selection.
             if self._surface_css_farbe != farbe:
                 self._surface_css_farbe = farbe
-                dbg("Panel-Hintergrund CSS: Regel für Scroll-Fenster, "
-                    "Viewport und Bildlaufleisten installiert "
-                    "(Farbe %s)" % farbe)
+                dbg("Panel bg CSS: rule for scroll areas installed "
+                    "(color %s)" % farbe)
         except Exception as e:
-            dbg("Panel-Hintergrund CSS: gescheitert – %s" % e)
+            dbg("Panel bg CSS: failed – %s" % e)
 
     def _surface_css_contexts(self, scroll):
         """Stil-Kontexte, die die Flächen-Regel zusätzlich brauchen
@@ -472,7 +471,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         """Effektive ListBox-Margins auslesen (F46 IV) – deckt auf,
         ob Theme-CSS die Widget-Ränder überschreibt."""
         try:
-            dbg("Ordner-Liste Margins: start=%d end=%d oben=%d unten=%d"
+            dbg("Folder list margins: start=%d end=%d top=%d bottom=%d"
                 % (box.get_margin_start(), box.get_margin_end(),
                    box.get_margin_top(), box.get_margin_bottom()))
         except Exception:
@@ -519,7 +518,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 except Exception:
                     pass
             if fund:
-                dbg("Panel-Pixel: " + "; ".join(fund))
+                dbg("Panel pixels: " + "; ".join(fund))
             # 0.31.11 (F46 IX): panel scan – a full horizontal color
             # profile with black-pixel counter; also shows stripes
             # without a fixed probe between them (→ REF PAN-BG-2).
@@ -550,10 +549,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                              for a, e, f in runs]
                     if len(teile) > 40:
                         teile = teile[:40] + ["…"]
-                    dbg("Panel-Scan[y=%d] Schwarz=%dpx: %s"
+                    dbg("Panel scan[y=%d] black=%dpx: %s"
                         % (ph // 2, schwarz, " ".join(teile)))
         except Exception as e:
-            dbg("Panel-Pixel: gescheitert – %s" % e)
+            dbg("Panel pixels: failed – %s" % e)
         return False
 
 
@@ -635,7 +634,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         try:
             self._render_inner()
         except Exception:
-            dbg("Fehler beim Rendern von %r:" % self._path)
+            dbg("Render error for %r:" % self._path)
             traceback.print_exc()
             try:
                 self._render_generic()
@@ -991,11 +990,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     sbuf.set_language(lang)
                     sbuf.set_style_scheme(self._source_scheme())
                     view.set_buffer(sbuf)
-                    dbg("F44: Syntax-Hervorhebung aktiv (%s)"
+                    dbg("F44: syntax highlighting on (%s)"
                         % lang.get_name())
                 except Exception as exc:
-                    dbg("Syntax-Hervorhebung nicht aktivierbar (%s) – "
-                        "zeige normalen Text" % exc)
+                    dbg("Syntax highlighting unavailable (%s) – "
+                        "showing plain text" % exc)
                     view = None
         if view is None:
             view = Gtk.TextView()
@@ -1091,7 +1090,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             except Exception as exc:
                 if not reported[0]:
                     reported[0] = True
-                    dbg("Zeilennummern-Zeichnung fehlgeschlagen: %r" % exc)
+                    dbg("Line number draw failed: %r" % exc)
             return False
 
         # 0.16.2: connect_after instead of connect – "draw" is a
@@ -1320,8 +1319,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # scroll window's own transparent GdkWindow reached the slab
         # edge. The margin of _render_inner stays (→ REF PAN-FOLDER-1, PAN-BG-2).
         self._content.pack_start(scroll, True, True, 0)
-        dbg("Ordner-Liste: %d Einträge, %d Zeilen gebaut"
-            " – Scroll-Fenster eigenes GdkWindow: %s"
+        dbg("Folder list: %d entries, %d rows built"
+            " – scroll window own GdkWindow: %s"
             % (total, min(300, len(shown)),
                scroll.get_has_window()))
         # 0.31.6 (F46 IV): read the margins back after realizing –
@@ -1335,10 +1334,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # problems the log shows which theme symbol actually loads
         # per type; since 0.31.2 also the count of silhouettes and
         # since 0.31.3 the extracted foreground color.
-        dbg("Ordner-Icons: " + ", ".join(
+        dbg("Folder icons: " + ", ".join(
             "%s→%s" % kv for kv in sorted(picked.items()))
-            + " – als Silhouette nachgezeichnet: %d/%d"
-            " – Vordergrundfarbe: %d,%d,%d"
+            + " – silhouettes redrawn: %d/%d"
+            " – fg color: %d,%d,%d"
             % (sum(1 for p in sil.values() if p is not None),
                len(sil),
                int(round(fg.red * 255)), int(round(fg.green * 255)),
@@ -1383,7 +1382,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             Gio.AppInfo.launch_default_for_uri(
                 GLib.filename_to_uri(self._path), None)
         except Exception as e:
-            dbg("Öffnen fehlgeschlagen: %s" % e)
+            dbg("Open failed: %s" % e)
 
     def _config_load(self):
         """
@@ -1394,8 +1393,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         get_string mit try/except hier an.
         """
         if _KEYFILE_CLS is None:
-            dbg("GLib.KeyFile fehlt im Binding – Konfiguration "
-                "bleibt auf Defaults")
+            dbg("GLib.KeyFile missing – config "
+                "stays on defaults")
             return
         try:
             kf = _KEYFILE_CLS()
@@ -1460,8 +1459,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         Knopf ist damit unnötig.
         """
         if _KEYFILE_CLS is None:
-            dbg("GLib.KeyFile fehlt im Binding – Konfiguration "
-                "nicht speicherbar")
+            dbg("GLib.KeyFile missing – config not savable")
             return
         try:
             os.makedirs(CONF_DIR, exist_ok=True)
@@ -1488,7 +1486,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                            int(self._panel_width))
             kf.save_to_file(CONF_FILE)
         except Exception as exc:
-            dbg("Konfiguration nicht speicherbar: %s" % exc)
+            dbg("Config not saved: %s" % exc)
 
     def apply_start_settings(self):
         """
@@ -1500,8 +1498,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         """
         if not self._conf_show_at_start:
             self.hide()
-            dbg("Start-Einstellung: Vorschauspalte bleibt zu Beginn "
-                "ausgeblendet")
+            dbg("Start setting: preview column stays hidden "
+                "at start")
 
     def _panel_width_schedule_save(self):
         """
@@ -1530,7 +1528,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             if self._panel_width != self._panel_width_saved:
                 self._panel_width_saved = self._panel_width
                 self._config_save()
-                dbg("Panelbreite (gezogen) gespeichert: %d px"
+                dbg("Panel width (dragged) saved: %d px"
                     % self._panel_width)
         except Exception:
             pass
@@ -1563,9 +1561,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.37.0"
-dbg("previewer_panel %s geladen (F28/F29/F31 Struktur-Release: Kern "
-    "behält Dispatch, Helfer und Konfiguration – Renderer als Mixins "
-    "in eigenen Modulen, Toolbar samt Einstellungen ausgelagert; alle "
-    "Deckel und Fixes bleiben)"
+PREVIEWER_VERSION = "0.38.0"
+dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
+    "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)

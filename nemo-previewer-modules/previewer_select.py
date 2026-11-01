@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_select.py – Version 0.37.0
+previewer_select.py – Version 0.38.0
 
 Selection detection: reads the currently selected file from the
 Nemo view via selection signals, vtable access and GTK/ATK
@@ -135,13 +135,13 @@ def _native_nemo_api():
             "g_free": g_free,
         }
         if not _NATIVE_NEMO_API_MESSAGE_SHOWN:
-            dbg("Nemo-C-Auswahl-API geladen aus %s; NemoView-GType-Prüfung aktiviert" %
+            dbg("Nemo C selection API loaded from %s; NemoView GType check on" %
                 selected_path)
             _NATIVE_NEMO_API_MESSAGE_SHOWN = True
         return _NATIVE_NEMO_API
     except Exception as exc:
         if not _NATIVE_NEMO_API_MESSAGE_SHOWN:
-            dbg("Nemo-C-Auswahl-API konnte nicht vorbereitet werden: %s" % exc)
+            dbg("Nemo C selection API setup failed: %s" % exc)
             _NATIVE_NEMO_API_MESSAGE_SHOWN = True
         _NATIVE_NEMO_API = None
         return None
@@ -237,7 +237,7 @@ def _native_vtable_api():
         file_gtype = type_from_name(b"NemoFile")
         iface_gtype = type_from_name(b"NemoFileInfo")
         if not view_gtype or not file_gtype or not iface_gtype:
-            dbg("VTable-API: GTypen fehlen "
+            dbg("VTable API: GTypes missing "
                 "(NemoView=%r NemoFile=%r NemoFileInfo=%r)"
                 % (view_gtype, file_gtype, iface_gtype))
             _NATIVE_VTABLE_BROKEN = True
@@ -271,11 +271,11 @@ def _native_vtable_api():
         api["g_free"] = g_free
         api["ptr_size"] = ptr_size
         _NATIVE_VTABLE_API = api
-        dbg("VTable-API bereit (peek_offset=%d, IntPtr=%d)"
+        dbg("VTable API ready (peek_offset=%d, IntPtr=%d)"
             % (api["peek_offset"], ptr_size))
         return api
     except Exception as exc:
-        dbg("VTable-API konnte nicht vorbereitet werden: %s" % exc)
+        dbg("VTable API setup failed: %s" % exc)
         _NATIVE_VTABLE_BROKEN = True
         return None
 
@@ -417,7 +417,7 @@ def _vtable_selection_names(view):
                                    GObject.type_from_name("NemoView"))))
             except Exception as exc:
                 info.append("gtype-Fehler: %r" % exc)
-            dbg("VTable-Guard fehlgeschlagen (%s): %s"
+            dbg("VTable guard failed (%s): %s"
                 % (type_name(view), "; ".join(info)))
         return None, False
     try:
@@ -425,15 +425,15 @@ def _vtable_selection_names(view):
         peek_ptr = _read_cptr(class_ptr, api["peek_offset"])
         if not peek_ptr:
             if not _NATIVE_VTABLE_BROKEN:
-                dbg("VTable-API: peek_selection-Zeiger ist NULL – deaktiviert")
+                dbg("VTable API: peek_selection pointer is NULL – disabled")
             _NATIVE_VTABLE_BROKEN = True
             return None, False
         # 0.9.2: wildcall guard – the pointer gets CALLED and must
         # therefore lie inside Nemo.
         if not _ptr_in_nemo(_nemo_addr_ranges(), peek_ptr):
             if not _NATIVE_VTABLE_BROKEN:
-                dbg("VTable-API: peek_selection-Zeiger liegt außerhalb "
-                    "der Nemo-Bibliotheken – deaktiviert")
+                dbg("VTable API: peek_selection pointer outside "
+                    "the Nemo libraries – disabled")
             _NATIVE_VTABLE_BROKEN = True
             return None, False
         peek = ctypes.cast(
@@ -442,8 +442,8 @@ def _vtable_selection_names(view):
         node = peek(ptr)
     except Exception as exc:
         if not _NATIVE_VTABLE_BROKEN:
-            dbg("VTable-API: Aufruf von peek_selection fehlgeschlagen: %s "
-                "– deaktiviert" % exc)
+            dbg("VTable API: peek_selection call failed: %s "
+                "– disabled" % exc)
         _NATIVE_VTABLE_BROKEN = True
         return None, False
 
@@ -458,8 +458,8 @@ def _vtable_selection_names(view):
             # GType lives in the class, hence g_type_check_instance_is_a).
             if not api["is_a"](data, api["file_gtype"]):
                 if not _NATIVE_VTABLE_BROKEN:
-                    dbg("VTable-API: Auswahl-Element ist kein NemoFile – "
-                        "deaktiviert")
+                    dbg("VTable API: selection item not a NemoFile – "
+                        "disabled")
                 _NATIVE_VTABLE_BROKEN = True
                 return None, False
             # 0.9.1: name/URI via the shared interface helper
@@ -532,7 +532,7 @@ def _read_native_nemo_selection(view):
             limit += 1
         return names, True
     except Exception as exc:
-        dbg("Nemo-C-Auswahl konnte nicht gelesen werden: %s" % exc)
+        dbg("Nemo C selection unreadable: %s" % exc)
         return None, False
 
 
@@ -853,7 +853,7 @@ class SelectionReader:
             global _VTABLE_CRASH_WARNED
             if not _VTABLE_CRASH_WARNED:
                 _VTABLE_CRASH_WARNED = True
-                dbg("VTable-Route: unerwartete Ausnahme (%s): %r – %s"
+                dbg("VTable route: unexpected exception (%s): %r – %s"
                     % (type_name(view), exc,
                        traceback.format_exc().strip().splitlines()[-1]))
             return None
@@ -1234,5 +1234,5 @@ class SelectionReader:
 
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.37.0"
-dbg("previewer_select %s geladen" % PREVIEWER_VERSION)
+PREVIEWER_VERSION = "0.38.0"
+dbg("previewer_select %s loaded" % PREVIEWER_VERSION)

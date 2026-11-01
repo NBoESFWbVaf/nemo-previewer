@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.37.0
+previewer_render_text.py – Version 0.38.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1121,7 +1121,7 @@ def _vcard_circle(pb, size=160):
         out = Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
         return out if out is not None else pb
     except Exception as e:
-        dbg("vCard-Kreis-Maske fehlgeschlagen (%s) – eckiges Foto" % e)
+        dbg("vCard circle mask failed (%s) – square photo" % e)
         return pb
 
 
@@ -1154,7 +1154,7 @@ def _vcard_placeholder(size=160):
         cr.fill()
         return Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
     except Exception as e:
-        dbg("vCard-Platzhalter fehlgeschlagen (%s) – Icon-Notnagel" % e)
+        dbg("vCard placeholder failed (%s) – icon fallback" % e)
         return None
 
 
@@ -1440,7 +1440,7 @@ class TextRendererMixin:
             Pango.parse_markup(markup, -1, "\x00")
         except Exception as exc:
             valid = False
-            dbg("Markdown-Markup ungültig (%s) – zeige Rohtext" % exc)
+            dbg("Markdown markup invalid (%s) – showing raw text" % exc)
         # → REF TXT-B6-1
         self._text_view(text, font=None, markup=(markup if valid else None))
         if truncated:
@@ -1578,7 +1578,7 @@ class TextRendererMixin:
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.add(stack)
         self._content.pack_start(scroll, True, True, 0)
-        dbg("Visitenkarten: %d gebaut, %d mit Foto" % (len(cards), fotos))
+        dbg("Contact cards: %d built, %d with photo" % (len(cards), fotos))
 
     def _vcard_card_widget(self, card):
         """
@@ -1631,8 +1631,8 @@ class TextRendererMixin:
                 pb = _pixbuf_from_bytes(photo_bytes)
                 had_photo = pb is not None
             except Exception as e:
-                dbg("vCard-Foto nicht dekodierbar (%s) – Platzhalter-"
-                    "Kreis" % e)
+                dbg("vCard photo undecodable (%s) – placeholder "
+                    "circle" % e)
         pb = _vcard_circle(pb) if pb is not None else None
         if pb is None:
             pb = _vcard_placeholder()
@@ -1712,7 +1712,7 @@ class TextRendererMixin:
             cr.set_line_width(1.0)
             cr.stroke()
         except Exception as e:
-            dbg("vCard-Karten-Hintergrund fehlgeschlagen (%s)" % e)
+            dbg("vCard card background failed (%s)" % e)
         return False
 
     def _render_ebook(self, path, loader, fmt):
@@ -1725,7 +1725,7 @@ class TextRendererMixin:
         try:
             rows, cover, text = loader(path)
         except Exception as e:
-            dbg("E-Book konnte nicht gelesen werden (%s): %s" % (path, e))
+            dbg("E-book unreadable (%s): %s" % (path, e))
             self._hint("E-Book konnte nicht gelesen werden: %s" % e)
             self._render_generic()
             return
@@ -1740,7 +1740,7 @@ class TextRendererMixin:
                     max_upscale=2.0)
                 self._content.pack_start(scroll, False, False, 0)
             except Exception as exc:
-                dbg("E-Book-Cover nicht darstellbar: %s" % exc)
+                dbg("E-book cover not displayable: %s" % exc)
         if not text.strip():
             self._hint("Kein lesbarer Text gefunden – Datei über den "
                        "Öffnen-Knopf betrachten.")
@@ -1775,7 +1775,7 @@ class TextRendererMixin:
         try:
             fmt, family, style = _font_info(path)
         except Exception as e:
-            dbg("Schrift konnte nicht gelesen werden (%s): %s" % (path, e))
+            dbg("Font unreadable (%s): %s" % (path, e))
             self._hint("Konnte Schrift nicht lesen: %s" % e)
             self._render_generic()
             return
@@ -1787,19 +1787,19 @@ class TextRendererMixin:
         self._meta_grid([("Format", fmt), ("Familie", family),
                          ("Stil", style)])
         if not _fc_add_font_file(path):
-            dbg("Schrift konnte Fontconfig nicht hinzugefügt werden: %s"
+            dbg("Font could not be added to Fontconfig: %s"
                 % path)
 
         # Fresh font map + own context: sees the new family.
         try:
             fctx = PangoCairo.FontMap.new().create_context()
         except Exception as e:
-            dbg("Pango-Kontext fehlgeschlagen: %s" % e)
+            dbg("Pango context failed: %s" % e)
             self._hint("Schriftvorschau nicht verfügbar.")
             self._render_generic()
             return
         if not _font_known(fctx.get_font_map(), family):
-            dbg("Pango kennt die Familie nicht: %s" % family)
+            dbg("Pango does not know the family: %s" % family)
             self._hint("Schrift konnte nicht eingebunden werden – der "
                        "Wasserfall zeigt die Ersatzschrift.")
 
@@ -1860,9 +1860,9 @@ class TextRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.37.0"
-dbg("previewer_render_text %s geladen (F7: vCard-Visitenkarte; F44: "
-    "Syntax-Hervorhebung via source_path; F31: "
-    "Text/Markdown/EML/E-Book/Schrift-Renderer; K4-Markdown und "
-    "Lese-Deckel bleiben)"
+PREVIEWER_VERSION = "0.38.0"
+dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
+    "F7: vCard contact card; F44: syntax highlighting via source_path; "
+    "K4 markdown and read caps stay)"
+    % PREVIEWER_VERSION)
     % PREVIEWER_VERSION)

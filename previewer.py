@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer.py – Version 0.37.0
+previewer.py – Version 0.38.0
 
 Entry point and Nemo integration: injects the preview panel into
 every Nemo window, loads the seven modules from the
@@ -43,9 +43,9 @@ from previewer_util import (
 # and every function then run under the hook (→ REF UT-TRACE-1).
 install_step_trace()
 # 0.35.0: confirm the module subfolder in the log (→ REF ENT-MODDIR-1).
-dbg("Module-Ordner: %s"
+dbg("Module dir: %s"
     % (_MODDIR if os.path.isdir(_MODDIR)
-       else "(flache Installation)"))
+       else "(flat install)"))
 from previewer_select import (
     find_view, selection_signals, SelectionReader,
     _atk_children, _dump_widget_tree,
@@ -54,7 +54,7 @@ from previewer_panel import PreviewPanel
 
 # PREVIEWER_VERSION must be identical in all eight modules; the entry
 # point checks loaded modules and warns about outdated copies.
-PREVIEWER_VERSION = "0.37.0"
+PREVIEWER_VERSION = "0.38.0"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -68,9 +68,8 @@ for _mod in (previewer_util, previewer_select, previewer_panel,
              previewer_render_docs, previewer_render_text):
     _ver = getattr(_mod, "PREVIEWER_VERSION", None)
     if _ver != PREVIEWER_VERSION:
-        dbg("ACHTUNG: %s.py hat Version %r, erwartet wird %r – Datei im "
-            "Modul-Unterordner nemo-previewer-modules (oder flach im "
-            "Extension-Ordner) durch die aktuelle Fassung ersetzen!"
+        dbg("WARNING: %s.py is version %r, expected %r – "
+            "replace the old file with the current one!"
             % (_mod.__name__, _ver, PREVIEWER_VERSION))
 
 # ============================== Provider ===================================
@@ -130,8 +129,8 @@ class PanelState:
         toolbar = self._find_first_widget(
             self.window, lambda w: isinstance(w, Gtk.Toolbar))
         if toolbar is None:
-            dbg("Vorschau-Knopf: weder HeaderBar noch GtkToolbar "
-                "gefunden – nur Strg+Alt+P")
+            dbg("Preview toggle: no HeaderBar or GtkToolbar "
+                "found – Ctrl+Alt+P only")
             return
         btn = Gtk.ToggleToolButton()
         btn.set_icon_name(icon)
@@ -156,7 +155,7 @@ class PanelState:
         except Exception:
             pass
         btn.show()
-        dbg("Vorschau-Knopf in Nemos %s gesetzt (Icon: %s)"
+        dbg("Preview toggle placed in Nemo's %s (icon: %s)"
             % (where, icon))
 
     def _find_first_widget(self, widget, pred):
@@ -268,7 +267,7 @@ def _reconcile(st):
         return
     top_box = kids[0] if kids else None
     if not isinstance(top_box, Gtk.Container):
-        dbg("Injektion: unerwartete Fensterstruktur (%s)"
+        dbg("Injection: unexpected window structure (%s)"
             % type_name(top_box))
         return
 
@@ -289,8 +288,8 @@ def _reconcile(st):
         while node is not None:
             chain.append(type_name(node))
             node = node.get_parent()
-        dbg("Injektion: Ansicht hängt nicht unter der Hauptbox – "
-            "Kette nach oben: %s" % " < ".join(chain))
+        dbg("Injection: view not under main box – chain: %s"
+            % " < ".join(chain))
         return
 
     # If the view already sits under our HPaned, the found node IS our
@@ -326,16 +325,16 @@ def _reconcile(st):
             if (not all(isinstance(v, int) and v >= 0 for v in (left, top))
                     or not all(isinstance(v, int) and v >= 1
                                for v in (width, height))):
-                dbg("Injektion: Grid-Eigenschaften nicht lesbar "
-                    "(%r, %r, %r, %r) – Vorgang abgebrochen, "
-                    "Nemo bleibt unangetastet" % (left, top, width, height))
+                dbg("Injection: grid props unreadable "
+                    "(%r, %r, %r, %r) – aborted, Nemo untouched"
+                    % (left, top, width, height))
                 return
             top_box.remove(target)
             st.hpaned.pack1(target, True, False)
             st.hpaned.pack2(st.panel, False, False)
             top_box.attach(st.hpaned, left, top, width, height)
         else:
-            dbg("Injektion: Hauptbox ist weder Box noch Grid (%s)"
+            dbg("Injection: main box neither Box nor Grid (%s)"
                 % type_name(top_box))
             return
         st.pos_pending = True
@@ -346,7 +345,7 @@ def _reconcile(st):
         _apply = getattr(st.panel, "apply_start_settings", None)
         if callable(_apply):
             _apply()
-        dbg("Panel an Fensterrand injiziert (Ziel: %s)"
+        dbg("Panel injected at window edge (target: %s)"
             % type_name(target))
     except Exception:
         traceback.print_exc()
@@ -445,10 +444,10 @@ def _dump_a11y_once(st):
             return
         root = view.get_accessible()
         if root is None:
-            dbg("%s: kein Accessible verfügbar" % tag)
+            dbg("%s: no accessible available" % tag)
             return
     except Exception:
-        dbg("%s: kein Accessible verfügbar" % tag)
+        dbg("%s: no accessible available" % tag)
         return
     budget = [45]
 
@@ -463,8 +462,8 @@ def _dump_a11y_once(st):
             # Log the cause of the seemingly empty a11y tree once.
             if not getattr(_dump_a11y_once, "_n_children_err", None):
                 _dump_a11y_once._n_children_err = repr(exc)
-                dbg("%s: get_n_children() schlug fehl: %r – "
-                    "weitere Kinder werden blind über ref_child() probiert"
+                dbg("%s: get_n_children() failed: %r – "
+                    "probing remaining children via ref_child()"
                     % (tag, exc))
         try:
             role = acc.get_role()
@@ -495,13 +494,13 @@ def _dump_a11y_once(st):
         except Exception:
             pass
         budget[0] -= 1
-        dbg("%s d%d kinder=%d rolle=%s name=%r %s"
+        dbg("%s d%d children=%d role=%s name=%r %s"
             % (tag, depth, n, role, name, " ".join(extra)))
         for child in _atk_children(acc, max_children=60):
             rec(child, depth + 1)
 
     rec(root, 0)
-    dbg("%s – Ende der Diagnose" % tag)
+    dbg("%s – end of dump" % tag)
 
 
 def _view_ok(self, view):
@@ -556,10 +555,10 @@ def _refresh(st):
             now = GLib.get_monotonic_time()
             if now - st.none_dbg_at > 5000000:  # at most every 5 seconds
                 st.none_dbg_at = now
-                dbg("Auswahl nicht lesbar (Ansicht: %s)" % type_name(view))
+                dbg("Selection unreadable (view: %s)" % type_name(view))
             return
         if names != st.last_sel:
-            dbg("Auswahl geändert: %r (via %s)" % (names, strategy))
+            dbg("Selection changed: %r (via %s)" % (names, strategy))
             st.last_sel = names
             st.panel.set_selection(names, st.dir_path)
     except Exception:
@@ -606,7 +605,7 @@ def _get_state(window):
         except Exception:
             pass
         st.poll_id = GLib.timeout_add(POLL_MS, _poll, st)
-        dbg("PanelState für Fenster angelegt")
+        dbg("PanelState created for window")
     return st
 
 
@@ -650,9 +649,9 @@ def _is_desktop_window(window):
 def _get_widget(self, uri, window):
     """LocationWidgetProvider: liefert die unsichtbare 'Brechstange'."""
     window_type = type_name(window)
-    dbg("get_widget aufgerufen für %s (Fenstertyp: %s)" % (uri, window_type))
+    dbg("get_widget called for %s (window type: %s)" % (uri, window_type))
     if _is_desktop_window(window):
-        dbg("Desktop-Fenster erkannt – kein Vorschau-Panel")
+        dbg("Desktop window detected – no preview panel")
         return None
     st = _get_state(window)
     new_dir = _uri_to_dir(uri)
@@ -708,4 +707,4 @@ def _install_log_filter():
 
 _install_log_filter()
 
-dbg("previewer (Einstieg) v%s bereit" % PREVIEWER_VERSION)
+dbg("previewer (entry) v%s ready" % PREVIEWER_VERSION)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.37.0
+previewer_render_docs.py – Version 0.38.0
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -208,9 +208,9 @@ class DocsRendererMixin:
         # F12 part 3: the current preview is a document page view –
         # cap changes from the settings apply live (marker _last_docview).
         self._last_docview = True
-        dbg("PDF geöffnet: %d Seite(n), zeige %d untereinander "
-            "(scrollbar; Deckel %s)"
-            % (n, count, ("%d Seiten" % cap) if cap else "aus"))
+        dbg("PDF opened: %d page(s), showing %d (scrollable; "
+            "cap %s)"
+            % (n, count, ("%d pages" % cap) if cap else "off"))
         src_w = max(300, self._preview_width() * 2)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self._pdf_src = []
@@ -226,7 +226,7 @@ class DocsRendererMixin:
             self._pdf_src.append(pb)
             self._pdf_imgs.append(img)
         except Exception as exc:
-            dbg("PDF-Seite 1 nicht renderbar: %s" % exc)
+            dbg("PDF page 1 not renderable: %s" % exc)
         if not self._pdf_src:
             self._hint("PDF konnte nicht gerendert werden.")
             self._pdf_box = None
@@ -277,7 +277,7 @@ class DocsRendererMixin:
             # via its width threshold if the panel width did not change.
             self._pdf_scale_one(pb, img, self._preview_width())
         except Exception as exc:
-            dbg("PDF-Seite %d nicht renderbar: %s" % (i + 1, exc))
+            dbg("PDF page %d not renderable: %s" % (i + 1, exc))
         i += 1
         if i >= count:
             return False
@@ -350,7 +350,7 @@ class DocsRendererMixin:
                     self._render_pdf(cached)
                     return
                 except Exception as exc:
-                    dbg("Office-PDF-Vorschau fehlgeschlagen (%s): %s"
+                    dbg("Office PDF preview failed (%s): %s"
                         % (path, exc))
                     # Remove half-packed leftovers of the PDF view
                     # before packing the thumbnail.
@@ -471,7 +471,7 @@ class DocsRendererMixin:
                 flags=GLib.SpawnFlags.SEARCH_PATH
                 | GLib.SpawnFlags.DO_NOT_REAP_CHILD)[0]
         except Exception as exc:
-            dbg("LibreOffice-Konvertierung nicht gestartet (%s): %s"
+            dbg("LibreOffice conversion not started (%s): %s"
                 % (path, exc))
             shutil.rmtree(tmpdir, ignore_errors=True)
             self._office_job = None
@@ -498,7 +498,7 @@ class DocsRendererMixin:
                     shutil.move(out_pdf, office_cache_path(path))
                     cache_ok = True
                 except Exception as exc:
-                    dbg("Office-Cache konnte nicht geschrieben werden: %s"
+                    dbg("Office cache write failed: %s"
                         % exc)
                 if not cache_ok:
                     # → REF DOC-B4-1
@@ -512,8 +512,8 @@ class DocsRendererMixin:
                             self._clear_content()
                             self._render_pdf(out_pdf)
                         except Exception as exc:
-                            dbg("Office-PDF aus Temp-Ordner nicht "
-                                "darstellbar (%s): %s" % (path, exc))
+                            dbg("Office PDF from temp dir not "
+                                "displayable (%s): %s" % (path, exc))
                 elif self._path == path:
                     self._render()   # show the sharp page view
             else:
@@ -523,8 +523,8 @@ class DocsRendererMixin:
                 if len(self._office_failed) > 256:
                     self._office_failed.clear()
                 if self._path == path:
-                    dbg("LibreOffice-Konvertierung ohne Ergebnis "
-                        "(Status %s) – Miniaturansicht bleibt" % status)
+                    dbg("LibreOffice conversion without result "
+                        "(status %s) – thumbnail stays" % status)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         # If the current selection is waiting for its conversion,
@@ -541,7 +541,7 @@ class DocsRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.37.0"
-dbg("previewer_render_docs %s geladen (F31: PDF-/Office-Renderer; "
-    "Lese-Deckel und LibreOffice-Cache bleiben)"
+PREVIEWER_VERSION = "0.38.0"
+dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
+    "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)

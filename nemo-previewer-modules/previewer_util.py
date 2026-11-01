@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.37.0
+previewer_util.py – Version 0.38.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -91,7 +91,7 @@ def install_step_trace():
             elif event == "return":
                 dbg("TRACE← %s:%s = %s" % (mod, name, _fmt(arg)))
             elif event == "exception":
-                dbg("TRACE! %s:%s hob %s: %s"
+                dbg("TRACE! %s:%s raised %s: %s"
                     % (mod, name, arg[0].__name__, _fmt(arg[1])))
             elif event == "line" and want_lines:
                 dbg("TRACE· %s:%s L%d" % (mod, name, frame.f_lineno))
@@ -100,8 +100,8 @@ def install_step_trace():
             return None
 
     sys.settrace(_tracer)
-    dbg("Schritt-Trace AN (Niveau: %s)"
-        % ("Zeile" if want_lines else "Aufruf"))
+    dbg("Step trace ON (level: %s)"
+        % ("line" if want_lines else "call"))
     return True
 
 
@@ -241,5 +241,5 @@ def _zf_read_capped(zf, name, cap):
 
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.37.0"
-dbg("previewer_util %s geladen" % PREVIEWER_VERSION)
+PREVIEWER_VERSION = "0.38.0"
+dbg("previewer_util %s loaded" % PREVIEWER_VERSION)

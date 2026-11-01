@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.37.0
+previewer_render_media.py – Version 0.38.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -393,7 +393,7 @@ def _exif_parse(data):
     """
     # → REF MED-EXIF-2 (F42: Kandidaten-Schleife)
     bases = _exif_bases(data)
-    dbg("EXIF: %d Kandidat(en)" % len(bases))
+    dbg("EXIF: %d candidate(s)" % len(bases))
     for base, magic in bases:
         out = _exif_parse_at(data, base, magic)
         if out:
@@ -496,7 +496,7 @@ def _exif_parse_at(data, base, magic=True):
             out["Aufnahmeort"] = "%.4f° %s, %.4f° %s" % (
                 abs(lat), lr, abs(lon), lor)
     except Exception as exc:
-        dbg("EXIF-Parsing fehlgeschlagen: %s" % exc)
+        dbg("EXIF parse failed: %s" % exc)
     return out
 
 
@@ -701,10 +701,10 @@ class MediaRendererMixin:
             try:
                 with open(path, "rb") as fh:
                     data = fh.read(_IMAGE_FILE_CAP)
-                dbg("Bild gelesen: %s (%d Bytes)" % (path, len(data)))
+                dbg("Image read: %s (%d bytes)" % (path, len(data)))
             except Exception as exc:
                 data, err = None, exc
-                dbg("Bild-Lesen fehlgeschlagen (%s): %s" % (path, exc))
+                dbg("Image read failed (%s): %s" % (path, exc))
             # F36: evaluate EXIF right in the worker – pure byte
             # work, fitting the R1/B7 thread discipline. F38: XMP too.
             if data:
@@ -714,7 +714,7 @@ class MediaRendererMixin:
                 GLib.idle_add(self._image_probe_done,
                               path, target_w, data, err, exif, xmp)
             except Exception as exc:
-                dbg("Bild-Rückgabe fehlgeschlagen (%s): %s"
+                dbg("Image return failed (%s): %s"
                     % (path, exc))
 
         try:
@@ -752,7 +752,7 @@ class MediaRendererMixin:
         der B7-Regression, in 0.10.2/0.10.3 übersehen).
         """
         if self._path != path:
-            dbg("Bild-Ergebnis verworfen, Auswahl wechselte: %s" % path)
+            dbg("Image result dropped, selection changed: %s" % path)
             return False      # selection changed meanwhile
         self._clear_content()
         pb, orig = None, {}
@@ -764,7 +764,7 @@ class MediaRendererMixin:
                     data, max_w=target_w, max_h=2 * MAX_IMAGE_HEIGHT,
                     orig=orig)
             except Exception as exc:
-                dbg("Bild-Dekodierung fehlgeschlagen (%s): %s"
+                dbg("Image decode failed (%s): %s"
                     % (path, exc))
         if pb is None:
             try:
@@ -780,7 +780,7 @@ class MediaRendererMixin:
                 rows.append(("Maße", exif["Maße"]))
             rows += _exif_rows(exif, xmp)
             if rows:
-                dbg("RAW/undekodierbar: Foto-Tabelle (%d Zeilen)"
+                dbg("RAW/undecodable: photo table (%d rows)"
                     % len(rows))
                 self._render_generic()
                 self._meta_grid(rows, None)
@@ -798,7 +798,7 @@ class MediaRendererMixin:
             pb = pb.apply_embedded_orientation()
         except Exception:
             pass
-        dbg("Bild dekodiert: %s (%d × %d px)" %
+        dbg("Image decoded: %s (%d × %d px)" %
             (path, pb.get_width(), pb.get_height()))
         if pb.get_width() > 4096 or pb.get_height() > MAX_IMAGE_HEIGHT:
             pb = self._scale_pixbuf(pb, 4096, MAX_IMAGE_HEIGHT)
@@ -868,7 +868,7 @@ class MediaRendererMixin:
             if probe is None:
                 probe = disc.discover_uri_sync
         except Exception as e:
-            dbg("Discoverer nicht anlegbar: %s" % e)
+            dbg("Discoverer not creatable: %s" % e)
             # Without the Discoverer still build the UI (placeholder,
             # player) – do not get stuck on the hint.
             GLib.idle_add(self._media_probe_done, path, uri, finish,
@@ -921,7 +921,7 @@ class MediaRendererMixin:
                                 Gst.TAG_ALBUM_VOLUME_COUNT))
                         tags["year"] = self._tag_year(taglist)
                     except Exception as e:
-                        dbg("Tag-Erweiterung (F33) fehlgeschlagen: %s" % e)
+                        dbg("Tag extraction (F33) failed: %s" % e)
                     # Collect image bytes (decoding happens in the
                     # GTK thread). Videos: still image; audio: cover.
                     order = ((Gst.TAG_PREVIEW_IMAGE, Gst.TAG_IMAGE) if video
@@ -936,7 +936,7 @@ class MediaRendererMixin:
                                 0, min(buf.get_size(), _MEDIA_IMAGE_CAP))
                             break
             except Exception as e:
-                dbg("Discoverer-Fehler: %s" % e)
+                dbg("Discoverer error: %s" % e)
             GLib.idle_add(self._media_probe_done, path, uri, finish,
                           tags, duration, image_bytes)
 
@@ -955,14 +955,14 @@ class MediaRendererMixin:
                 # _pixbuf_from_bytes) instead of a raw PixbufLoader.
                 pixbuf = _pixbuf_from_bytes(image_bytes)
             except Exception as exc:
-                dbg("Medien-Bild nicht darstellbar: %s" % exc)
+                dbg("Media image not displayable: %s" % exc)
         # Remove the reading hint and build the actual preview.
         self._clear_content()
         try:
             finish(path, uri, tags, duration, pixbuf)
         except Exception:
             # Same guard as in _render: never raise, always fall back.
-            dbg("Fehler beim Aufbauen der Medien-Vorschau (%r):" % path)
+            dbg("Media preview build error (%r):" % path)
             traceback.print_exc()
             try:
                 self._clear_content()
@@ -1038,7 +1038,7 @@ class MediaRendererMixin:
             PangoCairo.show_layout(cr, layout)
             return Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
         except Exception as exc:
-            dbg("Platzhalter-Cover nicht zeichenbar (%s) – Icon-Fallback"
+            dbg("Placeholder cover not drawable (%s) – icon fallback"
                 % exc)
         # Fallback: file icon on a dark, opaque background
         pb = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8,
@@ -1174,7 +1174,7 @@ class MediaRendererMixin:
             out = Gdk.pixbuf_get_from_surface(surf, 0, 0, ow, oh)
             return out if out is not None else pb
         except Exception as e:
-            dbg("Cover-Rahmen (F34) fehlgeschlagen: %s" % e)
+            dbg("Cover frame (F34) failed: %s" % e)
             return pb
 
     def _finish_audio(self, path, uri, tags, duration, cover):
@@ -1303,9 +1303,9 @@ class MediaRendererMixin:
         """Abspielfehler: still abstoppen und im Panel melden (B2)."""
         try:
             err, detail = msg.parse_error()
-            dbg("Abspielfehler: %s (%s)" % (err, detail))
+            dbg("Playback error: %s (%s)" % (err, detail))
         except Exception:
-            err = "unbekannter Abspielfehler"
+            err = "unknown playback error"
         try:
             self._playbin.set_state(Gst.State.NULL)
             if getattr(self, "_btn_play", None):
@@ -1428,7 +1428,7 @@ class MediaRendererMixin:
         upper = max(1, int(dur_ns // Gst.SECOND))
         adj = scale.get_adjustment()
         if abs(adj.get_upper() - upper) > 1:
-            dbg("Slider-Bereich nachgezogen: 0–%d s (war 0–%d s)"
+            dbg("Slider range adjusted: 0–%d s (was 0–%d s)"
                 % (upper, int(adj.get_upper())))
             adj.configure(0.0, 0.0, float(upper), 1.0, 10.0, 0.0)
 
@@ -1468,7 +1468,7 @@ class MediaRendererMixin:
 
 
 
-PREVIEWER_VERSION = "0.37.0"
-dbg("previewer_render_media %s geladen (F31: Bild/SVG/Audio/Video-"
-    "Renderer; R9/B7-Disziplin und Deckel bleiben)"
+PREVIEWER_VERSION = "0.38.0"
+dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
+    "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
