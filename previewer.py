@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer.py – Version 0.38.1
+previewer.py – Version 0.39.0
 
 Entry point and Nemo integration: injects the preview panel into
 every Nemo window, loads the seven modules from the
@@ -54,7 +54,7 @@ from previewer_panel import PreviewPanel
 
 # PREVIEWER_VERSION must be identical in all eight modules; the entry
 # point checks loaded modules and warns about outdated copies.
-PREVIEWER_VERSION = "0.38.1"
+PREVIEWER_VERSION = "0.39.0"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -408,7 +408,7 @@ def _connect_view_signals(st, view):
                 hid = w.connect(
                     sig,
                     lambda *a, _w=w, _s=sig: (
-                        diag("Signal %s empfangen (%s)" % (_s, type_name(_w))),
+                        diag("Signal %s received (%s)" % (_s, type_name(_w))),
                         _dump_a11y_once(st),
                         _refresh_soon(st))[-1])
             except Exception:
@@ -419,8 +419,8 @@ def _connect_view_signals(st, view):
     # Never register signal handlers on ATK objects: they are often
     # short-lived on folder changes and caused disconnect warnings.
 
-    diag("Ansicht verbunden: %s – Auswahl-Signale: %s"
-        % (type_name(view), ", ".join(sorted(names_found)) or "KEINE"))
+    diag("View connected: %s – selection signals: %s"
+        % (type_name(view), ", ".join(sorted(names_found)) or "none"))
 
 
 def _dump_a11y_once(st):
@@ -543,12 +543,6 @@ def _refresh(st):
         diag_key = "_selection_diag_" + type_name(view)
         if not getattr(st, diag_key, False):
             setattr(st, diag_key, True)
-            diag("Auswahl-Diagnose: View=%s, Instanz.get_selection=%s, Instanz.peek_selection=%s, Nemo.view_get_selection=%s, Nemo.view_peek_selection=%s" % (
-                type_name(view),
-                callable(getattr(view, "get_selection", None)),
-                callable(getattr(view, "peek_selection", None)),
-                callable(getattr(Nemo, "view_get_selection", None)),
-                callable(getattr(Nemo, "view_peek_selection", None))))
             _dump_widget_tree(view)
         if names is None:
             # No strategy could read – throttled debug message
