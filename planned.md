@@ -996,6 +996,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Präfixe, Fachbegriffe und Marker bleiben, Docstrings und  
   UI-Texte unangetastet.
 
+  ✅ 0.38.1 – F46 XI Lightmode-Rand links (Nutzer-Fund): Zwei Farb-Bugs  
+  in previewer_panel.py gefixt – die Notfall-Ableitung in  
+  \_paint\_background war invertiert (FG hell → helle statt dunkler  
+  Basis, FG dunkel → dunkle statt heller; der Lightmode bekam fast  
+  schwarz), und \_apply\_surface\_css fällt statt auf hartes  
+  rgb(56,56,56) jetzt FG-abgeleitet aus.
+
 ---
 
 ## Empfohlene Reihenfolge
