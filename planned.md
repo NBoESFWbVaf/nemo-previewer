@@ -290,12 +290,16 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ist aufgelöst, das Einstellungsfenster ist eine 40-Zeilen-Funktion  
   plus vier Helfer statt 171 Zeilen.
 
-- [ ] **K10** – Spaghetti-Code-Runde 2 (Nutzer-Plan: erst Runde 1 plus  
-  Audit, dann Runde 2 plus Audit): S2 \_render\_folder zerlegen (Panel),  
-  S3 E-Book-Trio (\_epub/\_fb2/\_mobi\_data) konsolidieren (Text), S6  
-  Cross-Mixin-Helfer (\_scaled\_image, \_text\_view, \_meta\_grid,  
-  \_cover\_round\_path) in util sammeln (Nutzer-Entscheid), S7  
-  pass-Schlucker mit dbg-Meldung versehen. **M–L**
+- [x] **K10** – Spaghetti-Code-Runde 2 (Audit 2, 2026-11-01): S2  
+  \_render\_folder zerlegen (Panel), S3 E-Book-Trio  
+  (\_epub/\_fb2/\_mobi\_data) konsolidieren (Text), S6 Cross-Mixin-Helfer  
+  (pack\_hint, pack\_meta\_grid, cover\_round\_path, build\_scaled\_image,  
+  build\_text\_view) in util sammeln, S7 pass-Schlucker mit dbg-Meldung  
+  versehen (auch Modul-Ebene), S8 EXIF-Formatierung (\_exif\_parse\_at,  
+  Tiefe 11) und S9 \_md\_table (163 Zeilen) zerlegen (Audit-2-  
+  Erweiterung, Nutzer-Entscheid). **M–L**  
+  ✅ 0.42.0: umgesetzt – Verhalten unverändert, keine God-Function  
+  über 100 Zeilen verbleibt, alle pass-Schlucker loggen mit dbg().
 
 ---
 
@@ -1047,6 +1051,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Einstellungsfenster eingetragene Wert greift bei jedem Start  
   (F12-Drag-Save und „Standard/aktuell“-Hinweiszeile entfernt).  
   Verhalten sonst unverändert.
+
+  ✅ 0.42.0 – Spaghetti-Audit-Runde 2 (Audit 2, Nutzer-Entscheid):  
+  \_render\_folder zerlegt in \_folder\_symbol/\_folder\_row/\_folder\_scroll,  
+  E-Book-Trio und EXIF-Formatierung je Themen-Helfer zerlegt,  
+  \_md\_table in Zellen-/Zeilen-/Breiten-Helfer, die Cross-Mixin-Helfer  
+  liegen in previewer\_util; alle stillen pass-Schlucker loggen jetzt  
+  mit dbg(). Verhalten unverändert.
 
 ---
 
