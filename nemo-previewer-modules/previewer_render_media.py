@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.41.0
+previewer_render_media.py – Version 0.42.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -33,6 +33,9 @@ from previewer_util import (
     dbg,
     MAX_IMAGE_HEIGHT, format_seconds,
     _pixbuf_from_bytes,
+    pack_hint,
+    pack_meta_grid,
+    cover_round_path,
 )
 
 # --- Optional modules (missing ones just reduce the previews) ---
@@ -45,8 +48,8 @@ try:
     from gi.repository import Gst, GstPbutils
     Gst.init(None)
     HAVE_GST = True
-except Exception:
-    pass
+except Exception as e:
+    dbg("media/module-level: suppressed: %s" % e)
 
 # librsvg for the SVG preview: GdkPixbuf has had no built-in SVG
 # loader since gdk-pixbuf 2.42.
@@ -55,8 +58,8 @@ try:
     gi.require_version('Rsvg', '2.0')
     from gi.repository import Rsvg
     HAVE_RSVG = True
-except Exception:
-    pass
+except Exception as e:
+    dbg("media/module-level: suppressed: %s" % e)
 
 # PangoCairo + pycairo to draw the placeholder cover tile (F18).
 HAVE_PANGOCAIRO = False
@@ -65,8 +68,8 @@ try:
     gi.require_version('PangoCairo', '1.0')
     from gi.repository import PangoCairo
     HAVE_PANGOCAIRO = True
-except Exception:
-    pass
+except Exception as e:
+    dbg("media/module-level: suppressed: %s" % e)
 
 # K3: Cairo alone suffices for the SVG-DPI route (see _rsvg_cairo_pb):
 # render_document replaces the deprecated get_pixbuf() and renders big.
@@ -74,8 +77,8 @@ HAVE_CAIRO = False
 try:
     import cairo  # pycairo
     HAVE_CAIRO = True
-except Exception:
-    pass
+except Exception as e:
+    dbg("media/module-level: suppressed: %s" % e)
 
 
 # Process state for media probing (convention: module dict, no
@@ -105,8 +108,8 @@ def _media_gi_warmup():
             obj = base
             for part in dotted.split("."):
                 obj = getattr(obj, part)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("media/_touch: suppressed: %s" % e)
 
     for dotted in ("Discoverer.discover_uri",
                    "Discoverer.discover_uri_sync",
@@ -166,10 +169,10 @@ def _exif_read_ifd(data, base, bo, off, out, depth=0):
                 try:
                     sub = base + struct.unpack(bo + "I", out[tag][1])[0]
                     _exif_read_ifd(data, base, bo, sub, out, depth + 1)
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as e:
+                    dbg("media/_exif_read_ifd: suppressed: %s" % e)
+    except Exception as e:
+        dbg("media/_exif_read_ifd: suppressed: %s" % e)
 
 
 def _exif_str(entry):
@@ -179,8 +182,8 @@ def _exif_str(entry):
     try:
         return (entry[1].decode("utf-8", "replace")
                 .rstrip("\x00").strip() or None)
-    except Exception:
-        return None
+    except Exception as e:
+        dbg("media/_exif_str: suppressed: %s" % e)
 
 
 def _exif_num(entry, bo):
@@ -193,8 +196,8 @@ def _exif_num(entry, bo):
             return struct.unpack_from(bo + "H", val)[0]
         if typ == 4 and len(val) >= 4:
             return struct.unpack_from(bo + "I", val)[0]
-    except Exception:
-        pass
+    except Exception as e:
+        dbg("media/_exif_num: suppressed: %s" % e)
     return None
 
 
@@ -208,8 +211,8 @@ def _exif_frac(entry, bo):
             fmt = bo + ("ii" if typ == 10 else "II")
             n, d = struct.unpack_from(fmt, val)
             return float(n) / d if d else None
-    except Exception:
-        pass
+    except Exception as e:
+        dbg("media/_exif_frac: suppressed: %s" % e)
     return None
 
 
@@ -224,8 +227,8 @@ def _exif_dms(tags, tag, bo):
         m = n[2] / n[3] if n[3] else 0.0
         s = n[4] / n[5] if n[5] else 0.0
         return g + m / 60.0 + s / 3600.0
-    except Exception:
-        return None
+    except Exception as e:
+        dbg("media/_exif_dms: suppressed: %s" % e)
 
 
 # F38: standard XMP namespaces – anything BEYOND counts as
@@ -299,8 +302,8 @@ def _xmp_parse(data):
                 custom.setdefault("%s:%s" % (pfx, name), val)
         for key in list(custom)[:10]:
             out[key] = custom[key]
-    except Exception:
-        pass
+    except Exception as e:
+        dbg("media/_xmp_parse: suppressed: %s" % e)
     return out
 
 
@@ -317,8 +320,8 @@ def _exif_valid(data, base, bo, magic):
             return False
         cnt = struct.unpack_from(bo + "H", data, base + off)[0]
         return 0 < cnt <= 4096 and base + off + 2 + cnt * 12 <= len(data)
-    except Exception:
-        return False
+    except Exception as e:
+        dbg("media/_exif_valid: suppressed: %s" % e)
 
 
 def _exif_bases(data):
@@ -401,102 +404,147 @@ def _exif_parse(data):
     return {}
 
 
+def _exif_bo(data, base, magic):
+    """
+    S8 (0.42.0): Byte-Order des TIFF-Kopfes – None, wenn Kopf oder
+    Magie nicht passen (MM/II; 42 magisch, Olympus ORF trägt „RO“).
+    """
+    head = data[base:base + 2]
+    if head == b"MM":
+        bo = ">"
+    elif head == b"II":
+        bo = "<"
+    else:
+        return None
+    if magic and struct.unpack_from(bo + "H", data,
+                                    base + 2)[0] != 42:
+        return None
+    return bo
+
+
+def _exif_camera(tags, out):
+    """
+    F36: Kameramodell – viele Modelle wiederholen den Hersteller
+    im Modellnamen („Canon“ + „Canon EOS …“): nur dann kürzen.
+    """
+    make = _exif_str(tags.get(0x010F))
+    model = _exif_str(tags.get(0x0110))
+    if model:
+        if make and model.lower().startswith(make.lower()):
+            out["Kameramodell"] = model
+        elif make:
+            out["Kameramodell"] = "%s %s" % (make, model)
+        else:
+            out["Kameramodell"] = model
+
+
+def _exif_date(tags, out):
+    # F36: date taken – original before digitized before file
+    # date; makers may write the real date in only one spot.
+    for tag in (0x9003, 0x9004, 0x0132):
+        dt = _exif_str(tags.get(tag))
+        if dt and len(dt) >= 16 and dt[4] == ":" and dt[7] == ":":
+            out["Aufnahmedatum"] = "%s.%s.%s %s" % (
+                dt[8:10], dt[5:7], dt[0:4], dt[11:16])
+            return
+
+
+def _exif_exposure(tags, bo, out):
+    # F36: exposure time – direct value, else APEX time value
+    # (t = 2^-av; some compacts only write that one).
+    t = _exif_frac(tags.get(0x829A), bo)
+    if t is None:
+        av = _exif_frac(tags.get(0x9201), bo)
+        if av is not None:
+            t = 2.0 ** -av
+    if not t:
+        return
+    if t < 1.0:
+        out["Belichtungszeit"] = "1/%d s" % max(2, round(1.0 / t))
+    elif t == int(t):
+        out["Belichtungszeit"] = "%d s" % int(t)
+    else:
+        out["Belichtungszeit"] = "%.1f s" % t
+
+
+def _exif_aperture(tags, bo, out):
+    # F36: aperture – FNumber, else APEX opening (N = 2^(av/2)).
+    fn = _exif_frac(tags.get(0x829D), bo)
+    if fn is None:
+        av = _exif_frac(tags.get(0x9202), bo)
+        if av is not None:
+            fn = 2.0 ** (av / 2.0)
+    if fn:
+        out["Blende"] = "f/%.1f" % fn
+
+
+def _exif_focal(tags, bo, out):
+    # F36: "zoom" as focal length, plus 35 mm equivalent when it
+    # differs (full-frame cameras carry no own tag).
+    fl = _exif_frac(tags.get(0x920A), bo)
+    fl35 = _exif_num(tags.get(0xA405), bo)
+    if fl:
+        txt = "%g mm" % fl
+        if fl35 and abs(fl35 - fl) > 0.5:
+            txt += " (%d mm äquiv.)" % fl35
+        out["Brennweite"] = txt
+    elif fl35:
+        out["Brennweite"] = "%d mm" % fl35
+
+
+def _exif_iso_size(tags, bo, out):
+    # F36: ISO – classic ISOSpeedRatings, else ISOSpeed.
+    iso = _exif_num(tags.get(0x8827), bo)
+    if iso is None:
+        iso = _exif_num(tags.get(0x8833), bo)
+    if iso:
+        out["ISO"] = str(iso)
+    # F42 (RAW): pixel dimensions – the only size source without
+    # decoding (A002/A003 from the ExifIFD).
+    pw = _exif_num(tags.get(0xA002), bo)
+    ph = _exif_num(tags.get(0xA003), bo)
+    if pw and ph:
+        out["Maße"] = "%d × %d px" % (pw, ph)
+
+
+def _exif_place(tags, bo, out):
+    # F36: location – GPS deg/min/sec to decimal degrees; the
+    # reference letters (N/S, E/W) come from the GPS tags.
+    lat = _exif_dms(tags, 0x0002, bo)
+    lon = _exif_dms(tags, 0x0004, bo)
+    if lat is not None and lon is not None:
+        lr = (_exif_str(tags.get(0x0001)) or "N")[:1]
+        lor = (_exif_str(tags.get(0x0003)) or "E")[:1]
+        out["Aufnahmeort"] = "%.4f° %s, %.4f° %s" % (
+            abs(lat), lr, abs(lon), lor)
+
+
 def _exif_parse_at(data, base, magic=True):
     """
     F42: EXIF an EINEM TIFF-Basis-Offset – formatierender Teil der
     F36-Logik, von der Kandidaten-Schleife je Kandidat aufgerufen.
+    S8 (0.42.0): Zerlegt – _exif_bo prüft den Kopf, je Themenblock
+    (Kamera, Datum, Belichtung, Blende, Brennweite, ISO/Maße, Ort)
+    füllt ein kleiner Helfer das Dict; alles bleibt im try gegen
+    kaputte Dateien.
     """
     out = {}
     try:
-        head = data[base:base + 2]
-        if head == b"MM":
-            bo = ">"
-        elif head == b"II":
-            bo = "<"
-        else:
-            return out
-        if magic and struct.unpack_from(bo + "H", data,
-                                        base + 2)[0] != 42:
+        bo = _exif_bo(data, base, magic)
+        if bo is None:
             return out
         ifd0 = base + struct.unpack_from(bo + "I", data, base + 4)[0]
         tags = {}
         _exif_read_ifd(data, base, bo, ifd0, tags)
-        # F36: camera model – many models repeat the maker in the
-        # model name ("Canon" + "Canon EOS …"): shorten only then.
-        make = _exif_str(tags.get(0x010F))
-        model = _exif_str(tags.get(0x0110))
-        if model:
-            if make and model.lower().startswith(make.lower()):
-                out["Kameramodell"] = model
-            elif make:
-                out["Kameramodell"] = "%s %s" % (make, model)
-            else:
-                out["Kameramodell"] = model
-        # F36: date taken – original before digitized before file
-        # date; makers may write the real date in only one spot.
-        for tag in (0x9003, 0x9004, 0x0132):
-            dt = _exif_str(tags.get(tag))
-            if dt and len(dt) >= 16 and dt[4] == ":" and dt[7] == ":":
-                out["Aufnahmedatum"] = "%s.%s.%s %s" % (
-                    dt[8:10], dt[5:7], dt[0:4], dt[11:16])
-                break
-        # F36: exposure time – direct value, else APEX time value
-        # (t = 2^-av; some compacts only write that one).
-        t = _exif_frac(tags.get(0x829A), bo)
-        if t is None:
-            av = _exif_frac(tags.get(0x9201), bo)
-            if av is not None:
-                t = 2.0 ** -av
-        if t:
-            if t < 1.0:
-                out["Belichtungszeit"] = "1/%d s" % max(
-                    2, round(1.0 / t))
-            elif t == int(t):
-                out["Belichtungszeit"] = "%d s" % int(t)
-            else:
-                out["Belichtungszeit"] = "%.1f s" % t
-        # F36: aperture – FNumber, else APEX opening (N = 2^(av/2)).
-        fn = _exif_frac(tags.get(0x829D), bo)
-        if fn is None:
-            av = _exif_frac(tags.get(0x9202), bo)
-            if av is not None:
-                fn = 2.0 ** (av / 2.0)
-        if fn:
-            out["Blende"] = "f/%.1f" % fn
-        # F36: "zoom" as focal length, plus 35 mm equivalent when it
-        # differs (full-frame cameras carry no own tag).
-        fl = _exif_frac(tags.get(0x920A), bo)
-        fl35 = _exif_num(tags.get(0xA405), bo)
-        if fl:
-            txt = "%g mm" % fl
-            if fl35 and abs(fl35 - fl) > 0.5:
-                txt += " (%d mm äquiv.)" % fl35
-            out["Brennweite"] = txt
-        elif fl35:
-            out["Brennweite"] = "%d mm" % fl35
-        # F36: ISO – classic ISOSpeedRatings, else ISOSpeed.
-        iso = _exif_num(tags.get(0x8827), bo)
-        if iso is None:
-            iso = _exif_num(tags.get(0x8833), bo)
-        if iso:
-            out["ISO"] = str(iso)
-        # F42 (RAW): pixel dimensions – the only size source without
-        # decoding (A002/A003 from the ExifIFD).
-        pw = _exif_num(tags.get(0xA002), bo)
-        ph = _exif_num(tags.get(0xA003), bo)
-        if pw and ph:
-            out["Maße"] = "%d × %d px" % (pw, ph)
-        # F36: location – GPS deg/min/sec to decimal degrees; the
-        # reference letters (N/S, E/W) come from the GPS tags.
-        lat = _exif_dms(tags, 0x0002, bo)
-        lon = _exif_dms(tags, 0x0004, bo)
-        if lat is not None and lon is not None:
-            lr = (_exif_str(tags.get(0x0001)) or "N")[:1]
-            lor = (_exif_str(tags.get(0x0003)) or "E")[:1]
-            out["Aufnahmeort"] = "%.4f° %s, %.4f° %s" % (
-                abs(lat), lr, abs(lon), lor)
+        _exif_camera(tags, out)
+        _exif_date(tags, out)
+        _exif_exposure(tags, bo, out)
+        _exif_aperture(tags, bo, out)
+        _exif_focal(tags, bo, out)
+        _exif_iso_size(tags, bo, out)
+        _exif_place(tags, bo, out)
     except Exception as exc:
-        dbg("EXIF parse failed: %s" % exc)
+        dbg("media/_exif_parse_at: suppressed: %s" % exc)
     return out
 
 
@@ -545,8 +593,8 @@ class MediaRendererMixin:
             if img is not None:
                 img.set_halign(Gtk.Align.CENTER)
                 img.set_valign(Gtk.Align.CENTER)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("media/_pack_image_capped: suppressed: %s" % e)
         top.pack_start(scroll, True, True, 0)
         bottom = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         # F38: info area – _meta_grid packs the image table here.
@@ -573,8 +621,8 @@ class MediaRendererMixin:
                 cur = widget.get_size_request()[1] or 0
                 if abs(cur - want) > 2:
                     widget.set_size_request(-1, want)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("media/_image_split_sync: suppressed: %s" % e)
 
     def _rsvg_cairo_pb(self, handle):
         """
@@ -612,8 +660,8 @@ class MediaRendererMixin:
             if pb is None:
                 return None
             return pb, (int(w), int(h))
-        except Exception:
-            return None
+        except Exception as e:
+            dbg("media/_rsvg_cairo_pb: suppressed: %s" % e)
 
     def _render_svg(self, path):
         """
@@ -625,7 +673,7 @@ class MediaRendererMixin:
         Das Maße-Label zeigt die INTRINSISCHE Größe.
         """
         if not HAVE_RSVG:
-            self._hint("SVG-Vorschau nicht verfügbar – "
+            pack_hint(self._content, "SVG-Vorschau nicht verfügbar – "
                        "Paket gir1.2-rsvg installieren.")
             self._render_generic()
             return
@@ -636,7 +684,7 @@ class MediaRendererMixin:
         try:
             handle = Rsvg.Handle.new_from_file(path)
         except Exception as e:
-            err = e
+            dbg("media/_render_svg: suppressed: %s" % e)
         if handle is not None:
             got = self._rsvg_cairo_pb(handle)
             if got is not None:
@@ -647,9 +695,9 @@ class MediaRendererMixin:
                 try:
                     pb = handle.get_pixbuf()
                 except Exception as e:
-                    err = err or e
+                    dbg("media/_render_svg: suppressed: %s" % e)
         if pb is None:
-            self._hint("Konnte SVG nicht lesen: %s" % err)
+            pack_hint(self._content, "Konnte SVG nicht lesen: %s" % err)
             self._render_generic()
             return
         scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False,
@@ -664,8 +712,8 @@ class MediaRendererMixin:
             # F38: dimensions into the info area of the column split.
             box = getattr(self, "_image_info_box", None) or self._content
             box.pack_start(info, False, False, 0)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("media/_render_svg: suppressed: %s" % e)
 
     def _render_image(self, path):
         """
@@ -690,11 +738,11 @@ class MediaRendererMixin:
         ausnahmsweise fehl, läuft der alte synchrone Weg als
         Rettungsanker.
         """
-        self._hint("Lade Bild – einen Moment …")
+        pack_hint(self._content, "Lade Bild – einen Moment …")
         try:
             target_w = max(1024, self._preview_width() * 2)
-        except Exception:
-            target_w = 1024
+        except Exception as e:
+            dbg("media/_render_image: suppressed: %s" % e)
 
         def work():
             data, err, exif, xmp = None, None, None, None
@@ -703,7 +751,7 @@ class MediaRendererMixin:
                     data = fh.read(_IMAGE_FILE_CAP)
                 dbg("Image read: %s (%d bytes)" % (path, len(data)))
             except Exception as exc:
-                data, err = None, exc
+                dbg("media/_render_image: suppressed: %s" % exc)
                 dbg("Image read failed (%s): %s" % (path, exc))
             # F36: evaluate EXIF right in the worker – pure byte
             # work, fitting the R1/B7 thread discipline. F38: XMP too.
@@ -714,13 +762,13 @@ class MediaRendererMixin:
                 GLib.idle_add(self._image_probe_done,
                               path, target_w, data, err, exif, xmp)
             except Exception as exc:
-                dbg("Image return failed (%s): %s"
+                dbg("media/_render_image: suppressed: %s" % exc)
                     % (path, exc))
 
         try:
             threading.Thread(target=work, daemon=True).start()
-        except Exception:
-            # Lifeline: thread not startable → read synchronously,
+        except Exception as e:
+            dbg("media/_render_image: suppressed: %s" % e)
             # _image_probe_done decodes directly.
             data, err, exif, xmp = None, None, None, None
             try:
@@ -730,7 +778,7 @@ class MediaRendererMixin:
                     exif = _exif_parse(data)
                     xmp = _xmp_parse(data)
             except Exception as exc:
-                data, err = None, exc
+                dbg("media/_render_image: suppressed: %s" % exc)
             self._image_probe_done(path, target_w, data, err, exif, xmp)
 
     def _image_probe_done(self, path, target_w, data, err, exif=None,
@@ -764,14 +812,14 @@ class MediaRendererMixin:
                     data, max_w=target_w, max_h=2 * MAX_IMAGE_HEIGHT,
                     orig=orig)
             except Exception as exc:
-                dbg("Image decode failed (%s): %s"
+                dbg("media/_image_probe_done: suppressed: %s" % exc)
                     % (path, exc))
         if pb is None:
             try:
                 pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
                     path, 4096, 4096, True)
-            except Exception:
-                pb = None
+            except Exception as e:
+                dbg("media/_image_probe_done: suppressed: %s" % e)
         if pb is None:
             # F42: Gdk-Pixbuf mostly cannot decode RAW (NEF, CR2 …);
             # EXIF/XMP are in the buffer – show a photo table (→ REF MED-EXIF-3).
@@ -783,10 +831,10 @@ class MediaRendererMixin:
                 dbg("RAW/undecodable: photo table (%d rows)"
                     % len(rows))
                 self._render_generic()
-                self._meta_grid(rows, None)
+                pack_meta_grid(rows, self._content)
                 self._content.show_all()
                 return False
-            self._hint("Konnte Bild nicht laden: %s" % (err or "unbekannt"))
+            pack_hint(self._content, "Konnte Bild nicht laden: %s" % (err or "unbekannt"))
             self._render_generic()
             # This fallback also packs AFTER the render pass's
             # show_all() – invisible without its own show_all.
@@ -796,8 +844,8 @@ class MediaRendererMixin:
         # rotation in the Orientation tag would otherwise lie sideways.
         try:
             pb = pb.apply_embedded_orientation()
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("media/_image_probe_done: suppressed: %s" % e)
         dbg("Image decoded: %s (%d × %d px)" %
             (path, pb.get_width(), pb.get_height()))
         if pb.get_width() > 4096 or pb.get_height() > MAX_IMAGE_HEIGHT:
@@ -818,9 +866,9 @@ class MediaRendererMixin:
             # F42: EXIF/XMP rows together with the RAW fallback.
             rows += _exif_rows(exif, xmp)
             # F38: table into the 40% info area of the split.
-            self._meta_grid(rows, self._image_info_box)
-        except Exception:
-            pass
+            pack_meta_grid(rows, self._image_info_box)
+        except Exception as e:
+            dbg("media/_image_probe_done: suppressed: %s" % e)
         # → REF MED-B7-1
         self._content.show_all()
         return False
@@ -853,7 +901,7 @@ class MediaRendererMixin:
         (PyGObject löst Method-Tabellen lazy auf) und die Erkundung
         läuft im Worker als fertig aufgelöstes Callable.
         """
-        self._hint("Lese Medien-Informationen – einen Moment …")
+        pack_hint(self._content, "Lese Medien-Informationen – einen Moment …")
         _media_gi_warmup()
         try:
             try:
@@ -868,7 +916,7 @@ class MediaRendererMixin:
             if probe is None:
                 probe = disc.discover_uri_sync
         except Exception as e:
-            dbg("Discoverer not creatable: %s" % e)
+            dbg("media/_media_probe_async: suppressed: %s" % e)
             # Without the Discoverer still build the UI (placeholder,
             # player) – do not get stuck on the hint.
             GLib.idle_add(self._media_probe_done, path, uri, finish,
@@ -921,7 +969,7 @@ class MediaRendererMixin:
                                 Gst.TAG_ALBUM_VOLUME_COUNT))
                         tags["year"] = self._tag_year(taglist)
                     except Exception as e:
-                        dbg("Tag extraction (F33) failed: %s" % e)
+                        dbg("media/_media_probe_async: suppressed: %s" % e)
                     # Collect image bytes (decoding happens in the
                     # GTK thread). Videos: still image; audio: cover.
                     order = ((Gst.TAG_PREVIEW_IMAGE, Gst.TAG_IMAGE) if video
@@ -936,7 +984,7 @@ class MediaRendererMixin:
                                 0, min(buf.get_size(), _MEDIA_IMAGE_CAP))
                             break
             except Exception as e:
-                dbg("Discoverer error: %s" % e)
+                dbg("media/_media_probe_async: suppressed: %s" % e)
             GLib.idle_add(self._media_probe_done, path, uri, finish,
                           tags, duration, image_bytes)
 
@@ -955,20 +1003,20 @@ class MediaRendererMixin:
                 # _pixbuf_from_bytes) instead of a raw PixbufLoader.
                 pixbuf = _pixbuf_from_bytes(image_bytes)
             except Exception as exc:
-                dbg("Media image not displayable: %s" % exc)
+                dbg("media/_media_probe_done: suppressed: %s" % exc)
         # Remove the reading hint and build the actual preview.
         self._clear_content()
         try:
             finish(path, uri, tags, duration, pixbuf)
-        except Exception:
-            # Same guard as in _render: never raise, always fall back.
+        except Exception as e:
+            dbg("media/_media_probe_done: suppressed: %s" % e)
             dbg("Media preview build error (%r):" % path)
             traceback.print_exc()
             try:
                 self._clear_content()
                 self._render_generic()
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("media/_media_probe_done: suppressed: %s" % e)
         # Widgets packed only here sit AFTER the render pass's
         # show_all() – they need their own show_all.
         self._content.show_all()
@@ -1038,7 +1086,7 @@ class MediaRendererMixin:
             PangoCairo.show_layout(cr, layout)
             return Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
         except Exception as exc:
-            dbg("Placeholder cover not drawable (%s) – icon fallback"
+            dbg("media/_media_cover_placeholder: suppressed: %s" % exc)
                 % exc)
         # Fallback: file icon on a dark, opaque background
         pb = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8,
@@ -1052,8 +1100,8 @@ class MediaRendererMixin:
                            (size - icon.get_height()) // 2,
                            icon.get_width(), icon.get_height(),
                            0, 0, 1, 1, GdkPixbuf.InterpType.BILINEAR, 255)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("media/_media_cover_placeholder: suppressed: %s" % e)
         return pb
 
     def _tag_number_pair(self, taglist, num_tag, count_tag):
@@ -1067,14 +1115,14 @@ class MediaRendererMixin:
             ok, val = taglist.get_uint(num_tag)
             if ok and val and int(val) > 0:
                 num = int(val)
-        except Exception:
-            num = None
+        except Exception as e:
+            dbg("media/_tag_number_pair: suppressed: %s" % e)
         try:
             ok, val = taglist.get_uint(count_tag)
             if ok and val and int(val) > 0:
                 total = int(val)
-        except Exception:
-            total = None
+        except Exception as e:
+            dbg("media/_tag_number_pair: suppressed: %s" % e)
         if num is None:
             # String fallback: "3/12" carries the total count along.
             tail = ""
@@ -1083,13 +1131,13 @@ class MediaRendererMixin:
                 if ok and val:
                     head, _, tail = val.strip().partition("/")
                     num = int(head)
-            except Exception:
-                num = None
+            except Exception as e:
+                dbg("media/_tag_number_pair: suppressed: %s" % e)
             if num is not None and num > 0 and total is None and tail:
                 try:
                     total = int(tail)
-                except ValueError:
-                    pass
+                except ValueError as e:
+                    dbg("media/_tag_number_pair: suppressed: %s" % e)
         return num, total
 
     def _tag_year(self, taglist):
@@ -1105,36 +1153,25 @@ class MediaRendererMixin:
                     year = dt.get_year()
                     if year and year > 0:
                         return year
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("media/_tag_year: suppressed: %s" % e)
             try:
                 ok, gd = taglist.get_date(name)
                 if ok and gd:
                     year = gd.get_year()
                     if year and year > 0:
                         return year
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("media/_tag_year: suppressed: %s" % e)
             try:
                 ok, val = taglist.get_string(name)
                 if ok and val:
                     head = str(val).strip()[:4]
                     if head.isdigit():
                         return int(head)
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("media/_tag_year: suppressed: %s" % e)
         return None
-
-    @staticmethod
-    def _cover_round_path(cr, x, y, w, h, r):
-        """F34: Rechteck mit runden Ecken als aktuellen Cairo-Pfad."""
-        r = min(r, w / 2.0, h / 2.0)
-        cr.new_sub_path()
-        cr.arc(x + w - r, y + r, r, -0.5 * math.pi, 0.0)
-        cr.arc(x + w - r, y + h - r, r, 0.0, 0.5 * math.pi)
-        cr.arc(x + r, y + h - r, r, 0.5 * math.pi, math.pi)
-        cr.arc(x + r, y + r, r, math.pi, 1.5 * math.pi)
-        cr.close_path()
 
     def _cover_shadowed(self, pb):
         """
@@ -1161,12 +1198,12 @@ class MediaRendererMixin:
             # Shadow: six stacked tiles growing outward.
             for i in range(6, 0, -1):
                 cr.set_source_rgba(0.0, 0.0, 0.0, 0.04)
-                self._cover_round_path(cr, pad + dx - i, pad + dy - i,
+                cover_round_path(cr, pad + dx - i, pad + dy - i,
                                        w + 2 * i, h + 2 * i, r + i)
                 cr.fill()
             # Tile: corner clipping, then the cover inside.
             cr.save()
-            self._cover_round_path(cr, pad, pad, w, h, r)
+            cover_round_path(cr, pad, pad, w, h, r)
             cr.clip()
             Gdk.cairo_set_source_pixbuf(cr, pb, pad, pad)
             cr.paint()
@@ -1174,7 +1211,7 @@ class MediaRendererMixin:
             out = Gdk.pixbuf_get_from_surface(surf, 0, 0, ow, oh)
             return out if out is not None else pb
         except Exception as e:
-            dbg("Cover frame (F34) failed: %s" % e)
+            dbg("media/_cover_shadowed: suppressed: %s" % e)
             return pb
 
     def _finish_audio(self, path, uri, tags, duration, cover):
@@ -1233,7 +1270,7 @@ class MediaRendererMixin:
 
         # 0.9.1: info table via the central helper (previously
         # inline). F35: colons are set centrally in _meta_grid.
-        self._meta_grid(rows)
+        pack_meta_grid(rows, self._content)
 
     def _playbin_set_uri(self, uri):
         """
@@ -1296,25 +1333,25 @@ class MediaRendererMixin:
                 self._pos_label.set_text("0:00")
             if getattr(self, "_seek_scale", None):
                 self._seek_scale.set_value(0)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("media/_on_player_eos: suppressed: %s" % e)
 
     def _on_player_error(self, bus, msg):
         """Abspielfehler: still abstoppen und im Panel melden (B2)."""
         try:
             err, detail = msg.parse_error()
             dbg("Playback error: %s (%s)" % (err, detail))
-        except Exception:
-            err = "unknown playback error"
+        except Exception as e:
+            dbg("media/_on_player_error: suppressed: %s" % e)
         try:
             self._playbin.set_state(Gst.State.NULL)
             if getattr(self, "_btn_play", None):
                 self._btn_play.set_image(Gtk.Image.new_from_icon_name(
                     "media-playback-start-symbolic", Gtk.IconSize.BUTTON))
-            self._hint("Abspielfehler – Datei über den Öffnen-Knopf "
+            pack_hint(self._content, "Abspielfehler – Datei über den Öffnen-Knopf "
                        "mit einer anderen Anwendung betrachten.")
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("media/_on_player_error: suppressed: %s" % e)
 
     def _ensure_progress_timer(self):
         """Positionstimer anlegen, falls er gerade nicht läuft (B3)."""
@@ -1361,7 +1398,7 @@ class MediaRendererMixin:
             rows.append(("Länge", format_seconds(duration)))
         # 0.9.1: info table via the central helper (previously
         # inline, now uniform like EML/e-book/audio).
-        self._meta_grid(rows)
+        pack_meta_grid(rows, self._content)
 
     # --- Audio player logic ---------------------------------------------------
 
@@ -1391,8 +1428,8 @@ class MediaRendererMixin:
                     Gst.Format.TIME, Gst.SeekFlags.FLUSH,
                     int(value / max(scale.get_adjustment().get_upper(), 1)
                         * dur))
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("media/_on_seek: suppressed: %s" % e)
         return False
 
     def _tick_player(self):
@@ -1416,8 +1453,8 @@ class MediaRendererMixin:
                     # → REF MED-SEEK-1
                     self._ensure_seek_range(dur)
                     self._update_seek_pos(pos)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("media/_tick_player: suppressed: %s" % e)
         return True  # keep running
 
     def _ensure_seek_range(self, dur_ns):
@@ -1463,11 +1500,11 @@ class MediaRendererMixin:
         if self._playbin is not None:
             try:
                 self._playbin.set_state(Gst.State.NULL)
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("media/_stop_playback: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.41.0"
+PREVIEWER_VERSION = "0.42.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
