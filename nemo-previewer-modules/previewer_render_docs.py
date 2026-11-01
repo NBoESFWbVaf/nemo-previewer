@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.38.1
+previewer_render_docs.py – Version 0.39.0
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -452,6 +452,13 @@ class DocsRendererMixin:
             pass
         return None
 
+    def _office_fail(self, path):
+        """Remember a failed conversion (B4: capped at 256 paths, the
+        set then resets – retry loop protection)."""
+        self._office_failed.add(path)
+        if len(self._office_failed) > 256:
+            self._office_failed.clear()
+
     def _office_start_job(self, path):
         """LibreOffice-Konvertierung im Hintergrund starten."""
         if self._office_job is not None:
@@ -502,9 +509,7 @@ class DocsRendererMixin:
                         % exc)
                 if not cache_ok:
                     # → REF DOC-B4-1
-                    self._office_failed.add(path)
-                    if len(self._office_failed) > 256:
-                        self._office_failed.clear()
+                    self._office_fail(path)
                     if self._path == path:
                         try:
                             # Remove the transitional thumbnail with
@@ -519,9 +524,7 @@ class DocsRendererMixin:
             else:
                 # Remember a failed conversion – prevents an
                 # endless loop of retry attempts.
-                self._office_failed.add(path)
-                if len(self._office_failed) > 256:
-                    self._office_failed.clear()
+                self._office_fail(path)
                 if self._path == path:
                     dbg("LibreOffice conversion without result "
                         "(status %s) – thumbnail stays" % status)
@@ -540,8 +543,7 @@ class DocsRendererMixin:
             pass
 
 
-
-PREVIEWER_VERSION = "0.38.1"
+PREVIEWER_VERSION = "0.39.0"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)
