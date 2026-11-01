@@ -605,8 +605,8 @@ def _epub_cover(zf, names, base, manifest, cover_id):
         try:
             cover = _zf_read_capped(zf, base + manifest[cover_id][0],
                                     _EBOOK_COVER_CAP)
-        except KeyError as e:
-            dbg("text/_epub_cover: suppressed: %s" % e)
+        except KeyError:
+            cover = None
     if not cover:
         for name in names:
             low = name.rsplit("/", 1)[-1].lower()
@@ -640,8 +640,8 @@ def _epub_text(zf, base, spine, manifest):
             continue
         try:
             raw = _zf_read_capped(zf, base + href, _EBOOK_CHUNK_CAP)
-        except KeyError as e:
-            dbg("text/_epub_text: suppressed: %s" % e)
+        except KeyError:
+            continue
         chunk = _html_to_text(raw.decode("utf-8", "replace"))
         if chunk.strip():
             parts.append(chunk)
@@ -743,8 +743,8 @@ def _fb2_cover(root, cover_ref):
                 b64 = re.sub(r"\s+", "", "".join(el.itertext()))
                 try:
                     cover = base64.b64decode(b64)
-                except Exception as e:
-                    dbg("text/_fb2_cover: suppressed: %s" % e)
+                except Exception:
+                    cover = None
                 break
     return cover
 
@@ -946,8 +946,8 @@ def _font_info(path):
                 text = raw.decode("utf-16-be", "replace")
             else:                          # Mac etc.: roughly Latin-1
                 text = raw.decode("latin-1", "replace")
-        except Exception as e:
-            dbg("text/_font_info: suppressed: %s" % e)
+        except Exception:
+            continue
         text = text.strip("\x00 ").strip()
         if text:
             recs.setdefault(nid, text)
@@ -995,8 +995,8 @@ def _fc_add_font_file(path):
             state["added"].add(path)
             return True
         return False
-    except Exception as e:
-        dbg("text/_fc_add_font_file: suppressed: %s" % e)
+    except Exception:
+        return False
 
 
 def _font_known(font_map, family):
@@ -1011,8 +1011,8 @@ def _font_known(font_map, family):
             if (fam.get_name() or "").lower() == low:
                 return True
         return False
-    except Exception as e:
-        dbg("text/_font_known: suppressed: %s" % e)
+    except Exception:
+        return True      # check impossible – do not block
 
 
 # ============================ Renderer: text ================================
@@ -1190,8 +1190,8 @@ def _vcard_photo(card):
         if "B" in encs or "BASE64" in encs:
             try:
                 return base64.b64decode(re.sub(r"\s+", "", value))
-            except Exception as e:
-                dbg("text/_vcard_photo: suppressed: %s" % e)
+            except Exception:
+                continue
         raw = value.strip()
         vals = params.get("VALUE", [])
         looks_uri = ("URI" in vals or "URL" in vals or "URI" in encs
@@ -1204,8 +1204,8 @@ def _vcard_photo(card):
             if path and os.path.isfile(path):
                 with open(path, "rb") as fh:
                     return fh.read(16 * 1024 * 1024)
-        except Exception as e:
-            dbg("text/_vcard_photo: suppressed: %s" % e)
+        except Exception:
+            continue
     return None
 
 
@@ -1235,7 +1235,7 @@ def _vcard_circle(pb, size=160):
         out = Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
         return out if out is not None else pb
     except Exception as e:
-        dbg("text/_vcard_circle: suppressed: %s" % e)
+        dbg("vCard circle mask failed (%s) – square photo" % e)
         return pb
 
 
@@ -1268,7 +1268,7 @@ def _vcard_placeholder(size=160):
         cr.fill()
         return Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
     except Exception as e:
-        dbg("text/_vcard_placeholder: suppressed: %s" % e)
+        dbg("vCard placeholder failed (%s) – icon fallback" % e)
         return None
 
 
@@ -1485,8 +1485,8 @@ def _contact_parse(text):
     """
     try:
         root = ElementTree.fromstring(text)
-    except Exception as e:
-        dbg("text/_contact_parse: suppressed: %s" % e)
+    except Exception:
+        return []
     nodes = [el for el in root.iter()
              if isinstance(el.tag, str)
              and el.tag.rsplit("}", 1)[-1].lower() == "contact"]
@@ -1522,7 +1522,7 @@ class TextRendererMixin:
         try:
             text, truncated = self._read_text_file(path)
         except Exception as e:
-            dbg("text/_render_text: suppressed: %s" % e)
+            self._hint("Konnte Datei nicht lesen: %s" % e)
             return
         # F24: line numbers per the "Text files" setting (default on);
         # margin drawing, not text buffer – only the text is copied.
@@ -1544,7 +1544,7 @@ class TextRendererMixin:
         try:
             text, truncated = self._read_text_file(path)
         except Exception as e:
-            dbg("text/_render_markdown: suppressed: %s" % e)
+            self._hint("Konnte Datei nicht lesen: %s" % e)
             return
         markup = _markdown_to_pango(text)
         valid = True
@@ -1553,7 +1553,7 @@ class TextRendererMixin:
             # on invalid markup (no exception!) – show raw text instead.
             Pango.parse_markup(markup, -1, "\x00")
         except Exception as exc:
-            dbg("text/_render_markdown: suppressed: %s" % exc)
+            valid = False
             dbg("Markdown markup invalid (%s) – showing raw text" % exc)
         # → REF TXT-B6-1
         self._text_view(text, font=None, markup=(markup if valid else None))
@@ -1574,7 +1574,7 @@ class TextRendererMixin:
                 raw = fh.read(_EML_FILE_CAP)
             msg = email.message_from_bytes(raw, policy=policy.default)
         except Exception as e:
-            dbg("text/_render_eml: suppressed: %s" % e)
+            self._hint("E-Mail konnte nicht geöffnet werden: %s" % e)
             return
 
         rows = []
@@ -1583,8 +1583,8 @@ class TextRendererMixin:
                            ("date", "Datum")):
             try:
                 val = msg.get(key)
-            except Exception as e:
-                dbg("text/_render_eml: suppressed: %s" % e)
+            except Exception:
+                val = None
             if val:
                 rows.append((label, str(val)[:160]))
         # 0.9.1: headers via the central table helper (previously
@@ -1604,20 +1604,20 @@ class TextRendererMixin:
         part = None
         try:
             part = msg.get_body(preferencelist=("plain", "html"))
-        except Exception as e:
-            dbg("text/_eml_body: suppressed: %s" % e)
+        except Exception:
+            part = None
         if part is not None:
             try:
                 text = part.get_content()
-            except Exception as e:
-                dbg("text/_eml_body: suppressed: %s" % e)
+            except Exception:
+                try:
                     raw = part.get_payload(decode=True)
                     if raw:
                         text = raw.decode(
                             part.get_content_charset() or "utf-8",
                             "replace")
-                except Exception as e:
-                    dbg("text/_eml_body: suppressed: %s" % e)
+                except Exception:
+                    text = ""
             try:
                 if "html" in (part.get_content_type() or "").lower():
                     text = _html_to_text(text)
@@ -1632,8 +1632,8 @@ class TextRendererMixin:
                         if raw:
                             text = raw.decode("utf-8", "replace")
                             break
-            except Exception as e:
-                dbg("text/_eml_body: suppressed: %s" % e)
+            except Exception:
+                text = ""
         return text[:MAX_TEXT_BYTES]
 
     def _render_vcard(self, path):
@@ -1657,7 +1657,7 @@ class TextRendererMixin:
                 # file – a few MB are normal, dozens would be a bomb.
                 raw = fh.read(_VCARD_FILE_CAP)
         except Exception as e:
-            dbg("text/_render_vcard: suppressed: %s" % e)
+            self._hint("Visitenkarte konnte nicht geöffnet werden: %s"
                        % e)
             return
         text = raw.decode("utf-8", "replace")
@@ -1745,7 +1745,7 @@ class TextRendererMixin:
                 pb = _pixbuf_from_bytes(photo_bytes)
                 had_photo = pb is not None
             except Exception as e:
-                dbg("text/_vcard_card_widget: suppressed: %s" % e)
+                dbg("vCard photo undecodable (%s) – placeholder "
                     "circle" % e)
         pb = _vcard_circle(pb) if pb is not None else None
         if pb is None:
@@ -1826,7 +1826,7 @@ class TextRendererMixin:
             cr.set_line_width(1.0)
             cr.stroke()
         except Exception as e:
-            dbg("text/_vcard_card_draw: suppressed: %s" % e)
+            dbg("vCard card background failed (%s)" % e)
         return False
 
     def _render_ebook(self, path, loader, fmt):
@@ -1839,7 +1839,7 @@ class TextRendererMixin:
         try:
             rows, cover, text = loader(path)
         except Exception as e:
-            dbg("text/_render_ebook: suppressed: %s" % e)
+            dbg("E-book unreadable (%s): %s" % (path, e))
             pack_hint(self._content, "E-Book konnte nicht gelesen werden: %s" % e)
             self._render_generic()
             return
@@ -1854,7 +1854,7 @@ class TextRendererMixin:
                     max_upscale=2.0)
                 self._content.pack_start(scroll, False, False, 0)
             except Exception as exc:
-                dbg("text/_render_ebook: suppressed: %s" % exc)
+                dbg("E-book cover not displayable: %s" % exc)
         if not text.strip():
             pack_hint(self._content, "Kein lesbarer Text gefunden – Datei über den "
                        "Öffnen-Knopf betrachten.")
@@ -1889,7 +1889,7 @@ class TextRendererMixin:
         try:
             fmt, family, style = _font_info(path)
         except Exception as e:
-            dbg("text/_render_font: suppressed: %s" % e)
+            dbg("Font unreadable (%s): %s" % (path, e))
             pack_hint(self._content, "Konnte Schrift nicht lesen: %s" % e)
             self._render_generic()
             return
@@ -1908,7 +1908,7 @@ class TextRendererMixin:
         try:
             fctx = PangoCairo.FontMap.new().create_context()
         except Exception as e:
-            dbg("text/_render_font: suppressed: %s" % e)
+            dbg("Pango context failed: %s" % e)
             pack_hint(self._content, "Schriftvorschau nicht verfügbar.")
             self._render_generic()
             return
