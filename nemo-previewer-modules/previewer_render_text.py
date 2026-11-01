@@ -1865,4 +1865,3 @@ dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "K4 markdown and read caps stay)"
     % PREVIEWER_VERSION)
-    % PREVIEWER_VERSION)
