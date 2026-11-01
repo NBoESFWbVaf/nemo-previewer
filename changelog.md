@@ -6,6 +6,15 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.38.0\] – 2026-11-01
+
+### Changed (Geändert)
+
+- Debuglog auf Englisch (Nutzer-Wunsch): Alle Debug-Ausgaben (dbg-Zeilen)  
+  der acht Python-Dateien sind ins Englische übersetzt und etwas  
+  gekürzt – Fachbegriffe, Versions- und F-Marker sowie die TRACE-  
+  Präfixe bleiben erhalten; Docstrings und UI-Texte sind unangetastet.
+
 ## \[0.37.0\] – 2026-11-01
 
 ### Changed (Geändert)
