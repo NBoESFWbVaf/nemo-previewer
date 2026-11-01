@@ -958,6 +958,14 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   das Panel ist beim Einpacken schon sichtbar; der Knopf  
   synchronisiert jetzt direkt beim Einpacken  
   (→ REF ENT-TOGGLE-1).
+  ✅ 0.35.0 – Modul-Unterordner (Nutzer-Wunsch): Die sieben Modul-  
+  Dateien liegen im Unterordner nemo-previewer-modules, nur die  
+  Einstiegsdatei previewer.py bleibt direkt im Extension-Ordner;  
+  der Einstieg stellt den Unterordner vor den Importen auf den  
+  Import-Pfad (VOR dem Extension-Ordner, flache Alt-Kopien gewinnen  
+  nie), neue Log-Zeile „Module-Ordner: …“; INSTALL auf das neue  
+  Layout umgestellt (Kopieren, Upgrade inkl. Alt-Kopien-Aufräumen,  
+  Deinstallation) (→ REF ENT-MODDIR-1).
 
 ---
 
