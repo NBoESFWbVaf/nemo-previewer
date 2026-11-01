@@ -281,7 +281,7 @@ except Exception:
 
 - **Modul:** previewer\_select.py
 - **Ort:** Modul-Ebene, unter dem Abschnittstitel „Native Auswahl über den Klassen-VTable von NemoView (peek\_selection)“
-- **Anlass:** libnemo-private ist auf Mint 22 statisch – peek\_selection wird als Funktionszeiger aus dem NemoView-Klassen-VTable gelesen, Indizes aus nemo-view.h verifiziert.
+- **Anlass:** libnemo-private ist auf Mint 22 statisch – peek\_selection wird als Funktionszeiger aus dem NemoView-Klassen-VTable gelesen, Indizes aus nemo-view.h verifiziert. Seit 0.39.0 (Straffungs-Runde) sind der dlopen-Fallback (libnemo-private.so, auf Nemo 6 grundsätzlich erfolglos) und die GI-Kaskade (Route 2) entfernt – der Klassen-VTable ist die einzige Nemo-Quelle, GTK/ATK-Fallbacks folgen.
 
 ```text
 #
