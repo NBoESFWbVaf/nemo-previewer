@@ -6,6 +6,22 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.42.0\] – 2026-11-01
+
+### Changed (Geändert)
+
+- Spaghetti-Audit Runde 2 (Refactoring, Verhalten unverändert): Die  
+  vier verbleibenden God-Functions sind zerlegt – Ordner-Vorschau  
+  (_render_folder in Icon-, Zeilen- und Scroll-Helfer), E-Book-Trio  
+  (EPUB/FB2/MOBI je Parse-Helfer), EXIF-Formatierung (je Themenblock  
+  ein Helfer) und die Markdown-Tabellen (Zellen/Zeilen/Breiten-  
+  Helfer). Die Cross-Mixin-Helfer pack_hint, pack_meta_grid,  
+  cover_round_path, build_scaled_image und build_text_view liegen  
+  jetzt in previewer_util statt im Panel-Mixin. Stille pass-Schlucker  
+  in except-Blöcken loggen ab sofort die unterdrückte Ausnahme mit  
+  dbg() – kaputte Dateien verraten sich so im Log statt stumm zu  
+  bleiben.
+
 ## \[0.41.0\] – 2026-11-01
 
 ### Changed (Geändert)
