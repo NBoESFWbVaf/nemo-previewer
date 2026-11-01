@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.38.0
+previewer_panel.py – Version 0.38.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -365,12 +365,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             Gtk.render_background(content_ctx, cr, 0, 0, w, h)
             used = "Inhalt-ungeprüft"
         else:
-            # Last resort: base area derived from the foreground
-            # color – light in light mode, dark in dark mode.
+            # Last resort: base area derived from the fg color –
+            # contrast-correct (0.38.1, F46 XI): bright fg → dark base.
             fg = self.get_style_context().get_color(
                 Gtk.StateFlags.NORMAL)
-            base = 0.92 if (fg.red + fg.green + fg.blue) / 3.0 \
-                > 0.5 else 0.12
+            base = 0.12 if (fg.red + fg.green + fg.blue) / 3.0 \
+                > 0.5 else 0.92
             cr.set_source_rgba(base, base, base, 1.0)
             cr.rectangle(0, 0, w, h)
             cr.fill()
@@ -419,7 +419,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             except Exception:
                 pass
             if farbe is None:
-                farbe = "rgb(56,56,56)"
+                # 0.38.1 (F46 XI): fallback is fg-derived now – the
+                # old hardcoded rgb(56,56,56) shone dark in light mode.
+                fg = self.get_style_context().get_color(
+                    Gtk.StateFlags.NORMAL)
+                base = 0.12 if (fg.red + fg.green + fg.blue) / 3.0 \
+                    > 0.5 else 0.92
+                farbe = "rgb(%d,%d,%d)" % (
+                    round(base * 255), round(base * 255),
+                    round(base * 255))
             css = (
                 ".pvw-surface,"
                 ".pvw-surface junction,"
@@ -1561,7 +1569,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
 
 
-PREVIEWER_VERSION = "0.38.0"
+PREVIEWER_VERSION = "0.38.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
