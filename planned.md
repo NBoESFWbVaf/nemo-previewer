@@ -280,6 +280,23 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   (libnemo-private auf Nemo 6 grundsätzlich nicht ladbar); die  
   restlichen diag()-Zeilen sind auf Englisch übersetzt.  
 
+- [x] **K9** – Spaghetti-Code-Runde 1 (Audit 2026-11-01, Nutzer-Auftrag):  
+  God-Functions zerlegen und F46-Diagnose zurückbauen – S1  
+  Einstellungsfenster (Toolbar) in vier Rubrik-Helfer, S4  
+  \_render\_office\_thumb (Docs, Tiefe 13) und \_apply\_scale (Panel,  
+  Tiefe 12) flachklopfen, S5 F46-Pixelsonden/Margins-Diagnose  
+  entfernen. **M**  
+  ✅ 0.40.0: umgesetzt – Verhalten unverändert, die Tiefe-13-Stelle  
+  ist aufgelöst, das Einstellungsfenster ist eine 40-Zeilen-Funktion  
+  plus vier Helfer statt 171 Zeilen.
+
+- [ ] **K10** – Spaghetti-Code-Runde 2 (Nutzer-Plan: erst Runde 1 plus  
+  Audit, dann Runde 2 plus Audit): S2 \_render\_folder zerlegen (Panel),  
+  S3 E-Book-Trio (\_epub/\_fb2/\_mobi\_data) konsolidieren (Text), S6  
+  Cross-Mixin-Helfer (\_scaled\_image, \_text\_view, \_meta\_grid,  
+  \_cover\_round\_path) in util sammeln (Nutzer-Entscheid), S7  
+  pass-Schlucker mit dbg-Meldung versehen. **M–L**
+
 ---
 
 ## Teil 2: Features (Vorschläge)
@@ -1015,6 +1032,14 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Office-Fehlvermerk als gemeinsame Helfer konsolidiert; restliche  
   diag()-Zeilen englisch (K8 erledigt). 321 Zeilen weniger, Verhalten  
   unverändert.
+
+  ✅ 0.40.0 – Spaghetti-Audit-Runde 1 (Nutzer-Auftrag): S1/S4/S5 umgesetzt –  
+  das Einstellungsfenster baut sich aus vier Rubrik-Helfern statt einer  
+  171-Zeilen-Funktion, \_render\_office\_thumb und \_apply\_scale per  
+  Early-Return-Helfern flachgeklopft (Tiefe 13/12 → 6/5), die F46-  
+  Diagnose (Pixelsonden mit Panel-Scan, Margins-Rücklesen, GdkWindow-  
+  Flag) ist zurückgebaut – Painter, CSS-Regel und Icons-Diagnosezeile  
+  bleiben. Verhalten unverändert.
 
 ---
 
