@@ -109,14 +109,14 @@ carry the same names on both distributions
   ```
 2. Check the log. Each module reports its version on load:
   ```text
-   [previewer] previewer_util 0.41.0 loaded
-   [previewer] previewer_select 0.41.0 loaded
-   [previewer] previewer_render_media 0.41.0 loaded (...)
-   [previewer] previewer_render_docs 0.41.0 loaded (...)
-   [previewer] previewer_render_text 0.41.0 loaded (...)
-   [previewer] previewer_toolbar 0.41.0 loaded (...)
-   [previewer] previewer_panel 0.41.0 loaded (...)
-   [previewer] previewer (entry) v0.41.0 ready
+   [previewer] previewer_util 0.42.0 loaded
+   [previewer] previewer_select 0.42.0 loaded
+   [previewer] previewer_render_media 0.42.0 loaded (...)
+   [previewer] previewer_render_docs 0.42.0 loaded (...)
+   [previewer] previewer_render_text 0.42.0 loaded (...)
+   [previewer] previewer_toolbar 0.42.0 loaded (...)
+   [previewer] previewer_panel 0.42.0 loaded (...)
+   [previewer] previewer (entry) v0.42.0 ready
   ```
 
    Eight lines with the same version number — anything else means an old  
