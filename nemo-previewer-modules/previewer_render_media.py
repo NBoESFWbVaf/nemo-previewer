@@ -182,8 +182,8 @@ def _exif_str(entry):
     try:
         return (entry[1].decode("utf-8", "replace")
                 .rstrip("\x00").strip() or None)
-    except Exception as e:
-        dbg("media/_exif_str: suppressed: %s" % e)
+    except Exception:
+        return None
 
 
 def _exif_num(entry, bo):
@@ -227,8 +227,8 @@ def _exif_dms(tags, tag, bo):
         m = n[2] / n[3] if n[3] else 0.0
         s = n[4] / n[5] if n[5] else 0.0
         return g + m / 60.0 + s / 3600.0
-    except Exception as e:
-        dbg("media/_exif_dms: suppressed: %s" % e)
+    except Exception:
+        return None
 
 
 # F38: standard XMP namespaces – anything BEYOND counts as
@@ -320,8 +320,8 @@ def _exif_valid(data, base, bo, magic):
             return False
         cnt = struct.unpack_from(bo + "H", data, base + off)[0]
         return 0 < cnt <= 4096 and base + off + 2 + cnt * 12 <= len(data)
-    except Exception as e:
-        dbg("media/_exif_valid: suppressed: %s" % e)
+    except Exception:
+        return False
 
 
 def _exif_bases(data):
@@ -544,7 +544,7 @@ def _exif_parse_at(data, base, magic=True):
         _exif_iso_size(tags, bo, out)
         _exif_place(tags, bo, out)
     except Exception as exc:
-        dbg("media/_exif_parse_at: suppressed: %s" % exc)
+        dbg("EXIF parse failed: %s" % exc)
     return out
 
 
@@ -660,8 +660,8 @@ class MediaRendererMixin:
             if pb is None:
                 return None
             return pb, (int(w), int(h))
-        except Exception as e:
-            dbg("media/_rsvg_cairo_pb: suppressed: %s" % e)
+        except Exception:
+            return None
 
     def _render_svg(self, path):
         """
@@ -684,7 +684,7 @@ class MediaRendererMixin:
         try:
             handle = Rsvg.Handle.new_from_file(path)
         except Exception as e:
-            dbg("media/_render_svg: suppressed: %s" % e)
+            err = e
         if handle is not None:
             got = self._rsvg_cairo_pb(handle)
             if got is not None:
@@ -695,7 +695,7 @@ class MediaRendererMixin:
                 try:
                     pb = handle.get_pixbuf()
                 except Exception as e:
-                    dbg("media/_render_svg: suppressed: %s" % e)
+                    err = err or e
         if pb is None:
             pack_hint(self._content, "Konnte SVG nicht lesen: %s" % err)
             self._render_generic()
@@ -741,8 +741,8 @@ class MediaRendererMixin:
         pack_hint(self._content, "Lade Bild – einen Moment …")
         try:
             target_w = max(1024, self._preview_width() * 2)
-        except Exception as e:
-            dbg("media/_render_image: suppressed: %s" % e)
+        except Exception:
+            target_w = 1024
 
         def work():
             data, err, exif, xmp = None, None, None, None
@@ -751,7 +751,7 @@ class MediaRendererMixin:
                     data = fh.read(_IMAGE_FILE_CAP)
                 dbg("Image read: %s (%d bytes)" % (path, len(data)))
             except Exception as exc:
-                dbg("media/_render_image: suppressed: %s" % exc)
+                data, err = None, exc
                 dbg("Image read failed (%s): %s" % (path, exc))
             # F36: evaluate EXIF right in the worker – pure byte
             # work, fitting the R1/B7 thread discipline. F38: XMP too.
@@ -762,13 +762,13 @@ class MediaRendererMixin:
                 GLib.idle_add(self._image_probe_done,
                               path, target_w, data, err, exif, xmp)
             except Exception as exc:
-                dbg("media/_render_image: suppressed: %s" % exc)
+                dbg("Image return failed (%s): %s"
                     % (path, exc))
 
         try:
             threading.Thread(target=work, daemon=True).start()
-        except Exception as e:
-            dbg("media/_render_image: suppressed: %s" % e)
+        except Exception:
+            # Lifeline: thread not startable → read synchronously,
             # _image_probe_done decodes directly.
             data, err, exif, xmp = None, None, None, None
             try:
@@ -778,7 +778,7 @@ class MediaRendererMixin:
                     exif = _exif_parse(data)
                     xmp = _xmp_parse(data)
             except Exception as exc:
-                dbg("media/_render_image: suppressed: %s" % exc)
+                data, err = None, exc
             self._image_probe_done(path, target_w, data, err, exif, xmp)
 
     def _image_probe_done(self, path, target_w, data, err, exif=None,
@@ -812,14 +812,14 @@ class MediaRendererMixin:
                     data, max_w=target_w, max_h=2 * MAX_IMAGE_HEIGHT,
                     orig=orig)
             except Exception as exc:
-                dbg("media/_image_probe_done: suppressed: %s" % exc)
+                dbg("Image decode failed (%s): %s"
                     % (path, exc))
         if pb is None:
             try:
                 pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(
                     path, 4096, 4096, True)
-            except Exception as e:
-                dbg("media/_image_probe_done: suppressed: %s" % e)
+            except Exception:
+                pb = None
         if pb is None:
             # F42: Gdk-Pixbuf mostly cannot decode RAW (NEF, CR2 …);
             # EXIF/XMP are in the buffer – show a photo table (→ REF MED-EXIF-3).
@@ -916,7 +916,7 @@ class MediaRendererMixin:
             if probe is None:
                 probe = disc.discover_uri_sync
         except Exception as e:
-            dbg("media/_media_probe_async: suppressed: %s" % e)
+            dbg("Discoverer not creatable: %s" % e)
             # Without the Discoverer still build the UI (placeholder,
             # player) – do not get stuck on the hint.
             GLib.idle_add(self._media_probe_done, path, uri, finish,
@@ -969,7 +969,7 @@ class MediaRendererMixin:
                                 Gst.TAG_ALBUM_VOLUME_COUNT))
                         tags["year"] = self._tag_year(taglist)
                     except Exception as e:
-                        dbg("media/_media_probe_async: suppressed: %s" % e)
+                        dbg("Tag extraction (F33) failed: %s" % e)
                     # Collect image bytes (decoding happens in the
                     # GTK thread). Videos: still image; audio: cover.
                     order = ((Gst.TAG_PREVIEW_IMAGE, Gst.TAG_IMAGE) if video
@@ -984,7 +984,7 @@ class MediaRendererMixin:
                                 0, min(buf.get_size(), _MEDIA_IMAGE_CAP))
                             break
             except Exception as e:
-                dbg("media/_media_probe_async: suppressed: %s" % e)
+                dbg("Discoverer error: %s" % e)
             GLib.idle_add(self._media_probe_done, path, uri, finish,
                           tags, duration, image_bytes)
 
@@ -1003,13 +1003,13 @@ class MediaRendererMixin:
                 # _pixbuf_from_bytes) instead of a raw PixbufLoader.
                 pixbuf = _pixbuf_from_bytes(image_bytes)
             except Exception as exc:
-                dbg("media/_media_probe_done: suppressed: %s" % exc)
+                dbg("Media image not displayable: %s" % exc)
         # Remove the reading hint and build the actual preview.
         self._clear_content()
         try:
             finish(path, uri, tags, duration, pixbuf)
-        except Exception as e:
-            dbg("media/_media_probe_done: suppressed: %s" % e)
+        except Exception:
+            # Same guard as in _render: never raise, always fall back.
             dbg("Media preview build error (%r):" % path)
             traceback.print_exc()
             try:
@@ -1086,7 +1086,7 @@ class MediaRendererMixin:
             PangoCairo.show_layout(cr, layout)
             return Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
         except Exception as exc:
-            dbg("media/_media_cover_placeholder: suppressed: %s" % exc)
+            dbg("Placeholder cover not drawable (%s) – icon fallback"
                 % exc)
         # Fallback: file icon on a dark, opaque background
         pb = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8,
@@ -1115,14 +1115,14 @@ class MediaRendererMixin:
             ok, val = taglist.get_uint(num_tag)
             if ok and val and int(val) > 0:
                 num = int(val)
-        except Exception as e:
-            dbg("media/_tag_number_pair: suppressed: %s" % e)
+        except Exception:
+            num = None
         try:
             ok, val = taglist.get_uint(count_tag)
             if ok and val and int(val) > 0:
                 total = int(val)
-        except Exception as e:
-            dbg("media/_tag_number_pair: suppressed: %s" % e)
+        except Exception:
+            total = None
         if num is None:
             # String fallback: "3/12" carries the total count along.
             tail = ""
@@ -1131,8 +1131,8 @@ class MediaRendererMixin:
                 if ok and val:
                     head, _, tail = val.strip().partition("/")
                     num = int(head)
-            except Exception as e:
-                dbg("media/_tag_number_pair: suppressed: %s" % e)
+            except Exception:
+                num = None
             if num is not None and num > 0 and total is None and tail:
                 try:
                     total = int(tail)
@@ -1211,7 +1211,7 @@ class MediaRendererMixin:
             out = Gdk.pixbuf_get_from_surface(surf, 0, 0, ow, oh)
             return out if out is not None else pb
         except Exception as e:
-            dbg("media/_cover_shadowed: suppressed: %s" % e)
+            dbg("Cover frame (F34) failed: %s" % e)
             return pb
 
     def _finish_audio(self, path, uri, tags, duration, cover):
@@ -1341,8 +1341,8 @@ class MediaRendererMixin:
         try:
             err, detail = msg.parse_error()
             dbg("Playback error: %s (%s)" % (err, detail))
-        except Exception as e:
-            dbg("media/_on_player_error: suppressed: %s" % e)
+        except Exception:
+            err = "unknown playback error"
         try:
             self._playbin.set_state(Gst.State.NULL)
             if getattr(self, "_btn_play", None):
