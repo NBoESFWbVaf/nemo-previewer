@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.39.0
+previewer_util.py – Version 0.40.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -219,5 +219,5 @@ def _zf_read_capped(zf, name, cap):
 
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.39.0"
+PREVIEWER_VERSION = "0.40.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
