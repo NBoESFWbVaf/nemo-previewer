@@ -53,8 +53,8 @@ except Exception as e:
 SOFFICE = None
 try:
     SOFFICE = shutil.which("soffice")
-except Exception as e:
-    dbg("docs/module-level: suppressed: %s" % e)
+except Exception:
+    SOFFICE = None
 
 # LibreOffice conversion cache: ~/.cache/previewer/<hash>.pdf
 def office_cache_dir():
@@ -112,8 +112,8 @@ def _extract_office_text(zf, names):
         # excerpt only needs the document start anyway.
         root = ElementTree.fromstring(
             _zf_read_capped(zf, entry, _OFFICE_XML_CAP))
-    except Exception as e:
-        dbg("docs/_extract_office_text: suppressed: %s" % e)
+    except Exception:
+        return ""
     parts = []
     for elem in root.iter():
         tag = elem.tag if isinstance(elem.tag, str) else ""
@@ -180,8 +180,8 @@ class DocsRendererMixin:
             if not self._conf_doc_page_limit:
                 return 0
             return max(1, min(int(self._conf_doc_max_pages), 999))
-        except Exception as e:
-            dbg("docs/_pdf_page_cap: suppressed: %s" % e)
+        except Exception:
+            return MAX_PDF_PAGES
 
     def _render_pdf(self, path):
         """
@@ -227,7 +227,7 @@ class DocsRendererMixin:
             self._pdf_src.append(pb)
             self._pdf_imgs.append(img)
         except Exception as exc:
-            dbg("docs/_render_pdf: suppressed: %s" % exc)
+            dbg("PDF page 1 not renderable: %s" % exc)
         if not self._pdf_src:
             pack_hint(self._content, "PDF konnte nicht gerendert werden.")
             self._pdf_box = None
@@ -278,7 +278,7 @@ class DocsRendererMixin:
             # via its width threshold if the panel width did not change.
             self._pdf_scale_one(pb, img, self._preview_width())
         except Exception as exc:
-            dbg("docs/_pdf_idle_step: suppressed: %s" % exc)
+            dbg("PDF page %d not renderable: %s" % (i + 1, exc))
         i += 1
         if i >= count:
             return False
@@ -351,7 +351,7 @@ class DocsRendererMixin:
                     self._render_pdf(cached)
                     return
                 except Exception as exc:
-                    dbg("docs/_render_office: suppressed: %s" % exc)
+                    dbg("Office PDF preview failed (%s): %s"
                         % (path, exc))
                     # Remove half-packed leftovers of the PDF view
                     # before packing the thumbnail.
@@ -382,7 +382,7 @@ class DocsRendererMixin:
         try:
             thumb, text = self._office_package_data(path)
         except Exception as e:
-            dbg("docs/_render_office_thumb: suppressed: %s" % e)
+            # K2 (2026-10-30): only the hint line looks empty – the
             # file icon gives the error message a visual anchor.
             self._render_generic()
             pack_hint(self._content, "Office-Dokument konnte nicht geöffnet werden: %s" % e)
@@ -450,8 +450,8 @@ class DocsRendererMixin:
                     try:
                         thumb = _zf_read_capped(zf, member,
                                                 _OFFICE_THUMB_CAP)
-                    except Exception as e:
-                        dbg("docs/_office_package_data: suppressed: %s" % e)
+                    except Exception:
+                        thumb = None
                     break
             return thumb, _extract_office_text(zf, names)
 
@@ -495,7 +495,7 @@ class DocsRendererMixin:
                 flags=GLib.SpawnFlags.SEARCH_PATH
                 | GLib.SpawnFlags.DO_NOT_REAP_CHILD)[0]
         except Exception as exc:
-            dbg("docs/_office_start_job: suppressed: %s" % exc)
+            dbg("LibreOffice conversion not started (%s): %s"
                 % (path, exc))
             shutil.rmtree(tmpdir, ignore_errors=True)
             self._office_job = None
@@ -522,7 +522,7 @@ class DocsRendererMixin:
                     shutil.move(out_pdf, office_cache_path(path))
                     cache_ok = True
                 except Exception as exc:
-                    dbg("docs/_office_job_done: suppressed: %s" % exc)
+                    dbg("Office cache write failed: %s"
                         % exc)
                 if not cache_ok:
                     # → REF DOC-B4-1
@@ -534,7 +534,7 @@ class DocsRendererMixin:
                             self._clear_content()
                             self._render_pdf(out_pdf)
                         except Exception as exc:
-                            dbg("docs/_office_job_done: suppressed: %s" % exc)
+                            dbg("Office PDF from temp dir not "
                                 "displayable (%s): %s" % (path, exc))
                 elif self._path == path:
                     self._render()   # show the sharp page view
