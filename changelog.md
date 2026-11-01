@@ -6,6 +6,18 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.41.0\] – 2026-11-01
+
+### Changed (Geändert)
+
+- Spaltenbreite (Nutzer-Wunsch, Release-Feinschliff): Die Standard-  
+  breite der Vorschauspalte beträgt ab sofort 350 px statt 300 px.  
+  Das Ziehen des Trenners gilt nur noch für die laufende Sitzung  
+  und ändert die Startbreite nicht mehr – maßgeblich ist allein  
+  der im Einstellungsfenster eingetragene Wert, der bei jedem  
+  Start greift. Die „Standard/aktuell“-Hinweiszeile neben dem  
+  Breitenfeld entfällt.
+
 ## \[0.40.0\] – 2026-11-01
 
 ### Changed (Geändert)
