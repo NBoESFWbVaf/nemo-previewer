@@ -1041,6 +1041,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Flag) ist zurückgebaut – Painter, CSS-Regel und Icons-Diagnosezeile  
   bleiben. Verhalten unverändert.
 
+  ✅ 0.41.0 – Spaltenbreite (Nutzer-Wunsch, Release-Feinschliff):  
+  Standardbreite der Vorschauspalte 350 px statt 300 px; das Ziehen  
+  des Trenners gilt nur noch für die laufende Sitzung, der im  
+  Einstellungsfenster eingetragene Wert greift bei jedem Start  
+  (F12-Drag-Save und „Standard/aktuell“-Hinweiszeile entfernt).  
+  Verhalten sonst unverändert.
+
 ---
 
 ## Empfohlene Reihenfolge
