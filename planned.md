@@ -966,6 +966,12 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   nie), neue Log-Zeile „Module-Ordner: …“; INSTALL auf das neue  
   Layout umgestellt (Kopieren, Upgrade inkl. Alt-Kopien-Aufräumen,  
   Deinstallation) (→ REF ENT-MODDIR-1).
+  ✅ 0.36.0 – Modul-Köpfe aufgeräumt (Nutzer-Wunsch): Docstrings  
+  aller acht Dateien nur noch mit Erweiterungsname  
+  (nemo-previewer), Dateiname + Versionsnummer und max.  
+  dreizeiliger englischer Kurzbeschreibung; die STAND-Historien  
+  sind aus den Dateien entfernt (Verweis auf changelog.md und  
+  REFERENZ.md, die die Geschichte tragen).
 
 ---
 
