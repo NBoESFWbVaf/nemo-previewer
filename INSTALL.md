@@ -26,6 +26,13 @@ extension consists of **eight files that**
 | `previewer_render_docs.py`  | Renderers: PDF, Office                         |
 | `previewer_render_text.py`  | Renderers: text, Markdown, EML, e-books, fonts |
 
+The entry point `previewer.py` stays directly in  
+`~/.local/share/nemo-python/extensions/` — Nemo only loads extensions  
+from that top-level folder. The seven module files live in the  
+subfolder `nemo-previewer-modules` next to it; the entry point puts  
+that subfolder on the import path at startup (before the extension  
+folder itself, so flat leftover copies can never win).
+
 
 **Mandatory packages**
 
@@ -88,10 +95,11 @@ carry the same names on both distributions
     git clone https://github.com/NBoESFWbVaf/nemo-previewer.git
   ```
 
-### Create the needed directory and copy all *.py Files to this directory
+### Create the needed directories and copy the files
   ```bash
-    mkdir -p ~/.local/share/nemo-python/extensions
-    cp /tmp/nemo-previewer/*.py ~/.local/share/nemo-python/extensions/
+    mkdir -p ~/.local/share/nemo-python/extensions/nemo-previewer-modules
+    cp /tmp/nemo-previewer/previewer.py ~/.local/share/nemo-python/extensions/
+    cp /tmp/nemo-previewer/previewer_*.py ~/.local/share/nemo-python/extensions/nemo-previewer-modules/
   ```
 
 
@@ -101,18 +109,18 @@ carry the same names on both distributions
   ```
 2. Check the log. Each module reports its version on load:
   ```text
-   [previewer] previewer_util 0.34.1 geladen
-   [previewer] previewer_select 0.34.1 geladen
-   [previewer] previewer_render_media 0.34.1 geladen (...)
-   [previewer] previewer_render_docs 0.34.1 geladen (...)
-   [previewer] previewer_render_text 0.34.1 geladen (...)
-   [previewer] previewer_toolbar 0.34.1 geladen (...)
-   [previewer] previewer_panel 0.34.1 geladen (...)
-   [previewer] previewer (Einstieg) v0.34.1 bereit
+   [previewer] previewer_util 0.35.0 geladen
+   [previewer] previewer_select 0.35.0 geladen
+   [previewer] previewer_render_media 0.35.0 geladen (...)
+   [previewer] previewer_render_docs 0.35.0 geladen (...)
+   [previewer] previewer_render_text 0.35.0 geladen (...)
+   [previewer] previewer_toolbar 0.35.0 geladen (...)
+   [previewer] previewer_panel 0.35.0 geladen (...)
+   [previewer] previewer (Einstieg) v0.35.0 bereit
   ```
 
    Eight lines with the same version number — anything else means an old  
-   file is still in the folder.
+   file is still in one of the two folders.
 3. Select a file in Nemo. The panel appears on the right; toggle it with  
 **Ctrl+Alt+P** or the button in its header. The divider between the  
 file view and the panel is draggable.
@@ -120,16 +128,20 @@ file view and the panel is draggable.
 ## Upgrade
 
 1. Overwrite **all eight files** — they share a version lock, and the  
-entry point warns in the log about version mismatches.
-2. Remove stale bytecode caches, then restart Nemo:
+entry point warns in the log about version mismatches. Since 0.35.0  
+the entry point sits in `extensions/` and the seven modules in the  
+subfolder `nemo-previewer-modules`. Upgrading from a flat layout  
+(≤ 0.34.1): also delete the old module copies (`previewer_*.py`)  
+from `extensions/` afterwards.
+2. Remove stale bytecode caches (both folders), then restart Nemo:
   ```bash
-   rm -rf ~/.local/share/nemo-python/extensions/__pycache__
+   rm -rf ~/.local/share/nemo-python/extensions/__pycache__ ~/.local/share/nemo-python/extensions/nemo-previewer-modules/__pycache__
    nemo -q && nemo
   ```
 3. Verify the copy is complete before restarting:
   ```bash
-   wc -l ~/.local/share/nemo-python/extensions/*.py
-   grep -H PREVIEWER_VERSION ~/.local/share/nemo-python/extensions/*.py
+   wc -l ~/.local/share/nemo-python/extensions/previewer.py ~/.local/share/nemo-python/extensions/nemo-previewer-modules/*.py
+   grep -H PREVIEWER_VERSION ~/.local/share/nemo-python/extensions/previewer.py ~/.local/share/nemo-python/extensions/nemo-previewer-modules/*.py
   ```
 
    All eight files must report the same version.
@@ -138,6 +150,7 @@ entry point warns in the log about version mismatches.
 
 ```bash
 rm ~/.local/share/nemo-python/extensions/previewer*.py
+rm -rf ~/.local/share/nemo-python/extensions/nemo-previewer-modules
 rm -rf ~/.local/share/nemo-python/extensions/__pycache__
 rm -rf ~/.cache/previewer      # optional: office preview cache
 nemo -q && nemo
@@ -166,8 +179,8 @@ NEMO_PREVIEWER_TRACE=1 nemo --no-desktop
 
 | Symptom                                           | Cause and fix                                                                                                  |
 | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| No `geladen`/`bereit` lines in the log            | `nemo-python` missing or the files are not in `~/.local/share/nemo-python/extensions/`                         |
-| Version warning in the log, or different versions | Mixed old/new files in the extension folder — copy **all eight** files again                                   |
+| No `geladen`/`bereit` lines in the log            | `nemo-python` missing, `previewer.py` not in `~/.local/share/nemo-python/extensions/`, or the modules not in the `nemo-previewer-modules` subfolder                          |
+| Version warning in the log, or different versions | Mixed old/new files — copy **all eight** files again (entry point in `extensions/`, modules in the `nemo-previewer-modules` subfolder); flat leftovers in `extensions/` never win, delete them                          |
 | Panel loads but stays empty                       | Watch the terminal; renderers log errors there. A missing preview type usually just needs its optional package |
 | Office preview converts over and over             | Old version before 0.3.x — update; the cache failed on `/tmp` being a separate device                          |
 | `net usershare` warnings in the log               | Comes from Nemo-Share, not from this extension — harmless                                                      |
