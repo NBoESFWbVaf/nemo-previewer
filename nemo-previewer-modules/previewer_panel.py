@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.38.1
+previewer_panel.py – Version 0.39.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -318,6 +318,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         except Exception:
             return None
 
+    def _derived_base(self):
+        """Contrast-correct base from the panel fg color (0.38.1, F46
+        XI): bright fg → dark base and vice versa."""
+        fg = self.get_style_context().get_color(Gtk.StateFlags.NORMAL)
+        return 0.12 if (fg.red + fg.green + fg.blue) / 3.0 > 0.5 \
+            else 0.92
+
     def _paint_background(self, widget, cr):
         """Hintergrund unter alle Kinder malen – als Kette (F46 III).
 
@@ -334,7 +341,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             pass
         content_ctx = self._bg_content_ctx()
         if content_ctx is not None:
-            cands.append(("Inhalt", content_ctx))
+            cands.append(("Content", content_ctx))
         ctx, used, report = None, None, []
         for name, cctx in cands:
             try:
@@ -352,7 +359,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         try:
             eigen = widget.get_style_context().get_background_color(
                 Gtk.StateFlags.NORMAL)
-            report.append("Eigen=%s" % eigen.to_string())
+            report.append("own=%s" % eigen.to_string())
         except Exception:
             pass
         w, h = widget.get_allocated_width(), \
@@ -363,14 +370,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # No color resolved – but the slab paints visibly: its
             # context may render a gradient get_background_color hides.
             Gtk.render_background(content_ctx, cr, 0, 0, w, h)
-            used = "Inhalt-ungeprüft"
+            used = "content-unchecked"
         else:
             # Last resort: base area derived from the fg color –
             # contrast-correct (0.38.1, F46 XI): bright fg → dark base.
-            fg = self.get_style_context().get_color(
-                Gtk.StateFlags.NORMAL)
-            base = 0.12 if (fg.red + fg.green + fg.blue) / 3.0 \
-                > 0.5 else 0.92
+            base = self._derived_base()
             cr.set_source_rgba(base, base, base, 1.0)
             cr.rectangle(0, 0, w, h)
             cr.fill()
@@ -421,10 +425,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             if farbe is None:
                 # 0.38.1 (F46 XI): fallback is fg-derived now – the
                 # old hardcoded rgb(56,56,56) shone dark in light mode.
-                fg = self.get_style_context().get_color(
-                    Gtk.StateFlags.NORMAL)
-                base = 0.12 if (fg.red + fg.green + fg.blue) / 3.0 \
-                    > 0.5 else 0.92
+                base = self._derived_base()
                 farbe = "rgb(%d,%d,%d)" % (
                     round(base * 255), round(base * 255),
                     round(base * 255))
@@ -1568,8 +1569,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             pass
 
 
-
-PREVIEWER_VERSION = "0.38.1"
+PREVIEWER_VERSION = "0.39.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
