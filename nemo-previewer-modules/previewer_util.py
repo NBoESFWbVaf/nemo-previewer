@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.40.0
+previewer_util.py – Version 0.41.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -23,7 +23,7 @@ from gi.repository import Gtk, Gdk, Gio, GLib, GdkPixbuf
 # ------------------------------ Configuration ------------------------------
 # F12: default start width, configurable in the settings window and
 # the keyfile; a dragged width becomes the new start width.
-PANEL_WIDTH = 300          # panel start width in pixels
+PANEL_WIDTH = 350          # panel start width in pixels
 PANEL_MIN_WIDTH = 260      # smallest allowed width while dragging
 POLL_MS = 500              # selection polling timer (safety net)
 MAX_TEXT_BYTES = 256 * 1024
@@ -219,5 +219,5 @@ def _zf_read_capped(zf, name, cap):
 
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.40.0"
+PREVIEWER_VERSION = "0.41.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
