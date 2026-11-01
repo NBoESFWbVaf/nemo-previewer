@@ -6,6 +6,24 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.35.0\] – 2026-11-01
+
+### Changed (Geändert)
+
+- Modul-Unterordner nemo-previewer-modules (Nutzer-Wunsch): Der  
+  Extension-Ordner wird aufgeräumt – die sieben Modul-Dateien  
+  (previewer\_panel, previewer\_select, previewer\_util,  
+  previewer\_toolbar, previewer\_render\_media, previewer\_render\_docs,  
+  previewer\_render\_text) liegen jetzt im Unterordner  
+  nemo-previewer-modules, nur die Einstiegsdatei previewer.py bleibt  
+  direkt im Extension-Ordner (Nemo lädt nur dort). Der Einstieg  
+  stellt den Unterordner vor den Importen auf den Import-Pfad – und  
+  zwar VOR dem Extension-Ordner, deshalb gewinnen flache Alt-Kopien  
+  nie; eine neue Log-Zeile „Module-Ordner: …“ bestätigt den Pfad.  
+  INSTALL dokumentiert Kopieren, Upgrade (inkl. Aufräumen flacher  
+  Alt-Kopien) und Deinstallation im neuen Layout (→ REF  
+  ENT-MODDIR-1).
+
 ## \[0.34.1\] – 2026-10-31
 
 ### Fixed (Behoben)
