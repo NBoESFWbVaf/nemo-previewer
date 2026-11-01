@@ -1059,6 +1059,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   liegen in previewer\_util; alle stillen pass-Schlucker loggen jetzt  
   mit dbg(). Verhalten unverändert.
 
+  ✅ 0.42.1 – Deploy-Feinschliff (Nutzer-Entscheid): SyntaxWarning beim  
+  Laden beseitigt (Docstring-Escape in \_md\_split\_cells); die ATK-  
+  Sonden der Auswahl-Fallback-Kette (collect, \_read\_atk\_states,  
+  \_read\_atk\_focused, rec) sind wieder still, statt bei jedem  
+  selection-changed zu loggen – Nemo 6 liefert die ATK-Selection-API  
+  am ScrolledWindowAccessible nicht, die Ausnahmen sind erwartet.  
+
 ---
 
 ## Empfohlene Reihenfolge
