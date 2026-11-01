@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_select.py – Version 0.41.0
+previewer_select.py – Version 0.42.0
 
 Selection detection: reads the currently selected file from the
 Nemo view via selection signals, vtable access and GTK/ATK
@@ -53,8 +53,8 @@ def _gobject_pointer(widget):
     capsule = None
     try:
         capsule = getattr(widget, "__gpointer__", None)
-    except Exception:
-        capsule = None
+    except Exception as e:
+        dbg("select/_gobject_pointer: suppressed: %s" % e)
     if capsule is None:
         return None
     # Variant 1: some PyGObject builds return the address directly.
@@ -73,12 +73,12 @@ def _gobject_pointer(widget):
             ptr = get_pointer(capsule, name)
             if ptr:
                 return ptr
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("select/_gobject_pointer: suppressed: %s" % e)
         # … then nameless (a NULL name only accepts nameless capsules).
         return get_pointer(capsule, None)
-    except Exception:
-        return None
+    except Exception as e:
+        dbg("select/_gobject_pointer: suppressed: %s" % e)
 
 
 def _read_cptr(addr, offset=0):
@@ -88,8 +88,8 @@ def _read_cptr(addr, offset=0):
     try:
         return ctypes.cast(
             addr + offset, ctypes.POINTER(ctypes.c_void_p)).contents.value
-    except Exception:
-        return None
+    except Exception as e:
+        dbg("select/_read_cptr: suppressed: %s" % e)
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ def _native_vtable_api():
             % (api["peek_offset"], ptr_size))
         return api
     except Exception as exc:
-        dbg("VTable API setup failed: %s" % exc)
+        dbg("select/_native_vtable_api: suppressed: %s" % exc)
         _NATIVE_VTABLE_BROKEN = True
         return None
 
@@ -191,8 +191,8 @@ def _nemo_addr_ranges():
                     continue
                 lo, hi = parts[0].split("-", 1)
                 ranges.append((int(lo, 16), int(hi, 16)))
-    except Exception:
-        ranges = None
+    except Exception as e:
+        dbg("select/_nemo_addr_ranges: suppressed: %s" % e)
     _NEMO_TEXT_RANGES = ranges
     return ranges
 
@@ -209,11 +209,11 @@ def _name_from_uri(uri):
     """Dateiname (Basename) aus einer Nemo-URI – ein Ort, eine Wahrheit."""
     try:
         return Gio.File.new_for_uri(uri).get_basename() or ""
-    except Exception:
-        try:
+    except Exception as e:
+        dbg("select/_name_from_uri: suppressed: %s" % e)
             return os.path.basename(urllib.parse.urlparse(uri).path)
-        except Exception:
-            return ""
+        except Exception as e:
+            dbg("select/_name_from_uri: suppressed: %s" % e)
 
 
 def _iface_file_name(api, file_ptr):
@@ -257,8 +257,8 @@ def _iface_file_name(api, file_ptr):
                     api["g_free"](raw)
                 if uri:
                     return _name_from_uri(uri)
-    except Exception:
-        return ""
+    except Exception as e:
+        dbg("select/_iface_file_name: suppressed: %s" % e)
     return ""
 
 
@@ -284,14 +284,14 @@ def _vtable_selection_names(view):
                 info.append("__gpointer__=%r (%s)"
                             % (gp, type(gp).__name__))
             except Exception as exc:
-                info.append("__gpointer__-Fehler: %r" % exc)
+                dbg("select/_vtable_selection_names: suppressed: %s" % exc)
             try:
                 # Never call is_a with a NULL pointer – that would
                 # segfault the Nemo process (no try/except there).
                 info.append("is_a=%r" % (api["is_a"](ptr, api["view_gtype"])
                                         if ptr else None))
             except Exception as exc:
-                info.append("is_a-Fehler: %r" % exc)
+                dbg("select/_vtable_selection_names: suppressed: %s" % exc)
             try:
                 info.append("gtype=%s typ_ist_nemo_view=%s"
                             % (view.__gtype__,
@@ -299,7 +299,7 @@ def _vtable_selection_names(view):
                                    view.__gtype__,
                                    GObject.type_from_name("NemoView"))))
             except Exception as exc:
-                info.append("gtype-Fehler: %r" % exc)
+                dbg("select/_vtable_selection_names: suppressed: %s" % exc)
             dbg("VTable guard failed (%s): %s"
                 % (type_name(view), "; ".join(info)))
         return None, False
@@ -324,7 +324,7 @@ def _vtable_selection_names(view):
             ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p))
         node = peek(ptr)
     except Exception as exc:
-        if not _NATIVE_VTABLE_BROKEN:
+        dbg("select/_vtable_selection_names: suppressed: %s" % exc)
             dbg("VTable API: peek_selection call failed: %s "
                 "– disabled" % exc)
         _NATIVE_VTABLE_BROKEN = True
@@ -370,8 +370,8 @@ def _nemo_file_name_from_ptr(file_ptr):
     try:
         if not api["is_a"](file_ptr, api["file_gtype"]):
             return ""
-    except Exception:
-        return ""
+    except Exception as e:
+        dbg("select/_nemo_file_name_from_ptr: suppressed: %s" % e)
     return _iface_file_name(api, file_ptr)
 
 
@@ -393,12 +393,12 @@ def _dump_widget_tree(view, max_widgets=100):
             try:
                 if callable(getattr(w, name, None)):
                     methods.append(name)
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("select/_dump_widget_tree: suppressed: %s" % e)
         try:
             mapped = bool(w.get_mapped())
-        except Exception:
-            mapped = False
+        except Exception as e:
+            dbg("select/_dump_widget_tree: suppressed: %s" % e)
         diag("Widget[%d]: %s mapped=%s methods=%s" %
             (count, type_name(w), mapped, ",".join(methods) or "-"))
     diag("Widget tree dump end (%d widgets)" % count)
@@ -419,16 +419,16 @@ def _signals_of_gtype(gtype):
     out = []
     try:
         ids = GObject.signal_list_ids(gtype)
-    except Exception:
-        return out
+    except Exception as e:
+        dbg("select/_signals_of_gtype: suppressed: %s" % e)
     for sid in ids:
         try:
             q = GObject.signal_query(sid)
             name = q.signal_name
             if q.return_type != GObject.TYPE_NONE:
                 continue   # handler would have to return a value – too risky
-        except Exception:
-            continue
+        except Exception as e:
+            dbg("select/_signals_of_gtype: suppressed: %s" % e)
         if name and "select" in name.lower() and name not in _CLIPBOARD_SIGNALS:
             out.append(name)
     return out
@@ -447,8 +447,8 @@ def selection_signals(widget):
     names = []
     try:
         t = widget.__gtype__
-    except Exception:
-        return names
+    except Exception as e:
+        dbg("select/selection_signals: suppressed: %s" % e)
     seen = set()
     queue = [t]
     while queue:
@@ -462,14 +462,14 @@ def selection_signals(widget):
         try:
             for itype in GObject.type_interfaces(t):
                 queue.append(itype)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("select/selection_signals: suppressed: %s" % e)
         try:
             parent = GObject.type_parent(t)
             if parent:
                 queue.append(parent)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("select/selection_signals: suppressed: %s" % e)
     return sorted(names)
 
 
@@ -485,22 +485,22 @@ def _atk_children(acc, max_children=200):
     n = -1
     try:
         n = acc.get_n_children()
-    except Exception:
-        n = -1
+    except Exception as e:
+        dbg("select/_atk_children: suppressed: %s" % e)
     if isinstance(n, int) and n >= 0:
         for i in range(min(n, max_children)):
             try:
                 children.append(acc.ref_child(i))
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("select/_atk_children: suppressed: %s" % e)
         return children
     # Unknown child count: probe blindly; ref_child throws on the first
     # invalid index – the natural end.
     for i in range(max_children):
         try:
             children.append(acc.ref_child(i))
-        except Exception:
-            break
+        except Exception as e:
+            dbg("select/_atk_children: suppressed: %s" % e)
     return children
 
 
@@ -512,8 +512,8 @@ def _a11y_root(view):
         if not isinstance(view, Gtk.Widget) or not view.get_mapped():
             return None
         return view.get_accessible()
-    except Exception:
-        return None
+    except Exception as e:
+        dbg("select/_a11y_root: suppressed: %s" % e)
 
 
 def _atk_selection_objects(view, max_depth=12):
@@ -529,8 +529,8 @@ def _atk_selection_objects(view, max_depth=12):
         try:
             acc.get_selection_count()
             implementors.append(acc)   # implements AtkSelection
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("select/collect: suppressed: %s" % e)
         for child in _atk_children(acc):
             collect(child, depth + 1)
 
@@ -562,8 +562,8 @@ def is_nemo_view(w):
         vt = GObject.type_from_name("NemoView")
         if vt:
             return GObject.type_is_a(w.__gtype__, vt)
-    except Exception:
-        pass
+    except Exception as e:
+        dbg("select/is_nemo_view: suppressed: %s" % e)
     return False
 
 
@@ -581,11 +581,11 @@ def find_view(window):
             try:
                 if w.get_mapped() and w.get_realized():
                     return w
-            except Exception:
-                # The widget may be mid-destruction.
+            except Exception as e:
+                dbg("select/find_view: suppressed: %s" % e)
                 continue
-    except Exception:
-        pass
+    except Exception as e:
+        dbg("select/find_view: suppressed: %s" % e)
     return None
 
 
@@ -623,8 +623,8 @@ class SelectionReader:
                     view, dir_path))):
             try:
                 names = fetch()
-            except Exception:
-                names = None
+            except Exception as e:
+                dbg("select/read: suppressed: %s" % e)
             if names:
                 return SelectionReader._filter(names, dir_path), source
             if names == [] and empty_source is None:
@@ -663,7 +663,7 @@ class SelectionReader:
         try:
             names, supported = _vtable_selection_names(view)
         except Exception as exc:
-            global _VTABLE_CRASH_WARNED
+            dbg("select/_read_nemo_vtable: suppressed: %s" % exc)
             if not _VTABLE_CRASH_WARNED:
                 _VTABLE_CRASH_WARNED = True
                 dbg("VTable route: unexpected exception (%s): %r – %s"
@@ -693,16 +693,16 @@ class SelectionReader:
                 for path in paths:
                     try:
                         it = model.get_iter(path)
-                    except Exception:
-                        continue
+                    except Exception as e:
+                        dbg("select/_read_icon_view: suppressed: %s" % e)
                     candidates = []
                     # Nemo model columns differ per version; check the
                     # file name against actual existence in the folder.
                     for col in range(min(8, model.get_n_columns())):
                         try:
                             val = model.get_value(it, col)
-                        except Exception:
-                            continue
+                        except Exception as e:
+                            dbg("select/_read_icon_view: suppressed: %s" % e)
                         if isinstance(val, str) and val.strip():
                             val = val.strip()
                             if val not in candidates:
@@ -713,8 +713,8 @@ class SelectionReader:
                         names.append(match)
                 # An empty list here is a valid, directly readable selection.
                 return names
-            except Exception:
-                continue
+            except Exception as e:
+                dbg("select/_read_icon_view: suppressed: %s" % e)
         return None
 
     @staticmethod
@@ -739,8 +739,8 @@ class SelectionReader:
                         names.append(obj.get_name() or "")
                 if names:
                     return names
-            except Exception:
-                continue
+            except Exception as e:
+                dbg("select/_read_atk: suppressed: %s" % e)
         if implementors:
             return []          # readable, but nothing selected
         return None
@@ -763,16 +763,16 @@ class SelectionReader:
             name = ""
             try:
                 name = acc.get_name() or ""
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("select/_read_atk_states: suppressed: %s" % e)
             if name:
                 try:
                     states = acc.get_state_set()
                     if (states is not None and
                             states.contains_state(Atk.StateType.SELECTED)):
                         selected.append(name)
-                except Exception:
-                    pass
+                except Exception as e:
+                    dbg("select/_read_atk_states: suppressed: %s" % e)
             for child in _atk_children(acc):
                 rec(child, depth + 1)
 
@@ -803,8 +803,8 @@ class SelectionReader:
                 ss = acc.get_state_set()
                 focused = (ss is not None and
                            ss.contains_state(Atk.StateType.FOCUSED))
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("select/_read_atk_focused: suppressed: %s" % e)
             if focused and name and os.path.exists(
                     os.path.join(dir_path, name)):
                 hits.append(name)
@@ -841,8 +841,8 @@ class SelectionReader:
         fallback_name = ""
         try:
             raw = model.get_value(it, 0)
-        except Exception:
-            raw = None
+        except Exception as e:
+            dbg("select/_tree_row_name: suppressed: %s" % e)
         if raw is not None and not isinstance(raw, (int, float, str, bool)):
             for attr in ("get_name", "get_display_name"):
                 try:
@@ -852,8 +852,8 @@ class SelectionReader:
                         if value:
                             fallback_name = os.path.basename(str(value))
                             break
-                except Exception:
-                    pass
+                except Exception as e:
+                    dbg("select/_tree_row_name: suppressed: %s" % e)
             if not fallback_name:
                 for attr in ("get_uri",):
                     try:
@@ -863,26 +863,26 @@ class SelectionReader:
                             fallback_name = (Gio.File.new_for_uri(
                                 uri).get_basename() or "")
                             break
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        dbg("select/_tree_row_name: suppressed: %s" % e)
         elif isinstance(raw, int) and raw > 0:
             try:
                 fallback_name = _nemo_file_name_from_ptr(raw)
-            except Exception:
-                fallback_name = ""
+            except Exception as e:
+                dbg("select/_tree_row_name: suppressed: %s" % e)
 
         # --- Stage 2: scan all string columns ---
         try:
             n_cols = model.get_n_columns()
-        except Exception:
-            n_cols = 0
+        except Exception as e:
+            dbg("select/_tree_row_name: suppressed: %s" % e)
         n_cols = min(n_cols, 64)
         candidates = []
         for col in range(1, n_cols):
             try:
                 val = model.get_value(it, col)
-            except Exception:
-                continue
+            except Exception as e:
+                dbg("select/_tree_row_name: suppressed: %s" % e)
             if isinstance(val, str) and val.strip():
                 candidates.append(val.strip())
         # Prefer a resolvable candidate that names a real file
@@ -909,12 +909,12 @@ class SelectionReader:
                         try:
                             ncols = model.get_n_columns() if model is not None else -1
                             nrows = model.iter_n_children(None) if model is not None else -1
-                        except Exception:
-                            ncols, nrows = -1, -1
+                        except Exception as e:
+                            dbg("select/_read_tree: suppressed: %s" % e)
                         try:
                             mode = tsel.get_mode()
-                        except Exception:
-                            mode = "?"
+                        except Exception as e:
+                            dbg("select/_read_tree: suppressed: %s" % e)
                         diag("GtkTreeView selection diagnostics: widget=%s, mode=%s, selected paths=%r, model columns=%s, model rows=%s" % (
                             type_name(w), mode, paths, ncols, nrows))
                     # A zero-row model may be a transient tree, not
@@ -924,24 +924,24 @@ class SelectionReader:
                     try:
                         if model.iter_n_children(None) == 0:
                             continue
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        dbg("select/_read_tree: suppressed: %s" % e)
                     names = []
                     for p in paths:
                         try:
                             it = model.get_iter(p)
-                        except Exception:
-                            continue
+                        except Exception as e:
+                            dbg("select/_read_tree: suppressed: %s" % e)
                         val = SelectionReader._tree_row_name(
                             model, it, dir_path)
                         if val:
                             names.append(val)
                     return names
-                except Exception:
-                    continue
+                except Exception as e:
+                    dbg("select/_read_tree: suppressed: %s" % e)
         return None
 
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.41.0"
+PREVIEWER_VERSION = "0.42.0"
 dbg("previewer_select %s loaded" % PREVIEWER_VERSION)
