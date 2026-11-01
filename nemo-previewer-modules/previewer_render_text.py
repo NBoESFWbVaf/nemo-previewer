@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.41.0
+previewer_render_text.py – Version 0.42.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -44,6 +44,9 @@ from previewer_util import (
     MAX_TEXT_BYTES, MAX_TEXT_LINES, MAX_IMAGE_HEIGHT,
     MAX_EBOOK_CHARS, pick_icon,
     _zf_read_capped, _pixbuf_from_bytes,
+    pack_hint,
+    pack_meta_grid,
+    cover_round_path,
 )
 
 # --- Optional modules (missing ones just reduce the previews) ---
@@ -56,8 +59,8 @@ try:
     gi.require_version('PangoCairo', '1.0')
     from gi.repository import PangoCairo
     HAVE_PANGOCAIRO = True
-except Exception:
-    pass
+except Exception as e:
+    dbg("text/module-level: suppressed: %s" % e)
 
 # 0.9.2 (audit "buffer overflow/OOM"): caps against decompression
 # and decoding bombs – crafted files must never blow up Nemo.
@@ -144,69 +147,104 @@ def _md_w(s):
     return w
 
 
-def _md_table(lines, i):
+def _md_split_cells(row):
     """
-    GFM-Tabelle ab Zeile i einlesen: Kopfzeile, Trennzeile mit
-    :--/--:/:-:, beliebig viele Zeilen. Rückgabe (Markup-Zeilen,
-    nächster Index) oder None, wenn dort keine Tabelle steht.
-    Wie im Browser gilt ein Gesamtbudget: schmale Spalten
-    behalten ihre volle Breite, überlange Zellen brechen
-    mehrzeilig INNERHALB ihrer Spalte um – die Spalten bleiben
-    bündig, statt dass die längste Zelle alle Zeilen aufbläht
-    (0.14.0-Feldtest: die Reihenfolge-Tabelle in planned.md war
-    meterbreit und zerfiel im TextView). Kopfzeile fett, graue
-    Trennzeile, rechtsbündig bei '---:'. Breiten werden an der
-    ROHEN Zelle gemessen und VOR dem Escapen gepolstert, damit
-    &amp; die Ausrichtung nicht verdirbt. Markup, das über einen
-    Zell-Umbruch hinwegläuft, wird bewusst NICHT zusammengefügt –
-    gültiges Markup ist wichtiger als Optik, der Rohtext-Fallback
-    in _render_markdown darf niemals wegen einer Tabelle greifen.
+    S9 (0.42.0): Eine Markdown-Zeile in Zellen teilen – führende und
+    abschließende Balken abtrennen; \| ist KEIN Trenner (GFM).
     """
-    def split_cells(row):
-        s = row.strip()
-        if s.startswith("|"):
-            s = s[1:]
-        if s.endswith("|") and not s.endswith("\\|"):
-            s = s[:-1]
-        # GFM: \| is an escaped bar, NOT a column separator
-        return [re.sub(r"\\(\|)", r"\1", c).strip()
-                for c in re.split(r"(?<!\\)\|", s)]
+    s = row.strip()
+    if s.startswith("|"):
+        s = s[1:]
+    if s.endswith("|") and not s.endswith("\\|"):
+        s = s[:-1]
+    # GFM: \| is an escaped bar, NOT a column separator
+    return [re.sub(r"\\(\|)", r"\1", c).strip()
+            for c in re.split(r"(?<!\\)\|", s)]
 
-    if i + 1 >= len(lines):
-        return None
-    if not re.search(r"(?<!\\)\|", lines[i]):
-        return None
-    sep_cells = split_cells(lines[i + 1])
-    if not sep_cells:
-        return None
-    for c in sep_cells:
-        if not re.fullmatch(r":?-{2,}:?", c):
-            return None
-    head = split_cells(lines[i])
-    body = []
-    j = i + 2
-    while j < len(lines):
-        s = lines[j]
-        if not s.strip() or not re.search(r"(?<!\\)\|", s):
-            break
-        body.append(split_cells(s))
-        j += 1
-    cols = len(sep_cells)
-    right = [c.endswith(":") and not c.startswith(":")
-             for c in sep_cells]
 
-    def plain(cell):
-        s = re.sub(r"\[([^\]]+)\]\(([^()\s]+)\)", r"\1 (\2)", cell)
-        return re.sub(r"[*_`~]", "", s)
+def _md_plain(cell):
+    # Width measuring only: strip link syntax and emphasis – the
+    # cell itself keeps its markup until _md_inline.
+    s = re.sub(r"\[([^\]]+)\]\(([^()\s]+)\)", r"\1 (\2)", cell)
+    return re.sub(r"[*_`~]", "", s)
 
-    demand = [0] * cols
-    for r in [head] + body:
+
+def _md_wrap_cell(cell, w):
+    """
+    S9 (0.42.0): Eine Zelle in Anzeige-Segmente der Breite w
+    brechen (Wort-Umbruch, Hartbruch für überlange Wörter);
+    passende Zellen bleiben unverändert.
+    """
+    w = max(1, w)
+    if _md_w(_md_plain(cell)) <= w:
+        return [cell]
+    segs = []
+    cur = ""
+    for word in cell.split(" "):
+        if _md_w(word) > w:
+            if cur:
+                segs.append(cur)
+                cur = ""
+            while _md_w(word) > w:
+                acc = ""
+                for ch in word:
+                    if _md_w(acc + ch) > w:
+                        break
+                    acc += ch
+                if not acc:
+                    acc = word[0]
+                segs.append(acc)
+                word = word[len(acc):]
+            cur = word
+            continue
+        if cur and _md_w(cur + " " + word) <= w:
+            cur = cur + " " + word
+        else:
+            if cur:
+                segs.append(cur)
+            cur = word
+    if cur or not segs:
+        segs.append(cur)
+    return segs
+
+
+def _md_fmt_row(r, widths, right, bold=False):
+    """
+    S9 (0.42.0): Eine Tabellenzeile in bündige <tt>-Zeilen rendern –
+    je Spalte umgebrochen, gepolstert, escaped und (als Kopf)
+    fett.
+    """
+    cols = len(widths)
+    wrapped = [_md_wrap_cell(r[k] if k < len(r) else "", widths[k])
+               for k in range(cols)]
+    height = max(len(w) for w in wrapped)
+    rows_out = []
+    for y in range(height):
+        cells = []
         for k in range(cols):
-            if k < len(r):
-                demand[k] = max(demand[k], _md_w(plain(r[k])))
+            seg = wrapped[k][y] if y < len(wrapped[k]) else ""
+            pad = max(0, widths[k] - _md_w(_md_plain(seg)))
+            if right[k]:
+                seg = " " * pad + seg
+            else:
+                seg = seg + " " * pad
+            esc = _md_inline(_pango_escape(seg))
+            if bold:
+                esc = "<b>%s</b>" % esc
+            cells.append(esc)
+        rows_out.append("<tt>%s</tt>" % " \u2502 ".join(cells))
+    return rows_out
 
-    # Column widths: fully serve narrow columns, distribute the
-    # rest among the wide ones – within the total budget.
+
+def _md_widths(demand):
+    """
+    S9 (0.42.0): Spaltenbreiten im Gesamtbudget – schmale Spalten
+    behalten ihre volle Breite, der Rest wird anteilig an den
+    breiten verteilt; Sicherheitsnetz schrumpft die breiteste
+    Spalte, bis das Budget hält (0.14.0-Feldtest: die Reihenfolge-
+    Tabelle in planned.md war meterbreit und zerfiel im TextView).
+    """
+    cols = len(demand)
     sep_w = 3 * (cols - 1)          # " │ " between the columns
     avail = max(0, _MD_TABLE_BUDGET - sep_w)
     widths = [min(d, _MD_TABLE_MIN) for d in demand]
@@ -243,69 +281,63 @@ def _md_table(lines, i):
     while (sum(widths) + sep_w > _MD_TABLE_BUDGET
            and max(widths) > 1):
         widths[widths.index(max(widths))] -= 1
+    return widths
 
-    def wrap_cell(cell, w):
-        # Break a cell into display segments of width w (word wrap,
-        # hard-break for overlong words). Fits: keep cell unchanged.
-        w = max(1, w)
-        if _md_w(plain(cell)) <= w:
-            return [cell]
-        segs = []
-        cur = ""
-        for word in cell.split(" "):
-            if _md_w(word) > w:
-                if cur:
-                    segs.append(cur)
-                    cur = ""
-                while _md_w(word) > w:
-                    acc = ""
-                    for ch in word:
-                        if _md_w(acc + ch) > w:
-                            break
-                        acc += ch
-                    if not acc:
-                        acc = word[0]
-                    segs.append(acc)
-                    word = word[len(acc):]
-                cur = word
-                continue
-            if cur and _md_w(cur + " " + word) <= w:
-                cur = cur + " " + word
-            else:
-                if cur:
-                    segs.append(cur)
-                cur = word
-        if cur or not segs:
-            segs.append(cur)
-        return segs
 
-    def fmt_row(r, bold=False):
-        wrapped = [wrap_cell(r[k] if k < len(r) else "",
-                             widths[k])
-                   for k in range(cols)]
-        height = max(len(w) for w in wrapped)
-        rows_out = []
-        for y in range(height):
-            cells = []
-            for k in range(cols):
-                seg = wrapped[k][y] if y < len(wrapped[k]) else ""
-                pad = max(0, widths[k] - _md_w(plain(seg)))
-                if right[k]:
-                    seg = " " * pad + seg
-                else:
-                    seg = seg + " " * pad
-                esc = _md_inline(_pango_escape(seg))
-                if bold:
-                    esc = "<b>%s</b>" % esc
-                cells.append(esc)
-            rows_out.append("<tt>%s</tt>" % " \u2502 ".join(cells))
-        return rows_out
-
-    rows = fmt_row(head, bold=True)
+def _md_table(lines, i):
+    """
+    GFM-Tabelle ab Zeile i einlesen: Kopfzeile, Trennzeile mit
+    :--/--:/:-:, beliebig viele Zeilen. Rückgabe (Markup-Zeilen,
+    nächster Index) oder None, wenn dort keine Tabelle steht.
+    Wie im Browser gilt ein Gesamtbudget: schmale Spalten
+    behalten ihre volle Breite, überlange Zellen brechen
+    mehrzeilig INNERHALB ihrer Spalte um – die Spalten bleiben
+    bündig, statt dass die längste Zelle alle Zeilen aufbläht
+    (0.14.0-Feldtest: die Reihenfolge-Tabelle in planned.md war
+    meterbreit und zerfiel im TextView). Kopfzeile fett, graue
+    Trennzeile, rechtsbündig bei '---:'. Breiten werden an der
+    ROHEN Zelle gemessen und VOR dem Escapen gepolstert, damit
+    &amp; die Ausrichtung nicht verdirbt. Markup, das über einen
+    Zell-Umbruch hinwegläuft, wird bewusst NICHT zusammengefügt –
+    gültiges Markup ist wichtiger als Optik, der Rohtext-Fallback
+    in _render_markdown darf niemals wegen einer Tabelle greifen.
+    S9 (0.42.0): Zerlegt – _md_split_cells, _md_widths und
+    _md_fmt_row (mit _md_wrap_cell, _md_plain) sind Modul-Helfer;
+    hier bleibt der Ablauf.
+    """
+    if i + 1 >= len(lines):
+        return None
+    if not re.search(r"(?<!\\)\|", lines[i]):
+        return None
+    sep_cells = _md_split_cells(lines[i + 1])
+    if not sep_cells:
+        return None
+    for c in sep_cells:
+        if not re.fullmatch(r":?-{2,}:?", c):
+            return None
+    head = _md_split_cells(lines[i])
+    body = []
+    j = i + 2
+    while j < len(lines):
+        s = lines[j]
+        if not s.strip() or not re.search(r"(?<!\\)\|", s):
+            break
+        body.append(_md_split_cells(s))
+        j += 1
+    cols = len(sep_cells)
+    right = [c.endswith(":") and not c.startswith(":")
+             for c in sep_cells]
+    demand = [0] * cols
+    for r in [head] + body:
+        for k in range(cols):
+            if k < len(r):
+                demand[k] = max(demand[k], _md_w(_md_plain(r[k])))
+    widths = _md_widths(demand)
+    rows = _md_fmt_row(head, widths, right, bold=True)
     rows.append("<tt><span foreground='grey'>%s</span></tt>"
                 % "\u253c".join("\u2500" * (w + 2) for w in widths))
     for r in body:
-        rows.extend(fmt_row(r))
+        rows.extend(_md_fmt_row(r, widths, right))
     return rows, j
 
 
@@ -492,123 +524,157 @@ _EBOOK_CHUNK_CAP = 2 * 1024 * 1024     # R4: max bytes per spine document
 _EBOOK_COVER_CAP = 16 * 1024 * 1024    # R4: max bytes for cover images
 
 
+def _ebook_rows(pairs):
+    """
+    S3 (0.42.0): Metadaten-Zeilen der E-Book-Formate – leere Werte
+    fallen weg (Titel, Autor, Sprache).
+    """
+    return [(k, v) for k, v in pairs if v]
+
+
+def _epub_opf_path(zf, names):
+    """
+    S3 (0.42.0): OPF-Pfad eines EPUB – erst aus
+    META-INF/container.xml, sonst Fallback auf den ersten .opf-
+    Namen (→ REF TXT-EPUB-1).
+    """
+    opf_path = None
+    try:
+        container = _zf_read_capped(
+            zf, "META-INF/container.xml", _EBOOK_CHUNK_CAP).decode(
+            "utf-8", "replace")
+        m = re.search(r'full-path="([^"]+)"', container)
+        if m:
+            opf_path = m.group(1)
+    except Exception as e:
+        dbg("text/_epub_opf_path: suppressed: %s" % e)
+    if not opf_path:
+        for name in names:
+            if name.lower().endswith(".opf"):
+                opf_path = name
+                break
+    if not opf_path:
+        raise ValueError("keine OPF-Inhaltsdatei gefunden")
+    return opf_path
+
+
+def _epub_metadata(root):
+    """
+    S3 (0.42.0): OPF auswerten – Titel/Autor/Sprache, Manifest
+    (id → href, Media type, properties), Spine in Lesereihenfolge
+    und Cover-ID (cover-image-Properties, sonst meta name=cover).
+    """
+    title = author = lang = None
+    manifest = {}          # id -> (href, media type)
+    spine = []             # hrefs in reading order
+    cover_id = None
+    for el in root.iter():
+        tag = _xml_local(el.tag)
+        if tag == "title" and title is None:
+            title = (el.text or "").strip()
+        elif tag == "creator" and author is None:
+            author = (el.text or "").strip()
+        elif tag == "language" and lang is None:
+            lang = (el.text or "").strip()
+        elif tag == "manifest":
+            for item in el:
+                if _xml_local(item.tag) != "item":
+                    continue
+                manifest[item.get("id")] = (
+                    item.get("href"), item.get("media-type"),
+                    item.get("properties") or "")
+                if "cover-image" in (item.get("properties") or ""):
+                    cover_id = item.get("id")
+        elif tag == "spine":
+            for itemref in el:
+                if _xml_local(itemref.tag) == "itemref":
+                    spine.append(itemref.get("idref"))
+        elif (tag == "meta" and el.get("name") == "cover"
+                and cover_id is None):
+            cover_id = el.get("content")
+    return title, author, lang, manifest, spine, cover_id
+
+
+def _epub_cover(zf, names, base, manifest, cover_id):
+    """
+    S3 (0.42.0): Cover-Bytes – laut Manifest, sonst Heuristik: der
+    Dateiname enthält „cover“ und sieht nach Bild aus.
+    """
+    cover = None
+    if cover_id in manifest:
+        try:
+            cover = _zf_read_capped(zf, base + manifest[cover_id][0],
+                                    _EBOOK_COVER_CAP)
+        except KeyError as e:
+            dbg("text/_epub_cover: suppressed: %s" % e)
+    if not cover:
+        for name in names:
+            low = name.rsplit("/", 1)[-1].lower()
+            if "cover" in low and low.endswith(
+                    (".jpg", ".jpeg", ".png", ".gif", ".webp")):
+                try:
+                    cover = _zf_read_capped(zf, name, _EBOOK_COVER_CAP)
+                    break
+                except KeyError as e:
+                    dbg("text/_epub_cover: suppressed: %s" % e)
+    return cover
+
+
+def _epub_text(zf, base, spine, manifest):
+    """
+    S3 (0.42.0): Textanfang – Spine-Dokumente in Lesereihenfolge zu
+    Text (R6: die EPUB3-Navigationsdatei properties="nav" ist das
+    Inhaltsverzeichnis, KEIN Buchtext).
+    """
+    parts = []
+    total = 0
+    for idref in spine:
+        if total >= MAX_EBOOK_CHARS:
+            break
+        href, mtype, props = manifest.get(idref, (None, None, ""))
+        if not href:
+            continue
+        if "nav" in props.split():
+            continue
+        if mtype and "html" not in mtype and "xml" not in mtype:
+            continue
+        try:
+            raw = _zf_read_capped(zf, base + href, _EBOOK_CHUNK_CAP)
+        except KeyError as e:
+            dbg("text/_epub_text: suppressed: %s" % e)
+        chunk = _html_to_text(raw.decode("utf-8", "replace"))
+        if chunk.strip():
+            parts.append(chunk)
+            total += len(chunk)
+    return "\n\n".join(parts)[:MAX_EBOOK_CHARS]
+
+
 def _epub_data(path):
     """
     EPUB öffnen: Metadaten (Titel, Autor, Sprache), Cover-Bytes und der
     Textanfang in Lesereihenfolge (Spine). Rückgabe (rows, cover, text).
+    S3 (0.42.0): Zerlegt – _epub_opf_path, _epub_metadata, _epub_cover
+    und _epub_text parsen je einen Teil; hier bleibt der Ablauf.
     """
     with zipfile.ZipFile(path) as zf:
         names = zf.namelist()
-
         # → REF TXT-EPUB-1
-        opf_path = None
-        try:
-            container = _zf_read_capped(
-                zf, "META-INF/container.xml", _EBOOK_CHUNK_CAP).decode(
-                "utf-8", "replace")
-            m = re.search(r'full-path="([^"]+)"', container)
-            if m:
-                opf_path = m.group(1)
-        except Exception:
-            pass
-        if not opf_path:
-            for name in names:
-                if name.lower().endswith(".opf"):
-                    opf_path = name
-                    break
-        if not opf_path:
-            raise ValueError("keine OPF-Inhaltsdatei gefunden")
-
+        opf_path = _epub_opf_path(zf, names)
         base = (opf_path.rsplit("/", 1)[0] + "/") if "/" in opf_path else ""
         root = ElementTree.fromstring(
             _zf_read_capped(zf, opf_path, _EBOOK_CHUNK_CAP))
-
-        title = author = lang = None
-        manifest = {}          # id -> (href, media type)
-        spine = []             # hrefs in reading order
-        cover_id = None
-        for el in root.iter():
-            tag = _xml_local(el.tag)
-            if tag == "title" and title is None:
-                title = (el.text or "").strip()
-            elif tag == "creator" and author is None:
-                author = (el.text or "").strip()
-            elif tag == "language" and lang is None:
-                lang = (el.text or "").strip()
-            elif tag == "manifest":
-                for item in el:
-                    if _xml_local(item.tag) != "item":
-                        continue
-                    manifest[item.get("id")] = (
-                        item.get("href"), item.get("media-type"),
-                        item.get("properties") or "")
-                    if "cover-image" in (item.get("properties") or ""):
-                        cover_id = item.get("id")
-            elif tag == "spine":
-                for itemref in el:
-                    if _xml_local(itemref.tag) == "itemref":
-                        spine.append(itemref.get("idref"))
-            elif (tag == "meta" and el.get("name") == "cover"
-                    and cover_id is None):
-                cover_id = el.get("content")
-
-        # Cover image data (manifest, else heuristic: file name
-        # contains "cover" and looks like an image)
-        cover = None
-        if cover_id in manifest:
-            try:
-                cover = _zf_read_capped(zf, base + manifest[cover_id][0],
-                                        _EBOOK_COVER_CAP)
-            except KeyError:
-                cover = None
-        if not cover:
-            for name in names:
-                low = name.rsplit("/", 1)[-1].lower()
-                if "cover" in low and low.endswith(
-                        (".jpg", ".jpeg", ".png", ".gif", ".webp")):
-                    try:
-                        cover = _zf_read_capped(zf, name, _EBOOK_COVER_CAP)
-                        break
-                    except KeyError:
-                        pass
-
-        # Text start: clean spine documents in reading order into text
-        parts = []
-        total = 0
-        for idref in spine:
-            if total >= MAX_EBOOK_CHARS:
-                break
-            href, mtype, props = manifest.get(idref, (None, None, ""))
-            if not href:
-                continue
-            # R6: the EPUB3 navigation file (properties="nav") is the
-            # table of contents, not book text – skip it.
-            if "nav" in props.split():
-                continue
-            if mtype and "html" not in mtype and "xml" not in mtype:
-                continue
-            try:
-                raw = _zf_read_capped(zf, base + href, _EBOOK_CHUNK_CAP)
-            except KeyError:
-                continue
-            chunk = _html_to_text(raw.decode("utf-8", "replace"))
-            if chunk.strip():
-                parts.append(chunk)
-                total += len(chunk)
-        text = "\n\n".join(parts)[:MAX_EBOOK_CHARS]
-
-    rows = [(k, v) for k, v in (("Titel", title), ("Autor", author),
-                                ("Sprache", lang)) if v]
-    return rows, cover, text
+        title, author, lang, manifest, spine, cover_id = _epub_metadata(root)
+        cover = _epub_cover(zf, names, base, manifest, cover_id)
+        text = _epub_text(zf, base, spine, manifest)
+    return _ebook_rows((("Titel", title), ("Autor", author),
+                        ("Sprache", lang))), cover, text
 
 
-def _fb2_data(path):
+def _fb2_metadata(root):
     """
-    FictionBook 2 (.fb2): Titel, Autor, Cover (base64-binär) und
-    Textanfang des ersten Körpers (Fußnoten-Körper werden ignoriert).
+    S3 (0.42.0): FB2-Kopf – Titel, Autor (first-/last-name) und
+    Cover-Referenz (coverpage l:href), plus der ERSTE Körper.
     """
-    root = ElementTree.parse(path).getroot()
-
     title = author = None
     cover_ref = None
     body = None
@@ -632,7 +698,15 @@ def _fb2_data(path):
                                  child.get("href") or "").lstrip("#")
         elif tag == "body" and body is None:
             body = el
+    return title, author, cover_ref, body
 
+
+def _fb2_body_text(body):
+    """
+    S3 (0.42.0): Textanfang des ersten Körpers – Absätze, Titel,
+    Zwischenzeilen und Leerzeilen; Fußnoten-Körper bleiben außen
+    vor.
+    """
     lines = []
     total = 0
     if body is not None:
@@ -653,9 +727,14 @@ def _fb2_data(path):
                 lines.append("")
             if total >= MAX_EBOOK_CHARS:
                 break
-    text = "\n".join(lines)[:MAX_EBOOK_CHARS]
+    return "\n".join(lines)[:MAX_EBOOK_CHARS]
 
-    # Cover: embedded <binary> resource (base64)
+
+def _fb2_cover(root, cover_ref):
+    """
+    S3 (0.42.0): Cover aus der eingebetteten <binary>-Ressource
+    (base64).
+    """
     cover = None
     if cover_ref:
         for el in root.iter():
@@ -664,35 +743,36 @@ def _fb2_data(path):
                 b64 = re.sub(r"\s+", "", "".join(el.itertext()))
                 try:
                     cover = base64.b64decode(b64)
-                except Exception:
-                    cover = None
+                except Exception as e:
+                    dbg("text/_fb2_cover: suppressed: %s" % e)
                 break
-
-    rows = [(k, v) for k, v in (("Titel", title), ("Autor", author)) if v]
-    return rows, cover, text
+    return cover
 
 
-_MOBI_MAX_BYTES = 8 * 1024 * 1024   # MOBI: read only up to here – text records sit at the file start
-                                     # stehen ohnehin am Dateianfang; Records
-
-
-def _mobi_data(path):
+def _fb2_data(path):
     """
-    MOBI/PRC (Palm-Container): Titel, Autor (EXTH) und Textanfang.
-    Unterstützt Kompressionsverfahren 1 (PalmDoc) und 2 (unkomprimiert);
-    HUFF/CDIC (einige neuere AZW) wird abgelehnt – KF8-Dateien (AZW3)
-    liefern bestenfalls HTML-Reste, sind aber lesbar, wenn PalmDoc
-    komprimiert ist. Es wird nur der Dateikopf bis _MOBI_MAX_BYTES
-    gelesen (B5): riesige AZW3-Dateien sollen Nemo nicht einfrieren.
+    FictionBook 2 (.fb2): Titel, Autor, Cover (base64-binär) und
+    Textanfang des ersten Körpers (Fußnoten-Körper werden ignoriert).
+    S3 (0.42.0): Zerlegt – _fb2_metadata, _fb2_body_text und
+    _fb2_cover je einen Teil; hier bleibt der Ablauf.
     """
-    with open(path, "rb") as fh:
-        data = fh.read(_MOBI_MAX_BYTES)
-    if len(data) < 88 or data[60:68] not in (b"BOOKMOBI", b"TEXtREAd"):
-        raise ValueError("kein MOBI-Container")
+    root = ElementTree.parse(path).getroot()
+    title, author, cover_ref, body = _fb2_metadata(root)
+    text = _fb2_body_text(body)
+    cover = _fb2_cover(root, cover_ref)
+    return _ebook_rows((("Titel", title), ("Autor", author))), cover, text
 
-    title = data[0:32].split(b"\x00")[0].decode("utf-8", "replace").strip()
+
+_MOBI_MAX_BYTES = 8 * 1024 * 1024   # B5: Text-Records stehen ohnehin am
+                                    # Dateianfang – nur bis hierher lesen
+
+
+def _mobi_records(data):
+    """
+    S3 (0.42.0): Palm-Datensätze ab Offset 78 – je 8 Bytes im
+    Eintrag, der Offset steckt in den ersten drei Bytes.
+    """
     num_rec = struct.unpack(">H", data[76:78])[0]
-    # Record table at offset 78: 8 bytes each, offset in the first 3
     rec_offs = []
     for i in range(num_rec):
         p = 78 + 8 * i
@@ -706,7 +786,15 @@ def _mobi_data(path):
         end = rec_offs[i + 1] if i + 1 < len(rec_offs) else len(data)
         if off < end <= len(data):
             recs.append(data[off:end])
+    return recs
 
+
+def _mobi_header(recs):
+    """
+    S3 (0.42.0): MOBI-Header-Datensatz – Kompressionsverfahren,
+    Encoding, erster nicht-Buch-Record und der EXTH-Autor
+    (Eintragstyp 100).
+    """
     compression = 1
     encoding = "cp1252"
     first_non_book = len(recs)
@@ -735,12 +823,16 @@ def _mobi_data(path):
                 if etype == 100:
                     author = r0[q + 8:q + elen].decode(encoding, "replace")
                 q += elen
+    return compression, encoding, first_non_book, author
 
-    if compression not in (1, 2):
-        raise ValueError("Kompressionsverfahren %d nicht unterstützt "
-                         "(HUFF/CDIC)" % compression)
 
-    # → REF TXT-MOBI-1
+def _mobi_text(recs, compression, encoding, first_non_book):
+    """
+    S3 (0.42.0): Buchtext – Datensätze 1 bis first_non_book, je
+    dekomprimiert (PalmDoc bei Verfahren 1), dekodiert und von
+    Steuerzeichen befreit, zuletzt HTML zu Text (→ REF
+    TXT-MOBI-1).
+    """
     _mobi_edge = ("\ufffd\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c"
                   "\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19"
                   "\x1a\x1b\x1c\x1d\x1e\x1f")
@@ -756,10 +848,32 @@ def _mobi_data(path):
         total += len(chunk)
         if total >= MAX_EBOOK_CHARS * 2:
             break
-    text = _html_to_text(" ".join(parts))[:MAX_EBOOK_CHARS]
+    return _html_to_text(" ".join(parts))[:MAX_EBOOK_CHARS]
 
-    rows = [(k, v) for k, v in (("Titel", title), ("Autor", author)) if v]
-    return rows, None, text
+
+def _mobi_data(path):
+    """
+    MOBI/PRC (Palm-Container): Titel, Autor (EXTH) und Textanfang.
+    Unterstützt Kompressionsverfahren 1 (PalmDoc) und 2 (unkomprimiert);
+    HUFF/CDIC (einige neuere AZW) wird abgelehnt – KF8-Dateien (AZW3)
+    liefern bestenfalls HTML-Reste, sind aber lesbar, wenn PalmDoc
+    komprimiert ist. Es wird nur der Dateikopf bis _MOBI_MAX_BYTES
+    gelesen (B5): riesige AZW3-Dateien sollen Nemo nicht einfrieren.
+    S3 (0.42.0): Zerlegt – _mobi_records, _mobi_header und
+    _mobi_text je einen Teil; hier bleibt der Ablauf.
+    """
+    with open(path, "rb") as fh:
+        data = fh.read(_MOBI_MAX_BYTES)
+    if len(data) < 88 or data[60:68] not in (b"BOOKMOBI", b"TEXtREAd"):
+        raise ValueError("kein MOBI-Container")
+    title = data[0:32].split(b"\x00")[0].decode("utf-8", "replace").strip()
+    recs = _mobi_records(data)
+    compression, encoding, first_non_book, author = _mobi_header(recs)
+    if compression not in (1, 2):
+        raise ValueError("Kompressionsverfahren %d nicht unterstützt "
+                         "(HUFF/CDIC)" % compression)
+    text = _mobi_text(recs, compression, encoding, first_non_book)
+    return _ebook_rows((("Titel", title), ("Autor", author))), None, text
 
 # --- Fonts: waterfall for TrueType/OpenType (stdlib) -------------------------
 
@@ -832,8 +946,8 @@ def _font_info(path):
                 text = raw.decode("utf-16-be", "replace")
             else:                          # Mac etc.: roughly Latin-1
                 text = raw.decode("latin-1", "replace")
-        except Exception:
-            continue
+        except Exception as e:
+            dbg("text/_font_info: suppressed: %s" % e)
         text = text.strip("\x00 ").strip()
         if text:
             recs.setdefault(nid, text)
@@ -871,8 +985,8 @@ def _fc_add_font_file(path):
                 old = state["copies"].pop(0)
                 try:
                     os.unlink(old)
-                except Exception:
-                    pass
+                except Exception as e:
+                    dbg("text/_fc_add_font_file: suppressed: %s" % e)
         lib = ctypes.CDLL(ctypes.util.find_library("fontconfig")
                           or "libfontconfig.so.1")
         res = lib.FcConfigAppFontAddDir(
@@ -881,8 +995,8 @@ def _fc_add_font_file(path):
             state["added"].add(path)
             return True
         return False
-    except Exception:
-        return False
+    except Exception as e:
+        dbg("text/_fc_add_font_file: suppressed: %s" % e)
 
 
 def _font_known(font_map, family):
@@ -897,8 +1011,8 @@ def _font_known(font_map, family):
             if (fam.get_name() or "").lower() == low:
                 return True
         return False
-    except Exception:
-        return True      # check impossible – do not block
+    except Exception as e:
+        dbg("text/_font_known: suppressed: %s" % e)
 
 
 # ============================ Renderer: text ================================
@@ -985,8 +1099,8 @@ def _vcard_parse(text):
                     value = quopri.decodestring(
                         value.encode("latin-1", "replace")
                     ).decode(charset, "replace")
-                except Exception:
-                    pass
+                except Exception as e:
+                    dbg("text/_vcard_parse: suppressed: %s" % e)
             cur.append((name, params, value))
     return cards
 
@@ -1076,8 +1190,8 @@ def _vcard_photo(card):
         if "B" in encs or "BASE64" in encs:
             try:
                 return base64.b64decode(re.sub(r"\s+", "", value))
-            except Exception:
-                continue
+            except Exception as e:
+                dbg("text/_vcard_photo: suppressed: %s" % e)
         raw = value.strip()
         vals = params.get("VALUE", [])
         looks_uri = ("URI" in vals or "URL" in vals or "URI" in encs
@@ -1090,8 +1204,8 @@ def _vcard_photo(card):
             if path and os.path.isfile(path):
                 with open(path, "rb") as fh:
                     return fh.read(16 * 1024 * 1024)
-        except Exception:
-            continue
+        except Exception as e:
+            dbg("text/_vcard_photo: suppressed: %s" % e)
     return None
 
 
@@ -1121,7 +1235,7 @@ def _vcard_circle(pb, size=160):
         out = Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
         return out if out is not None else pb
     except Exception as e:
-        dbg("vCard circle mask failed (%s) – square photo" % e)
+        dbg("text/_vcard_circle: suppressed: %s" % e)
         return pb
 
 
@@ -1154,7 +1268,7 @@ def _vcard_placeholder(size=160):
         cr.fill()
         return Gdk.pixbuf_get_from_surface(surf, 0, 0, size, size)
     except Exception as e:
-        dbg("vCard placeholder failed (%s) – icon fallback" % e)
+        dbg("text/_vcard_placeholder: suppressed: %s" % e)
         return None
 
 
@@ -1266,8 +1380,8 @@ def _ldif_parse(text):
             try:
                 value = base64.b64decode(value.strip()).decode(
                     "utf-8", "replace")
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("text/flush: suppressed: %s" % e)
         value = value.strip()
         if value:
             attrs.append((attr, value))
@@ -1371,8 +1485,8 @@ def _contact_parse(text):
     """
     try:
         root = ElementTree.fromstring(text)
-    except Exception:
-        return []
+    except Exception as e:
+        dbg("text/_contact_parse: suppressed: %s" % e)
     nodes = [el for el in root.iter()
              if isinstance(el.tag, str)
              and el.tag.rsplit("}", 1)[-1].lower() == "contact"]
@@ -1408,7 +1522,7 @@ class TextRendererMixin:
         try:
             text, truncated = self._read_text_file(path)
         except Exception as e:
-            self._hint("Konnte Datei nicht lesen: %s" % e)
+            dbg("text/_render_text: suppressed: %s" % e)
             return
         # F24: line numbers per the "Text files" setting (default on);
         # margin drawing, not text buffer – only the text is copied.
@@ -1418,7 +1532,7 @@ class TextRendererMixin:
                         linenumbers=self._conf_text_linenumbers,
                         source_path=path)
         if truncated:
-            self._hint("Vorschau gekürzt (lange Datei).")
+            pack_hint(self._content, "Vorschau gekürzt (lange Datei).")
 
     def _render_markdown(self, path):
         """
@@ -1430,7 +1544,7 @@ class TextRendererMixin:
         try:
             text, truncated = self._read_text_file(path)
         except Exception as e:
-            self._hint("Konnte Datei nicht lesen: %s" % e)
+            dbg("text/_render_markdown: suppressed: %s" % e)
             return
         markup = _markdown_to_pango(text)
         valid = True
@@ -1439,12 +1553,12 @@ class TextRendererMixin:
             # on invalid markup (no exception!) – show raw text instead.
             Pango.parse_markup(markup, -1, "\x00")
         except Exception as exc:
-            valid = False
+            dbg("text/_render_markdown: suppressed: %s" % exc)
             dbg("Markdown markup invalid (%s) – showing raw text" % exc)
         # → REF TXT-B6-1
         self._text_view(text, font=None, markup=(markup if valid else None))
         if truncated:
-            self._hint("Vorschau gekürzt (lange Datei).")
+            pack_hint(self._content, "Vorschau gekürzt (lange Datei).")
 
     def _render_eml(self, path):
         """
@@ -1460,7 +1574,7 @@ class TextRendererMixin:
                 raw = fh.read(_EML_FILE_CAP)
             msg = email.message_from_bytes(raw, policy=policy.default)
         except Exception as e:
-            self._hint("E-Mail konnte nicht geöffnet werden: %s" % e)
+            dbg("text/_render_eml: suppressed: %s" % e)
             return
 
         rows = []
@@ -1469,17 +1583,17 @@ class TextRendererMixin:
                            ("date", "Datum")):
             try:
                 val = msg.get(key)
-            except Exception:
-                val = None
+            except Exception as e:
+                dbg("text/_render_eml: suppressed: %s" % e)
             if val:
                 rows.append((label, str(val)[:160]))
         # 0.9.1: headers via the central table helper (previously
         # built identically inline).
-        self._meta_grid(rows)
+        pack_meta_grid(rows, self._content)
 
         body = self._eml_body(msg)
         if not body.strip():
-            self._hint("Kein lesbarer Textkörper gefunden – Datei "
+            pack_hint(self._content, "Kein lesbarer Textkörper gefunden – Datei "
                        "über den Öffnen-Knopf betrachten.")
             return
         self._text_view(body)
@@ -1490,25 +1604,25 @@ class TextRendererMixin:
         part = None
         try:
             part = msg.get_body(preferencelist=("plain", "html"))
-        except Exception:
-            part = None
+        except Exception as e:
+            dbg("text/_eml_body: suppressed: %s" % e)
         if part is not None:
             try:
                 text = part.get_content()
-            except Exception:
-                try:
+            except Exception as e:
+                dbg("text/_eml_body: suppressed: %s" % e)
                     raw = part.get_payload(decode=True)
                     if raw:
                         text = raw.decode(
                             part.get_content_charset() or "utf-8",
                             "replace")
-                except Exception:
-                    text = ""
+                except Exception as e:
+                    dbg("text/_eml_body: suppressed: %s" % e)
             try:
                 if "html" in (part.get_content_type() or "").lower():
                     text = _html_to_text(text)
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("text/_eml_body: suppressed: %s" % e)
         if not text.strip():
             # Fallback: first text/plain part if get_body failed.
             try:
@@ -1518,8 +1632,8 @@ class TextRendererMixin:
                         if raw:
                             text = raw.decode("utf-8", "replace")
                             break
-            except Exception:
-                text = ""
+            except Exception as e:
+                dbg("text/_eml_body: suppressed: %s" % e)
         return text[:MAX_TEXT_BYTES]
 
     def _render_vcard(self, path):
@@ -1543,7 +1657,7 @@ class TextRendererMixin:
                 # file – a few MB are normal, dozens would be a bomb.
                 raw = fh.read(_VCARD_FILE_CAP)
         except Exception as e:
-            self._hint("Visitenkarte konnte nicht geöffnet werden: %s"
+            dbg("text/_render_vcard: suppressed: %s" % e)
                        % e)
             return
         text = raw.decode("utf-8", "replace")
@@ -1557,7 +1671,7 @@ class TextRendererMixin:
         else:
             cards = _vcard_parse(text)
         if not cards:
-            self._hint("Kein Kontakt gefunden – Datei über den "
+            pack_hint(self._content, "Kein Kontakt gefunden – Datei über den "
                        "Öffnen-Knopf betrachten.")
             self._render_generic()
             return
@@ -1631,7 +1745,7 @@ class TextRendererMixin:
                 pb = _pixbuf_from_bytes(photo_bytes)
                 had_photo = pb is not None
             except Exception as e:
-                dbg("vCard photo undecodable (%s) – placeholder "
+                dbg("text/_vcard_card_widget: suppressed: %s" % e)
                     "circle" % e)
         pb = _vcard_circle(pb) if pb is not None else None
         if pb is None:
@@ -1672,7 +1786,7 @@ class TextRendererMixin:
             slbl.set_max_width_chars(32)
             slbl.set_tooltip_text(sub)
             inner.pack_start(slbl, False, False, 0)
-        self._meta_grid(rows, container=inner)
+        pack_meta_grid(rows, inner)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         outer.connect("draw", self._vcard_card_draw)
@@ -1702,17 +1816,17 @@ class TextRendererMixin:
             r = max(4.0, min(cw, ch) * 56.0 / 960.0)
             for i in range(6, 0, -1):
                 cr.set_source_rgba(0.0, 0.0, 0.0, 0.04)
-                self._cover_round_path(cr, pad + dx - i, pad + dy - i,
+                cover_round_path(cr, pad + dx - i, pad + dy - i,
                                        cw + 2 * i, ch + 2 * i, r + i)
                 cr.fill()
             # No fill – the card stays transparent, only the hairline
             # border marks it (0.25.1: white hurts in dark mode).
-            self._cover_round_path(cr, pad, pad, cw, ch, r)
+            cover_round_path(cr, pad, pad, cw, ch, r)
             cr.set_source_rgba(0.0, 0.0, 0.0, 0.10)
             cr.set_line_width(1.0)
             cr.stroke()
         except Exception as e:
-            dbg("vCard card background failed (%s)" % e)
+            dbg("text/_vcard_card_draw: suppressed: %s" % e)
         return False
 
     def _render_ebook(self, path, loader, fmt):
@@ -1725,13 +1839,13 @@ class TextRendererMixin:
         try:
             rows, cover, text = loader(path)
         except Exception as e:
-            dbg("E-book unreadable (%s): %s" % (path, e))
-            self._hint("E-Book konnte nicht gelesen werden: %s" % e)
+            dbg("text/_render_ebook: suppressed: %s" % e)
+            pack_hint(self._content, "E-Book konnte nicht gelesen werden: %s" % e)
             self._render_generic()
             return
         if not rows:
             rows = [("Format", fmt)]
-        self._meta_grid(rows)
+        pack_meta_grid(rows, self._content)
         if cover:
             try:
                 pb = _pixbuf_from_bytes(cover)
@@ -1740,9 +1854,9 @@ class TextRendererMixin:
                     max_upscale=2.0)
                 self._content.pack_start(scroll, False, False, 0)
             except Exception as exc:
-                dbg("E-book cover not displayable: %s" % exc)
+                dbg("text/_render_ebook: suppressed: %s" % exc)
         if not text.strip():
-            self._hint("Kein lesbarer Text gefunden – Datei über den "
+            pack_hint(self._content, "Kein lesbarer Text gefunden – Datei über den "
                        "Öffnen-Knopf betrachten.")
             return
         # 0.9.1: text start via the shared TextView helper
@@ -1775,17 +1889,17 @@ class TextRendererMixin:
         try:
             fmt, family, style = _font_info(path)
         except Exception as e:
-            dbg("Font unreadable (%s): %s" % (path, e))
-            self._hint("Konnte Schrift nicht lesen: %s" % e)
+            dbg("text/_render_font: suppressed: %s" % e)
+            pack_hint(self._content, "Konnte Schrift nicht lesen: %s" % e)
             self._render_generic()
             return
         if not HAVE_PANGOCAIRO:
-            self._hint("Schriftvorschau nicht verfügbar – Pakete "
+            pack_hint(self._content, "Schriftvorschau nicht verfügbar – Pakete "
                        "python3-cairo und gir1.2-pango installieren.")
             self._render_generic()
             return
-        self._meta_grid([("Format", fmt), ("Familie", family),
-                         ("Stil", style)])
+        pack_meta_grid([("Format", fmt), ("Familie", family),
+                        ("Stil", style)], self._content)
         if not _fc_add_font_file(path):
             dbg("Font could not be added to Fontconfig: %s"
                 % path)
@@ -1794,13 +1908,13 @@ class TextRendererMixin:
         try:
             fctx = PangoCairo.FontMap.new().create_context()
         except Exception as e:
-            dbg("Pango context failed: %s" % e)
-            self._hint("Schriftvorschau nicht verfügbar.")
+            dbg("text/_render_font: suppressed: %s" % e)
+            pack_hint(self._content, "Schriftvorschau nicht verfügbar.")
             self._render_generic()
             return
         if not _font_known(fctx.get_font_map(), family):
             dbg("Pango does not know the family: %s" % family)
-            self._hint("Schrift konnte nicht eingebunden werden – der "
+            pack_hint(self._content, "Schrift konnte nicht eingebunden werden – der "
                        "Wasserfall zeigt die Ersatzschrift.")
 
         # Theme text color. F12 fix (0.34.0): get_color() requires a
@@ -1810,8 +1924,8 @@ class TextRendererMixin:
             c = self.get_style_context().get_color(
                 Gtk.StateFlags.NORMAL)
             fg = (c.red, c.green, c.blue)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("text/_render_font: suppressed: %s" % e)
 
         # Pre-render at double size and scale down live: stays
         # sharp even while dragging the divider.
@@ -1859,7 +1973,7 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-PREVIEWER_VERSION = "0.41.0"
+PREVIEWER_VERSION = "0.42.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "K4 markdown and read caps stay)"
