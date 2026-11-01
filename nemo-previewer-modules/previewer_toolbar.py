@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.40.0
+previewer_toolbar.py – Version 0.41.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -23,7 +23,7 @@ if _HERE not in sys.path:
 
 from previewer_util import (
     dbg,
-    PANEL_WIDTH, PANEL_MIN_WIDTH,
+    PANEL_MIN_WIDTH,
     TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
 )
 
@@ -158,18 +158,12 @@ class PreviewToolbarMixin:
         self._settings_spin = Gtk.SpinButton.new(adj, 1.0, 0)
         self._settings_spin.set_value(self._panel_width)
         self._settings_spin.set_tooltip_text(
-            "Breite der Vorschauspalte, mit der Nemo startet – "
-            "Ziehen am Trenner übernimmt die gewählte Breite "
-            "automatisch als neuen Wert")
+            "Breite der Vorschauspalte, mit der Nemo bei jedem Start "
+            "öffnet – Ziehen am Trenner gilt nur für die laufende "
+            "Sitzung")
         self._settings_spin.connect("value-changed",
                                     self._on_start_width_changed)
         wrow.pack_start(self._settings_spin, False, False, 0)
-        self._settings_width_label = Gtk.Label()
-        self._settings_width_label.get_style_context().add_class(
-            "dim-label")
-        self._settings_width_label.set_halign(Gtk.Align.START)
-        wrow.pack_start(self._settings_width_label, False, False, 0)
-        self._update_width_hint()
         fbox.pack_start(wrow, False, False, 0)
         return frame
 
@@ -276,7 +270,6 @@ class PreviewToolbarMixin:
     def _on_settings_win_destroyed(self, *a):
         self._settings_win = None
         self._settings_spin = None
-        self._settings_width_label = None
         self._settings_pages_spin = None
 
     def _on_show_at_start_toggled(self, chk):
@@ -381,32 +374,16 @@ class PreviewToolbarMixin:
         """
         F12 (0.13.0): Neue Startbreite aus dem SpinButton – sofort
         übernehmen, live anwenden und speichern (kein Extra-Knopf).
+        0.41.0: Der SpinButton ist die EINZIGE Quelle der
+        Startbreite – Ziehen am Trenner ändert sie nicht.
         """
         try:
             value = int(spin.get_value())
             if value == self._panel_width:
                 return
             self._panel_width = value
-            self._panel_width_saved = value
             self._config_save()
             self._apply_panel_width_live()
-            self._update_width_hint()
-        except Exception:
-            pass
-
-    def _update_width_hint(self):
-        """
-        F12 (0.13.0): „Standard … · aktuell …"-Zeile im Einstellungs-
-        fenster pflegen: genannter Default (PANEL_WIDTH) und der
-        aktuelle Panelwert – genau die beiden Größen, die der Nutzer
-        dort sehen will.
-        """
-        if self._settings_width_label is None:
-            return
-        try:
-            self._settings_width_label.set_label(
-                "Standard: %d px · aktuell: %d px"
-                % (PANEL_WIDTH, self._panel_width))
         except Exception:
             pass
 
@@ -418,7 +395,7 @@ class PreviewToolbarMixin:
         return True
 
 
-PREVIEWER_VERSION = "0.40.0"
+PREVIEWER_VERSION = "0.41.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
