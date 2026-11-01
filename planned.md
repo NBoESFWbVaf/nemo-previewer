@@ -976,6 +976,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   der acht Python-Dateien auf max. zwei Zeilen gekürzt und auf  
   Englisch übersetzt; F-Marker, Versionshinweise und REF-Verweise  
   bleiben erhalten, Docstrings und Modul-Köpfe unangetastet.
+  ✅ 0.38.0 – Debuglog auf Englisch (Nutzer-Wunsch): Alle dbg-Zeilen  
+  der acht Python-Dateien übersetzt und etwas gekürzt; TRACE-  
+  Präfixe, Fachbegriffe und Marker bleiben, Docstrings und  
+  UI-Texte unangetastet.
 
 ---
 
