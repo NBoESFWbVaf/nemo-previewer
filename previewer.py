@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer.py – Version 0.42.0
+previewer.py – Version 0.42.1
 
 Entry point and Nemo integration: injects the preview panel into
 every Nemo window, loads the seven modules from the
@@ -54,7 +54,7 @@ from previewer_panel import PreviewPanel
 
 # PREVIEWER_VERSION must be identical in all eight modules; the entry
 # point checks loaded modules and warns about outdated copies.
-PREVIEWER_VERSION = "0.42.0"
+PREVIEWER_VERSION = "0.42.1"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -481,8 +481,8 @@ def _dump_a11y_once(st):
         extra = []
         try:
             extra.append("AtkSel=%d" % acc.get_selection_count())
-        except Exception as e:
-            dbg("previewer/rec: suppressed: %s" % e)
+        except Exception:
+            pass
         try:
             ss = acc.get_state_set()
             if ss is not None:
@@ -492,8 +492,8 @@ def _dump_a11y_once(st):
                     extra.append("FOCUSED")
                 if ss.contains_state(Atk.StateType.ACTIVE):
                     extra.append("ACTIVE")
-        except Exception as e:
-            dbg("previewer/rec: suppressed: %s" % e)
+        except Exception:
+            pass
         budget[0] -= 1
         dbg("%s d%d children=%d role=%s name=%r %s"
             % (tag, depth, n, role, name, " ".join(extra)))
