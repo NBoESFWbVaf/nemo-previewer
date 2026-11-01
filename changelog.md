@@ -6,6 +6,19 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.36.0\] – 2026-11-01
+
+### Changed (Geändert)
+
+- Modul-Köpfe aufgeräumt (Nutzer-Wunsch): Die Docstrings aller  
+  acht Python-Dateien enthalten jetzt nur noch den Namen der  
+  Erweiterung (nemo-previewer), den Dateinamen mit Versionsnummer  
+  und eine maximal dreizeilige Kurzbeschreibung auf Englisch. Die  
+  bisherigen STAND-Historien (teils über 90 Zeilen: Versions- und  
+  F-Notizen, Bedienungs- und Technik-Abschnitte) sind aus den  
+  Dateien entfernt – der Versionsverlauf lebt in changelog.md,  
+  die technischen Notizen in REFERENZ.md.
+
 ## \[0.35.0\] – 2026-11-01
 
 ### Changed (Geändert)
