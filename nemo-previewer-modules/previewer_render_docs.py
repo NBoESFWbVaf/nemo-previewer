@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.39.0
+previewer_render_docs.py – Version 0.40.0
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -371,40 +371,15 @@ class DocsRendererMixin:
         docProps/thumbnail.*). Nur wenn KEINE Miniaturansicht vorhanden
         ist, wird ersatzweise ein Textauszug gezeigt. Bei converting=True
         läuft parallel die LibreOffice-Konvertierung – dann mit Hinweis.
+        Seit 0.40.0 lesen zwei Helfer Paketdaten und No-ZIP-Hinweis.
         """
         # F39: office formats without a ZIP part (binary + RTF) – the
         # thumbnail/text route leads nowhere here (→ REF DOC-LEGACY-1).
         if os.path.splitext(path)[1].lower() in _OFFICE_NOZIP_EXTS:
-            if converting:
-                self._hint("Scharfe Vorschau wird im Hintergrund "
-                           "erstellt (LibreOffice) – einen Moment …")
-            elif SOFFICE and HAVE_POPPLER:
-                # F39: conversion ran but produced no result (broken
-                # file) – do not retry endlessly.
-                self._hint("Scharfe Vorschau konnte nicht erstellt "
-                           "werden – Datei über den Öffnen-Knopf "
-                           "betrachten.")
-            else:
-                self._hint("Keine Vorschau möglich – LibreOffice "
-                           "installieren (Paket libreoffice-core), "
-                           "dann konvertiert die Vorschau schar.")
+            self._office_nozip_hint(converting)
             return
-        thumb = None
-        text = ""
         try:
-            with zipfile.ZipFile(path) as zf:
-                names = set(zf.namelist())
-                for member in _OFFICE_THUMBS:
-                    if member in names:
-                        try:
-                            # 0.9.2: read cap – a crafted DOCX
-                            # could pack a giant thumbnail bomb.
-                            thumb = _zf_read_capped(zf, member,
-                                                    _OFFICE_THUMB_CAP)
-                        except Exception:
-                            thumb = None
-                        break
-                text = _extract_office_text(zf, names)
+            thumb, text = self._office_package_data(path)
         except Exception as e:
             # K2 (2026-10-30): only the hint line looks empty – the
             # file icon gives the error message a visual anchor.
@@ -437,6 +412,47 @@ class DocsRendererMixin:
         if converting:
             self._hint("Scharfe Vorschau wird im Hintergrund erstellt "
                        "(LibreOffice) – einen Moment …")
+
+    def _office_nozip_hint(self, converting):
+        """
+        F39: Hinweiszeile für Office-Formate OHNE ZIP-Teil (binär
+        und RTF) – eingebettete Miniaturansichten gibt es dort nicht,
+        nur die LibreOffice-Konvertierung hilft (→ REF DOC-LEGACY-1).
+        """
+        if converting:
+            self._hint("Scharfe Vorschau wird im Hintergrund "
+                       "erstellt (LibreOffice) – einen Moment …")
+        elif SOFFICE and HAVE_POPPLER:
+            # F39: conversion ran but produced no result (broken
+            # file) – do not retry endlessly.
+            self._hint("Scharfe Vorschau konnte nicht erstellt "
+                       "werden – Datei über den Öffnen-Knopf "
+                       "betrachten.")
+        else:
+            self._hint("Keine Vorschau möglich – LibreOffice "
+                       "installieren (Paket libreoffice-core), "
+                       "dann konvertiert die Vorschau schar.")
+
+    def _office_package_data(self, path):
+        """
+        Eingebettete Miniaturansicht und Textauszug aus dem Office-
+        ZIP-Paket lesen (0.9.2: Lese-Deckel gegen Thumbnail-Bomben) –
+        wirft bei unlesbarem Paket; Rückgabe (thumb|None, text).
+        """
+        with zipfile.ZipFile(path) as zf:
+            names = set(zf.namelist())
+            thumb = None
+            for member in _OFFICE_THUMBS:
+                if member in names:
+                    # 0.9.2: read cap – a crafted DOCX
+                    # could pack a giant thumbnail bomb.
+                    try:
+                        thumb = _zf_read_capped(zf, member,
+                                                _OFFICE_THUMB_CAP)
+                    except Exception:
+                        thumb = None
+                    break
+            return thumb, _extract_office_text(zf, names)
 
     # --- Office: sharp preview via LibreOffice ------------------------------
 
@@ -543,7 +559,7 @@ class DocsRendererMixin:
             pass
 
 
-PREVIEWER_VERSION = "0.39.0"
+PREVIEWER_VERSION = "0.40.0"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)
