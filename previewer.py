@@ -114,8 +114,8 @@ class PanelState:
         # button at the far right via pack_end.
         try:
             bar = self.window.get_titlebar()
-        except Exception as e:
-            dbg("previewer/_install_toolbar_toggle: suppressed: %s" % e)
+        except Exception:
+            bar = None
         if isinstance(bar, Gtk.HeaderBar):
             btn = Gtk.ToggleButton()
             btn.set_image(Gtk.Image.new_from_icon_name(
@@ -187,8 +187,8 @@ class PanelState:
         if isinstance(widget, Gtk.Image):
             try:
                 name = widget.get_icon_name()[0]
-            except Exception as e:
-                dbg("previewer/_has_view_icon: suppressed: %s" % e)
+            except Exception:
+                name = None
             if name and name.startswith("view-"):
                 return True
         if isinstance(widget, Gtk.Container):
@@ -241,12 +241,12 @@ def _uri_to_dir(uri):
     try:
         path, _ = GLib.filename_from_uri(uri)
         return path
-    except Exception as e:
-        dbg("previewer/_uri_to_dir: suppressed: %s" % e)
+    except Exception:
+        try:
             parsed = urllib.parse.urlparse(uri)
             return urllib.parse.unquote(parsed.path)
-        except Exception as e:
-            dbg("previewer/_uri_to_dir: suppressed: %s" % e)
+        except Exception:
+            return None
 
 
 def _reconcile(st):
@@ -264,8 +264,8 @@ def _reconcile(st):
 
     try:
         kids = window.get_children()
-    except Exception as e:
-        dbg("previewer/_reconcile: suppressed: %s" % e)
+    except Exception:
+        return
     top_box = kids[0] if kids else None
     if not isinstance(top_box, Gtk.Container):
         dbg("Injection: unexpected window structure (%s)"
@@ -348,8 +348,8 @@ def _reconcile(st):
             _apply()
         dbg("Panel injected at window edge (target: %s)"
             % type_name(target))
-    except Exception as e:
-        dbg("previewer/_reconcile: suppressed: %s" % e)
+    except Exception:
+        traceback.print_exc()
         return
 
     st._view_ok(view)
@@ -383,8 +383,8 @@ def _detach(st):
             parent.remove(st.hpaned)
             st.hpaned.remove(child1)
             parent.add(child1)
-    except Exception as e:
-        dbg("previewer/_detach: suppressed: %s" % e)
+    except Exception:
+        traceback.print_exc()
 
 
 def _connect_view_signals(st, view):
@@ -402,8 +402,8 @@ def _connect_view_signals(st, view):
         try:
             if not isinstance(w, Gtk.Widget) or not w.get_mapped():
                 continue
-        except Exception as e:
-            dbg("previewer/_connect_view_signals: suppressed: %s" % e)
+        except Exception:
+            continue
         for sig in selection_signals(w):
             try:
                 hid = w.connect(
@@ -412,8 +412,8 @@ def _connect_view_signals(st, view):
                         diag("Signal %s received (%s)" % (_s, type_name(_w))),
                         _dump_a11y_once(st),
                         _refresh_soon(st))[-1])
-            except Exception as e:
-                dbg("previewer/_connect_view_signals: suppressed: %s" % e)
+            except Exception:
+                continue
             st.view_handlers.append((w, hid))
             names_found.add(sig)
 
@@ -447,8 +447,8 @@ def _dump_a11y_once(st):
         if root is None:
             dbg("%s: no accessible available" % tag)
             return
-    except Exception as e:
-        dbg("previewer/_dump_a11y_once: suppressed: %s" % e)
+    except Exception:
+        dbg("%s: no accessible available" % tag)
         return
     budget = [45]
 
@@ -459,7 +459,7 @@ def _dump_a11y_once(st):
         try:
             n = acc.get_n_children()
         except Exception as exc:
-            dbg("previewer/rec: suppressed: %s" % exc)
+            n = -1
             # Log the cause of the seemingly empty a11y tree once.
             if not getattr(_dump_a11y_once, "_n_children_err", None):
                 _dump_a11y_once._n_children_err = repr(exc)
@@ -470,14 +470,14 @@ def _dump_a11y_once(st):
             role = acc.get_role()
             try:
                 role = role.value_nick
-            except Exception as e:
-                dbg("previewer/rec: suppressed: %s" % e)
-        except Exception as e:
-            dbg("previewer/rec: suppressed: %s" % e)
+            except Exception:
+                role = str(role)
+        except Exception:
+            role = "?"
         try:
             name = acc.get_name() or ""
-        except Exception as e:
-            dbg("previewer/rec: suppressed: %s" % e)
+        except Exception:
+            name = ""
         extra = []
         try:
             extra.append("AtkSel=%d" % acc.get_selection_count())
@@ -519,8 +519,8 @@ def _view_ok(self, view):
         self._a11y_dumps = 0
         try:
             _connect_view_signals(self, view)
-        except Exception as e:
-            dbg("previewer/_view_ok: suppressed: %s" % e)
+        except Exception:
+            traceback.print_exc()
         _dump_a11y_once(self)
         _refresh_soon(self)
         # F40: add the button later (if the toolbar was not there yet)
@@ -556,8 +556,8 @@ def _refresh(st):
             dbg("Selection changed: %r (via %s)" % (names, strategy))
             st.last_sel = names
             st.panel.set_selection(names, st.dir_path)
-    except Exception as e:
-        dbg("previewer/_refresh: suppressed: %s" % e)
+    except Exception:
+        traceback.print_exc()
 
 
 def _refresh_soon(st):
@@ -570,8 +570,8 @@ def _poll(st):
     try:
         _reconcile(st)
         _refresh(st)
-    except Exception as e:
-        dbg("previewer/_poll: suppressed: %s" % e)
+    except Exception:
+        traceback.print_exc()
     return True
 
 
