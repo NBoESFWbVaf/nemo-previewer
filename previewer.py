@@ -4,7 +4,7 @@
 Previewer
 =========
 
-STAND: Version 0.34.1 – F46 X (Nutzer-Fund): Der linke Rand der Vorschauspalte (Griff-Fenster des injizierten Gtk.Paned) ist ungemalt und zeigte im Lightmode einen schwarzen Rahmen – ein draw-Haken am Paned malt ihn jetzt mit der Panel-Ketten-Farbe (→ REF PAN-BG-2). F40-Nachtrag (Nutzer-Fund): Der Knopf in Nemos Werkzeugleiste synchronisiert seinen Anfangs-Zustand direkt beim Einpacken – das Panel ist da schon sichtbar, notify::visible feuerte nie, der Knopf blieb inaktiv (→ REF ENT-TOGGLE-1). F45 (Nutzer-Wunsch): Der Einstieg installiert
+STAND: Version 0.35.0 (Nutzer-Wunsch): Die sieben Modul-Dateien liegen im Unterordner nemo-previewer-modules – der Einstieg stellt ihn vor den Importen auf den Import-Pfad (vor den Extension-Ordner, flache Alt-Kopien gewinnen deshalb nie); im Extension-Ordner liegt nur noch diese Einstiegsdatei (→ REF ENT-MODDIR-1). F46 X (0.34.1, Nutzer-Fund): Der linke Rand der Vorschauspalte (Griff-Fenster des injizierten Gtk.Paned) ist ungemalt und zeigte im Lightmode einen schwarzen Rahmen – ein draw-Haken am Paned malt ihn jetzt mit der Panel-Ketten-Farbe (→ REF PAN-BG-2). F40-Nachtrag (Nutzer-Fund): Der Knopf in Nemos Werkzeugleiste synchronisiert seinen Anfangs-Zustand direkt beim Einpacken – das Panel ist da schon sichtbar, notify::visible feuerte nie, der Knopf blieb inaktiv (→ REF ENT-TOGGLE-1). F45 (Nutzer-Wunsch): Der Einstieg installiert
 gleich zu Anfang den Schritt-Trace (install_step_trace, → REF
 UT-TRACE-1): NEMO_PREVIEWER_TRACE=1/call protokolliert jeden Funktions-
 Aufruf samt Argumenten, jedes Return und jede Ausnahme, =line
@@ -13,8 +13,9 @@ F40 (0.30.1, Nutzer-Wunsch): Umschalt-Knopf für die Vorschau-Seitenleiste in Ne
 Dies ist die EINSTIEGS-Datei der acht zusammengehörigen Dateien
 (previewer.py, previewer_panel.py, previewer_select.py,
 previewer_util.py, previewer_toolbar.py, previewer_render_media.py,
-previewer_render_docs.py, previewer_render_text.py) – alle müssen im
-gleichen Ordner liegen und die gleiche Version tragen.
+previewer_render_docs.py, previewer_render_text.py) – die sieben
+Module liegen im Unterordner nemo-previewer-modules neben dieser
+Einstiegsdatei, alle müssen die gleiche Version tragen.
 Projekt-Repository: https://github.com/NBoESFWbVaf/nemo-previewer
 (Versionsverlauf: changelog.md im Repository).
 
@@ -107,6 +108,14 @@ import os
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
+# 0.35.0 (Nutzer-Wunsch): Die sieben Modul-Dateien liegen im
+# Unterordner nemo-previewer-modules – er steht im Import-Pfad
+# VOR dem Extension-Ordner, deshalb gewinnen die neuen Dateien
+# selbst dann, wenn flache Alt-Kopien im Extension-Ordner lagen
+# (→ REF ENT-MODDIR-1).
+_MODDIR = os.path.join(_HERE, "nemo-previewer-modules")
+if os.path.isdir(_MODDIR) and _MODDIR not in sys.path:
+    sys.path.insert(0, _MODDIR)
 
 from previewer_util import (
     dbg, diag, VERBOSE_DIAG,
@@ -119,6 +128,10 @@ from previewer_util import (
 # setzen – so laufen schon die Modul-Importe und später jede
 # Funktion unter dem Hook (NEMO_PREVIEWER_TRACE, → REF UT-TRACE-1).
 install_step_trace()
+# 0.35.0: Modul-Unterordner im Log bestätigen (→ REF ENT-MODDIR-1).
+dbg("Module-Ordner: %s"
+    % (_MODDIR if os.path.isdir(_MODDIR)
+       else "(flache Installation)"))
 from previewer_select import (
     find_view, selection_signals, SelectionReader,
     _atk_children, _dump_widget_tree,
@@ -128,7 +141,7 @@ from previewer_panel import PreviewPanel
 # PREVIEWER_VERSION muss in ALLEN acht Modulen identisch sein. Der Einstieg
 # prüft die geladenen Module: Liegt im Extension-Ordner noch eine veraltete
 # Fassung, erscheint im Terminal sofort eine klare Achtung-Meldung.
-PREVIEWER_VERSION = "0.34.1"
+PREVIEWER_VERSION = "0.35.0"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -143,7 +156,8 @@ for _mod in (previewer_util, previewer_select, previewer_panel,
     _ver = getattr(_mod, "PREVIEWER_VERSION", None)
     if _ver != PREVIEWER_VERSION:
         dbg("ACHTUNG: %s.py hat Version %r, erwartet wird %r – Datei im "
-            "Extension-Ordner durch die aktuelle Fassung ersetzen!"
+            "Modul-Unterordner nemo-previewer-modules (oder flach im "
+            "Extension-Ordner) durch die aktuelle Fassung ersetzen!"
             % (_mod.__name__, _ver, PREVIEWER_VERSION))
 
 # ============================== Provider ===================================
