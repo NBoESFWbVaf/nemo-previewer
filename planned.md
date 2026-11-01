@@ -261,7 +261,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
   ggf. named instances aus fvar-Tabelle anbieten). **M**
 
-- [ ] **K8** – Log beruhigen: „Nemo-C-Auswahl-API nicht verfügbar“ (Nutzer-Fund, 0.38.0-Deploy-Log)  
+- [x] **K8** – Log beruhigen: „Nemo-C-Auswahl-API nicht verfügbar“ (Nutzer-Fund, 0.38.0-Deploy-Log)  
   ist auf Nemo 6 IMMER zu erwarten – libnemo-private wird seit Nemo 6  
   statisch gelinkt, eine libnemo-private.so\* existiert nicht mehr auf  
   dem System, dlopen scheitert grundsätzlich (Risiko-Diagnose  
@@ -274,7 +274,11 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Englisch übersetzen (0.38.0 hatte nur dbg-Zeilen erwischt:  
   „Ansicht verbunden“, „Widget-Baum-Diagnose“, „Auswahl-Diagnose“ …  
   – previewer 3, select 6, util 1, plus „Eigen=“ in panel und  
-  „Symbole fehlen:“ im C-API-Lader). **S**
+  „Symbole fehlen:“ im C-API-Lader). **S**  
+  ✅ 0.39.0 (Straffungs-Runde): Radikal statt kosmetisch – die gesamte  
+  C-API-Route samt Lader, GI-Kaskade und Fehlermeldung ist entfernt  
+  (libnemo-private auf Nemo 6 grundsätzlich nicht ladbar); die  
+  restlichen diag()-Zeilen sind auf Englisch übersetzt.  
 
 ---
 
@@ -1002,6 +1006,15 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Basis, FG dunkel → dunkle statt heller; der Lightmode bekam fast  
   schwarz), und \_apply\_surface\_css fällt statt auf hartes  
   rgb(56,56,56) jetzt FG-abgeleitet aus.
+
+  ✅ 0.39.0 – Straffungs-Runde (Nutzer-Wunsch „Code straffen, ohne  
+  Funktionen zu beschädigen"): Toter Code entfernt – C-API-dlopen samt  
+  GI-Kaskade (auf Nemo 6 grundsätzlich erfolglos), 4 ungenutzte Helfer  
+  (\_read\_size, find\_paned\_above, find\_slot\_box,  
+  content\_type\_description), mehrfache Leerzeilen; ATK-Wächter und  
+  Office-Fehlvermerk als gemeinsame Helfer konsolidiert; restliche  
+  diag()-Zeilen englisch (K8 erledigt). 321 Zeilen weniger, Verhalten  
+  unverändert.
 
 ---
 
