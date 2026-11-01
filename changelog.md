@@ -6,6 +6,16 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.37.0\] – 2026-11-01
+
+### Changed (Geändert)
+
+- Kommentar-Cleanup (Nutzer-Wunsch): Alle #-Kommentare der acht  
+  Python-Dateien sind auf das Wesentliche gekürzt (maximal zwei  
+  Zeilen je Block) und auf Englisch übersetzt – Funktions- und  
+  Fehlermarker (F-Nummern), Versionshinweise und REF-Verweise  
+  bleiben erhalten; Docstrings und Modul-Köpfe sind unangetastet.
+
 ## \[0.36.0\] – 2026-11-01
 
 ### Changed (Geändert)
