@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.41.0
+previewer_panel.py – Version 0.42.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -32,6 +32,9 @@ from previewer_util import (
     query_file_info,
     pick_icon,
     human_size,
+    pack_hint,
+    build_scaled_image,
+    build_text_view,
 )
 from previewer_render_media import MediaRendererMixin, HAVE_GST
 from previewer_render_docs import (
@@ -46,8 +49,8 @@ try:
     gi.require_version('GtkSource', '4')
     from gi.repository import GtkSource
     HAVE_GTKSOURCE = True
-except Exception:
-    pass
+except Exception as e:
+    dbg("panel/module-level: suppressed: %s" % e)
 
 # F47: the MIME database types .theme and backup endings as
 # x-theme/x-trash, not text – whitelisted; binary .swp stays out.
@@ -74,12 +77,12 @@ CONF_FILE = os.path.join(CONF_DIR, "nemo-previewer.conf")
 # → REF PAN-B8-1
 try:
     _KEYFILE_CLS = GLib.KeyFile
-except AttributeError:
-    _KEYFILE_CLS = getattr(GLib, "Keyfile", None)
+except AttributeError as e:
+    dbg("panel/module-level: suppressed: %s" % e)
 try:
     _KEYFILE_FLAGS_NONE = GLib.KeyFileFlags.NONE
-except AttributeError:
-    _KEYFILE_FLAGS_NONE = 0
+except AttributeError as e:
+    dbg("panel/module-level: suppressed: %s" % e)
 
 
 def _sniff_is_text(path, probe=4096):
@@ -98,8 +101,8 @@ def _sniff_is_text(path, probe=4096):
     try:
         with open(path, "rb") as fh:
             head = fh.read(probe)
-    except Exception:
-        return False
+    except Exception as e:
+        dbg("panel/_sniff_is_text: suppressed: %s" % e)
     if not head or b"\x00" in head:
         return False
     ctrl = sum(1 for b in head if b < 9 or 14 <= b <= 31 or b == 127)
@@ -148,8 +151,8 @@ def _silhouette(theme, sname, fg, size=16):
         return GdkPixbuf.Pixbuf.new_from_bytes(
             GLib.Bytes.new(bytes(out)),
             GdkPixbuf.Colorspace.RGB, True, 8, w, h, w * 4)
-    except Exception:
-        return None
+    except Exception as e:
+        dbg("panel/_silhouette: suppressed: %s" % e)
 
 # ================================ Panel ====================================
 
@@ -308,12 +311,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             content = self._content
             if content is not None:
                 content.foreach(_visit)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_bg_content_ctx: suppressed: %s" % e)
         try:
             return target.get_style_context()
-        except Exception:
-            return None
+        except Exception as e:
+            dbg("panel/_bg_content_ctx: suppressed: %s" % e)
 
     def _derived_base(self):
         """Contrast-correct base from the panel fg color (0.38.1, F46
@@ -334,8 +337,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             top = self.get_toplevel()
             if top is not None and top is not self:
                 cands.append(("Toplevel", top.get_style_context()))
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_paint_background: suppressed: %s" % e)
         content_ctx = self._bg_content_ctx()
         if content_ctx is not None:
             cands.append(("Content", content_ctx))
@@ -344,8 +347,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             try:
                 rgba = cctx.get_background_color(
                     Gtk.StateFlags.NORMAL)
-            except Exception:
-                rgba = None
+            except Exception as e:
+                dbg("panel/_paint_background: suppressed: %s" % e)
             report.append("%s=%s" % (
                 name, rgba.to_string() if rgba is not None else "-"))
             if ctx is None and rgba is not None \
@@ -357,8 +360,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             eigen = widget.get_style_context().get_background_color(
                 Gtk.StateFlags.NORMAL)
             report.append("own=%s" % eigen.to_string())
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_paint_background: suppressed: %s" % e)
         w, h = widget.get_allocated_width(), \
             widget.get_allocated_height()
         if ctx is not None:
@@ -397,8 +400,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                         bar.get_style_context().add_provider(
                             self._surface_provider,
                             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_on_scroll_realized: suppressed: %s" % e)
 
     def _apply_surface_css(self, scroll):
         """F46 V: Hintergrund der Scroll-Flächen per CSS setzen.
@@ -417,8 +420,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     Gtk.StateFlags.NORMAL)
                 if rgba is not None and rgba.alpha > 0.0:
                     farbe = rgba.to_string()
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_apply_surface_css: suppressed: %s" % e)
             if farbe is None:
                 # 0.38.1 (F46 XI): fallback is fg-derived now – the
                 # old hardcoded rgb(56,56,56) shone dark in light mode.
@@ -450,7 +453,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 dbg("Panel bg CSS: rule for scroll areas installed "
                     "(color %s)" % farbe)
         except Exception as e:
-            dbg("Panel bg CSS: failed – %s" % e)
+            dbg("panel/_apply_surface_css: suppressed: %s" % e)
 
     def _surface_css_contexts(self, scroll):
         """Stil-Kontexte, die die Flächen-Regel zusätzlich brauchen
@@ -462,15 +465,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             vp = scroll.get_child()
             if vp is not None:
                 ctxs.append(vp.get_style_context())
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_surface_css_contexts: suppressed: %s" % e)
         try:
             for bar in (scroll.get_vscrollbar(),
                         scroll.get_hscrollbar()):
                 if bar is not None:
                     ctxs.append(bar.get_style_context())
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_surface_css_contexts: suppressed: %s" % e)
         return ctxs
 
 
@@ -529,13 +532,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             theme = Gtk.IconTheme.get_default()
             if theme.has_icon("nemo"):
                 logo_name = "nemo"
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_show_placeholder: suppressed: %s" % e)
         try:
             logo.set_from_icon_name(logo_name, Gtk.IconSize.DIALOG)
             logo.set_pixel_size(96)
-        except Exception:
-            logo.set_from_icon_name("folder", Gtk.IconSize.DIALOG)
+        except Exception as e:
+            dbg("panel/_show_placeholder: suppressed: %s" % e)
         lbl = Gtk.Label(label="Wähle eine Datei aus,\num eine Vorschau zu sehen.")
         lbl.set_line_wrap(True)
         lbl.get_style_context().add_class("dim-label")
@@ -551,13 +554,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         """Vorschau für self._path aufbauen. Nie werfen – immer Fallback."""
         try:
             self._render_inner()
-        except Exception:
-            dbg("Render error for %r:" % self._path)
+        except Exception as e:
+            dbg("panel/_render: suppressed: %s" % e)
             traceback.print_exc()
             try:
                 self._render_generic()
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_render: suppressed: %s" % e)
         self._content.show_all()
 
     def _render_inner(self):
@@ -577,7 +580,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if not path or not os.path.exists(path):
             # F35: the name sits in the Nemo list – only the warning
             # hint remains, in the content area.
-            self._hint("(Datei nicht gefunden)")
+            pack_hint(self._content, "(Datei nicht gefunden)")
             return
 
         mime, size, mtime = query_file_info(path)
@@ -610,14 +613,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             if HAVE_POPPLER:
                 self._render_pdf(path)
             else:
-                self._hint("PDF-Vorschau nicht verfügbar – "
+                pack_hint(self._content, "PDF-Vorschau nicht verfügbar – "
                            "Paket gir1.2-poppler-0.18 installieren.")
                 self._render_generic()
         elif mime.startswith("audio/") or lower.endswith((".mp3", ".flac", ".ogg", ".opus", ".m4a", ".wav", ".wma")):
             if HAVE_GST:
                 self._render_audio(path, uri)
             else:
-                self._hint("Audio-Vorschau nicht verfügbar – "
+                pack_hint(self._content, "Audio-Vorschau nicht verfügbar – "
                            "Paket gir1.2-gst-plugins-base-1.0 installieren.")
                 self._render_generic()
         elif mime.startswith("video/"):
@@ -690,8 +693,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._render_width = width
             self._apply_scale()
             self._apply_pdf_scale()
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_on_content_size_allocate: suppressed: %s" % e)
 
     def _scaled_image(self, src, max_h, upscale=False, keep_height=False,
                       max_upscale=1.0, frac_h=None):
@@ -725,20 +728,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         GObject-Daten-Methoden mit 'Data access methods are unsupported'
         – das Panel stürzte sonst beim ersten Bild ab.)
         Gibt den fertigen Container (Gtk.ScrolledWindow) zurück.
+        S6 (0.42.0): Der Widget-Bau liegt als build_scaled_image()
+        in previewer_util; hier bleiben Registrierung und
+        Erst-Skalierung.
         """
-        img = Gtk.Image()
-        # Horizontally centered: small previews (cover, office
-        # thumbnail) do not stick to the left edge.
-        img.set_halign(Gtk.Align.CENTER)
-        img.set_valign(Gtk.Align.START)
-        scroll = Gtk.ScrolledWindow()
-        # AUTOMATIC in both directions: stops the child minimum
-        # width from propagating – the pane stays freely draggable.
-        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scroll.add(img)
-        item = {"img": img, "scroll": scroll, "src": src, "maxh": max_h,
-                "upscale": upscale, "maxup": max_upscale,
-                "keeph": keep_height, "frac": frac_h, "lastw": 0}
+        img, scroll, item = build_scaled_image(
+            src, max_h, upscale, keep_height, max_upscale, frac_h)
         if self._scale_items is None:
             self._scale_items = []
         self._scale_items.append(item)
@@ -752,8 +747,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         for item in self._scale_items or ():
             try:
                 self._scale_item(item)
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_apply_scale: suppressed: %s" % e)
 
     def _scale_item(self, item):
         """EIN Vorschau-Bild an die Panelbreite anpassen (R3/0.17.0) –
@@ -813,8 +808,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             if w > 40:
                 # Subtract the padding (8 px border per side)
                 return max(PANEL_MIN_WIDTH - 20, w - 16)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_preview_width: suppressed: %s" % e)
         return PANEL_WIDTH - 40
 
     def _preview_height(self):
@@ -829,8 +824,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             h = self._content.get_allocated_height()
             if h > 100:
                 return h
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_preview_height: suppressed: %s" % e)
         return 600
 
     def _source_language(self, path):
@@ -843,8 +838,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         try:
             return GtkSource.LanguageManager.get_default().guess_language(
                 os.path.basename(path), None)
-        except Exception:
-            return None
+        except Exception as e:
+            dbg("panel/_source_language: suppressed: %s" % e)
 
     def _source_scheme(self):
         """
@@ -865,16 +860,16 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 dark = ("dark" in name
                         or bool(settings.get_property(
                             "gtk-application-prefer-dark-theme")))
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_source_scheme: suppressed: %s" % e)
             if dark:
                 for sid in ("oblivion", "solarized-dark"):
                     if sid in ids:
                         return mgr.get_scheme(sid)
             if "classic" in ids:
                 return mgr.get_scheme("classic")
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_source_scheme: suppressed: %s" % e)
         return None
 
     def _text_view(self, text, font="9", markup=None, linenumbers=False,
@@ -893,6 +888,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         GtkSourceView raten soll – wird eine Sprache erkannt, zeigt
         sich Syntax-Hervorhebung; ohne Binding oder Sprache bleibt
         es beim normalen TextView.
+        S6 (0.42.0): Konfiguration und Pufferfüllung liegen als
+        build_text_view() in previewer_util.
         """
         # F44: highlight source code – only if the GtkSourceView
         # binding exists, a language is detected AND text_syntax is on.
@@ -910,32 +907,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     dbg("F44: syntax highlighting on (%s)"
                         % lang.get_name())
                 except Exception as exc:
-                    dbg("Syntax highlighting unavailable (%s) – "
+                    dbg("panel/_text_view: suppressed: %s" % exc)
                         "showing plain text" % exc)
                     view = None
         if view is None:
             view = Gtk.TextView()
-        view.set_editable(False)
-        view.set_cursor_visible(False)
-        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        if font is not None:
-            view.override_font(Pango.FontDescription(font))
-        # Padding so the text does not stick to the border
-        view.set_left_margin(10)
-        view.set_right_margin(10)
-        view.set_top_margin(8)
-        view.set_bottom_margin(8)
+        scroll = build_text_view(view, text, font, markup)
         if linenumbers:
             self._install_line_numbers(view, font)
-        buf = view.get_buffer()
-        if markup is not None:
-            buf.insert_markup(buf.get_end_iter(), markup, -1)
-        else:
-            buf.set_text(text)
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_shadow_type(Gtk.ShadowType.IN)
-        scroll.add(view)
         self._content.pack_start(scroll, True, True, 0)
         # 0.16.2: always set the marker True ("current preview is
         # TextView-based"); previously the line-number switch sat
@@ -968,8 +947,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 if size > 0:
                     fd.set_size(max(int(size * 0.8), Pango.SCALE))
                 probe.set_font_description(fd)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_install_line_numbers: suppressed: %s" % e)
         # 0.16.1: get_pixel_size() instead of get_pixel_width() –
         # the GI binding does not offer the latter.
         pw, _ph = probe.get_pixel_size()
@@ -1005,7 +984,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     if not it.forward_line():
                         break
             except Exception as exc:
-                if not reported[0]:
+                dbg("panel/_install_line_numbers: suppressed: %s" % exc)
                     reported[0] = True
                     dbg("Line number draw failed: %r" % exc)
             return False
@@ -1017,38 +996,110 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     # --- E-books: EPUB, FictionBook, MOBI ------------------------------------
 
-    def _meta_grid(self, rows, container=None):
+
+    def _folder_symbol(self, theme, sil, is_dir, name, fg):
         """
-        Schlüssel-Wert-Tabelle (dim-Label links, Wert rechts mit
-        END-Ellipsize und Tooltip) – zentraler Helfer für E-Book-,
-        EML-, Audio- und Video-Infos. 0.9.1: zuvor zusätzlich mehrfach
-        identisch inline gebaut; die Inline-Kopien sind entfallen.
-        F35: Jede Bezeichnung bekommt automatisch einen Doppelpunkt
-        am Ende (falls nicht bereits vorhanden).
-        F38: Mit optionalem container packt die Tabelle an jede
-        Stelle – Bild-Vorschauen geben ihren 40-%-Info-Bereich mit.
+        S2 (0.42.0): Symbol-Icon einer Ordnerzeile – Kandidaten aus
+        dem content type mit -symbolic-Suffix gegen das Theme prüfen
+        (0.30.1), fehlende Varianten generisch halten, nie das
+        farbige Voll-Icon; jede gewählte Symbolform wird als
+        Silhouette in der Vordergrundfarbe nachgezeichnet (0.31.2,
+        → REF PAN-FOLDER-1).
         """
-        grid = Gtk.Grid()
-        grid.set_row_spacing(2)
-        grid.set_column_spacing(10)
-        for i, (k, v) in enumerate(rows):
-            # F35: labels end with a colon.
-            if not k.endswith(":"):
-                k += ":"
-            kl = Gtk.Label(label=k)
-            kl.set_halign(Gtk.Align.END)
-            kl.get_style_context().add_class("dim-label")
-            vl = Gtk.Label(label=v)
-            vl.set_halign(Gtk.Align.START)
-            vl.set_ellipsize(Pango.EllipsizeMode.END)
-            vl.set_hexpand(True)
-            vl.set_tooltip_text(v)
-            grid.attach(kl, 0, i, 1, 1)
-            grid.attach(vl, 1, i, 1, 1)
-        # F38: container beats _content – image tables belong in the
-        # 40% info area of the new image split.
-        target = container if container is not None else self._content
-        target.pack_start(grid, False, False, 0)
+        ic = Gtk.Image()
+        try:
+            if is_dir:
+                ctype = "inode/directory"
+            else:
+                ctype = Gio.content_type_guess(name, None)[0]
+            sname = ("folder-symbolic" if is_dir
+                     else "text-x-generic-symbolic")
+            for base in Gio.content_type_get_icon(ctype).get_names():
+                cand = base + "-symbolic"
+                if theme.has_icon(cand):
+                    sname = cand
+                    break
+            if sname not in sil:
+                sil[sname] = _silhouette(theme, sname, fg)
+            if sil[sname] is not None:
+                ic.set_from_pixbuf(sil[sname])
+            else:
+                ic.set_from_icon_name(sname, Gtk.IconSize.MENU)
+        except Exception as e:
+            dbg("panel/_folder_symbol: suppressed: %s" % e)
+                "folder-symbolic" if is_dir
+                else "text-x-generic-symbolic",
+                Gtk.IconSize.MENU)
+        return ctype, sname, ic
+
+    def _folder_row(self, box, theme, sil, picked, fg, nr, path,
+                    name, is_dir):
+        """
+        S2 (0.42.0): Eine Zeile der Ordnerliste – Icon, Name (Ordner
+        fett, Versteckte gedimmt), Größe rechts. Das Padding der
+        Platte (10 px seitlich, 8 px oben bei der ersten Zeile)
+        liegt am Zeilen-Inhalt, nicht an der ListBox (0.31.11,
+        → REF PAN-FOLDER-1).
+        """
+        ctype, sname, ic = self._folder_symbol(theme, sil, is_dir,
+                                               name, fg)
+        picked[ctype] = sname
+        nm = Gtk.Label()
+        if is_dir:
+            nm.set_markup("<b>%s</b>"
+                          % GLib.markup_escape_text(name))
+        else:
+            nm.set_text(name)
+        nm.set_halign(Gtk.Align.START)
+        nm.set_hexpand(True)
+        nm.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+        nm.set_tooltip_text(name)
+        if name.startswith("."):
+            nm.get_style_context().add_class("dim-label")
+        side = Gtk.Label(label="Ordner" if is_dir else "")
+        if not is_dir:
+            try:
+                side.set_text(human_size(
+                    os.stat(os.path.join(path, name)).st_size))
+            except Exception as e:
+                dbg("panel/_folder_row: suppressed: %s" % e)
+        side.get_style_context().add_class("dim-label")
+        side.set_halign(Gtk.Align.END)
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                       spacing=6)
+        hbox.set_margin_start(10)
+        hbox.set_margin_end(10)
+        if nr == 0:
+            hbox.set_margin_top(8)
+        hbox.pack_start(ic, False, False, 0)
+        hbox.pack_start(nm, True, True, 0)
+        hbox.pack_start(side, False, False, 0)
+        box.add(hbox)
+        return hbox
+
+    def _folder_scroll(self, box):
+        """
+        S2 (0.42.0): Scroll-Fenster der Ordnerliste mit der ganzen
+        F46-Hintergrund-Absicherung – Inline-Balken statt Overlay
+        (0.31.10), Painter an Scroll-Fenster und Viewport (0.31.5/
+        0.31.6), CSS-Regel obendrauf (0.31.7) (→ REF PAN-BG-2).
+        """
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                          Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        scroll.set_overlay_scrolling(False)
+        scroll.add(box)
+        scroll.connect("draw", self._on_panel_draw)
+        try:
+            vp = scroll.get_child()
+            if vp is not None:
+                vp.connect("draw", self._on_panel_draw)
+        except Exception as e:
+            dbg("panel/_folder_scroll: suppressed: %s" % e)
+        scroll.connect("realize", self._on_scroll_realized)
+        self._apply_surface_css(scroll)
+        return scroll
 
     def _render_folder(self, path):
         """
@@ -1066,6 +1117,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         300 Zeilen im Scroll-Fenster, Rest als Fußzeile – sonst
         baute ein Ordner mit zehntausend Einträgen ebensoviele
         Label-Widgets.
+        S2 (0.42.0): Zerlegt – _folder_symbol, _folder_row und
+        _folder_scroll bauen Icon, Zeile und Scroll-Fenster; hier
+        bleibt nur der Ablauf.
         """
         # → REF PAN-FOLDER-1
         dirs, files = [], []
@@ -1074,33 +1128,35 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 for entry in it:
                     (dirs if entry.is_dir() else files).append(
                         entry.name)
-        except Exception:
-            self._hint("Ordner")
+        except Exception as e:
+            dbg("panel/_render_folder: suppressed: %s" % e)
             return
         total = len(dirs) + len(files)
         if total == 0:
-            self._hint("Der Ordner ist leer.")
+            pack_hint(self._content, "Der Ordner ist leer.")
             return
         hidden = sum(1 for n in dirs + files if n.startswith("."))
         unit = "Datei" if total == 1 else "Dateien"
         if hidden > 0:
-            self._hint("Der Ordner enthält %d %s, davon %d versteckt."
-                       % (total, unit, hidden))
+            pack_hint(self._content,
+                      "Der Ordner enthält %d %s, davon %d versteckt."
+                      % (total, unit, hidden))
         else:
-            self._hint("Der Ordner enthält %d %s." % (total, unit))
-        # 0.30.0: show hidden files only if Nemo shows them (follows
-        # show-hidden-files, Ctrl+H); unreadable → show everything.
+            pack_hint(self._content,
+                      "Der Ordner enthält %d %s." % (total, unit))
+        # 0.30.0: show hidden files only if Nemo shows them; an
+        # unreadable setting falls back to showing everything.
         show_hidden = True
         try:
             nemo_prefs = Gio.Settings.new("org.nemo.preferences")
             show_hidden = nemo_prefs.get_boolean("show-hidden-files")
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_render_folder: suppressed: %s" % e)
         if not show_hidden:
             dirs = [n for n in dirs if not n.startswith(".")]
             files = [n for n in files if not n.startswith(".")]
         # F43: display order – folders before files, alphabetical
-        # (case-insensitive); visible hidden files in place, dimmed.
+        # (case-insensitive).
         shown = ([(n, True) for n in sorted(dirs, key=str.lower)]
                  + [(n, False) for n in sorted(files, key=str.lower)])
         if not shown:
@@ -1108,140 +1164,33 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         rest = max(0, len(shown) - 300)
         box = Gtk.ListBox()
         box.set_selection_mode(Gtk.SelectionMode.NONE)
-        # 0.31.11 (F46 IX): the 10/10/8/8 padding belongs INSIDE the
-        # slab – ListBox margins would expose the list's viewport,
-        # exactly where the black showed with long lists (→ REF
-        # PAN-FOLDER-1, PAN-BG-2).
-        # 0.30.1: fetch the icon theme ONCE – the row loop queries
-        # the symbol variants against the theme
         theme = Gtk.IconTheme.get_default()
         picked = {}
-        # 0.31.2: WhiteSur ships colored icons under -symbolic names
-        # (dark slabs in dark mode) – the folder preview redraws every
-        # chosen symbol as a monochrome silhouette in the list's
-        # foreground color (→ REF PAN-FOLDER-1).
         fg = self.get_style_context().get_color(Gtk.StateFlags.NORMAL)
         sil = {}
-        letzte_zeile = None
+        last_row = None
         for nr, (name, is_dir) in enumerate(shown[:300]):
-            # 0.29.0–0.30.1: type icon before the name – folders via
-            # inode/directory, files via the content type Gio guesses
-            # from the name. Strictly SYMBOLIC so icons follow the
-            # theme's foreground color; missing variants fall back
-            # to generic symbols, never to the colored full icon.
-            ic = Gtk.Image()
-            try:
-                if is_dir:
-                    ctype = "inode/directory"
-                else:
-                    ctype = Gio.content_type_guess(name, None)[0]
-                sname = ("folder-symbolic" if is_dir
-                         else "text-x-generic-symbolic")
-                for base in Gio.content_type_get_icon(
-                        ctype).get_names():
-                    cand = base + "-symbolic"
-                    if theme.has_icon(cand):
-                        sname = cand
-                        break
-                picked[ctype] = sname
-                if sname not in sil:
-                    sil[sname] = _silhouette(theme, sname, fg)
-                if sil[sname] is not None:
-                    ic.set_from_pixbuf(sil[sname])
-                else:
-                    ic.set_from_icon_name(sname, Gtk.IconSize.MENU)
-            except Exception:
-                ic.set_from_icon_name(
-                    "folder-symbolic" if is_dir
-                    else "text-x-generic-symbolic",
-                    Gtk.IconSize.MENU)
-            nm = Gtk.Label()
-            if is_dir:
-                nm.set_markup("<b>%s</b>"
-                              % GLib.markup_escape_text(name))
-            else:
-                nm.set_text(name)
-            nm.set_halign(Gtk.Align.START)
-            nm.set_hexpand(True)
-            nm.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
-            nm.set_tooltip_text(name)
-            if name.startswith("."):
-                nm.get_style_context().add_class("dim-label")
-            side = Gtk.Label(label="Ordner" if is_dir else "")
-            if not is_dir:
-                try:
-                    side.set_text(human_size(
-                        os.stat(os.path.join(path, name)).st_size))
-                except Exception:
-                    pass
-            side.get_style_context().add_class("dim-label")
-            side.set_halign(Gtk.Align.END)
-            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
-                           spacing=6)
-            # 0.31.11 (F46 IX): padding of the slab – 10 px side
-            # padding on the row content, 8 px above the first row.
-            hbox.set_margin_start(10)
-            hbox.set_margin_end(10)
-            if nr == 0:
-                hbox.set_margin_top(8)
-            hbox.pack_start(ic, False, False, 0)
-            hbox.pack_start(nm, True, True, 0)
-            hbox.pack_start(side, False, False, 0)
-            box.add(hbox)
-            letzte_zeile = hbox
+            last_row = self._folder_row(box, theme, sil, picked, fg,
+                                        nr, path, name, is_dir)
         if rest > 0:
             more = Gtk.Label(label="… und %d weitere" % rest)
             more.get_style_context().add_class("dim-label")
             more.set_halign(Gtk.Align.START)
-            # 0.31.11 (F46 IX): same row padding.
+            # Same row padding as the rows above (0.31.11).
             more.set_margin_start(10)
             more.set_margin_end(10)
             box.add(more)
-            letzte_zeile = more
-        # 0.31.11 (F46 IX): padding at the bottom – 8 px on the last
-        # row content instead of a ListBox margin.
-        if letzte_zeile is not None:
-            letzte_zeile.set_margin_bottom(8)
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
-                          Gtk.PolicyType.AUTOMATIC)
-        scroll.set_vexpand(True)
-        # 0.31.10 (F46 VIII): the black sits only in the strip between
-        # slab edge and scrollbar while the bar is visible – overlay
-        # scrolling floats it in its own Gdk window whose unpainted
-        # parts stay black; a classic inline bar pulls it into the
-        # normal stacking so painter and CSS apply (→ REF PAN-BG-2).
-        scroll.set_overlay_scrolling(False)
-        scroll.add(box)
-        # 0.31.5 (F46 III): the scroll window carries its own
-        # GdkWindow – the panel painting never reaches its area
-        # otherwise; the same background painter hooks it too (→ REF PAN-BG-2).
-        scroll.connect("draw", self._on_panel_draw)
-        # 0.31.6 (F46 IV): the viewport is another own GdkWindow;
-        # the scrollbars appear only on realizing. Both get the
-        # same painter (→ REF PAN-BG-2).
-        try:
-            vp = scroll.get_child()
-            if vp is not None:
-                vp.connect("draw", self._on_panel_draw)
-        except Exception:
-            pass
-        scroll.connect("realize", self._on_scroll_realized)
-        # 0.31.7 (F46 V): the painter provably painted, the strip
-        # stayed anyway – theme areas cover the painter; color the
-        # area additionally via a CSS rule (→ REF PAN-BG-2).
-        self._apply_surface_css(scroll)
-        # 0.31.8 (F46 VI): the edgeless wish (0.31.4) first exposed
-        # the black background – without the 8 px outer margin the
-        # scroll window's own transparent GdkWindow reached the slab
-        # edge. The margin of _render_inner stays (→ REF PAN-FOLDER-1, PAN-BG-2).
-        self._content.pack_start(scroll, True, True, 0)
+            last_row = more
+        # 0.31.11: bottom padding on the last row content instead
+        # of a ListBox margin.
+        if last_row is not None:
+            last_row.set_margin_bottom(8)
+        self._content.pack_start(self._folder_scroll(box),
+                                 True, True, 0)
         dbg("Folder list: %d entries, %d rows built"
             % (total, min(300, len(shown))))
-        # 0.31.1: log content type → chosen symbol – with icon
-        # problems the log shows which theme symbol actually loads
-        # per type; since 0.31.2 also the count of silhouettes and
-        # since 0.31.3 the extracted foreground color.
+        # 0.31.1: log content type → chosen symbol; since 0.31.2 the
+        # silhouette count, since 0.31.3 the foreground color.
         dbg("Folder icons: " + ", ".join(
             "%s→%s" % kv for kv in sorted(picked.items()))
             + " – silhouettes redrawn: %d/%d"
@@ -1258,16 +1207,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             icon = Gio.content_type_get_icon(mime or "text-x-generic")
             big.set_from_gicon(icon, Gtk.IconSize.DIALOG)
             big.set_pixel_size(96)
-        except Exception:
-            big.set_from_icon_name("text-x-generic", Gtk.IconSize.DIALOG)
+        except Exception as e:
+            dbg("panel/_render_generic: suppressed: %s" % e)
         self._content.pack_start(big, True, True, 0)
-
-    def _hint(self, text):
-        lbl = Gtk.Label(label=text)
-        lbl.set_line_wrap(True)
-        lbl.get_style_context().add_class("dim-label")
-        lbl.set_halign(Gtk.Align.START)
-        self._content.pack_start(lbl, False, False, 0)
 
     def _on_panel_destroy(self, *a):
         """Panel wird abgebaut: Wiedergabe und Timer stoppen (B3)."""
@@ -1278,8 +1220,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if self._playbin is not None:
             try:
                 self._playbin.get_bus().remove_signal_watch()
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_on_panel_destroy: suppressed: %s" % e)
 
     # --- Actions --------------------------------------------------------------
 
@@ -1290,7 +1232,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             Gio.AppInfo.launch_default_for_uri(
                 GLib.filename_to_uri(self._path), None)
         except Exception as e:
-            dbg("Open failed: %s" % e)
+            dbg("panel/_on_open_clicked: suppressed: %s" % e)
 
     def _config_load(self):
         """
@@ -1310,53 +1252,53 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             try:
                 self._conf_show_at_start = kf.get_boolean(
                     "previewer", "show_at_start")
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             # F48: folder contents list on/off.
             try:
                 self._conf_folder_contents = kf.get_boolean(
                     "previewer", "folder_contents")
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             # F12: waterfall sample text of the font preview.
             try:
                 t = kf.get_string("previewer", "font_sample_text")
                 if t and t.strip():
                     self._conf_font_sample_text = t
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             try:
                 self._conf_text_linenumbers = kf.get_boolean(
                     "previewer", "text_line_numbers")
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             # F44: syntax highlighting on/off.
             try:
                 self._conf_text_syntax = kf.get_boolean(
                     "previewer", "text_syntax")
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             # F12 part 3: document cap (PDF/office) – limit on/off
             # and the maximum page count (1–999).
             try:
                 self._conf_doc_page_limit = kf.get_boolean(
                     "previewer", "doc_page_limit")
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             try:
                 p = kf.get_integer("previewer", "doc_max_pages")
                 if 1 <= p <= 999:
                     self._conf_doc_max_pages = int(p)
-            except Exception:
-                pass
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             try:
                 w = kf.get_integer("previewer", "panel_width")
                 if PANEL_MIN_WIDTH <= w <= 2400:
                     self._panel_width = int(w)
-            except Exception:
-                pass
-        except Exception:
-            pass
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
+        except Exception as e:
+            dbg("panel/_config_load: suppressed: %s" % e)
 
     def _config_save(self):
         """
@@ -1393,7 +1335,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                            int(self._panel_width))
             kf.save_to_file(CONF_FILE)
         except Exception as exc:
-            dbg("Config not saved: %s" % exc)
+            dbg("panel/_config_save: suppressed: %s" % exc)
 
     def apply_start_settings(self):
         """
@@ -1423,11 +1365,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             total = parent.get_allocated_width()
             if total > self._panel_width + 100:
                 parent.set_position(total - self._panel_width)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("panel/_apply_panel_width_live: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.41.0"
+PREVIEWER_VERSION = "0.42.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
