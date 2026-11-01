@@ -261,6 +261,21 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
   ggf. named instances aus fvar-Tabelle anbieten). **M**
 
+- [ ] **K8** – Log beruhigen: „Nemo-C-Auswahl-API nicht verfügbar“ (Nutzer-Fund, 0.38.0-Deploy-Log)  
+  ist auf Nemo 6 IMMER zu erwarten – libnemo-private wird seit Nemo 6  
+  statisch gelinkt, eine libnemo-private.so\* existiert nicht mehr auf  
+  dem System, dlopen scheitert grundsätzlich (Risiko-Diagnose  
+  2026-11-01: KEINE Fehler möglich – der Lader cached den Fehlversuch  
+  über _NATIVE_NEMO_API_TRIED, die Auswahl läuft primär über den  
+  funktionierenden VTable-Pfad, die C-API-Route fällt sauber auf  
+  None zurück). Meldung zu einer erwarteten Info umformulieren  
+  (statisch gelinktes libnemo-private + VTable als aktive Quelle  
+  nennen) und in derselben Runde die restlichen diag()-Zeilen auf  
+  Englisch übersetzen (0.38.0 hatte nur dbg-Zeilen erwischt:  
+  „Ansicht verbunden“, „Widget-Baum-Diagnose“, „Auswahl-Diagnose“ …  
+  – previewer 3, select 6, util 1, plus „Eigen=“ in panel und  
+  „Symbole fehlen:“ im C-API-Lader). **S**
+
 ---
 
 ## Teil 2: Features (Vorschläge)
