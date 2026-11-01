@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.38.1
+previewer_util.py – Version 0.39.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -168,27 +168,6 @@ def query_file_info(path):
     return mime, size, mtime
 
 
-def content_type_description(mime):
-    """
-    Menschliche Beschreibung eines Content-Types. Die Funktion lag
-    früher im GLib-Namespace (GLib.content_type_get_description) und
-    ist in neueren GI-Builds nach Gio gewandert – deshalb werden beide
-    versucht, und als letzte Rückfallebene der MIME-Typ selbst
-    zurückgegeben (nie raise).
-    """
-    for owner in (Gio, GLib):
-        try:
-            fn = getattr(owner, "content_type_get_description", None)
-            if callable(fn):
-                desc = fn(mime)
-                if desc:
-                    return desc
-        except Exception:
-            pass
-    return mime
-
-
-
 # --- Shared base helpers (F31: formerly in previewer_panel.py) ---
 
 def _pixbuf_from_bytes(data, max_w=4096, max_h=4096, orig=None):
@@ -239,7 +218,6 @@ def _zf_read_capped(zf, name, cap):
         return zh.read(cap)
 
 
-
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.38.1"
+PREVIEWER_VERSION = "0.39.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
