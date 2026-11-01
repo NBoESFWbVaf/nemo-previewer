@@ -386,14 +386,13 @@ except Exception:
 
 - **Modul:** previewer\_toolbar.py
 - **Ort:** `_open_settings_window`, über der wrow-Box
-- **Anlass:** Der SpinButton trägt den aktuellen Wert vorab; der Default wird daneben genannt, der Ist-Wert als „aktuell“ gekennzeichnet (Nutzer-Wunsch).
+- **Anlass:** Der SpinButton trägt den aktuellen Wert vorab; der Default wird daneben genannt, der Ist-Wert als „aktuell“ gekennzeichnet (Nutzer-Wunsch). Seit 0.41.0: Ziehen am Trenner ändert die Startbreite nicht mehr – der SpinButton-Wert (Default 350 px) ist die einzige Quelle; die „Standard/aktuell“-Hinweiszeile ist entfallen.
 
 ```text
-        # Standardbreite beim Start: Der SpinButton trägt den
-        # AKTUELLEN Wert vorab (gezogene Breite schlägt sich ja in
-        # _panel_width nieder und liegt schon in der conf); der
-        # Default wird daneben genannt, der Ist-Wert als „aktuell“
-        # gekennzeichnet (Nutzer-Wunsch).
+        # Standardbreite beim Start: Der SpinButton trägt den in
+        # der conf gespeicherten Wert vorab – seit 0.41.0 ist er
+        # die EINZIGE Quelle (Ziehen am Trenner überschreibt ihn
+        # nicht mehr); die Default/aktuell-Hinweiszeile entfiel.
 ```
 
 ---
