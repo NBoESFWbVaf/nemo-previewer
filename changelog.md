@@ -6,6 +6,22 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.42.1\] – 2026-11-01
+
+### Fixed (Behoben)
+
+- SyntaxWarning beim Laden von previewer\_render\_text.py beseitigt: Der  
+  Docstring von \_md\_split\_cells nannte den per Backslash maskierten  
+  Tabellen-Balken als Escape-Sequenz im Klartext; der Hinweis ist  
+  jetzt ausgeschrieben.  
+- Logflut der Auswahl-Diagnose gebremst (Nutzer-Entscheid): Die ATK-  
+  Sonden der Fallback-Kette (collect, \_read\_atk\_states,  
+  \_read\_atk\_focused in previewer\_select.py; rec in previewer.py)  
+  sind wie bis 0.41.0 still (pass). Nemo 6 liefert die ATK-Selection-  
+  API am ScrolledWindowAccessible nicht – die Ausnahmen sind erwartet  
+  und wiederholten sich bei jedem selection-changed. Alle übrigen  
+  suppressed-Meldungen der 0.42.0 bleiben.
+
 ## \[0.42.0\] – 2026-11-01
 
 ### Changed (Geändert)
