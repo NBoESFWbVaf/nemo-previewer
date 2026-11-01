@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.38.1
+previewer_render_text.py – Version 0.39.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1859,8 +1859,7 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-
-PREVIEWER_VERSION = "0.38.1"
+PREVIEWER_VERSION = "0.39.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "K4 markdown and read caps stay)"
