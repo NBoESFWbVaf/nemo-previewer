@@ -6,6 +6,21 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.39.0\] – 2026-11-01
+
+### Changed (Geändert)
+
+- Straffungs-Runde (Nutzer-Wunsch „Code straffen, ohne Funktionen zu  
+  beschädigen"): Toter Code entfernt – die Nemo-C-Auswahl-API (dlopen von  
+  libnemo-private, auf Nemo 6 prinzipiell erfolglos, da statisch  
+  gelinkt) samt GI-Kaskade (Route 2), vier unbenutzte Funktionen  
+  (\_read\_size, find\_paned\_above, find\_slot\_box,  
+  content\_type\_description) und mehrfache Leerzeilen; ATK-Wächter und  
+  Office-Fehlvermerk als gemeinsame Helfer konsolidiert, die restlichen  
+  diag()-Zeilen auf Englisch übersetzt (K8 erledigt). 321 Zeilen  
+  eingespart – Verhalten unverändert: Der Klassen-VTable bleibt die  
+  primäre Auswahl-Quelle.
+
 ## \[0.38.1\] – 2026-11-01
 
 ### Fixed (Behoben)
