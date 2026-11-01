@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_select.py – Version 0.42.0
+previewer_select.py – Version 0.42.1
 
 Selection detection: reads the currently selected file from the
 Nemo view via selection signals, vtable access and GTK/ATK
@@ -529,8 +529,8 @@ def _atk_selection_objects(view, max_depth=12):
         try:
             acc.get_selection_count()
             implementors.append(acc)   # implements AtkSelection
-        except Exception as e:
-            dbg("select/collect: suppressed: %s" % e)
+        except Exception:
+            pass
         for child in _atk_children(acc):
             collect(child, depth + 1)
 
@@ -771,8 +771,8 @@ class SelectionReader:
                     if (states is not None and
                             states.contains_state(Atk.StateType.SELECTED)):
                         selected.append(name)
-                except Exception as e:
-                    dbg("select/_read_atk_states: suppressed: %s" % e)
+                except Exception:
+                    pass
             for child in _atk_children(acc):
                 rec(child, depth + 1)
 
@@ -803,8 +803,8 @@ class SelectionReader:
                 ss = acc.get_state_set()
                 focused = (ss is not None and
                            ss.contains_state(Atk.StateType.FOCUSED))
-            except Exception as e:
-                dbg("select/_read_atk_focused: suppressed: %s" % e)
+            except Exception:
+                pass
             if focused and name and os.path.exists(
                     os.path.join(dir_path, name)):
                 hits.append(name)
@@ -943,5 +943,5 @@ class SelectionReader:
 
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.42.0"
+PREVIEWER_VERSION = "0.42.1"
 dbg("previewer_select %s loaded" % PREVIEWER_VERSION)
