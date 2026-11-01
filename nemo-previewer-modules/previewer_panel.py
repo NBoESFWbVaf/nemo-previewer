@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.40.0
+previewer_panel.py – Version 0.41.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -231,14 +231,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # line-number toggle is cheap to apply? The settings toggle
         # then re-renders only those previews.
         self._last_textish = False
-        # Start width: default PANEL_WIDTH (300 px, user request); a
-        # dragged width becomes the future start width, debounced.
+        # Start width: default PANEL_WIDTH (350 px, 0.41.0); the
+        # settings spin button is the only place that changes it.
         self._panel_width = PANEL_WIDTH
-        self._panel_width_saved = PANEL_WIDTH
-        self._panel_width_timer = 0
         self._settings_win = None
         self._settings_spin = None
-        self._settings_width_label = None
         self._settings_pages_spin = None
         self._config_load()
 
@@ -675,18 +672,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         den Gtk.Paned-Trenner). Es wird NICHT neu gerendert – stattdessen
         wird nur die angezeigte Pixbuf der skalierbaren Vorschau sofort
         an die neue Breite angepasst (billig, ohne Neu-Decodieren).
-        F12 (0.13.0): Eine gezogene Breite wird außerdem zur künftigen
-        STARTBREITE – sie steht dann als aktueller Wert im Einstellungs-
-        fenster und landet entprellt in der conf. Das Tracking liegt VOR
-        der 12-px-Render-Schwelle, damit auch kleine Züge zählen.
+        0.41.0: Eine gezogene Breite gilt nur für die laufende
+        Sitzung und ändert die STARTBREITE nicht mehr – die steht
+        allein im Einstellungsfenster.
         """
         try:
             width = allocation.width
             height = allocation.height
-            if (width >= PANEL_MIN_WIDTH
-                    and width != self._panel_width):
-                self._panel_width = width
-                self._panel_width_schedule_save()
             # 0.17.0: height changes (window resize) also trigger a
             # live adjustment – the height cap follows the column.
             if (height > 100
@@ -1363,7 +1355,6 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     self._panel_width = int(w)
             except Exception:
                 pass
-            self._panel_width_saved = self._panel_width
         except Exception:
             pass
 
@@ -1417,46 +1408,6 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("Start setting: preview column stays hidden "
                 "at start")
 
-    def _panel_width_schedule_save(self):
-        """
-        F12 (0.13.0): Gezogene Breite erst speichern, wenn der
-        Trenner stillsteht (~800 ms) – nicht bei jedem Zieh-Pixel.
-        Der laufende Timer wird dabei jeweils ersetzt.
-        """
-        try:
-            if self._panel_width_timer:
-                GLib.source_remove(self._panel_width_timer)
-            self._panel_width_timer = GLib.timeout_add(
-                800, self._panel_width_save)
-        except Exception:
-            self._panel_width_timer = 0
-
-    def _panel_width_save(self):
-        """
-        F12 (0.13.0): Breite in die conf schreiben, sobald sie sich
-        gegen den zuletzt gespeicherten Wert geändert hat. Ist das
-        Einstellungsfenster offen, zieht der SpinButton nach (außer
-        der Nutzer tippt dort gerade) und die „aktuell"-Zeile wird
-        frisch gesetzt.
-        """
-        self._panel_width_timer = 0
-        try:
-            if self._panel_width != self._panel_width_saved:
-                self._panel_width_saved = self._panel_width
-                self._config_save()
-                dbg("Panel width (dragged) saved: %d px"
-                    % self._panel_width)
-        except Exception:
-            pass
-        try:
-            if self._settings_spin is not None:
-                if not self._settings_spin.has_focus():
-                    self._settings_spin.set_value(self._panel_width)
-            self._update_width_hint()
-        except Exception:
-            pass
-        return False
-
     def _apply_panel_width_live(self):
         """
         F12 (0.13.0): Neue Startbreite sofort anwenden, während das
@@ -1476,7 +1427,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             pass
 
 
-PREVIEWER_VERSION = "0.40.0"
+PREVIEWER_VERSION = "0.41.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)

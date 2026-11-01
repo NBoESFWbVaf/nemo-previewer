@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer.py – Version 0.40.0
+previewer.py – Version 0.41.0
 
 Entry point and Nemo integration: injects the preview panel into
 every Nemo window, loads the seven modules from the
@@ -54,7 +54,7 @@ from previewer_panel import PreviewPanel
 
 # PREVIEWER_VERSION must be identical in all eight modules; the entry
 # point checks loaded modules and warns about outdated copies.
-PREVIEWER_VERSION = "0.40.0"
+PREVIEWER_VERSION = "0.41.0"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -228,8 +228,9 @@ class PanelState:
     def _on_size_allocate(self, paned, alloc):
         if not self.pos_pending:
             return
-        # F12: start width from the config (incl. a dragged width as
-        # the future start width); default PANEL_WIDTH without config.
+        # F12: start width from the config; without config the
+        # default PANEL_WIDTH (350 px) applies – since 0.41.0 the
+        # settings spin button value wins, not dragged widths.
         width = getattr(self.panel, "_panel_width", None) or PANEL_WIDTH
         if alloc.width > width + 200:
             paned.set_position(alloc.width - width)
