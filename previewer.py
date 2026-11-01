@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer.py – Version 0.41.0
+previewer.py – Version 0.42.0
 
 Entry point and Nemo integration: injects the preview panel into
 every Nemo window, loads the seven modules from the
@@ -54,7 +54,7 @@ from previewer_panel import PreviewPanel
 
 # PREVIEWER_VERSION must be identical in all eight modules; the entry
 # point checks loaded modules and warns about outdated copies.
-PREVIEWER_VERSION = "0.41.0"
+PREVIEWER_VERSION = "0.42.0"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -114,8 +114,8 @@ class PanelState:
         # button at the far right via pack_end.
         try:
             bar = self.window.get_titlebar()
-        except Exception:
-            bar = None
+        except Exception as e:
+            dbg("previewer/_install_toolbar_toggle: suppressed: %s" % e)
         if isinstance(bar, Gtk.HeaderBar):
             btn = Gtk.ToggleButton()
             btn.set_image(Gtk.Image.new_from_icon_name(
@@ -152,8 +152,8 @@ class PanelState:
         self.panel.connect("notify::visible", self._on_panel_visibility)
         try:
             self.window._previewer_toggle = btn
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("previewer/_pack_toggle: suppressed: %s" % e)
         btn.show()
         dbg("Preview toggle placed in Nemo's %s (icon: %s)"
             % (where, icon))
@@ -187,8 +187,8 @@ class PanelState:
         if isinstance(widget, Gtk.Image):
             try:
                 name = widget.get_icon_name()[0]
-            except Exception:
-                name = None
+            except Exception as e:
+                dbg("previewer/_has_view_icon: suppressed: %s" % e)
             if name and name.startswith("view-"):
                 return True
         if isinstance(widget, Gtk.Container):
@@ -208,8 +208,8 @@ class PanelState:
         """F40: Panel woanders umgeschaltet – Knopf-Zustand nachziehen."""
         try:
             self.toggle_btn.set_active(panel.get_visible())
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("previewer/_on_panel_visibility: suppressed: %s" % e)
 
     def _on_hpaned_draw(self, paned, cr):
         """
@@ -221,8 +221,8 @@ class PanelState:
         """
         try:
             self.panel._paint_background(paned, cr)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("previewer/_on_hpaned_draw: suppressed: %s" % e)
         return False
 
     def _on_size_allocate(self, paned, alloc):
@@ -241,12 +241,12 @@ def _uri_to_dir(uri):
     try:
         path, _ = GLib.filename_from_uri(uri)
         return path
-    except Exception:
-        try:
+    except Exception as e:
+        dbg("previewer/_uri_to_dir: suppressed: %s" % e)
             parsed = urllib.parse.urlparse(uri)
             return urllib.parse.unquote(parsed.path)
-        except Exception:
-            return None
+        except Exception as e:
+            dbg("previewer/_uri_to_dir: suppressed: %s" % e)
 
 
 def _reconcile(st):
@@ -264,8 +264,8 @@ def _reconcile(st):
 
     try:
         kids = window.get_children()
-    except Exception:
-        return
+    except Exception as e:
+        dbg("previewer/_reconcile: suppressed: %s" % e)
     top_box = kids[0] if kids else None
     if not isinstance(top_box, Gtk.Container):
         dbg("Injection: unexpected window structure (%s)"
@@ -348,8 +348,8 @@ def _reconcile(st):
             _apply()
         dbg("Panel injected at window edge (target: %s)"
             % type_name(target))
-    except Exception:
-        traceback.print_exc()
+    except Exception as e:
+        dbg("previewer/_reconcile: suppressed: %s" % e)
         return
 
     st._view_ok(view)
@@ -383,8 +383,8 @@ def _detach(st):
             parent.remove(st.hpaned)
             st.hpaned.remove(child1)
             parent.add(child1)
-    except Exception:
-        traceback.print_exc()
+    except Exception as e:
+        dbg("previewer/_detach: suppressed: %s" % e)
 
 
 def _connect_view_signals(st, view):
@@ -402,8 +402,8 @@ def _connect_view_signals(st, view):
         try:
             if not isinstance(w, Gtk.Widget) or not w.get_mapped():
                 continue
-        except Exception:
-            continue
+        except Exception as e:
+            dbg("previewer/_connect_view_signals: suppressed: %s" % e)
         for sig in selection_signals(w):
             try:
                 hid = w.connect(
@@ -412,8 +412,8 @@ def _connect_view_signals(st, view):
                         diag("Signal %s received (%s)" % (_s, type_name(_w))),
                         _dump_a11y_once(st),
                         _refresh_soon(st))[-1])
-            except Exception:
-                continue
+            except Exception as e:
+                dbg("previewer/_connect_view_signals: suppressed: %s" % e)
             st.view_handlers.append((w, hid))
             names_found.add(sig)
 
@@ -447,8 +447,8 @@ def _dump_a11y_once(st):
         if root is None:
             dbg("%s: no accessible available" % tag)
             return
-    except Exception:
-        dbg("%s: no accessible available" % tag)
+    except Exception as e:
+        dbg("previewer/_dump_a11y_once: suppressed: %s" % e)
         return
     budget = [45]
 
@@ -459,7 +459,7 @@ def _dump_a11y_once(st):
         try:
             n = acc.get_n_children()
         except Exception as exc:
-            n = -1
+            dbg("previewer/rec: suppressed: %s" % exc)
             # Log the cause of the seemingly empty a11y tree once.
             if not getattr(_dump_a11y_once, "_n_children_err", None):
                 _dump_a11y_once._n_children_err = repr(exc)
@@ -470,19 +470,19 @@ def _dump_a11y_once(st):
             role = acc.get_role()
             try:
                 role = role.value_nick
-            except Exception:
-                role = str(role)
-        except Exception:
-            role = "?"
+            except Exception as e:
+                dbg("previewer/rec: suppressed: %s" % e)
+        except Exception as e:
+            dbg("previewer/rec: suppressed: %s" % e)
         try:
             name = acc.get_name() or ""
-        except Exception:
-            name = ""
+        except Exception as e:
+            dbg("previewer/rec: suppressed: %s" % e)
         extra = []
         try:
             extra.append("AtkSel=%d" % acc.get_selection_count())
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("previewer/rec: suppressed: %s" % e)
         try:
             ss = acc.get_state_set()
             if ss is not None:
@@ -492,8 +492,8 @@ def _dump_a11y_once(st):
                     extra.append("FOCUSED")
                 if ss.contains_state(Atk.StateType.ACTIVE):
                     extra.append("ACTIVE")
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("previewer/rec: suppressed: %s" % e)
         budget[0] -= 1
         dbg("%s d%d children=%d role=%s name=%r %s"
             % (tag, depth, n, role, name, " ".join(extra)))
@@ -511,16 +511,16 @@ def _view_ok(self, view):
             try:
                 if obj.handler_is_connected(hid):
                     obj.disconnect(hid)
-            except Exception:
+            except Exception as e:
                 # Object/handler may already be torn down by Nemo.
-                pass
+                dbg("previewer/_view_ok: suppressed: %s" % e)
         self.view_handlers = []
         self.view = view
         self._a11y_dumps = 0
         try:
             _connect_view_signals(self, view)
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            dbg("previewer/_view_ok: suppressed: %s" % e)
         _dump_a11y_once(self)
         _refresh_soon(self)
         # F40: add the button later (if the toolbar was not there yet)
@@ -556,8 +556,8 @@ def _refresh(st):
             dbg("Selection changed: %r (via %s)" % (names, strategy))
             st.last_sel = names
             st.panel.set_selection(names, st.dir_path)
-    except Exception:
-        traceback.print_exc()
+    except Exception as e:
+        dbg("previewer/_refresh: suppressed: %s" % e)
 
 
 def _refresh_soon(st):
@@ -570,8 +570,8 @@ def _poll(st):
     try:
         _reconcile(st)
         _refresh(st)
-    except Exception:
-        traceback.print_exc()
+    except Exception as e:
+        dbg("previewer/_poll: suppressed: %s" % e)
     return True
 
 
@@ -584,8 +584,8 @@ def _on_window_destroyed(window, st):
         if st.poll_id:
             GLib.source_remove(st.poll_id)
         st.poll_id = 0
-    except Exception:
-        pass
+    except Exception as e:
+        dbg("previewer/_on_window_destroyed: suppressed: %s" % e)
     return False
 
 
@@ -597,8 +597,8 @@ def _get_state(window):
         # 0.9.1: tear down the timer when the window disappears.
         try:
             window.connect("destroy", _on_window_destroyed, st)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("previewer/_get_state: suppressed: %s" % e)
         st.poll_id = GLib.timeout_add(POLL_MS, _poll, st)
         dbg("PanelState created for window")
     return st
@@ -636,8 +636,8 @@ def _is_desktop_window(window):
         for child in walk(window):
             if type_name(child) == "NemoDesktopIconView":
                 return True
-    except Exception:
-        pass
+    except Exception as e:
+        dbg("previewer/_is_desktop_window: suppressed: %s" % e)
     return False
 
 
@@ -691,13 +691,13 @@ def _install_log_filter():
             return
         try:
             GLib.log_default_handler(domain, level, message)
-        except Exception:
-            pass
+        except Exception as e:
+            dbg("previewer/handler: suppressed: %s" % e)
     try:
         GLib.log_set_handler("Gtk",
                              GLib.LogLevelFlags.LEVEL_CRITICAL, handler)
-    except Exception:
-        pass
+    except Exception as e:
+        dbg("previewer/handler: suppressed: %s" % e)
 
 
 _install_log_filter()
