@@ -90,8 +90,8 @@ class PreviewToolbarMixin:
             try:
                 self._settings_win.present()
                 return
-            except Exception as e:
-                dbg("toolbar/_open_settings_window: suppressed: %s" % e)
+            except Exception:
+                self._settings_win = None
         win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         win.set_title("Nemo-Previewer – Einstellungen")
         try:
