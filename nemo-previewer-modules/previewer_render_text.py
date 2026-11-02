@@ -71,15 +71,15 @@ except Exception as e:
 # and decoding bombs – crafted files must never blow up Nemo.
 _EML_FILE_CAP = 2 * 1024 * 1024      # .eml: headers + start of the body
 _VCARD_FILE_CAP = 8 * 1024 * 1024    # vCard: properties + base64 photo
-_FB2_FILE_CAP = 8 * 1024 * 1024      # R11: FB2 mit Deckel – Cover sitzt als
-                                     # base64 in der Datei, Riesen-FB2s
-                                     # werden abgeschnitten und dann gar
-                                     # nicht mehr geparst
+_FB2_FILE_CAP = 8 * 1024 * 1024      # R11: FB2 read cap – the cover sits
+                                     # as base64 in the file; oversized
+                                     # FB2s get truncated and are then
+                                     # not parsed at all
 
 # --- Markdown -> Pango markup (preview quality, not a full parser) ---
 
+# → REF TXT-DOC-1
 def _pango_escape(s):
-    """Text für Pango-Markup entschärfen (& < >)."""
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
@@ -92,11 +92,8 @@ _MD_TABLE_MIN = 4      # minimum width per column
 _MD_TABLE_FIT = 24    # columns up to here preferably stay unwrapped
 
 
+# → REF TXT-DOC-2
 def _md_inline(t):
-    """Inline-Formatierung: ***fett+kursiv***, **fett**, __fett__,
-    *kursiv*, _kursiv_, ~~durchgestrichen~~ (GFM), `code`,
-    [Link](url) – auch mit runden Klammern in der URL –,
-    <https://Autolink>, ![Bild](url)."""
     # Backslash escapes first (CommonMark): \[ becomes [ – the
     # rest of this function runs on escaped text anyway.
     t = re.sub(r"\\(\W)", r"\1", t)
@@ -109,7 +106,7 @@ def _md_inline(t):
     t = re.sub(r"~~(.+?)~~", r"<s>\1</s>", t)
     t = re.sub(r"`([^`]+?)`", r"<tt>\1</tt>", t)
     t = re.sub(r"!\[([^\]]*)\]\(((?:[^()\s]|\([^()\s]*\))+)\)",
-               r"<span size='small'>[Bild: \1]</span>", t)
+               r"<span size='small'>[Image: \1]</span>", t)
     t = re.sub(r"\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)",
                r"\1 <span size='small' foreground='grey'>\2</span>", t)
     t = re.sub(r"&lt;(https?://[^&\s]+)&gt;",
@@ -117,10 +114,8 @@ def _md_inline(t):
     return t
 
 
+# → REF TXT-DOC-3
 def _md_heading(depth, text):
-    """Überschrift (ATX oder Setext): Größe nach Tiefe, H1/H2 mit
-    Unterstrich – nähert den farbigen Balken der Browser-Darstellung
-    an, ohne extra Widgets."""
     if depth == 1:
         tag = ("<span size='x-large' weight='bold' "
                "underline='single'>", "</span>")
@@ -138,11 +133,8 @@ def _md_hr():
             + "\u2500" * 12 + "</span>")
 
 
+# → REF TXT-DOC-4
 def _md_w(s):
-    """Anzeigebreite eines Strings schätzen: Emoji und Symbole
-    belegen im TextView zwei Spalten (🔴 ✅ ☑ …), der Variation-
-    Selector FE0F gar keine, alles Übrige genau eine. Ohne diese
-    Schätzung standen Emoji-Zellen um die Emoji-Breite daneben."""
     w = 0
     for c in s:
         o = ord(c)
@@ -156,11 +148,8 @@ def _md_w(s):
     return w
 
 
+# → REF TXT-DOC-5
 def _md_split_cells(row):
-    """
-    S9 (0.42.0): Eine Markdown-Zeile in Zellen teilen – führende und
-    abschließende Balken abtrennen; ein per Backslash maskierter Balken ist KEIN Trenner (GFM).
-    """
     s = row.strip()
     if s.startswith("|"):
         s = s[1:]
@@ -178,12 +167,8 @@ def _md_plain(cell):
     return re.sub(r"[*_`~]", "", s)
 
 
+# → REF TXT-DOC-6
 def _md_wrap_cell(cell, w):
-    """
-    S9 (0.42.0): Eine Zelle in Anzeige-Segmente der Breite w
-    brechen (Wort-Umbruch, Hartbruch für überlange Wörter);
-    passende Zellen bleiben unverändert.
-    """
     w = max(1, w)
     if _md_w(_md_plain(cell)) <= w:
         return [cell]
@@ -217,12 +202,8 @@ def _md_wrap_cell(cell, w):
     return segs
 
 
+# → REF TXT-DOC-7
 def _md_fmt_row(r, widths, right, bold=False):
-    """
-    S9 (0.42.0): Eine Tabellenzeile in bündige <tt>-Zeilen rendern –
-    je Spalte umgebrochen, gepolstert, escaped und (als Kopf)
-    fett.
-    """
     cols = len(widths)
     wrapped = [_md_wrap_cell(r[k] if k < len(r) else "", widths[k])
                for k in range(cols)]
@@ -245,14 +226,8 @@ def _md_fmt_row(r, widths, right, bold=False):
     return rows_out
 
 
+# → REF TXT-DOC-8
 def _md_widths(demand):
-    """
-    S9 (0.42.0): Spaltenbreiten im Gesamtbudget – schmale Spalten
-    behalten ihre volle Breite, der Rest wird anteilig an den
-    breiten verteilt; Sicherheitsnetz schrumpft die breiteste
-    Spalte, bis das Budget hält (0.14.0-Feldtest: die Reihenfolge-
-    Tabelle in planned.md war meterbreit und zerfiel im TextView).
-    """
     cols = len(demand)
     sep_w = 3 * (cols - 1)          # " │ " between the columns
     avail = max(0, _MD_TABLE_BUDGET - sep_w)
@@ -293,27 +268,8 @@ def _md_widths(demand):
     return widths
 
 
+# → REF TXT-DOC-9
 def _md_table(lines, i):
-    """
-    GFM-Tabelle ab Zeile i einlesen: Kopfzeile, Trennzeile mit
-    :--/--:/:-:, beliebig viele Zeilen. Rückgabe (Markup-Zeilen,
-    nächster Index) oder None, wenn dort keine Tabelle steht.
-    Wie im Browser gilt ein Gesamtbudget: schmale Spalten
-    behalten ihre volle Breite, überlange Zellen brechen
-    mehrzeilig INNERHALB ihrer Spalte um – die Spalten bleiben
-    bündig, statt dass die längste Zelle alle Zeilen aufbläht
-    (0.14.0-Feldtest: die Reihenfolge-Tabelle in planned.md war
-    meterbreit und zerfiel im TextView). Kopfzeile fett, graue
-    Trennzeile, rechtsbündig bei '---:'. Breiten werden an der
-    ROHEN Zelle gemessen und VOR dem Escapen gepolstert, damit
-    &amp; die Ausrichtung nicht verdirbt. Markup, das über einen
-    Zell-Umbruch hinwegläuft, wird bewusst NICHT zusammengefügt –
-    gültiges Markup ist wichtiger als Optik, der Rohtext-Fallback
-    in _render_markdown darf niemals wegen einer Tabelle greifen.
-    S9 (0.42.0): Zerlegt – _md_split_cells, _md_widths und
-    _md_fmt_row (mit _md_wrap_cell, _md_plain) sind Modul-Helfer;
-    hier bleibt der Ablauf.
-    """
     if i + 1 >= len(lines):
         return None
     if not re.search(r"(?<!\\)\|", lines[i]):
@@ -350,22 +306,8 @@ def _md_table(lines, i):
     return rows, j
 
 
+# → REF TXT-DOC-10
 def _markdown_to_pango(text):
-    """
-    Markdown in Pango-Markup übersetzen – bewusst kein vollständiger
-    Parser, aber mit den verbreiteten Varianten (GitHub Flavored
-    Markdown): ATX- (#) und Setext-Überschriften (===/---) mit
-    Unterstrich bei H1/H2, Fett/Kursiv/fett+kursiv, ~~Streichen~~,
-    Inline- und Block-Code, unsortierte Listen mit Ebenen-Zeichen
-    (•/◦/▪), sortierte (1./1)), Task-Listen ([x] → ☑ mit
-    Durchstreichen wie im Browser, [ ] → ☐), eingerückte Listen,
-    mehrfach verschachtelte Zitate, Trennlinien (auch mit
-    Leerzeichen: - - -), Links (auch mit Klammern in der URL),
-    Autolinks und GFM-Tabellen. Überschriften, Linien und Tabellen
-    bekommen Luft nach oben – das wirkt wie im Browser. Kein
-    Webview, keine neuen Paket-Abhängigkeiten; bewusst weg:
-    4-Spaces-Codeblöcke (kollidiert mit Listeneinrückungen).
-    """
     lines = text.split("\n")
     out = []
     in_code = False
@@ -480,8 +422,8 @@ def _markdown_to_pango(text):
     return "\n".join(out)
 
 
+# → REF TXT-DOC-11
 def _html_to_text(text):
-    """HTML grob zu lesbarem Text bereinigen (für EML-Textkörper)."""
     text = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", text)
     text = re.sub(r"(?i)<br\s*/?>", "\n", text)
     text = re.sub(r"(?i)</p>", "\n\n", text)
@@ -494,47 +436,31 @@ def _html_to_text(text):
 # --- E-books: EPUB, FictionBook, MOBI (stdlib only) -------------------------
 
 
+# → REF TXT-DOC-12
 def _xml_local(tag):
-    """XML-Tag ohne Namespace (OPF und FB2 verzichten nicht darauf)."""
     return tag.rsplit("}", 1)[-1]
 
 
-_EBOOK_CHUNK_CAP = 2 * 1024 * 1024     # R4: max bytes für OPF-Container-Dokumente
+_EBOOK_CHUNK_CAP = 2 * 1024 * 1024     # R4: max bytes for OPF container documents
 _EBOOK_COVER_CAP = 16 * 1024 * 1024    # R4: max bytes for cover images
 
 
+# → REF TXT-DOC-13
 def _meta_rows(pairs):
-    """
-    S3 (0.42.0): Metadaten-Zeilen der E-Book-Formate – leere Werte
-    fallen weg. F59 (0.44.0): Buchtitel, Autor, Reihe, Seiten,
-    Ebookformat, Sprache – nur gesetzte Tags zeigen eine Zeile.
-    F60 (0.45.0): Umbenannt – auch die Paket-Formate (DEB, RPM,
-    Pacman) nutzen den Helfer.
-    """
     return [(k, v) for k, v in pairs if v]
 
 
+# → REF TXT-DOC-14
 def _series_text(series, index):
-    """
-    F59 (0.44.0): Reihen-Angabe aus Name und Bandnummer – „Name –
-    Band 2.5“; ohne Nummer nur der Name, ohne Name gar nichts
-    (dann fällt die Zeile über _meta_rows weg).
-    """
     if not series:
         return None
     if index:
-        return "%s – Band %s" % (series, index)
+        return "%s – Volume %s" % (series, index)
     return series
 
 
+# → REF TXT-DOC-15
 def _ebook_placeholder(w=240, h=360):
-    """
-    F59 (0.44.0): Gezeichnetes Hochformat-Cover für E-Books ohne
-    eingebettetes Cover – Buchdeckel-Gerüst in Grautönen (Rücken-
-    Streifen, Titel-Balken, Textzeilen-Andeutungen), themeneutral
-    wie der vCard-Platzhalter. Ohne Cairo gibt es None zurück;
-    der Aufrufer zeigt dann den Öffnen-Hinweis.
-    """
     if not HAVE_PANGOCAIRO:
         return None
     try:
@@ -560,12 +486,8 @@ def _ebook_placeholder(w=240, h=360):
         return None
 
 
+# → REF TXT-DOC-16
 def _epub_opf_path(zf, names):
-    """
-    S3 (0.42.0): OPF-Pfad eines EPUB – erst aus
-    META-INF/container.xml, sonst Fallback auf den ersten .opf-
-    Namen (→ REF TXT-EPUB-1).
-    """
     opf_path = None
     try:
         container = _zf_read_capped(
@@ -582,25 +504,17 @@ def _epub_opf_path(zf, names):
                 opf_path = name
                 break
     if not opf_path:
-        raise ValueError("keine OPF-Inhaltsdatei gefunden")
+        raise ValueError("no OPF content file found")
     return opf_path
 
 
+# → REF TXT-DOC-17
 def _epub_metadata(root):
-    """
-    S3 (0.42.0): OPF auswerten – Titel/Autor/Sprache, Manifest
-    (id → href, media type, properties) und Cover-ID (cover-image-
-    Properties, sonst meta name=cover). F59 (0.44.0): Reihe und
-    Seiten dazu – calibre:series (plus Index) oder EPUB3 belongs-to-
-    collection (plus group-position); Seiten nur, wenn das OPF einen
-    page-count-Meta trägt (kein Standard-Tag – ohne Tag keine
-    Zeile). Der Spine entfällt mit der Text-Vorschau (F59).
-    """
     title = author = lang = None
     manifest = {}          # id -> (href, media type)
     cover_id = None
     series = series_index = pages = None
-    coll_id = None         # id der belongs-to-collection-Meta (EPUB 3)
+    coll_id = None         # id of the belongs-to-collection meta (EPUB 3)
     for el in root.iter():
         tag = _xml_local(el.tag)
         if tag == "title" and title is None:
@@ -643,11 +557,8 @@ def _epub_metadata(root):
             series, series_index, pages)
 
 
+# → REF TXT-DOC-18
 def _epub_cover(zf, names, base, manifest, cover_id):
-    """
-    S3 (0.42.0): Cover-Bytes – laut Manifest, sonst Heuristik: der
-    Dateiname enthält „cover“ und sieht nach Bild aus.
-    """
     cover = None
     if cover_id in manifest:
         try:
@@ -668,42 +579,31 @@ def _epub_cover(zf, names, base, manifest, cover_id):
     return cover
 
 
+# → REF TXT-DOC-19
 def _epub_data(path):
-    """
-    EPUB öffnen: Metadaten (F59: Buchtitel, Autor, Reihe, Seiten,
-    Sprache) und Cover-Bytes. Rückgabe (rows, cover) – die Text-
-    vorschau ist mit F59 abgeschafft.
-    S3 (0.42.0): Zerlegt – _epub_opf_path, _epub_metadata und
-    _epub_cover parsen je einen Teil; hier bleibt der Ablauf.
-    """
     with zipfile.ZipFile(path) as zf:
         names = zf.namelist()
         # → REF TXT-EPUB-1
         opf_path = _epub_opf_path(zf, names)
         base = (opf_path.rsplit("/", 1)[0] + "/") if "/" in opf_path else ""
         opf_raw = _zf_read_capped(zf, opf_path, _EBOOK_CHUNK_CAP)
-        # R10: OPF kommt ohne DTD aus – Entity-Guard vor dem Parsen.
+        # R10: OPF ships without DTD – entity guard before parsing.
         if _xml_dtd_rejected(opf_raw, "EPUB-OPF " + opf_path):
             raise ValueError("DOCTYPE im OPF (R10-Entity-Guard)")
         root = ElementTree.fromstring(opf_raw)
         (title, author, lang, manifest, cover_id,
          series, series_index, pages) = _epub_metadata(root)
         cover = _epub_cover(zf, names, base, manifest, cover_id)
-    return (_meta_rows((("Buchtitel", title), ("Autor", author),
-                         ("Teil einer Reihe", _series_text(series,
+    return (_meta_rows((("Book title", title), ("Author", author),
+                         ("Part of a series", _series_text(series,
                                                            series_index)),
-                         ("Anzahl Seiten", pages),
-                         ("Ebookformat", "EPUB"), ("Sprache", lang))),
+                         ("Number of pages", pages),
+                         ("E-book format", "EPUB"), ("Language", lang))),
             cover)
 
 
+# → REF TXT-DOC-20
 def _fb2_metadata(root):
-    """
-    S3 (0.42.0): FB2-Kopf – Titel, Autor (first-/last-name) und
-    Cover-Referenz (coverpage l:href). F59 (0.44.0): Sprache
-    (<lang>) und Reihe (<sequence name number>) dazu; der Körper
-    entfällt mit der Text-Vorschau (F59).
-    """
     title = author = lang = None
     cover_ref = None
     series = seq_index = None
@@ -733,11 +633,8 @@ def _fb2_metadata(root):
     return title, author, lang, cover_ref, series, seq_index
 
 
+# → REF TXT-DOC-21
 def _fb2_cover(root, cover_ref):
-    """
-    S3 (0.42.0): Cover aus der eingebetteten <binary>-Ressource
-    (base64).
-    """
     cover = None
     if cover_ref:
         for el in root.iter():
@@ -752,43 +649,29 @@ def _fb2_cover(root, cover_ref):
     return cover
 
 
+# → REF TXT-DOC-22
 def _fb2_data(path):
-    """
-    FictionBook 2 (.fb2): Buchtitel, Autor, Reihe, Sprache und
-    Cover (base64-binär). Rückgabe (rows, cover) – die Text-Vorschau
-    ist mit F59 abgeschafft.
-    S3 (0.42.0): Zerlegt – _fb2_metadata und _fb2_cover je einen
-    Teil; hier bleibt der Ablauf.
-    R11: Lese-Deckel wie EML/vCard (Cover steckt als base64 in
-    der Datei, ein paar MB sind normal) – Riesen-FB2s werden
-    abgeschnitten und dann gar nicht mehr geparst: Der ParseError
-    läuft in den Öffnen-Hinweis des Aufrufers statt in Speicher-
-    Druck beim Panel.
-    """
     with open(path, "rb") as fh:
         raw = fh.read(_FB2_FILE_CAP)
-    # R10: FB2 kommt ohne DTD aus – Entity-Guard vor dem Parsen.
+    # R10: FB2 ships without DTD – entity guard before parsing.
     if _xml_dtd_rejected(raw, "FB2 " + path):
-        raise ValueError("DOCTYPE in der FB2-Datei (R10-Entity-Guard)")
+        raise ValueError("DOCTYPE in the FB2 file (R10 entity guard)")
     root = ElementTree.fromstring(raw).getroot()
     title, author, lang, cover_ref, series, seq_index = _fb2_metadata(root)
     cover = _fb2_cover(root, cover_ref)
-    return (_meta_rows((("Buchtitel", title), ("Autor", author),
-                         ("Teil einer Reihe", _series_text(series,
+    return (_meta_rows((("Book title", title), ("Author", author),
+                         ("Part of a series", _series_text(series,
                                                            seq_index)),
-                         ("Ebookformat", "FB2"), ("Sprache", lang))),
+                         ("E-book format", "FB2"), ("Language", lang))),
             cover)
 
 
-_MOBI_MAX_BYTES = 8 * 1024 * 1024   # B5: Titel- und EXTH-Daten stehen ohnehin
-                                    # am Dateianfang – nur bis hierher lesen
+_MOBI_MAX_BYTES = 8 * 1024 * 1024   # B5: title and EXTH data sit at the file
+                                    # start anyway – read only up to here
 
 
+# → REF TXT-DOC-23
 def _mobi_records(data):
-    """
-    S3 (0.42.0): Palm-Datensätze ab Offset 78 – je 8 Bytes im
-    Eintrag, der Offset steckt in den ersten drei Bytes.
-    """
     num_rec = struct.unpack(">H", data[76:78])[0]
     rec_offs = []
     for i in range(num_rec):
@@ -797,7 +680,7 @@ def _mobi_records(data):
             break
         rec_offs.append(int.from_bytes(data[p:p + 3], "big"))
     if not rec_offs:
-        raise ValueError("keine Datensätze")
+        raise ValueError("no records")
     recs = []
     for i, off in enumerate(rec_offs):
         end = rec_offs[i + 1] if i + 1 < len(rec_offs) else len(data)
@@ -806,12 +689,8 @@ def _mobi_records(data):
     return recs
 
 
+# → REF TXT-DOC-24
 def _mobi_header(recs):
-    """
-    S3 (0.42.0): MOBI-Header-Datensatz – Kompressionsverfahren,
-    Encoding, erster nicht-Buch-Record und der EXTH-Autor
-    (Eintragstyp 100).
-    """
     compression = 1
     encoding = "cp1252"
     first_non_book = len(recs)
@@ -843,26 +722,17 @@ def _mobi_header(recs):
     return compression, encoding, first_non_book, author
 
 
+# → REF TXT-DOC-25
 def _mobi_data(path):
-    """
-    MOBI/PRC (Palm-Container): Buchtitel und Autor (EXTH). Rückgabe
-    (rows, None) – F59: E-Books zeigen Cover und Info-Tabelle statt
-    Text; MOBI-Cover stecken als REC-Eintrag (anders adressiert),
-    daher zeigt die Vorschau den gezeichneten Platzhalter. Ohne
-    Text-Extraktion blockiert HUFF/CDIC nicht mehr – Titel und
-    Autor zeigen sich jetzt auch bei AZW-Dateien.
-    S3 (0.42.0): Zerlegt – _mobi_records und _mobi_header je einen
-    Teil; hier bleibt der Ablauf.
-    """
     with open(path, "rb") as fh:
         data = fh.read(_MOBI_MAX_BYTES)
     if len(data) < 88 or data[60:68] not in (b"BOOKMOBI", b"TEXtREAd"):
-        raise ValueError("kein MOBI-Container")
+        raise ValueError("not a MOBI container")
     title = data[0:32].split(b"\x00")[0].decode("utf-8", "replace").strip()
     recs = _mobi_records(data)
     author = _mobi_header(recs)[3]
-    return (_meta_rows((("Buchtitel", title), ("Autor", author),
-                         ("Ebookformat", "MOBI"))), None)
+    return (_meta_rows((("Book title", title), ("Author", author),
+                         ("E-book format", "MOBI"))), None)
 
 
 # --- Packages: DEB, RPM, Arch/Pacman (stdlib only) --------------------------
@@ -870,20 +740,15 @@ def _mobi_data(path):
 _PKG_CONTROL_CAP = 2 * 1024 * 1024      # F60: max bytes from control member
 _PKG_HEADER_CAP = 4 * 1024 * 1024       # F60: max bytes from an rpm head zone
 _PKG_ICON_SCAN_CAP = 8 * 1024 * 1024    # F60: decompression budget icon hunt
-                                        # 0.45.1: 48 MB bremsten große Pakete
-                                        # aus – die Info-Tabelle wartet nicht
-                                        # auf den Payload; 8 MB reichen für
-                                        # das best-effort-Icon
+                                        # 0.45.1: 48 MB slowed huge packages
+                                        # down – the info table does not wait
+                                        # for the payload; 8 MB suffice for
+                                        # the best-effort icon
 _PKG_ICON_BYTES = 2 * 1024 * 1024       # F60: max bytes of one icon member
 
 
+# → REF TXT-DOC-26
 class _WindowReader:
-    """
-    F60 (0.45.0): read()-Fenster über eine Datei mit Budget –
-    tarfile im Stream-Modus (r|gz, r|xz) braucht nur read(), und das
-    Budget stoppt die Icon-Suche in Riesen-Paketen mit EOFError
-    (Deckel-Muster wie R11/B5 statt Speicher-Druck).
-    """
 
     def __init__(self, fh, offset, budget):
         self._fh = fh
@@ -892,7 +757,7 @@ class _WindowReader:
 
     def read(self, size=-1):
         if self._left <= 0:
-            raise EOFError("F60: Icon-Budget erschöpft")
+            raise EOFError("F60: icon budget exhausted")
         if size < 0 or size > self._left:
             size = self._left
         data = self._fh.read(size)
@@ -903,14 +768,8 @@ class _WindowReader:
         return True
 
 
+# → REF TXT-DOC-27
 def _tar_sniff_mode(data, stream=False):
-    """
-    F60.1 (0.45.1): tarfile-Modus an den MAGIE-BYTES des Members –
-    gz und xz sind Bordmittel, zst nicht (None → Aufrufer zeigt
-    Hinweis bzw. lässt das Icon weg). Raten nach dem ar-Member-
-    Namen geriet zum invalid-header-Fund: Je nach Werkzeug tragen
-    die Namen IEEE-Slashes ('control.tar.gz/').
-    """
     if data[:2] == b"\x1f\x8b":
         return "r|gz" if stream else "r:gz"
     if data[:6] == b"\xfd7zXZ\x00":
@@ -920,11 +779,8 @@ def _tar_sniff_mode(data, stream=False):
     return "r|" if stream else "r:"
 
 
+# → REF TXT-DOC-28
 def _pkg_icon_score(name, size):
-    """
-    F60: Icon-Kandidat? PNG/JPG unter icons/ oder pixmaps/, klein
-    genug; 48x48 und apps zählen am besten (bester Score -3).
-    """
     low = name.lower()
     if size > _PKG_ICON_BYTES or not low.endswith(
             (".png", ".jpg", ".jpeg")):
@@ -939,12 +795,8 @@ def _pkg_icon_score(name, size):
     return score
 
 
+# → REF TXT-DOC-29
 def _deb_control_fields(raw):
-    """
-    F60 (0.45.0): deb-control-Datei – 'Feld: Wert', Fortsetzungs-
-    zeilen (führende Leerzeichen) hängen am Wert; ' .' ist der
-    Absatz-Umbruch in der Langbeschreibung. Erstes Feld gewinnt.
-    """
     fields = {}
     cur = None
     for line in raw.decode("utf-8", "replace").splitlines():
@@ -960,41 +812,34 @@ def _deb_control_fields(raw):
     return fields
 
 
+# → REF TXT-DOC-30
 def _kb_size(kb):
-    """F60: deb Installed-Size steht in KB – lesbar formatieren."""
     try:
         return human_size(int(kb) * 1024)
     except (TypeError, ValueError):
         return None
 
 
+# → REF TXT-DOC-31
 def _deb_rows(fields):
-    """
-    F60 (0.45.0): Info-Zeilen aus der control-Datei – nur gesetzte
-    Felder; die Description zerfällt in Kurz- und Langbeschreibung.
-    """
     short, _, long = (fields.get("Description") or "").partition("\n")
-    rows = [("Paketname", fields.get("Package")),
+    rows = [("Package name", fields.get("Package")),
             ("Version", fields.get("Version")),
-            ("Architektur", fields.get("Architecture")),
-            ("Paketformat", "DEB"),
-            ("Sektion", fields.get("Section")),
-            ("Kurzbeschreibung", short.strip()),
-            ("Beschreibung", long.strip("\n").strip()),
-            ("Installierte Größe", _kb_size(fields.get("Installed-Size"))),
-            ("Abhängigkeiten", fields.get("Depends")),
-            ("Empfehlungen", fields.get("Recommends")),
-            ("Paketverwalter", fields.get("Maintainer")),
+            ("Architecture", fields.get("Architecture")),
+            ("Package format", "DEB"),
+            ("Section", fields.get("Section")),
+            ("Short description", short.strip()),
+            ("Description", long.strip("\n").strip()),
+            ("Installed size", _kb_size(fields.get("Installed-Size"))),
+            ("Dependencies", fields.get("Depends")),
+            ("Recommendations", fields.get("Recommends")),
+            ("Maintainer", fields.get("Maintainer")),
             ("Homepage", fields.get("Homepage"))]
     return _meta_rows(rows)
 
 
+# → REF TXT-DOC-32
 def _deb_icon(path, member):
-    """
-    F60: App-Icon aus data.tar – best effort mit Budget. 0.45.1:
-    Kompression an Magie-Bytes (Probe-Read von 6 Bytes, siehe
-    _tar_sniff_mode), nicht am Member-Namen.
-    """
     offset, size, name = member
     with open(path, "rb") as fh:
         fh.seek(offset)
@@ -1015,38 +860,33 @@ def _deb_icon(path, member):
         return best[1] if best else None
 
 
+# → REF TXT-DOC-33
 def _deb_data(path):
-    """
-    F60 (0.45.0): Debian-Paket (.deb) – ar-Archiv: control.tar.<gz|xz>
-    trägt die control-Datei (Bordmittel), data.tar.<gz|xz> den
-    Payload, daraus wird best effort das erste App-Icon gefischt
-    (Budget, sonst gezeichneter Platzhalter). Rückgabe (rows, icon).
-    """
     control = None
     data_member = None
     with open(path, "rb") as fh:
         if fh.read(8) != b"!<arch>\n":
-            raise ValueError("kein Debian-Paket (ar-Magie fehlt)")
+            raise ValueError("not a Debian package (ar magic missing)")
         while True:
             head = fh.read(60)
             if len(head) < 60:
                 break
-            # 0.45.1: IEEE-ar-Namen tragen oft einen Slash am Ende
-            # ('control.tar.gz/') – rstrip("/"), sonst greift keine
-            # Member-Weiche (Kompression: Sniffing, nicht Name).
+            # 0.45.1: IEEE ar names often end with a slash
+            # ('control.tar.gz/') – rstrip("/") or no member
+            # dispatch matches (compression: sniffing, not name).
             name = head[0:16].decode("ascii", "replace").strip()
             name = name.rstrip("/")
             try:
                 size = int(head[48:58].decode("ascii", "replace").strip())
             except ValueError:
-                raise ValueError("ar-Member-Kopf unlesbar")
+                raise ValueError("ar member header unreadable")
             body = fh.tell()
             if name.startswith("control.tar"):
                 raw = fh.read(min(size, _PKG_CONTROL_CAP))
                 mode = _tar_sniff_mode(raw)
                 if mode is None:
-                    raise ValueError("control.tar.zst – zstd ist kein "
-                                     "Bordmittel")
+                    raise ValueError("control.tar.zst – zstd is not a "
+                                     "stdlib capability")
                 tf = tarfile.open(fileobj=io.BytesIO(raw), mode=mode)
                 for m in tf:
                     if (m.name or "").lstrip("./") == "control":
@@ -1057,7 +897,7 @@ def _deb_data(path):
                 data_member = (body, size, name)
             fh.seek(body + size + size % 2)
     if control is None:
-        raise ValueError("keine control-Datei im Paket")
+        raise ValueError("no control file in the package")
     rows = _deb_rows(_deb_control_fields(control))
     icon = None
     if data_member is not None:
@@ -1068,30 +908,22 @@ def _deb_data(path):
     return rows, icon
 
 
+# → REF TXT-DOC-34
 def _rpm_section(data, pos):
-    """
-    F60 (0.45.0): RPM-Header-Abschnitt ab pos – Magie 8E AD E8,
-    16-Byte-Kopf (Index-Anzahl + Speichergröße), je 16-Byte-Index-
-    einträge (Tag, Typ, Offset, Anzahl) und der Datenspeicher.
-    Rückgabe (index, store, end).
-    """
     if data[pos:pos + 3] != b"\x8e\xad\xe8":
-        raise ValueError("RPM-Header-Magie fehlt bei Offset %d" % pos)
+        raise ValueError("RPM header magic missing at offset %d" % pos)
     n, size = struct.unpack(">II", data[pos + 8:pos + 16])
     i0 = pos + 16
     if i0 + 16 * n + size > len(data):
-        raise ValueError("RPM-Header größer als der Lesepuffer")
+        raise ValueError("RPM header larger than the read buffer")
     index = [struct.unpack(">IIII", data[i0 + 16 * i:i0 + 16 * i + 16])
              for i in range(n)]
     store = data[i0 + 16 * n:i0 + 16 * n + size]
     return index, store, i0 + 16 * n + size
 
 
+# → REF TXT-DOC-35
 def _rpm_value(index, store, tag):
-    """
-    F60: Erster Wert eines RPM-Tags – STRING (7) und I18NSTRING (9)
-    als str, STRING_ARRAY (6) als Liste, INT32 (4) als int; sonst None.
-    """
     for (t, typ, off, cnt) in index:
         if t != tag or off >= len(store):
             continue
@@ -1109,8 +941,8 @@ def _rpm_value(index, store, tag):
     return None
 
 
+# → REF TXT-DOC-36
 def _rpm_rows(index, store):
-    """F60: Info-Zeilen aus dem RPM-Header – nur gesetzte Tags."""
     def s(tag):
         val = _rpm_value(index, store, tag)
         return val.strip() if isinstance(val, str) and val.strip() else None
@@ -1124,32 +956,27 @@ def _rpm_rows(index, store):
             ("rpmlib(", "config(", "rtld(")))
     else:
         reqs = None
-    rows = [("Paketname", s(1000)),
+    rows = [("Package name", s(1000)),
             ("Version", version),
-            ("Architektur", s(1022)),
-            ("Paketformat", "RPM"),
-            ("Zusammenfassung", s(1004)),
-            ("Beschreibung", s(1005)),
-            ("Gruppe", s(1016)),
-            ("Lizenz", s(1014)),
-            ("Installierte Größe", size),
-            ("Abhängigkeiten", reqs),
-            ("Paketverwalter", s(1015)),
+            ("Architecture", s(1022)),
+            ("Package format", "RPM"),
+            ("Summary", s(1004)),
+            ("Description", s(1005)),
+            ("Group", s(1016)),
+            ("License", s(1014)),
+            ("Installed size", size),
+            ("Dependencies", reqs),
+            ("Maintainer", s(1015)),
             ("Homepage", s(1020))]
     return _meta_rows(rows)
 
 
+# → REF TXT-DOC-37
 def _rpm_data(path):
-    """
-    F60 (0.45.0): RPM – Lead (96 B), Signatur-Header und Haupt-Header
-    liegen am Dateianfang (Bordmittel: struct); der cpio-Payload
-    bleibt außen vor (meist zstd) – die Vorschau zeigt den gezeich-
-    neten Platzhalter. Rückgabe (rows, None).
-    """
     with open(path, "rb") as fh:
         data = fh.read(_PKG_HEADER_CAP)
     if len(data) < 96 or data[0:4] != b"\xed\xab\xee\xdb":
-        raise ValueError("kein RPM (Lead-Magie fehlt)")
+        raise ValueError("not an RPM (lead magic missing)")
     _, _, end = _rpm_section(data, 96)
     pos = end + (-end) % 8
     try:
@@ -1159,12 +986,8 @@ def _rpm_data(path):
     return _rpm_rows(index, store), None
 
 
+# → REF TXT-DOC-38
 def _pkginfo_fields(raw):
-    """
-    F60 (0.45.0): .PKGINFO ('key = value' je Zeile) – Mehrfach-Zeilen
-    (depend, optdepend, makedepend, license, group) sammeln, bei
-    Einzelfeldern gewinnt der erste Wert. Rückgabe (single, multi).
-    """
     single = {}
     multi = {"depend": [], "optdepend": [], "makedepend": [],
              "license": [], "group": []}
@@ -1182,38 +1005,32 @@ def _pkginfo_fields(raw):
     return single, multi
 
 
+# → REF TXT-DOC-39
 def _pkg_rows(single, multi):
-    """F60: Info-Zeilen aus .PKGINFO – nur gesetzte Felder."""
     ver, rel = single.get("pkgver"), single.get("pkgrel")
     version = "%s-%s" % (ver, rel) if ver and rel else (ver or rel)
     try:
         size = human_size(int(single.get("size")))
     except (TypeError, ValueError):
         size = None
-    rows = [("Paketname", single.get("pkgname")),
+    rows = [("Package name", single.get("pkgname")),
             ("Version", version),
-            ("Architektur", single.get("arch")),
-            ("Paketformat", "Pacman"),
-            ("Kurzbeschreibung", single.get("pkgdesc")),
-            ("Installierte Größe", size),
-            ("Abhängigkeiten", ", ".join(multi["depend"])),
-            ("Optionale Abhängigkeiten", ", ".join(multi["optdepend"])),
-            ("Lizenz", ", ".join(multi["license"])),
-            ("Paketverwalter", single.get("packager")),
+            ("Architecture", single.get("arch")),
+            ("Package format", "Pacman"),
+            ("Short description", single.get("pkgdesc")),
+            ("Installed size", size),
+            ("Dependencies", ", ".join(multi["depend"])),
+            ("Optional dependencies", ", ".join(multi["optdepend"])),
+            ("License", ", ".join(multi["license"])),
+            ("Maintainer", single.get("packager")),
             ("Homepage", single.get("url"))]
     return _meta_rows(rows)
 
 
+# → REF TXT-DOC-40
 def _pkg_data(path):
-    """
-    F60 (0.45.0): Arch-/Pacman-Paket (.pkg.tar.xz, AUR-Bauten u. a.)
-    – .PKGINFO gibt die Metadaten, im selben Stream-Durchlauf wird
-    das App-Icon gefischt (Budget, sonst Platzhalter). .pkg.tar.zst
-    bräuchte zstd – kein Bordmittel, dann Öffnen-Hinweis.
-    Rückgabe (rows, icon).
-    """
     if path.lower().endswith(".pkg.tar.zst"):
-        raise ValueError("pkg.tar.zst – zstd ist kein Bordmittel")
+        raise ValueError("pkg.tar.zst – zstd is not a stdlib capability")
     single = None
     multi = {}
     best = None
@@ -1238,17 +1055,12 @@ def _pkg_data(path):
         except Exception as e:
             dbg("F60 pkg stream: suppressed: %s" % e)
     if single is None:
-        raise ValueError("keine .PKGINFO im Paket")
+        raise ValueError("no .PKGINFO in the package")
     return _pkg_rows(single, multi), (best[1] if best else None)
 
 
+# → REF TXT-DOC-41
 def _package_placeholder(fmt, w=240, h=200):
-    """
-    F60 (0.45.0): Gezeichnetes Paket-Icon (Karton mit Deckel und
-    Format-Signet) für Pakete ohne auslesbares App-Icon – z. B. RPM
-    (cpio-Payload) oder tar.zst. Ohne Cairo: None, der Aufrufer
-    zeigt dann den Öffnen-Hinweis.
-    """
     if not HAVE_PANGOCAIRO:
         return None
     try:
@@ -1282,8 +1094,8 @@ def _package_placeholder(fmt, w=240, h=200):
 # --- Fonts: waterfall for TrueType/OpenType (stdlib) -------------------------
 
 _FONT_SIZES = (8, 11, 14, 18, 24, 36)
-_FONT_SAMPLE_TEXT = ("Zwölf Boxkämpfer jagen Viktor quer über den "
-                     "großen Sylter Deich")
+_FONT_SAMPLE_TEXT = ("The quick brown fox jumps over the "
+                     "lazy dog")
 # Process state (no global keyword, project convention): temp dir
 # for the fontconfig takeover, taken-over paths, ordered copy list.
 _FONT_STATE = {"tmpdir": None, "added": set(), "copies": []}
@@ -1292,32 +1104,28 @@ _FONT_STATE = {"tmpdir": None, "added": set(), "copies": []}
 _FONT_COPY_LIMIT = 64
 
 
+# → REF TXT-DOC-42
 def _font_info(path):
-    """
-    Familie und Stil aus der Namens-Tabelle einer TrueType-/OpenType-
-    Datei lesen (sfnt-Kopf, name-Tabelle – reine Bytes-Arbeit).
-    Rückgabe (Format-Text, Familie, Stil).
-    """
     with open(path, "rb") as fh:
         data = fh.read(4 * 1024 * 1024)
     if len(data) < 12:
-        raise ValueError("Datei zu klein")
+        raise ValueError("file too small")
     tag = data[0:4]
     offset = 0
     fmt = "TrueType"
     if tag == b"ttcf":
         if len(data) < 16:
-            raise ValueError("Collection ohne Kopf")
+            raise ValueError("collection without header")
         offset = int.from_bytes(data[12:16], "big")
         if offset + 12 > len(data):
-            raise ValueError("Collection-Offset kaputt")
+            raise ValueError("collection offset broken")
         tag = data[offset:offset + 4]
         fmt = "TrueType-Collection"
     if tag == b"OTTO":
         fmt = ("OpenType (CFF)" if offset == 0
                else "OpenType-Collection (CFF)")
     elif tag not in (b"true", b"\x00\x01\x00\x00") and offset == 0:
-        raise ValueError("keine TrueType-/OpenType-Datei")
+        raise ValueError("not a TrueType/OpenType file")
 
     num_tables = int.from_bytes(data[offset + 4:offset + 6], "big")
     name_off = name_len = 0
@@ -1330,7 +1138,7 @@ def _font_info(path):
             name_off, name_len = toff, tlen
             break
     if not name_off:
-        raise ValueError("Namens-Tabelle fehlt")
+        raise ValueError("name table missing")
     end = min(len(data), name_off + name_len)
     count = int.from_bytes(data[name_off + 2:name_off + 4], "big")
     stroff = int.from_bytes(data[name_off + 4:name_off + 6], "big")
@@ -1358,17 +1166,12 @@ def _font_info(path):
     family = recs.get(1) or recs.get(16) or recs.get(4)
     style = recs.get(2) or recs.get(17)
     if not family:
-        raise ValueError("kein Familienname in der Datei")
+        raise ValueError("no family name in the file")
     return fmt, family, style or "Regular"
 
 
+# → REF TXT-DOC-43
 def _fc_add_font_file(path):
-    """
-    Schriftdatei für DIESEN Prozess in Fontconfig aufnehmen – ohne sie
-    systemweit zu installieren: Kopie in einen temporären Ordner, dann
-    FcConfigAppFontAddDir (libfontconfig via ctypes). Pango liest die
-    Familie danach ganz normal über Fontconfig.
-    """
     state = _FONT_STATE
     if path in state["added"]:
         return True
@@ -1403,12 +1206,8 @@ def _fc_add_font_file(path):
         return False
 
 
+# → REF TXT-DOC-44
 def _font_known(font_map, family):
-    """
-    Liegt die Familie im übergebenen (frischen) FontMap? Die Prüfung
-    geht über einen NEUEN FontMap, denn der Standard-FontMap von GTK
-    kennt nur den Stand beim Start.
-    """
     try:
         low = family.lower()
         for fam in font_map.list_families():
@@ -1424,12 +1223,8 @@ def _font_known(font_map, family):
 
 # --- vCard (F7): parser and card helpers ------------------------------------
 
+# → REF TXT-DOC-45
 def _vcard_unfold(text):
-    """
-    Zeilenfortsetzungen zusammenfügen: Standard-Folding (Zeile beginnt
-    mit Leerzeichen oder Tab, RFC 6350) und die Weichkanteilung von
-    vCard 2.1 (Zeile endet auf =, nur bei QUOTED-PRINTABLE).
-    """
     out = []
     for line in text.split("\n"):
         line = line.rstrip("\r")
@@ -1445,13 +1240,8 @@ def _vcard_unfold(text):
     return out
 
 
+# → REF TXT-DOC-46
 def _vcard_split(line):
-    """
-    Eine Eigenschafts-Zeile in (Name, Params, Wert) zerlegen. Der
-    erste Doppelpunkt trennt Kopf und Wert – weitere Doppelpunkte im
-    Wert (URLs, Zeitangaben) bleiben unbehelligt. vCard-2.1-Nackt-
-    parameter (ohne TYPE=) landen unter TYPE.
-    """
     idx = line.find(":")
     if idx < 0:
         return None
@@ -1475,13 +1265,8 @@ def _vcard_split(line):
     return name, params, value
 
 
+# → REF TXT-DOC-47
 def _vcard_parse(text):
-    """
-    Text in Karten zerlegen. Jede Karte ist eine Liste von (Name,
-    Params, Wert). Quoted-Printable-Werte werden hier dekodiert;
-    sonstige Escapes bleiben roh – Aufrufer lösen sie mit
-    _vcard_unescape.
-    """
     cards, cur = [], None
     for line in _vcard_unfold(text):
         up = line.strip().upper()
@@ -1509,21 +1294,21 @@ def _vcard_parse(text):
     return cards
 
 
+# → REF TXT-DOC-48
 def _vcard_unescape(v):
-    """vCard-Escapes im Wert lösen (Komma, Semikolon, Umbruch)."""
     return (v.replace("\\n", "\n").replace("\\N", "\n")
              .replace("\\,", ",").replace("\\;", ";")
              .replace("\\\\", "\\"))
 
 
+# → REF TXT-DOC-49
 def _vcard_props(card, name):
-    """Alle Werte einer Eigenschaft als (Params, Wert)-Paare."""
     return [(params, value) for (n, params, value) in card
             if n == name]
 
 
+# → REF TXT-DOC-50
 def _vcard_first(card, name):
-    """Erster nicht-leerer Wert einer Eigenschaft (entschärft)."""
     for params, value in _vcard_props(card, name):
         v = _vcard_unescape(value).strip()
         if v:
@@ -1531,8 +1316,8 @@ def _vcard_first(card, name):
     return ""
 
 
+# → REF TXT-DOC-51
 def _vcard_display_name(card):
-    """Anzeigename: FN, sonst aus N zusammensetzen, sonst Spitzname."""
     v = _vcard_first(card, "FN")
     if v:
         return v
@@ -1542,16 +1327,16 @@ def _vcard_display_name(card):
         name = " ".join(x for x in (parts[3], parts[1], parts[0]) if x)
         if name:
             return name
-    return _vcard_first(card, "NICKNAME") or "(ohne Namen)"
+    return _vcard_first(card, "NICKNAME") or "(no name)"
 
 
-_VCARD_TEL_LABELS = (("CELL", "Mobil"), ("HOME", "Privat"),
-                     ("WORK", "Geschäftlich"), ("FAX", "Fax"),
-                     ("VOICE", "Telefon"))
+_VCARD_TEL_LABELS = (("CELL", "Mobile"), ("HOME", "Home"),
+                     ("WORK", "Work"), ("FAX", "Fax"),
+                     ("VOICE", "Phone"))
 
 
+# → REF TXT-DOC-52
 def _vcard_tel_label(params):
-    """Deutsches Telefon-Label aus dem TYPE-Parameter."""
     types = set(params.get("TYPE", []))
     for key, label in _VCARD_TEL_LABELS:
         if key in types:
@@ -1559,8 +1344,8 @@ def _vcard_tel_label(params):
     return "Telefon"
 
 
+# → REF TXT-DOC-53
 def _vcard_adr(value):
-    """ADR-Zeile (Postfach bis Land) zu einer lesbaren Adresse."""
     parts = [_vcard_unescape(p).strip() for p in value.split(";")]
     parts += [""] * (7 - len(parts))
     street, city = parts[1], parts[3]
@@ -1571,8 +1356,8 @@ def _vcard_adr(value):
     return " – ".join(x for x in (line, tail) if x)
 
 
+# → REF TXT-DOC-54
 def _vcard_bday(value):
-    """Geburtstag in Punkte-Notation (1985-04-12 oder 19850412)."""
     v = value.strip()
     if re.fullmatch(r"\d{8}", v):
         return "%s.%s.%s" % (v[6:8], v[4:6], v[0:4])
@@ -1581,14 +1366,8 @@ def _vcard_bday(value):
     return v
 
 
+# → REF TXT-DOC-55
 def _vcard_photo(card):
-    """
-    Foto der Karte als Bytes – inline Base64 (ENCODING=b oder BASE64,
-    vCard 2.1 auch mit nacktem Parameter) oder lokale Datei-URI
-    (VALUE=URI beziehungsweise file:-Angabe). Netz-URIs werden bewusst
-    NICHT geladen – die Vorschau geht niemanden im Netz fragen; es
-    greift der Platzhalter.
-    """
     for params, value in _vcard_props(card, "PHOTO"):
         encs = params.get("ENCODING", []) + params.get("TYPE", [])
         if "B" in encs or "BASE64" in encs:
@@ -1613,12 +1392,8 @@ def _vcard_photo(card):
     return None
 
 
+# → REF TXT-DOC-56
 def _vcard_circle(pb, size=160):
-    """
-    F7: Foto quadratisch mittig zuschneiden und kreisförmig maskieren
-    (Alphakanal am Rand) – dieselbe Cairo-Clip-Technik wie die Cover-
-    Ecken (F34). Ohne Cairo bleibt das zugeschnittene Quadrat eckig.
-    """
     try:
         w, h = pb.get_width(), pb.get_height()
         if w < 1 or h < 1:
@@ -1643,13 +1418,8 @@ def _vcard_circle(pb, size=160):
         return pb
 
 
+# → REF TXT-DOC-57
 def _vcard_placeholder(size=160):
-    """
-    F7: Runder Platzhalter – heller Kreis mit gedämpfter Personen-
-    Silhouette (Kopf und Schulterbogen), themeneutral in Grautönen.
-    Ohne Cairo gibt es None zurück; der Aufrufer zeigt dann ein
-    Theme-Icon als Notnagel.
-    """
     if not HAVE_PANGOCAIRO:
         return None
     try:
@@ -1678,8 +1448,8 @@ def _vcard_placeholder(size=160):
 
 # --- LDIF (F7): address book exports as cards --------------------------------
 
+# → REF TXT-DOC-58
 def _ldif_unfold(text):
-    """LDIF-Zeilenfortsetzung (Zeile beginnt mit Leerzeichen, RFC 2849)."""
     out = []
     for line in text.split("\n"):
         line = line.rstrip("\r")
@@ -1692,11 +1462,8 @@ def _ldif_unfold(text):
     return out
 
 
+# → REF TXT-DOC-59
 def _ldif_record(attrs):
-    """
-    Einen LDIF-Satz in Karten-Tupel überführen – None, wenn der Satz
-    keine Kontakt-Felder trägt (Organisations-Container, Gruppen).
-    """
     def vals(key):
         return [v for (k, v) in attrs if k == key]
 
@@ -1749,13 +1516,8 @@ def _ldif_record(attrs):
     return card or None
 
 
+# → REF TXT-DOC-60
 def _ldif_parse(text):
-    """
-    LDIF-Adressbuch (Thunderbird-/Mozilla-/Outlook-Exporte): Sätze
-    sind durch Leerzeilen getrennt; Base64-Werte (Doppel-Doppelpunkt)
-    werden dekodiert, jpegPhoto bleibt roh. Jeder Satz läuft über
-    _ldif_record in dieselbe Karten-Struktur wie vCard.
-    """
     cards, attrs = [], []
 
     def flush():
@@ -1805,14 +1567,8 @@ _CONTACT_TEL_TYPES = {"mobile": "CELL", "cell": "CELL", "home": "HOME",
                        "business": "WORK", "work": "WORK", "fax": "FAX"}
 
 
+# → REF TXT-DOC-61
 def _contact_one(node):
-    """
-    EIN Kontakt-Knoten als Karten-Tupel. Attribute werden über die
-    LOKALEN Element-Namen erkannt – der Microsoft-Namensraum wechselt
-    je nach Windows-Fassung. Werte stehen im Element-Text oder im
-    Value-Attribut; Fotos bleiben außen vor (das Format bettet sie
-    uneinheitlich ein), es greift der Platzhalter.
-    """
     card, addr, name = [], {}, {}
 
     def flush_addr():
@@ -1880,15 +1636,10 @@ def _contact_one(node):
     return card
 
 
+# → REF TXT-DOC-62
 def _contact_parse(text):
-    """
-    Windows-Kontakt-Datei (.contact, XML): Meist trägt WURZEL schon
-    den Kontakt; Dateien mit mehreren contact-Knoten (Kollektion)
-    bekommen alle. Ohne erkennbaren Kontakt: leere Liste – der
-    Aufrufer zeigt dann den Öffnen-Hinweis.
-    """
-    # R10: Kontakt-XML kommt ohne DTD aus – Entity-Guard vor dem
-    # Parsen; bei Ablehnung gilt die Datei als nicht lesbar.
+    # R10: contact XML ships without DTD – entity guard before
+    # parsing; on rejection the file counts as unreadable.
     if _xml_dtd_rejected(text, ".contact"):
         return []
     try:
@@ -1908,18 +1659,18 @@ def _contact_parse(text):
     return cards
 
 
-# --- F8: CSV als echte Tabelle (Nutzer-Auftrag 2026-11-02) ---
-# 0.46.0: Die Spalten- und Zellenbegrenzung ermittelt das Modul
-# selbst (Nutzer-Anforderung) – csv.Sniffer ratet Trennzeichen
-# UND Kopfzeile aus dem Inhalt, nie aus dem Dateinamen.
+# --- F8: CSV as a real table (user request 2026-11-02) ---
+# 0.46.0: the module detects the delimiter and header itself
+# (user requirement) – csv.Sniffer guesses the delimiter AND
+# the header from the content, never from the file name.
 
 _CSV_FILE_CAP = 4 * 1024 * 1024     # F8: max bytes of a CSV file
 _CSV_ROW_CAP = 1000                 # F8: max preview rows
 _CSV_SNIFF_CAP = 64 * 1024          # F8: bytes for csv.Sniffer
 
 
+# → REF TXT-DOC-63
 def _csv_data(path):
-    """F8: liefert (headers, rows, delim, truncated)."""
     with open(path, "rb") as fh:
         raw = fh.read(_CSV_FILE_CAP)
     truncated = len(raw) == _CSV_FILE_CAP
@@ -1944,30 +1695,24 @@ def _csv_data(path):
     if header and rows:
         headers = rows.pop(0)
     else:
-        headers = ["Spalte %d" % (i + 1) for i in range(width)]
+        headers = ["Column %d" % (i + 1) for i in range(width)]
     return headers, rows, delim, truncated
 
 
-# --- F6: SQLite-Datenbanken (Nutzer-Auftrag 2026-11-02) ---
-# 0.46.0: Struktur aus dem Schema, read-only geöffnet – Spalten
-# und Zellenbegrenzung ermittelt die Vorschau selbst.
+# --- F6: SQLite databases (user request 2026-11-02) ---
+# 0.46.0: structure from the schema, opened read-only – the
+# preview detects columns and cell delimiters itself.
 
-_SQLITE_MAGIC = b"SQLite format 3\x00"   # 16-Byte-Header
+_SQLITE_MAGIC = b"SQLite format 3\x00"   # 16-byte header
 _SQLITE_TABLE_CAP = 200                  # F6: max listed tables
 _SQLITE_COUNT_STEPS = 2000000            # F6: COUNT(*) opcode budget
 
 
+# → REF TXT-DOC-64
 def _sqlite_data(path):
-    """
-    F6: Tabellenliste (Name, Spalten, Zeilenanzahl) aus dem
-    Schema. Der Magie-Check schickt Fremd-Dateien (.db ist
-    nicht immer SQLite) in den Öffnen-Hinweis. Der Progress-
-    Deckel stoppt endlose COUNT-Scans über Riesen-Tabellen
-    (F60-Lektion: die Vorschau muss sofort da sein).
-    """
     with open(path, "rb") as fh:
         if fh.read(16) != _SQLITE_MAGIC:
-            raise ValueError("keine SQLite-Datenbank (Magie fehlt)")
+            raise ValueError("not an SQLite database (magic missing)")
     rows = []
     truncated = False
     con = sqlite3.connect(path)
@@ -1998,14 +1743,14 @@ def _sqlite_data(path):
     return rows, truncated
 
 
+# → REF TXT-DOC-65
 class TextRendererMixin:
-    """Mixin: Renderer für Text, Markdown, EML, E-Book, Schrift, vCard."""
 
     # --- Shared helpers for text views (audit 0.9.1): TextView building
     # was previously duplicated ~five times; capped file reading twice. ---
 
+    # → REF TXT-DOC-66
     def _read_text_file(self, path):
-        """Datei gekappt lesen: (Text, truncated) – Text und Markdown."""
         with open(path, "rb") as fh:
             data = fh.read(MAX_TEXT_BYTES)
         text = data.decode("utf-8", "replace")
@@ -2020,7 +1765,7 @@ class TextRendererMixin:
         try:
             text, truncated = self._read_text_file(path)
         except Exception as e:
-            self._hint("Konnte Datei nicht lesen: %s" % e)
+            self._hint("Could not read the file: %s" % e)
             return
         # F24: line numbers per the "Text files" setting (default on);
         # margin drawing, not text buffer – only the text is copied.
@@ -2030,19 +1775,14 @@ class TextRendererMixin:
                         linenumbers=self._conf_text_linenumbers,
                         source_path=path)
         if truncated:
-            pack_hint(self._content, "Vorschau gekürzt (lange Datei).")
+            pack_hint(self._content, "Preview trimmed (long file).")
 
+    # → REF TXT-DOC-67
     def _render_markdown(self, path):
-        """
-        Markdown mit sichtbaren Formatierungen: Überschriften, Fett/
-        Kursiv, Code, Listen, Zitate und Links werden über Pango-Markup
-        dargestellt (kein Webview, keine neuen Pakete). Schlägt die
-        Markup-Erzeugung ausnahmsweise fehl, erscheint der Rohtext.
-        """
         try:
             text, truncated = self._read_text_file(path)
         except Exception as e:
-            self._hint("Konnte Datei nicht lesen: %s" % e)
+            self._hint("Could not read the file: %s" % e)
             return
         markup = _markdown_to_pango(text)
         valid = True
@@ -2056,15 +1796,10 @@ class TextRendererMixin:
         # → REF TXT-B6-1
         self._text_view(text, font=None, markup=(markup if valid else None))
         if truncated:
-            pack_hint(self._content, "Vorschau gekürzt (lange Datei).")
+            pack_hint(self._content, "Preview trimmed (long file).")
 
+    # → REF TXT-DOC-68
     def _render_eml(self, path):
-        """
-        EML-Dateien (RFC 822): Kopfzeilen (Betreff, Von, An, Cc, Datum)
-        als Tabelle, darunter der Textkörper. Bevorzugt text/plain;
-        fehlt er, wird der HTML-Teil zu lesbarem Text bereinigt. Alles
-        mit Python-Bordmitteln (email-Modul).
-        """
         try:
             with open(path, "rb") as fh:
                 # 0.9.2: read cap – headers sit at the top anyway; a
@@ -2072,13 +1807,13 @@ class TextRendererMixin:
                 raw = fh.read(_EML_FILE_CAP)
             msg = email.message_from_bytes(raw, policy=policy.default)
         except Exception as e:
-            self._hint("E-Mail konnte nicht geöffnet werden: %s" % e)
+            self._hint("Could not open the e-mail: %s" % e)
             return
 
         rows = []
-        for key, label in (("subject", "Betreff"), ("from", "Von"),
-                           ("to", "An"), ("cc", "Cc"),
-                           ("date", "Datum")):
+        for key, label in (("subject", "Subject"), ("from", "From"),
+                           ("to", "To"), ("cc", "Cc"),
+                           ("date", "Date")):
             try:
                 val = msg.get(key)
             except Exception:
@@ -2091,13 +1826,13 @@ class TextRendererMixin:
 
         body = self._eml_body(msg)
         if not body.strip():
-            pack_hint(self._content, "Kein lesbarer Textkörper gefunden – Datei "
-                       "über den Öffnen-Knopf betrachten.")
+            pack_hint(self._content, "No readable text body found – open the "
+                       "file via the open button.")
             return
         self._text_view(body)
 
+    # → REF TXT-DOC-69
     def _eml_body(self, msg):
-        """Textkörper einer E-Mail: text/plain bevorzugt, sonst HTML."""
         text = ""
         part = None
         try:
@@ -2134,20 +1869,8 @@ class TextRendererMixin:
                 text = ""
         return text[:MAX_TEXT_BYTES]
 
+    # → REF TXT-DOC-70
     def _render_vcard(self, path):
-        """
-        F7 (Nutzer-Wunsch): Visitenkartenformate als Visitenkarte –
-        vCard (.vcf/.vcard, Dialekte 2.1, 3.0, 4.0), LDIF-Adress-
-        bücher (.ldif) und Windows-Kontakte (.contact, XML). Jede
-        Karte trägt einen rechteckigen Rahmen mit dem Eckenradius
-        der Musikcover (F34-Formel) samt gleichem Schlagschatten.
-        Kopf der Karte: rundes Foto (inline Base64 oder lokale URI,
-        sonst der gezeichnete Platzhalter-Kreis), darunter Name
-        groß, Position und Firma, dann die Kontaktdaten als gewohnte
-        Tabelle. ALLE Karten der Datei erscheinen untereinander in
-        einem Scrollbereich; bei einem einzigen Kontakt zeigt sich
-        naturgemäß kein Scrollbalken.
-        """
         # → REF TXT-VCARD-1
         try:
             with open(path, "rb") as fh:
@@ -2155,7 +1878,7 @@ class TextRendererMixin:
                 # file – a few MB are normal, dozens would be a bomb.
                 raw = fh.read(_VCARD_FILE_CAP)
         except Exception as e:
-            self._hint("Visitenkarte konnte nicht geöffnet werden: %s"
+            self._hint("Could not open the contact card: %s"
                        % e)
             return
         text = raw.decode("utf-8", "replace")
@@ -2169,8 +1892,8 @@ class TextRendererMixin:
         else:
             cards = _vcard_parse(text)
         if not cards:
-            pack_hint(self._content, "Kein Kontakt gefunden – Datei über den "
-                       "Öffnen-Knopf betrachten.")
+            pack_hint(self._content, "No contact found – open the file via the "
+                       "open button.")
             self._render_generic()
             return
         # No card cap (user request): ALL contacts are built and
@@ -2192,13 +1915,8 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
         dbg("Contact cards: %d built, %d with photo" % (len(cards), fotos))
 
+    # → REF TXT-DOC-71
     def _vcard_card_widget(self, card):
-        """
-        F7: EINE Visitenkarte als Widget. Der Rahmen – abgerundetes
-        Rechteck mit dem Eckenradius der Musikcover plus gleicher
-        Schlagschatten – wird im draw-Signal HINTER die Widgets
-        gezeichnet (→ _vcard_card_draw). Rückgabe: (Widget, Foto?)
-        """
         name = _vcard_display_name(card)
         title = _vcard_first(card, "TITLE")
         org = _vcard_first(card, "ORG").split(";")[0].strip()
@@ -2211,7 +1929,7 @@ class TextRendererMixin:
         for params, value in _vcard_props(card, "EMAIL"):
             v = _vcard_unescape(value).strip()
             if v:
-                rows.append(("E-Mail", v))
+                rows.append(("Email", v))
         for params, value in _vcard_props(card, "URL"):
             v = _vcard_unescape(value).strip()
             if v:
@@ -2219,22 +1937,22 @@ class TextRendererMixin:
         for params, value in _vcard_props(card, "ADR"):
             v = _vcard_adr(value)
             if v:
-                rows.append(("Adresse", v))
+                rows.append(("Address", v))
         for params, value in _vcard_props(card, "BDAY"):
             v = _vcard_bday(value)
             if v:
-                rows.append(("Geburtstag", v))
+                rows.append(("Birthday", v))
         nick = _vcard_first(card, "NICKNAME")
         if nick:
-            rows.append(("Spitzname", nick))
+            rows.append(("Nickname", nick))
         note = _vcard_first(card, "NOTE")
         if note:
-            rows.append(("Notiz", note.replace("\n", " ")[:120]))
+            rows.append(("Note", note.replace("\n", " ")[:120]))
         # Line cap: address book exports love dozens of phone
         # numbers – stop after 14 lines with a hint.
         if len(rows) > 14:
             rows = rows[:14]
-            rows.append(("Weitere", "… Angaben in der Datei"))
+            rows.append(("More", "… details in the file"))
 
         photo_bytes = _vcard_photo(card)
         pb, had_photo = None, False
@@ -2291,16 +2009,8 @@ class TextRendererMixin:
         outer.pack_start(inner, True, True, 0)
         return outer, had_photo
 
+    # → REF TXT-DOC-72
     def _vcard_card_draw(self, widget, cr):
-        """
-        F7: Hintergrund der Visitenkarte – abgerundetes Rechteck mit
-        dem Eckenradius der eingebetteten Musikcover (0.25.1 um ein
-        Drittel dezenter: 56/960 der kleineren Kante), dem gleichen
-        Schlagschatten (F34/F35: sechs gestapelte, wachsende Kacheln)
-        und KEINER Füllung – die Karte bleibt transparent, im Dark-
-        mode tut ein weißer Kachelgrund in den Augen weh. Rückgabe
-        False: GTK zeichnet die Widgets danach OBEN drauf.
-        """
         # Border and shadow need NO pycairo – the draw callback
         # receives its Cairo context from GTK.
         try:
@@ -2327,25 +2037,17 @@ class TextRendererMixin:
             dbg("vCard card background failed (%s)" % e)
         return False
 
+    # → REF TXT-DOC-73
     def _render_ebook(self, path, loader, fmt):
-        """
-        F59 (0.44.0): Neue E-Book-Darstellung nach Bild-Vorbild –
-        oben (60 %) das Cover, ohne Cover ein gezeichneter Hochformat-
-        Platzhalter, unten (40 %) die Info-Tabelle (Buchtitel, Autor,
-        Reihe, Seiten, Ebookformat, Sprache – nur gesetzte Tags). Die
-        Textvorschau ist abgeschafft: sie renderte unschön, die
-        Buch-Infos reichen. Lässt sich das Buch nicht lesen, gibt es
-        einen Hinweis plus generische Vorschau.
-        """
         try:
             rows, cover = loader(path)
         except Exception as e:
             dbg("E-book unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "E-Book konnte nicht gelesen werden: %s" % e)
+            pack_hint(self._content, "Could not read the e-book: %s" % e)
             self._render_generic()
             return
         if not rows:
-            rows = [("Ebookformat", fmt)]
+            rows = [("E-book format", fmt)]
         pb = None
         if cover:
             try:
@@ -2355,38 +2057,32 @@ class TextRendererMixin:
         if pb is None:
             pb = _ebook_placeholder()
         if pb is None:
-            pack_hint(self._content, "Kein Cover vorhanden – Datei über den "
-                       "Öffnen-Knopf betrachten.")
+            pack_hint(self._content, "No cover available – open the file via the "
+                       "open button.")
             pack_meta_grid(rows, self._content)
             return
-        # 60/40-Split wie Bilder (F38): _pack_image_capped setzt
-        # _image_info_box, die Info-Zeilen landen im unteren Teil.
+        # 60/40 split like images (F38): _pack_image_capped sets
+        # _image_info_box; the info rows end up in the lower part.
         scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=True,
                                     keep_height=True, max_upscale=2.0,
                                     frac_h=0.6)
         self._pack_image_capped(scroll)
         pack_meta_grid(rows, self._image_info_box)
 
+    # → REF TXT-DOC-74
     def _render_epub(self, path):
-        """EPUB-Vorschau (F59: Cover oben, Buch-Infos unten)."""
         self._render_ebook(path, _epub_data, "EPUB")
 
+    # → REF TXT-DOC-75
     def _render_fb2(self, path):
-        """FictionBook-2-Vorschau (F59: Cover oben, Buch-Infos unten)."""
         self._render_ebook(path, _fb2_data, "FB2")
 
+    # → REF TXT-DOC-76
     def _render_mobi(self, path):
-        """MOBI/PRC/AZW-Vorschau (F59: Platzhalter-Deckel, Buch-Infos)."""
         self._render_ebook(path, _mobi_data, "MOBI")
 
+    # → REF TXT-DOC-77
     def _pack_package_capped(self, scroll):
-        """
-        F60 (0.45.0): Umgekehrter Bild-Split (F38): 40 % Icon oben,
-        60 % Info-Bereich unten – der liegt im ScrolledWindow, weil
-        Paket-Infos (Beschreibung, Abhängigkeiten) gern länger sind
-        als der Bereich. Die Aufteilung lebt mit dem Fenster-Resize
-        (Muster _image_split_sync).
-        """
         # → REF TXT-PKG-1
         top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         try:
@@ -2415,8 +2111,8 @@ class TextRendererMixin:
         self._content.pack_start(sep, False, True, 0)
         self._content.pack_start(info_scroll, True, True, 0)
 
+    # → REF TXT-DOC-78
     def _package_split_sync(self, widget, allocation):
-        """F60: Icon-Bereich auf 40 % der Spaltenhöhe nachziehen."""
         # → REF TXT-PKG-1
         try:
             ch = self._content.get_allocated_height()
@@ -2428,23 +2124,17 @@ class TextRendererMixin:
         except Exception as e:
             dbg("text/_package_split_sync: suppressed: %s" % e)
 
+    # → REF TXT-DOC-79
     def _render_package(self, path, loader, fmt):
-        """
-        F60 (0.45.0): Paket-Vorschau (DEB, RPM, Arch/Pacman) – 40 %
-        Icon oben (eingebettetes App-Icon aus dem Payload, sonst der
-        gezeichnete Paket-Platzhalter), 60 % Info-Tabelle unten im
-        scrollbaren Bereich. Lässt sich das Paket nicht lesen, gibt
-        es einen Hinweis plus generische Vorschau.
-        """
         try:
             rows, icon = loader(path)
         except Exception as e:
             dbg("Package unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "Paket konnte nicht gelesen werden: %s" % e)
+            pack_hint(self._content, "Could not read the package: %s" % e)
             self._render_generic()
             return
         if not rows:
-            rows = [("Paketformat", fmt)]
+            rows = [("Package format", fmt)]
         pb = None
         if icon:
             try:
@@ -2454,8 +2144,8 @@ class TextRendererMixin:
         if pb is None:
             pb = _package_placeholder(fmt)
         if pb is None:
-            pack_hint(self._content, "Kein Icon vorhanden – Datei über den "
-                       "Öffnen-Knopf betrachten.")
+            pack_hint(self._content, "No icon available – open the file via the "
+                       "open button.")
             pack_meta_grid(rows, self._content)
             return
         scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=True,
@@ -2464,25 +2154,20 @@ class TextRendererMixin:
         self._pack_package_capped(scroll)
         pack_meta_grid(rows, self._package_info_box, wrap=True)
 
+    # → REF TXT-DOC-80
     def _render_deb(self, path):
-        """Debian-Paket-Vorschau (F60: Icon oben, Infos scrollbar)."""
         self._render_package(path, _deb_data, "DEB")
 
+    # → REF TXT-DOC-81
     def _render_rpm(self, path):
-        """RPM-Vorschau (F60: Platzhalter-Icon, Infos scrollbar)."""
         self._render_package(path, _rpm_data, "RPM")
 
+    # → REF TXT-DOC-82
     def _render_pkg(self, path):
-        """Arch-Paket-Vorschau (F60: Icon oben, Infos scrollbar)."""
         self._render_package(path, _pkg_data, "PKG")
 
+    # → REF TXT-DOC-83
     def _pack_table(self, headers, rows):
-        """
-        F8/F6 (0.46.0): Echte Tabellen als Gtk.TreeView – beide
-        Richtungen scrollbar, Spalten per Klick sortier- und in
-        der Breite ziehbar. F56 (Tabellenkalkulationen) kann
-        denselben Renderer später wiederverwenden.
-        """
         # → REF TXT-CSV-1
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
@@ -2511,86 +2196,67 @@ class TextRendererMixin:
         scroll.add(view)
         self._content.pack_start(scroll, True, True, 0)
 
+    # → REF TXT-DOC-84
     def _render_csv(self, path):
-        """
-        F8 (0.46.0): CSV als echte Tabelle. Das Modul ermittelt
-        Trennzeichen UND Kopfzeile selbst aus dem Inhalt
-        (Nutzer-Anforderung: die Spalten-/Zellenbegrenzung wird
-        nie aus dem Dateinamen geraten) – csv.Sniffer probiert
-        Komma, Semikolon, TAB und Pipe gegen die ersten Zeilen.
-        """
         # → REF TXT-CSV-1
         try:
             headers, rows, delim, truncated = _csv_data(path)
         except Exception as e:
             dbg("CSV unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "Tabelle konnte nicht gelesen "
-                       "werden: %s" % e)
+            pack_hint(self._content, "The table could not be "
+                       "read: %s" % e)
             self._render_generic()
             return
         if not rows:
-            pack_hint(self._content, "Die Datei enthält keine "
-                      "Tabellenzeilen.")
+            pack_hint(self._content, "The file contains no table "
+                      "rows.")
             return
         self._pack_table(headers, rows)
-        dbg("text/_render_csv: Trenner %r erkannt, %d Zeilen"
+        dbg("text/_render_csv: delimiter %r detected, %d rows"
             % (delim, len(rows)))
         if truncated:
             pack_hint(self._content,
-                      "Vorschau gekürzt (max. %d Zeilen)."
+                      "Preview trimmed (max. %d rows)."
                       % _CSV_ROW_CAP)
 
+    # → REF TXT-DOC-85
     def _render_sqlite(self, path):
-        """
-        F6 (0.46.0): SQLite-Datenbanken – Tabellenliste mit
-        Spalten und Zeilenanzahl. Die Struktur kommt komplett aus
-        dem Schema (sqlite_master, PRAGMA table_info), geöffnet
-        wird read-only (PRAGMA query_only).
-        """
         # → REF TXT-SQL-1
         try:
             rows, truncated = _sqlite_data(path)
         except Exception as e:
             dbg("SQLite unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "Datenbank konnte nicht gelesen "
-                       "werden: %s" % e)
+            pack_hint(self._content, "The database could not be "
+                       "read: %s" % e)
             self._render_generic()
             return
         if not rows:
-            pack_hint(self._content, "Die Datenbank enthält keine "
-                      "Tabellen.")
+            pack_hint(self._content, "The database contains no "
+                      "tables.")
             return
-        self._pack_table(["Tabelle", "Spalten", "Zeilen"], rows)
+        self._pack_table(["Table", "Columns", "Rows"], rows)
+        dbg("text/_render_sqlite: %d tables" % len(rows))
         if truncated:
             pack_hint(self._content,
-                      "Vorschau gekürzt (max. %d Tabellen)."
+                      "Preview trimmed (max. %d tables)."
                       % _SQLITE_TABLE_CAP)
 
+    # → REF TXT-DOC-86
     def _render_font(self, path):
-        """
-        Schriftarten-Wasserfall (TrueType, OpenType, Collections): die
-        Datei wird nur für diesen Prozess in Fontconfig aufgenommen
-        (nichts wird installiert). Der Wasserfall wird mit einem
-        FRISCHEN Pango-FontMap in eine Pixbuf vorgerendert – GTKs
-        Standard-FontMap wird beim Start gebaut und überliest zur
-        Laufzeit hinzugefügte Schriften (Labels würden still die
-        Ersatzschrift zeigen). Das fertige Bild nutzt die übliche
-        Live-Skalierung mit der Panelbreite.
-        """
         try:
             fmt, family, style = _font_info(path)
         except Exception as e:
             dbg("Font unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "Konnte Schrift nicht lesen: %s" % e)
+            pack_hint(self._content, "Could not read the font: %s" % e)
             self._render_generic()
             return
         if not HAVE_PANGOCAIRO:
-            pack_hint(self._content, "Schriftvorschau nicht verfügbar – Pakete "
-                       "python3-cairo und gir1.2-pango installieren.")
+            pack_hint(self._content, "Font preview unavailable – install the "
+                       "python3-cairo and gir1.2-pango packages.")
             self._render_generic()
             return
-        pack_meta_grid([("Format", fmt), ("Familie", family),
-                        ("Stil", style)], self._content)
+        pack_meta_grid([("Format", fmt), ("Family", family),
+                        ("Style", style)], self._content)
         if not _fc_add_font_file(path):
             dbg("Font could not be added to Fontconfig: %s"
                 % path)
@@ -2600,13 +2266,13 @@ class TextRendererMixin:
             fctx = PangoCairo.FontMap.new().create_context()
         except Exception as e:
             dbg("Pango context failed: %s" % e)
-            pack_hint(self._content, "Schriftvorschau nicht verfügbar.")
+            pack_hint(self._content, "Font preview unavailable.")
             self._render_generic()
             return
         if not _font_known(fctx.get_font_map(), family):
             dbg("Pango does not know the family: %s" % family)
-            pack_hint(self._content, "Schrift konnte nicht eingebunden werden – der "
-                       "Wasserfall zeigt die Ersatzschrift.")
+            pack_hint(self._content, "The font could not be registered – the "
+                       "waterfall shows the fallback font.")
 
         # Theme text color. F12 fix (0.34.0): get_color() requires a
         # state in GTK3; StateFlags.NORMAL reads the theme color (→ REF TXT-FONT-2).
