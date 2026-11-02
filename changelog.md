@@ -1,1619 +1,1735 @@
 # Changelog
 
-Alle nennenswerten Änderungen am Nemo-Previewer werden in dieser Datei  
-dokumentiert. Format: [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),  
-Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
+All notable changes to the Nemo Previewer are documented in this  
+file. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
+versioning: [Semantic Versioning](https://semver.org/).
 
 ## \[Unreleased\]
 
+## \[0.47.0\] – 2026-11-02
+
+### Changed
+
+- F49 – All files in English: every remaining German UI string,  
+  exception, dbg message and comment translated across all eight  
+  modules; the German identifier farbe/\_surface\_css\_farbe in  
+  previewer\_panel.py became color/\_surface\_css\_color, and the  
+  EXIF dict keys in previewer\_render\_media.py were renamed  
+  producer and consumer side (Camera, Date taken, Exposure time,  
+  Aperture, Focal length, Coordinates, Dimensions); planned.md  
+  stays German deliberately (user decision 2026-11-02).  
+- F49 – All 250 function and class docstrings migrated from the  
+  code into REFERENZ.md (English translations): each def/class  
+  now carries a `# → REF <MODULE>-DOC-n` marker above it, only  
+  the module head docstrings stay in the code (version anchors).  
+  New entries: ENT-DOC-1…20, UT-DOC-1…14, TB-DOC-1…15,  
+  DOC-DOC-1…19, SEL-DOC-1…26, TXT-DOC-1…86, PAN-DOC-1…30 and  
+  MED-DOC-1…40 – REFERENZ.md grows from 144 to 300 entries.
+
+### Added
+
+- previewer\_render\_text.py: \_render\_sqlite now logs the table  
+  count on success (dbg "%d tables") – previously only the error  
+  path had a message.
+
 ## \[0.46.0\] – 2026-11-02
 
-### Added (Hinzugefügt)
+### Added
 
-- F8 – CSV als echte Tabelle (Gtk.TreeView): Trennzeichen UND  
-  Kopfzeile ermittelt das Modul selbst (Nutzer-Anforderung –  
-  die Spalten-/Zellenbegrenzung wird nie aus dem Dateinamen  
-  geraten); csv.Sniffer probiert Komma, Semikolon, TAB und  
-  Pipe gegen die ersten Zeilen; 4-MB-Lese-Deckel, 1000-Zeilen-  
-  Vorschau, Spalten klick-sortierbar und resizebar.
-- F6 – SQLite-Datenbanken (.db/.sqlite): Tabellenliste mit  
-  Spalten und Zeilenanzahl; die Struktur kommt aus dem Schema  
-  (sqlite_master, PRAGMA table\_info), geöffnet garantiert  
-  read-only (PRAGMA query\_only); Magie-Check schickt Fremd-.db  
-  in den Öffnen-Hinweis; ein Progress-Deckel stoppt endlose  
-  COUNT-Scans (F60-Lektion) – solche Zähler zeigen „…".
+- F8 – CSV as a real table (Gtk.TreeView): the module detects the  
+  delimiter AND the header row itself (user requirement – the  
+  column/cell separator is never guessed from the file name);  
+  csv.Sniffer tries comma, semicolon, TAB and pipe against the  
+  first lines; 4-MB read cap, 1000-row preview, columns sortable  
+  by click and resizable.
+- F6 – SQLite databases (.db/.sqlite): table list with columns  
+  and row counts; the structure comes from the schema  
+  (sqlite_master, PRAGMA table\_info), opened guaranteed  
+  read-only (PRAGMA query\_only); a magic check sends foreign .db  
+  files to the open hint; a progress cap stops endless COUNT  
+  scans (F60 lesson) – such counters show "…".
 
 ## \[0.45.1\] – 2026-11-02
 
-### Fixed (Behoben)
+### Fixed
 
-- F60.1 – Paket-Vorschau nachgeschärft (Nutzer-Test 0.45.0): (1)  
-  invalid header bei manchen .deb – die Kompression wurde am ar-  
-  Member-NAMEN geraten; je nach Werkzeug tragen die Namen aber  
-  IEEE-Slashes ('control.tar.gz/'), und zst-Namen entgingen der  
-  Weiche ganz. Jetzt snifft \_tar\_sniff\_mode die Magie-Bytes  
-  (gzip/xz/zstd) des Members selbst, und ar-Namen werden um  
-  Trailingslashes bereinigt. (2) Große Pakete brauchten lange bis  
-  zur Anzeige, weil die Icon-Suche vor der Info-Tabelle lief und  
-  bis zu 48 MB Payload dekomprimierte – das Budget steht jetzt  
-  bei 8 MB: Die Vorschau kommt in Bruchteilen von Sekunden, das  
-  Icon bleibt best effort (Riesen-Payloads zeigen den Platzhalter). 
+- F60.1 – Package preview sharpened (user test of 0.45.0): (1)  
+  invalid header on some .deb – the compression used to be guessed  
+  from the ar member NAME; depending on the tool, those names carry  
+  IEEE slashes ('control.tar.gz/'), and zst names escaped the  
+  switch entirely. \_tar\_sniff\_mode now sniffs the magic bytes  
+  (gzip/xz/zstd) of the member itself, and ar names are stripped  
+  of trailing slashes. (2) Large packages took long to appear  
+  because the icon hunt ran before the info table and decompressed  
+  up to 48 MB of payload – the budget now sits at 8 MB: the  
+  preview arrives within fractions of a second, the icon stays  
+  best effort (huge payloads show the placeholder).
 
 ## \[0.45.0\] – 2026-11-02
 
-### Added (Hinzugefügt)
+### Added
 
-- F60 – Paket-Vorschau (DEB, RPM, Arch): Paketdateien bekommen  
-  eine eigene Vorschau – 40 % Icon oben, 60 % Info-Tabelle unten,  
-  scrollbar, weil Paket-Infos (Beschreibung, Abhängigkeiten) gern  
-  länger sind als der Bereich. Alles mit Bordmitteln: .deb wird  
-  als ar-Archiv gelesen (control-Datei aus control.tar.gz/xz),  
-  .rpm per struct (Lead, Signatur- und Haupt-Header am Datei-  
-  anfang), Arch-Paket (.pkg.tar.xz, AUR-Bauten) über .PKGINFO  
-  im Tarball. Dargestellt werden nur gesetzte Felder: Paketname,  
-  Version, Architektur, Sektion/Gruppe, Kurz- und Langbeschreibung  
-  bzw. Zusammenfassung, Installierte Größe, Abhängigkeiten  
-  (RPM ohne rpmlib/config/rtld-Interna), Empfehlungen bzw.  
-  optionale Abhängigkeiten, Lizenz, Paketverwalter, Homepage.  
-  Das Icon oben kommt best effort aus dem Payload (erstes  
-  passendes App-Icon, Budget 48 MB Dekomprimierung), sonst zeigt  
-  ein gezeichneter Paket-Platzhalter das Format-Signet (DEB/RPM/  
-  PKG). pack\_meta\_grid packt Werte seit F60 optional mehrzeilig  
-  (wrap=True) statt mit Ellipsize. Grenzen (Bordmittel): zstd ist  
-  tabu – control.tar.zst und .pkg.tar.zst sowie der cpio-Payload  
-  von RPM bleiben außen vor; die Vorschau zeigt dann den Öffnen-  
-  Hinweis bzw. den Platzhalter. PKGBUILD/.SRCINFO sind Textdateien  
-  und laufen über die Text-Vorschau. 
-
+- F60 – Package preview (DEB, RPM, Arch): package files get their  
+  own preview – 40 % icon on top, 60 % info table below,  
+  scrollable, because package info (description, dependencies)  
+  easily outgrows the area. All with built-ins: .deb is read as  
+  an ar archive (control file from control.tar.gz/xz), .rpm via  
+  struct (lead, signature and main header at the start of the  
+  file), Arch packages (.pkg.tar.xz, AUR builds) via .PKGINFO in  
+  the tarball. Only set fields are shown: package name, version,  
+  architecture, section/group, short and long description or  
+  summary, installed size, dependencies (RPM without rpmlib/  
+  config/rtld internals), recommends or optional dependencies,  
+  license, maintainer, homepage. The icon on top comes best  
+  effort from the payload (first matching app icon, 48 MB  
+  decompression budget), otherwise a drawn package placeholder  
+  shows the format signet (DEB/RPM/PKG). pack\_meta\_grid packs  
+  values multi-line since F60 (wrap=True) instead of ellipsize.  
+  Limits (built-ins): zstd is off limits – control.tar.zst and  
+  .pkg.tar.zst as well as the RPM cpio payload stay out; the  
+  preview then shows the open hint or the placeholder. PKGBUILD/  
+  .SRCINFO are text files and run through the text preview.
 ## \[0.44.0\] – 2026-11-02
 
-### Changed (Geändert)
+### Changed
 
-- F59 – E-Book-Vorschau neu (Nutzer-Wunsch): Die Vorschauspalte  
-  teilt sich wie bei Bildern in 60 % oben / 40 % unten. Oben  
-  zeigt nur das eingebettete Cover (EPUB aus dem Manifest, FB2  
-  aus der base64-binary); ohne Cover zeichnet  
-  \_ebook\_placeholder ein Hochformat-Bild (Buchdeckel-Gerüst,  
-  themeneutral wie der vCard-Platzhalter). Unten steht die  
-  Info-Tabelle wie bei Bilddateien – nur Zeilen mit gesetzten  
-  Tags: Buchtitel, Autor, Teil einer Reihe (EPUB: calibre:series  
-  oder EPUB3 belongs-to-collection mit group-position; FB2:  
-  sequence mit Nummer), Anzahl Seiten (nur wenn das OPF einen  
-  page-count-Meta trägt – kein Standard-Tag), Ebookformat,  
-  Sprache. Die Textvorschau ist abgeschafft: Sie renderte  
-  unschön, die Buch-Infos reichen vollkommen aus.  
-  Nebeneffekt: Ohne Text-Extraktion blockiert HUFF/CDIC nicht  
-  mehr – Titel und Autor zeigen sich jetzt auch bei AZW-Dateien  
-  (Vorschau zeigt den Platzhalter-Deckel, MOBI-Cover stecken  
-  als REC-Eintrag und sind anders adressiert).
+- F59 – E-book preview rebuilt (user request): The preview column  
+  splits like images into 60 % top / 40 % bottom. The top shows  
+  only the embedded cover (EPUB from the manifest, FB2 from the  
+  base64 binary); without a cover \_ebook\_placeholder draws a  
+  portrait image (book cover skeleton, theme-neutral like the  
+  vCard placeholder). Below sits the info table as for image  
+  files – only rows with set tags: book title, author, part of  
+  a series (EPUB: calibre:series or EPUB3 belongs-to-collection  
+  with group-position; FB2: sequence with number), page count  
+  (only if the OPF carries a page-count meta – not a standard  
+  tag), e-book format, language. The text preview is gone: it  
+  rendered poorly, the book info is fully sufficient. Side  
+  effect: without text extraction HUFF/CDIC no longer blocks –  
+  title and author now show for AZW files too (the preview shows  
+  the placeholder cover; MOBI covers sit as a REC entry and are  
+  addressed differently).
 
 ## \[0.43.0\] – 2026-11-02
 
-### Fixed (Behoben)
+### Fixed
 
-- R10 – XML-Entity-Guard (Sicherheitsaudit): \_xml\_dtd\_rejected  
-  in previewer\_util prüft vor jedem xml.etree-Parsen die ersten  
-  64 KB auf DOCTYPE-/ENTITY-Deklarationen und lehnt sie ab – ein  
-  „Billion Laughs“-Dokument kann die Vorschau nicht mehr einfrieren  
-  oder den Speicher sprengen. Geschützt: EPUB-OPF, FB2, .contact  
-  (previewer\_render\_text.py) und Office-XML (previewer\_render\_  
-  docs.py); EPUB-container.xml wird per Regex gelesen und war nie  
-  betroffen; defusedxml bewusst nicht eingebunden (Bordmittel).  
-- R11 – FB2-Lese-Deckel (Sicherheitsaudit): \_fb2\_data liest statt  
-  ElementTree.parse(path) (ganze Datei) maximal \_FB2\_FILE\_CAP  
-  (8 MB) und parst aus dem Puffer – wie EML/vCard haben damit alle  
-  Formate einen Deckel; abgeschnittene Riesen-Dateien laufen in  
-  den Öffnen-Hinweis statt in Speicher-Druck.
+- R10 – XML entity guard (security audit): \_xml\_dtd\_rejected in  
+  previewer\_util checks the first 64 KB for DOCTYPE/ENTITY  
+  declarations before any xml.etree parsing and rejects them – a  
+  "Billion Laughs" document can no longer freeze the preview or  
+  blow up memory. Protected: EPUB-OPF, FB2, .contact  
+  (previewer\_render\_text.py) and Office XML (previewer\_render\_  
+  docs.py); EPUB container.xml is read via regex and was never  
+  affected; defusedxml deliberately not pulled in (built-ins).
+- R11 – FB2 read cap (security audit): \_fb2\_data reads at most  
+  \_FB2\_FILE\_CAP (8 MB) instead of ElementTree.parse(path) (whole  
+  file) and parses from the buffer – like EML/vCard, every format  
+  now has a cap; truncated giant files run into the open hint  
+  instead of memory pressure.
 
 ## \[0.42.2\] – 2026-11-02
 
-### Fixed (Behoben)
+### Fixed
 
-- B10 – Textdateien zuverlässig erkennen (Nutzer-Fund): Der  
-  Schnüffler entscheidet als letzte Instanz vor der Generic-  
-  Vorschau über den INHALT – lesbare Dateien mit Endungen, deren  
-  geratener MIME-Typ weder text/\* noch „opaque“ war (.pub, .crt,  
-  .csr, .pref …), sehen jetzt die Text-Vorschau statt nur Icon;  
-  \_OPAQUE\_TYPES ist entfallen, bekannte Binär-Typen (zip, gzip,  
-  x-tar, x-7z, x-rar, x-executable, x-sharedlib …) stehen in der  
-  Blacklist \_SNIFF\_BINARY\_MIMES draußen; \_sniff\_is\_text hat  
-  die UTF-8-Decodier-Probe als zweites Kriterium (8-Bit-Dichte  
-  ohne gültiges UTF-8 ≥ 30 % → Binär); je Snüffel-Treffer loggt  
-  eine dbg-Zeile den geratenen MIME.
+- B10 – Reliable text-file detection (user finding): The sniffer  
+  now decides as the last instance before the generic preview  
+  based on CONTENT – readable files with extensions whose  
+  guessed MIME was neither text/\* nor "opaque" (.pub, .crt,  
+  .csr, .pref …) now see the text preview instead of just an  
+  icon; \_OPAQUE\_TYPES is gone, known binary types (zip, gzip,  
+  x-tar, x-7z, x-rar, x-executable, x-sharedlib …) sit in the  
+  blacklist \_SNIFF\_BINARY\_MIMES; \_sniff\_is\_text gained the  
+  UTF-8 decoding probe as a second criterion (8-bit density  
+  without valid UTF-8 ≥ 30 % → binary); each sniffer hit logs a  
+  dbg line with the guessed MIME.
 
 ## \[0.42.1\] – 2026-11-01
 
-### Fixed (Behoben)
+### Fixed
 
-- SyntaxWarning beim Laden von previewer\_render\_text.py beseitigt: Der  
-  Docstring von \_md\_split\_cells nannte den per Backslash maskierten  
-  Tabellen-Balken als Escape-Sequenz im Klartext; der Hinweis ist  
-  jetzt ausgeschrieben.  
-- Logflut der Auswahl-Diagnose gebremst (Nutzer-Entscheid): Die ATK-  
-  Sonden der Fallback-Kette (collect, \_read\_atk\_states,  
-  \_read\_atk\_focused in previewer\_select.py; rec in previewer.py)  
-  sind wie bis 0.41.0 still (pass). Nemo 6 liefert die ATK-Selection-  
-  API am ScrolledWindowAccessible nicht – die Ausnahmen sind erwartet  
-  und wiederholten sich bei jedem selection-changed. Alle übrigen  
-  suppressed-Meldungen der 0.42.0 bleiben.
+- SyntaxWarning on loading previewer\_render\_text.py removed: The  
+  docstring of \_md\_split\_cells named the backslash-masked table  
+  bar as an escape sequence in plain text; the note is now  
+  spelled out.
+- Log flood of the selection diagnostics tamed (user decision):  
+  The ATK probes of the fallback chain (collect, \_read\_atk\_  
+  states, \_read\_atk\_focused in previewer\_select.py; rec in  
+  previewer.py) are silent (pass) again as up to 0.41.0. Nemo 6  
+  does not provide the ATK selection API on ScrolledWindow-  
+  Accessible – the exceptions are expected and repeated on every  
+  selection-changed. All other suppressed messages from 0.42.0  
+  remain.
 
 ## \[0.42.0\] – 2026-11-01
 
-### Changed (Geändert)
+### Changed
 
-- Spaghetti-Audit Runde 2 (Refactoring, Verhalten unverändert): Die  
-  vier verbleibenden God-Functions sind zerlegt – Ordner-Vorschau  
-  (_render_folder in Icon-, Zeilen- und Scroll-Helfer), E-Book-Trio  
-  (EPUB/FB2/MOBI je Parse-Helfer), EXIF-Formatierung (je Themenblock  
-  ein Helfer) und die Markdown-Tabellen (Zellen/Zeilen/Breiten-  
-  Helfer). Die Cross-Mixin-Helfer pack_hint, pack_meta_grid,  
-  cover_round_path, build_scaled_image und build_text_view liegen  
-  jetzt in previewer_util statt im Panel-Mixin. Stille pass-Schlucker  
-  in except-Blöcken loggen ab sofort die unterdrückte Ausnahme mit  
-  dbg() – kaputte Dateien verraten sich so im Log statt stumm zu  
-  bleiben.
+- Spaghetti audit round 2 (refactoring, behavior unchanged): The  
+  four remaining god functions are decomposed – folder preview  
+  (\_render\_folder into icon, row and scroll helpers), e-book  
+  trio (EPUB/FB2/MOBI one parse helper each), EXIF formatting  
+  (one helper per topic block) and the markdown tables (cell/  
+  row/width helpers). The cross-mixin helpers pack\_hint,  
+  pack\_meta\_grid, cover\_round\_path, build\_scaled\_image and  
+  build\_text\_view now live in previewer\_util instead of the  
+  panel mixin. Silent pass swallowers in except blocks now log  
+  the suppressed exception via dbg() – broken files give  
+  themselves away in the log instead of staying silent.
 
 ## \[0.41.0\] – 2026-11-01
 
-### Changed (Geändert)
+### Changed
 
-- Spaltenbreite (Nutzer-Wunsch, Release-Feinschliff): Die Standard-  
-  breite der Vorschauspalte beträgt ab sofort 350 px statt 300 px.  
-  Das Ziehen des Trenners gilt nur noch für die laufende Sitzung  
-  und ändert die Startbreite nicht mehr – maßgeblich ist allein  
-  der im Einstellungsfenster eingetragene Wert, der bei jedem  
-  Start greift. Die „Standard/aktuell“-Hinweiszeile neben dem  
-  Breitenfeld entfällt.
+- Column width (user request, release polish): The default width  
+  of the preview column is now 350 px instead of 300 px.  
+  Dragging the divider now applies to the running session only  
+  and no longer changes the start width – the value entered in  
+  the settings dialog is the only authority, applied at every  
+  start. The "default/current" hint line next to the width  
+  field is gone.
 
 ## \[0.40.0\] – 2026-11-01
 
-### Changed (Geändert)
+### Changed
 
-- Spaghetti-Audit-Runde 1 (Nutzer-Auftrag „gesamten Code auf  
-  Spaghetti-Code untersuchen"): God-Functions zerlegt – das  
-  Einstellungsfenster baut sich aus vier Rubrik-Helfern (Allgemein,  
-  Textdateien, Dokumente, Schriftarten) statt aus einer 171-Zeilen-  
-  Funktion, \_render\_office\_thumb liest Paketdaten und No-ZIP-Hinweis  
-  über zwei Helfer mit Early-Returns statt 13 Verschachtelungsebenen,  
-  und \_apply_scale skaliert über den neuen Per-Bild-Helfer  
-  \_scale\_item (Tiefe 12 → 5). Die F46-Diagnose-Maschinerie ist  
-  zurückgebaut (\_dbg\_pixels mit Pixelsonden und Panel-Scan,  
-  \_dbg\_list\_margins, GdkWindow-Flag in der Ordner-Logzeile) – F46 ist  
-  seit 0.31.11 gelöst; die funktionalen Hintergrund-Painter, die  
-  CSS-Regel und die Ordner-Icons-Diagnosezeile bleiben. Verhalten  
-  unverändert.
+- Spaghetti audit round 1 (user assignment "check the entire  
+  code for spaghetti code"): God functions decomposed – the  
+  settings dialog builds from four section helpers (general,  
+  text files, documents, fonts) instead of one 171-line  
+  function, \_render\_office\_thumb reads package data and the  
+  no-ZIP hint via two helpers with early returns instead of 13  
+  nesting levels, and \_apply\_scale scales through the new  
+  per-image helper \_scale\_item (depth 12 → 5). The F46  
+  diagnostics machinery is removed (\_dbg\_pixels with pixel  
+  probes and panel scan, \_dbg\_list\_margins, GdkWindow flag in  
+  the folder log line) – F46 has been solved since 0.31.11; the  
+  functional background painters, the CSS rule and the folder  
+  icons diagnostics line remain. Behavior unchanged.
 
 ## \[0.39.0\] – 2026-11-01
 
-### Changed (Geändert)
+### Changed
 
-- Straffungs-Runde (Nutzer-Wunsch „Code straffen, ohne Funktionen zu  
-  beschädigen"): Toter Code entfernt – die Nemo-C-Auswahl-API (dlopen von  
-  libnemo-private, auf Nemo 6 prinzipiell erfolglos, da statisch  
-  gelinkt) samt GI-Kaskade (Route 2), vier unbenutzte Funktionen  
-  (\_read\_size, find\_paned\_above, find\_slot\_box,  
-  content\_type\_description) und mehrfache Leerzeilen; ATK-Wächter und  
-  Office-Fehlvermerk als gemeinsame Helfer konsolidiert, die restlichen  
-  diag()-Zeilen auf Englisch übersetzt (K8 erledigt). 321 Zeilen  
-  eingespart – Verhalten unverändert: Der Klassen-VTable bleibt die  
-  primäre Auswahl-Quelle.
+- Tightening round (user request "tighten the code without  
+  breaking functions"): Dead code removed – the Nemo C selection  
+  API (dlopen of libnemo-private, doomed on Nemo 6 because it  
+  is statically linked) including the GI cascade (route 2), four  
+  unused functions (\_read\_size, find\_paned\_above,  
+  find\_slot\_box, content\_type\_description) and repeated blank  
+  lines; ATK guard and office error note consolidated into  
+  shared helpers, the remaining diag() lines translated to  
+  English (K8 done). 321 lines saved – behavior unchanged: the  
+  class vtable remains the primary selection source.
 
 ## \[0.38.1\] – 2026-11-01
 
-### Fixed (Behoben)
+### Fixed
 
-- Lightmode-Rand links behoben (F46 XI, Nutzer-Fund): Zwei Farb-Bugs in  
-  previewer_panel.py – die Notfall-Ableitung in \_paint\_background war  
-  invertiert (heller Vordergrund ergab eine helle statt dunkle Basis  
-  und umgekehrt – im Lightmode malte der Notfall fast schwarz), und der  
-  CSS-Fallback in \_apply\_surface\_css lag hart auf rgb(56,56,56);  
-  beide Ableitungen sind jetzt kontrast-richtig und FG-abgeleitet.
+- Light mode edge on the left fixed (F46 XI, user finding): Two  
+  color bugs in previewer\_panel.py – the fallback derivation in  
+  \_paint\_background was inverted (light foreground produced a  
+  light instead of a dark base and vice versa – in light mode  
+  the fallback painted almost black), and the CSS fallback in  
+  \_apply\_surface\_css was hardcoded to rgb(56,56,56); both  
+  derivations are now contrast-correct and FG-derived.
 
 ## \[0.38.0\] – 2026-11-01
 
-### Changed (Geändert)
+### Changed
 
-- Debuglog auf Englisch (Nutzer-Wunsch): Alle Debug-Ausgaben (dbg-Zeilen)  
-  der acht Python-Dateien sind ins Englische übersetzt und etwas  
-  gekürzt – Fachbegriffe, Versions- und F-Marker sowie die TRACE-  
-  Präfixe bleiben erhalten; Docstrings und UI-Texte sind unangetastet.
+- Debug log in English (user request): All debug output (dbg  
+  lines) of the eight Python files is translated to English  
+  and slightly shortened – technical terms, version and F  
+  markers as well as the TRACE prefixes remain; docstrings and  
+  UI texts untouched.
 
 ## \[0.37.0\] – 2026-11-01
 
-### Changed (Geändert)
+### Changed
 
-- Kommentar-Cleanup (Nutzer-Wunsch): Alle #-Kommentare der acht  
-  Python-Dateien sind auf das Wesentliche gekürzt (maximal zwei  
-  Zeilen je Block) und auf Englisch übersetzt – Funktions- und  
-  Fehlermarker (F-Nummern), Versionshinweise und REF-Verweise  
-  bleiben erhalten; Docstrings und Modul-Köpfe sind unangetastet.
+- Comment cleanup (user request): All # comments of the eight  
+  Python files are trimmed to the essentials (at most two lines  
+  per block) and translated to English – function and bug  
+  markers (F numbers), version notes and REF references remain;  
+  docstrings and module headers untouched.
 
 ## \[0.36.0\] – 2026-11-01
 
-### Changed (Geändert)
+### Changed
 
-- Modul-Köpfe aufgeräumt (Nutzer-Wunsch): Die Docstrings aller  
-  acht Python-Dateien enthalten jetzt nur noch den Namen der  
-  Erweiterung (nemo-previewer), den Dateinamen mit Versionsnummer  
-  und eine maximal dreizeilige Kurzbeschreibung auf Englisch. Die  
-  bisherigen STAND-Historien (teils über 90 Zeilen: Versions- und  
-  F-Notizen, Bedienungs- und Technik-Abschnitte) sind aus den  
-  Dateien entfernt – der Versionsverlauf lebt in changelog.md,  
-  die technischen Notizen in REFERENZ.md.
-
+- Module headers cleaned up (user request): The docstrings of  
+  all eight Python files now contain only the extension name  
+  (nemo-previewer), the file name with version number and an  
+  at-most-three-line short description in English. The previous  
+  STAND histories (some over 90 lines: version and F notes,  
+  usage and technique sections) are removed from the files –  
+  the version history lives in changelog.md, the technical  
+  notes in REFERENZ.md.
 ## \[0.35.0\] – 2026-11-01
 
-### Changed (Geändert)
+### Changed
 
-- Modul-Unterordner nemo-previewer-modules (Nutzer-Wunsch): Der  
-  Extension-Ordner wird aufgeräumt – die sieben Modul-Dateien  
+- Module subfolder nemo-previewer-modules (user request): The  
+  extension folder is tidied up – the seven module files  
   (previewer\_panel, previewer\_select, previewer\_util,  
-  previewer\_toolbar, previewer\_render\_media, previewer\_render\_docs,  
-  previewer\_render\_text) liegen jetzt im Unterordner  
-  nemo-previewer-modules, nur die Einstiegsdatei previewer.py bleibt  
-  direkt im Extension-Ordner (Nemo lädt nur dort). Der Einstieg  
-  stellt den Unterordner vor den Importen auf den Import-Pfad – und  
-  zwar VOR dem Extension-Ordner, deshalb gewinnen flache Alt-Kopien  
-  nie; eine neue Log-Zeile „Module-Ordner: …“ bestätigt den Pfad.  
-  INSTALL dokumentiert Kopieren, Upgrade (inkl. Aufräumen flacher  
-  Alt-Kopien) und Deinstallation im neuen Layout (→ REF  
-  ENT-MODDIR-1).
+  previewer\_toolbar, previewer\_render\_media,  
+  previewer\_render\_docs, previewer\_render\_text) now live in the  
+  subfolder nemo-previewer-modules; only the entry file  
+  previewer.py stays directly in the extension folder (Nemo  
+  loads only there). The entry puts the subfolder on the import  
+  path before the imports – and AHEAD of the extension folder,  
+  so flat old copies never win; a new log line "Module dir: …"  
+  confirms the path. INSTALL documents copying, upgrading  
+  (including cleaning up flat old copies) and uninstalling in  
+  the new layout (→ REF ENT-MODDIR-1).
 
 ## \[0.34.1\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Linker Rand der Vorschauspalte im Lightmode schwarz (F46 X,  
-  Nutzer-Fund): Der schmale Streifen zwischen Dateiansicht und  
-  Vorschau gehört dem Griff-Fenster des injizierten Gtk.Paned –  
-  GTK malt dort von sich aus keinen Hintergrund, im Darkmode lag  
-  Schwarz auf Dunkelgrau (unsichtbar), im Lightmode zeigte sich  
-  ein schwarzer Rahmen. Ein draw-Haken am Paned malt die Fläche  
-  jetzt mit derselben Ketten-Farbe wie das Panel (→ REF PAN-BG-2).  
-- Umschalt-Knopf beim Start inaktiv (F40-Nachtrag, Nutzer-Fund):  
-  Der Knopf für die Vorschauspalte in Nemos Werkzeugleiste zeigte  
-  den offenen Zustand nicht an. notify::visible feuert nur bei  
-  Wechseln – das Panel ist beim Einpacken des Knopfes aber schon  
-  sichtbar (die Injektion ruft show all), also zog der Knopf  
-  seinen Zustand nie nach. Er synchronisiert jetzt direkt beim  
-  Einpacken (set active vor dem Connect, löst nichts aus)  
-  (→ REF ENT-TOGGLE-1).
+- Black left edge of the preview column in light mode (F46 X,  
+  user finding): The narrow strip between file view and preview  
+  belongs to the handle window of the injected Gtk.Paned – GTK  
+  paints no background there by itself; in dark mode black sat  
+  on dark gray (invisible), in light mode a black frame showed.  
+  A draw hook on the Paned now paints the area with the same  
+  chain color as the panel (→ REF PAN-BG-2).
+- Preview toggle inactive at startup (F40 follow-up, user  
+  finding): The button for the preview column in Nemo's toolbar  
+  did not reflect the open state. notify::visible only fires on  
+  changes – but the panel is already visible when the button is  
+  packed (the injection calls show all), so the button never  
+  caught up. It now synchronizes directly when packed (set  
+  active before connecting, fires nothing) (→ REF  
+  ENT-TOGGLE-1).
 
 ## \[0.34.0\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Wasserfall-Textfarbe folgt dem Theme (F12, Nutzer-Fund): In der  
-  Schrift-Vorschau war der Wasserfall-Text schwarz – auch im  
-  Darkmode, wo schwarzer Text auf dunkelgrauem Grund kaum lesbar  
-  war. Ursache: StyleContext.get\_color() verlangt in GTK3 das  
-  State-Argument; der alte Aufruf ohne Argument warf IMMER eine  
-  TypeError, die der umgebende except-Block schluckte, sodass der  
-  Fallback (fast schwarz) stehen blieb. Jetzt liest der Aufruf  
-  get\_color(Gtk.StateFlags.NORMAL) dieselbe Theme-Farbe wie die  
-  Ordner-Icons (→ REF TXT-FONT-2).
+- Waterfall text color follows the theme (F12, user finding): In  
+  the font preview the waterfall text was black – also in dark  
+  mode, where black text on dark gray was barely readable.  
+  Cause: StyleContext.get\_color() requires the state argument  
+  in GTK3; the old argumentless call ALWAYS raised a TypeError  
+  that the surrounding except block swallowed, so the fallback  
+  (almost black) stayed. The call now reads  
+  get\_color(Gtk.StateFlags.NORMAL), the same theme color as the  
+  folder icons (→ REF TXT-FONT-2).
 
-### Added (Hinzugefügt)
+### Added
 
-- Wasserfall-Probetext einstellbar (F12, Nutzer-Wunsch): Der Text  
-  des Schrift-Wasserfalls ist nicht mehr fest im Quellcode  
-  verdrahtet. Neue Rubrik „Schriftarten“ im Einstellungsfenster  
-  mit Textfeld – Einträge speichern sofort  
-  (Konfigurations-Schlüssel font\_sample\_text, Default bleibt der  
-  klassische Satz) und bauen eine gerade angezeigte Schrift live  
-  neu auf; leerer Text bleibt ungespeichert  
+- Configurable waterfall sample text (F12, user request): The  
+  text of the font waterfall is no longer hardwired in the  
+  source. New "Fonts" section in the settings dialog with a  
+  text field – entries save immediately (config key  
+  font\_sample\_text, default remains the classic sentence) and  
+  rebuild a just-displayed font live; empty text stays unsaved  
   (→ REF TXT-FONT-2).
 
 ## \[0.33.0\] – 2026-10-31
 
-### Added (Hinzugefügt)
+### Added
 
-- Ordner-Inhaltsliste einstellbar (F48, Nutzer-Wunsch): Die Ordner-  
-  Vorschau mit Inhaltsliste bleibt der obligatorische Standard; der  
-  neue Schalter „Ordnerinhalte in der Vorschau anzeigen“ in der  
-  Rubrik „Allgemein“ (Default an, Konfigurations-Schlüssel  
-  folder\_contents) zeigt bei Abwahl das schlichte Ordner-Icon mit  
-  Dateiinformationen (das Verhalten vor 0.23.0). Umschalten  
-  speichert sofort und baut einen gerade markierten Ordner live  
-  um; Datei-Vorschauen bleiben unberührt (→ REF PAN-FOLDER-2).
+- Folder content list configurable (F48, user request): The  
+  folder preview with content list remains the mandatory  
+  default; the new toggle "Show folder contents in the  
+  preview" in the "General" section (default on, config key  
+  folder\_contents) shows the plain folder icon with file  
+  information when deselected (the behavior before 0.23.0).  
+  Toggling saves immediately and rebuilds a currently  
+  highlighted folder live; file previews remain untouched  
+  (→ REF PAN-FOLDER-2).
 
 ## \[0.32.0\] – 2026-10-31
 
-### Added (Hinzugefügt)
+### Added
 
-- Text-Vorschau für „opake" Dateitypen (F47, Nutzer-Fund): Der  
-  Typ-Rater liest nur den NAMEN – index.theme galt als  
-  application/x-theme, .xsession-errors.old als application/x-  
-  trash („Sicherheitskopie"), beide ohne Text-Vorschau, obwohl  
-  ihr Inhalt reiner Text ist; endungslose Dotfiles wie  
-  .xsession-errors kamen dagegen schon über den F23-Schnüffler  
-  zur Vorschau. Jetzt: (1) .theme/.old/.bak/.orig in der Endungs-  
-  Whitelist \_TEXT\_EXTRAS (.swp bleibt draußen, Vim-Swap ist  
-  binär); (2) bei opaken Typen (Sicherheitskopie, Theme,  
-  unbekannt/application/octet-stream) entscheidet der Schnüffler  
-  über den Inhalt, bevor die Vorschau aufgibt – lesbarer Text  
-  wird angezeigt, Binärdateien fallen an der Steuerzeichen-  
-  Schwelle (→ REF PAN-F47-1).
+- Text preview for "opaque" file types (F47, user finding):  
+  The type guesser reads only the NAME – index.theme counted as  
+  application/x-theme, .xsession-errors.old as application/x-  
+  trash ("backup"), both without text preview although their  
+  content is plain text; extensionless dotfiles such as  
+  .xsession-errors already came through the F23 sniffer to the  
+  preview. Now: (1) .theme/.old/.bak/.orig in the extension  
+  whitelist \_TEXT\_EXTRAS (.swp stays out, Vim swap is  
+  binary); (2) for opaque types (backup, theme, unknown/  
+  application/octet-stream) the sniffer decides on the content  
+  before the preview gives up – readable text is shown, binary  
+  files fall at the control-character threshold  
+  (→ REF PAN-F47-1).
 
 ## \[0.31.11\] – 2026-10-31
 
-### Changed (Geändert)
+### Changed
 
-- Ordner-Liste IX (F46 IX, Nutzer-Beschreibung): Das 10/10/8/8-  
-  Innen-Padding sitzt jetzt IN der Platte – die Ränder hängen an  
-  den Zeilen-Inhalten (10 px seitlich, 8 px oben an der ersten und  
-  unten an der letzten Zeile) statt als Margins vor der ListBox.  
-  Die Themefläche der Platte füllt den Viewport randvoll; der  
-  schwarze Träger der Liste (Eltern-Ebene), den der Nutzer nur bei  
-  überlanger Liste sah, hat keine freiliegende Fläche mehr. Die  
-  Bildlaufleiste selbst war schon themefarben (→ REF  
-  PAN-FOLDER-1, PAN-BG-2).
+- Folder list IX (F46 IX, user description): The 10/10/8/8  
+  inner padding now sits INSIDE the slab – the margins hang on  
+  the row contents (10 px at the sides, 8 px on top of the  
+  first and below the last row) instead of as margins in front  
+  of the ListBox. The theme surface of the slab fills the  
+  viewport edge to edge; the black carrier of the list (parent  
+  level), which the user only saw with an overlong list, has  
+  no exposed area left. The scrollbar itself was already  
+  theme-colored (→ REF PAN-FOLDER-1, PAN-BG-2).
 
-### Added (Hinzugefügt)
+### Added
 
-- Panel-Scan (F46 IX): Die Pixelsonden lesen zusätzlich ein  
-  komplettes horizontales Farbprofil in Panelhöhe – Farbläufe  
-  komprimiert druckt das Log mit Schwarz-Pixel-Zähler und zeigt  
-  damit auch Streifen, zwischen denen keine feste Sonde sitzt  
+- Panel scan (F46 IX): The pixel probes additionally read a  
+  complete horizontal color profile at panel height – the log  
+  prints color runs compressed with a black-pixel counter and  
+  thus also shows stripes between which no fixed probe sits  
   (→ REF PAN-BG-2).
 
 ## \[0.31.10\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Panel-Hintergrund VIII (F46 VIII, Pixelsonden-Fund): Die Sonden aus  
-  0.31.9 ertappten das Schwarz exklusiv an Spalte-2 (pw-12) – im  
-  Streifen zwischen Plattenkante und Bildlaufleisten-Spalte, und nur,  
-  solange die Bildlaufleiste sichtbar ist; Viewport, Scroll-Fenster und  
-  Panel sind überall bemalt. Ursache: Overlay-Scrolling lässt den Balken  
-  in einem eigenen Gdk-Fenster über dem Viewport floaten, dessen  
-  ungemalte Teile schwarz bleiben. Die Ordner-Liste bekommt deshalb  
-  einen klassischen Inline-Balken (set\_overlay\_scrolling(False));  
-  Painter und CSS greifen damit zuverlässig. Die Pixelsonden bleiben  
-  als Verifikation drin (→ REF PAN-BG-2).
-- SyntaxWarning in previewer\_panel.py behoben: Die STAND-Zeile trug  
-  \_-Escapes im Modul-Docstring, Python warnte bei jedem Start mit  
-  „invalid escape sequence" – Identifikatoren stehen dort jetzt ohne  
-  Backslash.
+- Panel background VIII (F46 VIII, pixel probe finding): The  
+  probes from 0.31.9 caught the black exclusively at column 2  
+  (pw-12) – in the strip between slab edge and scrollbar  
+  column, and only while the scrollbar is visible; viewport,  
+  scroll window and panel are painted everywhere. Cause:  
+  Overlay scrolling lets the bar float in its own GdkWindow  
+  above the viewport, whose unpainted parts stay black. The  
+  folder list therefore gets a classic inline bar  
+  (set\_overlay\_scrolling(False)); painters and CSS now bite  
+  reliably. The pixel probes stay in as verification  
+  (→ REF PAN-BG-2).
+- SyntaxWarning in previewer\_panel.py fixed: The STAND line  
+  carried \_-escapes in the module docstring; Python warned  
+  "invalid escape sequence" on every start – identifiers  
+  there now stand without backslash.
 
 ## \[0.31.9\] – 2026-10-31
 
-### Added (Hinzugefügt)
+### Added
 
-- Pixelsonden-Diagnose (F46 VII, Nutzer-Fund): 0.31.8 lief  
-  sauber und dbg zeigte ALLE Flächen bemalt – auch das  
-  Scroll-Fenster löst jetzt rgba(56,56,56,0.999) auf (zuvor  
-  transparent) – dennoch blieb der schwarze Streifen. Das  
-  Bild widerspricht dem Widget-Modell; deshalb liest die  
-  neue Diagnose \_dbg\_pixels nach dem Malen echte Pixel an  
-  neun Punkten (Kante, Bildlaufleisten-Spalte in zwei Tiefen,  
-  Platten-Rand, Spalte oben/unten, Panelrand, Platten-Mitte, vor dem Panel) und protokolliert  
-  die Farben als „Panel-Pixel:“-Zeile – das Log zeigt damit,  
-  WO Schwarz wirklich sitzt (→ REF PAN-BG-2).
+- Pixel probe diagnostics (F46 VII, user finding): 0.31.8 ran  
+  cleanly and dbg showed ALL surfaces painted – the scroll  
+  window now also resolves rgba(56,56,56,0.999) (previously  
+  transparent) – yet the black strip remained. The image  
+  contradicts the widget model; the new diagnostics \_dbg\_  
+  pixels therefore reads real pixels at nine points after  
+  painting (edge, scrollbar column at two depths, slab edge,  
+  column top/bottom, panel edge, slab center, in front of the  
+  panel) and logs the colors as a "Panel pixels:" line – the  
+  log thus shows WHERE black really sits (→ REF PAN-BG-2).
 
 ## \[0.31.8\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Panel-Hintergrund VI (F46 VI, Nutzer-Fund): Der schwarze Hintergrund  
-  der Ordner-Vorschau trat erstmals mit dem Randlos-Wunsch aus 0.31.4  
-  auf – erst ohne den 8-px-Außenrand erreichte das eigene, transparente  
-  GdkWindow des Scroll-Fensters die Plattenkante. Der Ordner-Zweig nullt  
-  den Außenrand deshalb nicht mehr (der Rand von \_render\_inner bleibt).  
-  Zusätzlich: Die CSS-Regel deckt jetzt auch das Scroll-Fenster selbst  
-  und die Junction ab, der dbg-Merker des Hintergrund-Painters ist je  
-  Widget eigener (ein einzelner Merker ließ die Zeilen der vier Widgets  
-  endlos pendeln – Logflut), und die CSS-dbg-Zeile druckt nur noch bei  
-  Farbwechsel (→ REF PAN-BG-2, PAN-FOLDER-1).
+- Panel background VI (F46 VI, user finding): The black  
+  background of the folder preview first appeared with the  
+  borderless request from 0.31.4 – only without the 8-px outer  
+  margin did the scroll window's own transparent GdkWindow  
+  reach the slab edge. The folder branch therefore no longer  
+  zeroes the outer margin (the margin of \_render\_inner  
+  remains). In addition: The CSS rule now also covers the  
+  scroll window itself and the junction, the dbg marker of the  
+  background painter is per widget now (a single marker let  
+  the lines of the four widgets pendulate endlessly – log  
+  flood), and the CSS dbg line prints only on color change  
+  (→ REF PAN-BG-2, PAN-FOLDER-1).
 
 ## \[0.31.7\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Panel-Hintergrund V (F46 V, Nutzer-Fund): 0.31.6 bewies in den  
-  dbg-Zeilen arbeitende Painter und gesetzte Margins (alle vier  
-  Widgets malen mit quelle=Panel; ListBox-Margins 10/10/8/8) – doch  
-  der schwarze Streifen blieb und das Padding fehlte optisch.  
-  Ursachen-Verdacht: Der draw-Painter läuft vor dem Widget-  
-  Standard-Draw – Theme-Flächen (Trough, Viewport) überdecken ihn;  
-  und die Margin-Streifen der Liste zeigen den Viewport-Hintergrund  
-  statt der Platte. Die Hintergrundfarbe steht deshalb jetzt  
-  zusätzlich als CSS-Regel auf Viewport und Bildlaufleisten  
-  (Klasse pvw-surface, Anwendungspriorität über dem Theme; die  
-  Bildlaufleisten werden beim Realisieren nachgereicht), und dbg  
-  nennt je Widget die Eigen-Farbe des Widget-Kontexts – zeigt, was  
-  das Theme dort selbst malt (→ REF PAN-BG-2).
-
+- Panel background V (F46 V, user finding): 0.31.6 proved in  
+  the dbg lines working painters and set margins (all four  
+  widgets paint with source=Panel; ListBox margins 10/10/8/8)  
+  – yet the black strip remained and the padding was visually  
+  missing. Cause suspicion: The draw painter runs before the  
+  widget's standard draw – theme surfaces (trough, viewport)  
+  cover it; and the margin strips of the list show the  
+  viewport background instead of the slab. The background  
+  color therefore now also sits as a CSS rule on viewport and  
+  scrollbars (class pvw-surface, application priority above  
+  the theme; the scrollbars are re-applied on realize), and  
+  dbg names the own color of each widget's context per widget  
+  – showing what the theme itself paints there  
+  (→ REF PAN-BG-2).
 ## \[0.31.6\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Panel-Hintergrund IV (F46 IV, Nutzer-Fund): Die schwarze  
-  Scrollbar-Ebene blieb auch in 0.31.5 – der Painter deckt deshalb  
-  jetzt zusätzlich Viewport und Bildlaufleisten ab (weitere eigene  
-  GdkWindow; die Bildlaufleisten entstehen erst beim Realisieren  
-  und werden dort nachgehängt). dbg „Panel-Hintergrund (Widget):"  
-  nennt jetzt pro Widget, wo gemalt wurde, und liest die ListBox-  
-  Margins nach dem Realisieren zurück – falls Theme-CSS die  
-  Widget-Ränder überschreibt (Verdacht gegen das verschwundene  
-  Listen-Padding), steht es im Log (→ REF PAN-BG-2).  
-- Repo-Bereinigung (Nutzer-Fund): Beim 0.31.5-Push war der  
-  Einstieg versehentlich als previewer-py.py ins Repo geraten,  
-  während previewer.py auf 0.31.4 stehen blieb – Nemo lud zwei  
-  Provider (ACHTUNG-Warnflut). Bereinigung: previewer-py.py im Repo und Extension-Ordner löschen,  
-  previewer.py trägt die aktuelle Fassung.
+- Panel background IV (F46 IV, user finding): The black  
+  scrollbar layer remained in 0.31.5 too – the painter  
+  therefore now additionally covers viewport and scrollbars  
+  (more own GdkWindows; the scrollbars are only created on  
+  realize and are hooked there). dbg "Panel background  
+  (widget):" now names per widget where painting happened and  
+  reads back the ListBox margins after realize – if theme CSS  
+  overrides the widget margins (suspicion regarding the  
+  vanished list padding), it shows in the log (→ REF  
+  PAN-BG-2).
+- Repo cleanup (user finding): On the 0.31.5 push the entry  
+  had accidentally landed in the repo as previewer-py.py  
+  while previewer.py stayed at 0.31.4 – Nemo loaded two  
+  providers (WARNING flood). Cleanup: delete previewer-py.py in  
+  repo and extension folder, previewer.py carries the current  
+  version.
 
 ## \[0.31.5\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Panel-Hintergrund III (F46 III, Nutzer-Fund): Der 0.31.4-Weg  
-  malte in WhiteSur nichts – der Toplevel-Stil-Kontext löst dort  
-  keine Hintergrundfarbe auf, und die Bildlaufleisten-Region liegt  
-  im eigenen GdkWindow des Scroll-Fensters, das die Panel-Malerei  
-  nie erreicht; schwarze Ränder blieben also, sobald die Ordner-  
-  Liste scrolle (beide Modi, während Nemos eigene Liste dort  
-  dunkelgrau zeigt). Der Hintergrund-Painter läuft jetzt als  
-  Kette – Panel-Kontext, Toplevel, Inhalts-Platte, sonst eine aus  
-  der Vordergrundfarbe abgeleitete Grundfläche – und zusätzlich  
-  am Scroll-Fenster selbst. dbg „Panel-Hintergrund:" nennt Quelle  
-  und alle Kandidatenfarben, die Ordner-Diagnose verrät, ob das  
-  Scroll-Fenster ein eigenes GdkWindow trägt (→ REF PAN-BG-2).  
-  Nebenbei: Die versehentlich doppelt stehende 0.31.3-Zeile im  
-  Panel-Modulkopf ist entfernt.
+- Panel background III (F46 III, user finding): The 0.31.4  
+  approach painted nothing under WhiteSur – the toplevel style  
+  context resolves no background color there, and the scrollbar  
+  region lies in the scroll window's own GdkWindow which the  
+  panel painting never reaches; black edges thus remained as  
+  soon as the folder list scrolled (both modes, while Nemo's  
+  own list shows dark gray there). The background painter now  
+  runs as a chain – panel context, toplevel, content slab,  
+  otherwise a base derived from the foreground color – and  
+  additionally on the scroll window itself. dbg "Panel  
+  background:" names the source and all candidate colors, the  
+  folder diagnostics reveals whether the scroll window carries  
+  its own GdkWindow (→ REF PAN-BG-2). Side note: the  
+  accidentally duplicated 0.31.3 line in the panel module  
+  header is removed.
 
 ## \[0.31.4\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Panel-Hintergrund II (F46 II, Nutzer-Fund/-Wunsch): Die Stilklasse  
-  background allein genügte nicht – GtkBox malt keine CSS-Hinter-  
-  grundfarbe. Das Panel zeichnet deshalb im draw-Signal als  
-  Erstes den themed Hintergrund unter alle Kinder – mit dem Stil-  
-  Kontext des Nemo-Toplevels, denn der Panel-Kontext trägt bei  
-  WhiteSur-Dark womöglich keine aufgelöste Hintergrundfarbe.  
-  Und die Ordner-Liste füllt die Spalte randlos – der Außenrand  
-  des Inhaltsbereichs wird dafür genullt, das Padding (10/10/8/8  
-  px) liegt INNERHALB des Listenfensters (Nutzer-Wunsch).
+- Panel background II (F46 II, user finding/request): The  
+  style class background alone was not enough – GtkBox paints  
+  no CSS background color. The panel therefore draws the  
+  themed background in the draw signal FIRST, under all  
+  children – with the style context of the Nemo toplevel,  
+  because the panel context under WhiteSur-Dark may carry no  
+  resolved background color. And the folder list fills the  
+  column without borders – the outer margin of the content  
+  area is zeroed for that, the padding (10/10/8/8 px) sits  
+  INSIDE the list window (user request).
 
 ## \[0.31.3\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Schwarze Flächen um die Ordner-Liste (F46 + F43-Fix III,  
-  Nutzer-Fund): Screenshots Dark-/Lightmode brachten die Klarheit –  
-  das Schwarze war nie das Icon, sondern der ungemalte Hintergrund  
-  der Vorschauspalte (ober-/unterhalb der Liste, Bildlaufleisten-  
-  region); das Panel malt ihn jetzt selbst (Stilklasse background).  
-  Und die Silhouetten-Icons holen ihre Vordergrundfarbe jetzt vom  
-  angedockten Panel statt von der frisch gebauten, noch nicht im  
-  Fenster hängenden Liste – im Lightmode waren sie dadurch weiß  
-  und unsichtbar.
+- Black areas around the folder list (F46 + F43 fix III,  
+  user finding): Dark/light mode screenshots brought clarity  
+  – the black was never the icon but the unpainted background  
+  of the preview column (above/below the list, scrollbar  
+  region); the panel now paints it itself (style class  
+  background). And the silhouette icons now take their  
+  foreground color from the docked panel instead of the  
+  freshly built list that is not yet in the window – in light  
+  mode they were white and invisible because of that.
 
 ## \[0.31.2\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Symbol-Silhouetten (F43, Nutzer-Fund): Die 0.31.1-Diagnose zeigte,  
-  dass der Ladekurs durchweg -symbolic-Namen wählt – das WhiteSur-  
-  Theme liefert unter diesen Namen aber selbst farbige Icons  
-  (dunkle Platten im Darkmode). Die Ordner-Vorschau zeichnet deshalb  
-  jedes gewählte Symbol als einfarbige Silhouette in der  
-  Vordergrundfarbe der Liste nach: Alphakanal (Form) bleibt, RGB  
-  geht einheitlich auf die Textfarbe – Darkmode hell, Lightmode  
-  dunkel, egal was das Theme unter dem -symbolic-Namen einschmuggelt.
+- Icon silhouettes (F43, user finding): The 0.31.1 diagnostics  
+  showed that the loading course consistently picks -symbolic  
+  names – but the WhiteSur theme itself delivers colored  
+  icons under those names (dark slabs in dark mode). The  
+  folder preview therefore repaints every chosen symbol as a  
+  monochrome silhouette in the list's foreground color: alpha  
+  channel (shape) stays, RGB goes uniformly to the text color  
+  – bright in dark mode, dark in light mode, no matter what  
+  the theme smuggles in under the -symbolic name.
 
 ## \[0.31.1\] – 2026-10-31
 
-### Added (Hinzugefügt)
+### Added
 
-- Ordner-Icons-Diagnose (F43, Nutzer-Fund): Die dunklen Platten tauchten  
-  auch unter dem strengen Symbol-Ladekurs (0.30.1) wieder auf – deshalb  
-  protokolliert die Ordner-Vorschau je Render das Abbild Inhaltstyp→  
-  gewähltes Symbol als dbg-Zeile „Ordner-Icons:", damit das Log zeigt,  
-  welches Theme-Symbol je Typ tatsächlich lädt.
+- Folder icons diagnostics (F43, user finding): The dark slabs  
+  reappeared even under the strict symbol loading course  
+  (0.30.1) – the folder preview therefore logs the mapping  
+  content type → chosen symbol per render as a dbg line  
+  "Folder icons:", so the log shows which theme symbol  
+  actually loads per type.
 
 ## \[0.31.0\] – 2026-10-31
 
-### Added (Hinzugefügt)
+### Added
 
-- Schritt-Trace für alle Funktionen (F45, Nutzer-Wunsch): Ein  
-  zentraler sys.settrace-Hook (install\_step\_trace, im Einstieg  
-  gesetzt) protokolliert jeden Aufruf samt Argumenten, jedes  
-  Return und jede Ausnahme in allen acht Modulen – ohne eine  
-  einzige bestehende Funktion anzufassen. Aktivierung über die  
-  Umgebungsvariable NEMO\_PREVIEWER\_TRACE beim Start von Nemo:  
-  1/call protokolliert Aufrufe, line zusätzlich jede ausgeführte  
-  Zeile; ohne die Variable läuft kein Hook (null Overhead)
+- Step trace for all functions (F45, user request): A central  
+  sys.settrace hook (install\_step\_trace, installed in the  
+  entry) logs every call with arguments, every return and  
+  every exception across all eight modules – without touching  
+  a single existing function. Activation via the environment  
+  variable NEMO\_PREVIEWER\_TRACE when starting Nemo: 1/call  
+  logs calls, line additionally every executed line; without  
+  the variable no hook runs (zero overhead)
 
 ## \[0.30.1\] – 2026-10-31
 
-### Fixed (Behoben)
+### Fixed
 
-- Ordner-Vorschau: Icons strikt symbolisch (F43-Fix, Nutzer-Fund):  
-  GTK lud bei fehlender -symbolic-Variante im Icon-Theme heimlich  
-  das farbige Voll-Icon – im Darkmode zeigten sich dunkle Platten  
-  mit schwarzem Rand, teils bei Ordnern, teils bei Dateitypen  
-  ohne Symbol-Variante (etwa SVG, Archive). Die Symbol-Kandidaten  
-  werden jetzt gegen Gtk.IconTheme.has\_icon geprüft; fehlt die  
-  Themen-Variante, greifen die generischen Symbole (folder-  
-  symbolic bzw. text-x-generic-symbolic) – nie das Voll-Icon
+- Folder preview: icons strictly symbolic (F43 fix, user  
+  finding): GTK secretly loaded the colored full icon when  
+  the icon theme lacked a -symbolic variant – in dark mode  
+  dark slabs with black rim showed, sometimes on folders,  
+  sometimes on file types without symbol variant (such as  
+  SVG, archives). The symbol candidates are now checked  
+  against Gtk.IconTheme.has\_icon; if the theme variant is  
+  missing, the generic symbols step in (folder-symbolic  
+  respectively text-x-generic-symbolic) – never the full icon
 
 ## \[0.30.0\] – 2026-10-31
 
-### Changed (Geändert)
+### Changed
 
-- Ordner-Vorschau: Icons folgen dem System-Theme (F43-Feinschliff II,  
-  Nutzer-Wunsch): Symbolische Icons statt fester Symbole – im  
-  Darkmode hell, im Lightmode dunkel. Ordner stehen wie gehabt vor  
-  den Dateien (F43), versteckte Einträge erscheinen nur in der  
-  Liste, wenn Nemo sie anzeigt (Strg+H, org.nemo.preferences  
-  show-hidden-files) – sonst weist der Kopf-Hinweis sie zahlen-  
-  mäßig aus (K1)
+- Folder preview: icons follow the system theme (F43 polish  
+  II, user request): Symbolic icons instead of fixed symbols  
+  – bright in dark mode, dark in light mode. Folders stay  
+  ahead of files as before (F43), hidden entries only appear  
+  in the list if Nemo shows them (Ctrl+H,  
+  org.nemo.preferences show-hidden-files) – otherwise the  
+  header hint counts them out (K1)
 
 ## \[0.29.0\] – 2026-10-31
 
-### Changed (Geändert)
+### Changed
 
-- Ordner-Vorschau mit Icons und Innenabstand (F43-Feinschliff,  
-  Nutzer-Wunsch): Vor jedem Eintrag steht das Typ-Icon aus dem  
-  Icon-Theme – Ordner-Symbol bzw. von Gio geratenes Datei-Symbol  
-  in Menü-Größe, mit Fallback –, und die Liste trägt denselben  
-  Innenabstand wie die Text-Vorschauen (10/10/8/8 px)  
-- INSTALL.md: Installation auf git clone umgestellt (Nutzer-Umbau  
-  übernommen): git im Pflichtpaket, eigene Abschnitte „Change  
-  directory and clone git“ und „Create the needed directory …“,  
-  Sammelzeile „All packages at once“ mit allen Paketen in einem  
-  Rutsch; drei Schönheitsfehler gleich mitgeflickt: cd-Fortsetzung  
-  mit && statt Backslash (ergab kaputtes Bash), Schritt-Nummerie-  
-  rung 1./2./3. statt 2./3./4., Überschrift um „directory“ ergänzt;  
-  Log-Beispiel im Abschnitt Install von 0.3.1 auf 0.29.0 gebracht  
-- INSTALL.md: gir1.2-gtksource-4 (Syntax-Hervorhebung in der Text-  
-  Vorschau, neu seit 0.28.0) im Block der optionalen Pakete ergänzt –  
-  Mint 22 bringt es über xed praktisch immer mit, Debian 13 führt  
-  denselben Namen; zusätzlich der Hinweis, dass die Audio-Wiedergabe  
-  (autoaudiosink) das Plugin-Set gstreamer1.0-plugins-good braucht,  
-  das Mint/Cinnamon mitbringt und minimales Debian nicht  
+- Folder preview with icons and padding (F43 polish, user  
+  request): Every entry is preceded by the type icon from the  
+  icon theme – folder symbol or Gio-guessed file symbol in  
+  menu size, with fallback – and the list carries the same  
+  padding as the text previews (10/10/8/8 px)
+- INSTALL.md: Installation switched to git clone (user  
+  rework adopted): git in the required packages, own sections  
+  "Change directory and clone git" and "Create the needed  
+  directory …", combined line "All packages at once" with all  
+  packages in one go; three blemishes fixed along the way:  
+  cd continuation with && instead of backslash (produced  
+  broken bash), step numbering 1./2./3. instead of 2./3./4.,  
+  heading extended by "directory"; log example in the Install  
+  section brought from 0.3.1 to 0.29.0
+- INSTALL.md: gir1.2-gtksource-4 (syntax highlighting in the  
+  text preview, new since 0.28.0) added to the optional  
+  packages block – Mint 22 virtually always ships it via xed,  
+  Debian 13 carries the same name; plus the note that audio  
+  playback (autoaudiosink) needs the plugin set  
+  gstreamer1.0-plugins-good, which Mint/Cinnamon brings along  
+  and minimal Debian does not
 
 ## \[0.28.1\] – 2026-10-30
 
-### Added (Hinzugefügt)
+### Added
 
-- Syntax-Hervorhebung als Einstellung (F44-Nachtrag,  
-  Nutzer-Wunsch): In der Rubrik „Textdateien“ umschaltbar  
-  (Schlüssel text\_syntax), Standard aktiviert – abgehakt  
-  zeigen Quellcode-Dateien immer den schlichten Text; der  
-  Schalter greift sofort auf die laufende Vorschau  
+- Syntax highlighting as a setting (F44 follow-up, user  
+  request): Toggleable in the "Text files" section (key  
+  text\_syntax), default on – unchecked, source code files  
+  always show the plain text; the toggle applies to the  
+  running preview immediately
 
 ## \[0.28.0\] – 2026-10-30
 
-### Added (Hinzugefügt)
+### Added
 
-- Syntax-Hervorhebung in der Text-Vorschau (F44, Nutzer-Wunsch):  
-  Quellcode-Dateien (.py, .sh, .c, .js, .json, .xml …) erscheinen  
-  eingefärbt wie im Editor – GtkSourceView (optionales Paket  
-  gir1.2-gtksource-4, dasselbe Modul wie xed) rät die Sprache über  
-  den Dateinamen; ohne Binding oder ohne erkannte Sprache bleibt die  
-  Vorschau unverändert. Dunkles GTK-Theme bekommt ein dunkles  
-  Farbschema (oblivion), helles das klassische; Zeilennummern (F24)  
-  bleiben Randzeichnung und nicht kopierbar  
+- Syntax highlighting in the text preview (F44, user request):  
+  Source code files (.py, .sh, .c, .js, .json, .xml …) appear  
+  colored as in an editor – GtkSourceView (optional package  
+  gir1.2-gtksource-4, the same module as xed) guesses the  
+  language from the file name; without the binding or without  
+  a recognized language the preview stays unchanged. Dark GTK  
+  themes get a dark color scheme (oblivion), light ones the  
+  classic; line numbers (F24) remain margin drawing and are  
+  not copyable
 
 ## \[0.27.0\] – 2026-10-30
 
-### Added (Hinzugefügt)
+### Added
 
-- Einstellbarer Dokument-Deckel (F12 Teil 3, Nutzer-Wunsch): In der  
-  neuen Rubrik „Dokumente“ des Einstellungsfensters festlegen, ob PDF-  
-  und Office-Vorschauen begrenzt werden (Performance) oder unbegrenzt  
-  alle Seiten zeigen; die maximale Seitenzahl ist frei wählbar (1–999,  
-  Standard 20 wie bisher), Änderungen greifen sofort – auch auf das  
-  gerade angezeigte Dokument  
-- Seitenanzeige über jedem Dokument (F14, Nutzer-Wunsch): Auch  
-  einseitige PDF- und Office-Dokumente zeigen „Seite 1 von 1“  
+- Configurable document cap (F12 part 3, user request): In  
+  the new "Documents" section of the settings dialog choose  
+  whether PDF and office previews are capped (performance) or  
+  show all pages unlimited; the maximum page count is freely  
+  selectable (1–999, default 20 as before), changes apply  
+  immediately – also to the currently displayed document
+- Page indicator above every document (F14, user request):  
+  Even single-page PDF and office documents show "Page 1 of  
+  1"
 
-### Changed (Geändert)
+### Changed
 
-- Seitenanzeige einheitlich als „Seite X von Y“ (zuvor „Seite X/Y“)  
-
+- Page indicator unified as "Page X of Y" (previously "Page  
+  X/Y")
 ## \[0.26.0\] – 2026-10-30
 
-### Added (Hinzugefügt)
+### Added
 
-- LDIF-Adressbücher und Windows-Kontakte als Visitenkarte (F7,  
-  Nutzer-Wunsch): .ldif-Dateien (Thunderbird-/Mozilla-/Outlook-  
-  Exporte, RFC 2849 mit Base64-Werten und jpegPhoto) und .contact-  
-  Dateien (Windows-XML, namensraum-agnostisch) rendern dieselbe  
-  Visitenkarte wie .vcf/.vcard  
+- LDIF address books and Windows contacts as contact cards  
+  (F7, user request): .ldif files (Thunderbird/Mozilla/  
+  Outlook exports, RFC 2849 with Base64 values and jpegPhoto)  
+  and .contact files (Windows XML, namespace-agnostic) render  
+  the same contact card as .vcf/.vcard
 
-### Changed (Geändert)
+### Changed
 
-- Visitenkarten ohne Mengenbegrenzung (F7, Nutzer-Wunsch): Der  
-  50-Karten-Deckel ist entfallen – alle Kontakte der Datei werden  
-  gebaut und scrollbar angezeigt; bei einem einzelnen Kontakt zeigt  
-  sich kein Scrollbalken  
+- Contact cards without quantity limit (F7, user request):  
+  The 50-card cap is gone – all contacts of the file are  
+  built and shown scrollable; with a single contact no  
+  scrollbar appears
 
 ## \[0.25.1\] – 2026-10-30
 
-### Changed (Geändert)
+### Changed
 
-- Visitenkarten ohne Karten-Hintergrund (F7, Nutzer-Wunsch): Der  
-  Karten-Rahmen bleibt transparent – im Darkmode schmerzt eine  
-  weiße Kachel in den Augen; Schatten und Haarlinien-Rand bleiben  
-- Dezenterer Eckenradius (Nutzer-Wunsch): Um ein Drittel reduziert –  
-  Visitenkarten wie Musikcover (Platzhalter-Kachel und Cover-Rahmen  
-  mit Schatten) runden jetzt mit 56/960 statt 56/640 der kleineren  
-  Kante  
+- Contact cards without card background (F7, user request):  
+  The card frame stays transparent – in dark mode a white  
+  tile hurts the eyes; shadow and hairline border remain
+- More subtle corner radius (user request): Reduced by a  
+  third – contact cards like music covers (placeholder tile  
+  and cover frame with shadow) now round with 56/960 instead  
+  of 56/640 of the smaller edge
 
 ## \[0.25.0\] – 2026-10-30
 
-### Changed (Geändert)
+### Changed
 
-- vCard-Feinschliff (F7, Nutzer-Wunsch): Jede Visitenkarte trägt einen  
-  rechteckigen Rahmen mit dem Eckenradius der eingebetteten Musikcover  
-  (F34-Formel) und dem gleichen Schlagschatten; Dateien mit mehreren  
-  Kontakten zeigen jetzt ALLE Karten untereinander, scrollbar – nicht  
-  mehr nur den ersten (50-Karten-Deckel mit Rest-Hinweis)  
+- vCard polish (F7, user request): Every contact card carries  
+  a rectangular frame with the corner radius of the embedded  
+  music covers (F34 formula) and the same drop shadow; files  
+  with several contacts now show ALL cards stacked,  
+  scrollable – no longer only the first (50-card cap with  
+  remainder hint)
 
 ## \[0.24.0\] – 2026-10-30
 
-### Added (Hinzugefügt)
+### Added
 
-- vCard-Visitenkarte (F7, Teil 1, Nutzer-Wunsch): .vcf/.vcard-Dateien  
-  (vCard 2.1, 3.0, 4.0) erscheinen als echte Visitenkarte – das  
-  Kontakt-Foto kreisförmig (inline Base64 oder lokale URI), ohne Foto  
-  ein kreisförmiger Platzhalter; darunter Name, Position/Firma und  
-  die Kontaktdaten (Telefon, E-Mail, Web, Adresse, Geburtstag) als  
-  Tabelle. Enthält die Datei mehrere Kontakte, wird der erste gezeigt;  
-  ICS (Termine als Tabelle) bleibt offen  
+- vCard contact card (F7, part 1, user request): .vcf/.vcard  
+  files (vCard 2.1, 3.0, 4.0) appear as a real contact card –  
+  the contact photo circular (inline Base64 or local URI),  
+  without photo a circular placeholder; below name,  
+  position/company and the contact data (phone, e-mail, web,  
+  address, birthday) as a table. If the file contains several  
+  contacts, the first is shown; ICS (events as table) remains  
+  open
 
 ## \[0.23.0\] – 2026-10-30
 
-### Added (Hinzugefügt)
+### Added
 
-- Ordner-Vorschau als Inhalts-Liste (F43, Nutzer-Wunsch): Statt des  
-  Ordner-Icons zeigt das Panel den Inhalt – Ordner zuerst (fett),  
-  dann Dateien mit Größe, je alphabetisch; versteckte Einträge  
-  gedimmt dabei, riesige Ordner die ersten 300 Zeilen mit Rest-  
-  Hinweis  
+- Folder preview as content list (F43, user request):  
+  Instead of the folder icon the panel shows the content –  
+  folders first (bold), then files with size, each  
+  alphabetically; hidden entries dimmed alongside, giant  
+  folders the first 300 rows with remainder hint
 
 ## \[0.22.0\] – 2026-10-30
 
-### Added (Hinzugefügt)
+### Added
 
-- Vorschau-Umschalter in Nemos Werkzeugleiste (F40, Nutzer-Wunsch):  
-  Neben der Ansichtenauswahl sitzt ein Knopf, der die Vorschau-  
-  Seitenleiste ein- und ausblendet – bei CSD in der Titelleiste,  
-  klassisch als Umschalter direkt hinter den Ansichts-Knöpfen der  
-  Nemo-Toolbar; das Icon ist builder-view-right-pane-symbolic (Icon-  
-  Helfer mit Theme-Fallbacks), und der Zustand bleibt mit Strg+Alt+P  
-  synchron
-- Foto-Informationen für RAW-Dateien (F42, Nutzer-Wunsch): NEF,  
-  CR2, CR3, ARW, ORF, DNG & Co. kann Gdk-Pixbuf meist nicht deko-  
-  dieren – das Panel zeigt jetzt die Foto-Tabelle (Kamera, Datum,  
-  Blende & Co.) unter der Icon-Ansicht, wenn EXIF im Puffer steht  
-- Alte MS-Office-Formate in der Vorschau (F39, Nutzer-Wunsch):  
-  Binäre .doc-, .xls- und .ppt-Dateien sowie RTF-Dateien laufen über  
-  die LibreOffice-Hintergrund-Konvertierung wie die OOXML-Formate  
-  scharf ins PDF; da sie keine ZIP-Archive sind, gibt es keine  
-  eingebettete Miniaturansicht – die Übergangsansicht zeigt Hinweise  
-  zu Konvertierung, fehlendem LibreOffice oder gescheiterter  
-  Konvertierung
-- „Location“ und benutzerdefinierte Felder in der Bild-Info-Tabelle  
-  (F38, Nutzer-Wunsch): Falls vorhanden, zeigt die Tabelle die XMP-  
-  „Location“ (IPTC Core, direkt nach dem Aufnahmeort) sowie beliebige  
-  XMP-Felder aus nicht-standardisierten Namensräumen („Präfix:Name“)  
-  – geparst mit Python-Bordmitteln im Worker-Thread, maximal zehn  
-  Zusatzzeilen, jede nur mit vorhandenem Wert
+- Preview toggle in Nemo's toolbar (F40, user request): Next  
+  to the view selector sits a button that shows and hides the  
+  preview sidebar – with CSD in the title bar, classically  
+  as a toggle right behind the view buttons of the Nemo  
+  toolbar; the icon is builder-view-right-pane-symbolic  
+  (icon helper with theme fallbacks), and the state stays in  
+  sync via Ctrl+Alt+P
+- Photo information for RAW files (F42, user request): NEF,  
+  CR2, CR3, ARW, ORF, DNG & Co. usually cannot be decoded  
+  by Gdk-Pixbuf – the panel now shows the photo table  
+  (camera, date, aperture & Co.) below the icon view when  
+  EXIF sits in the buffer
+- Old MS Office formats in the preview (F39, user request):  
+  Binary .doc, .xls and .ppt files as well as RTF files run  
+  through the LibreOffice background conversion into sharp  
+  PDF like the OOXML formats; since they are no ZIP  
+  archives there is no embedded thumbnail – the transitional  
+  view shows hints about conversion, missing LibreOffice or  
+  failed conversion
+- "Location" and custom fields in the image info table  
+  (F38, user request): If present, the table shows the XMP  
+  "location" (IPTC Core, right after the shooting location)  
+  as well as arbitrary XMP fields from non-standardized  
+  namespaces ("prefix:name") – parsed with Python built-ins  
+  in the worker thread, at most ten extra rows, each only  
+  with an existing value
 
-### Changed (Geändert)
+### Changed
 
-- Bild-Vorschau in 60/40-Aufteilung (F38, Nutzer-Wunsch): Die Spalte  
-  teilt sich in einen 60-%-Bereich für das Bild (vertikal und horizon-  
-  tahl mittig, über die volle Spaltenbreite) und einen 40-%-Bereich  
-  für die Bildinformationen; die EXIF-/Maß-Tabelle (F36) läuft dort  
-  hinein, die Aufteilung bleibt beim Fenster-Resize über einen Live-  
-  Nachzug erhalten. SVG-Vorschauen nutzen dieselbe Aufteilung, ihre  
-  Maß-Zeile steht im Info-Bereich
-- Neues Symbol für den Öffnen-Knopf (F40, Nutzer-Wunsch): Das Öffnen  
-  der Datei in der Standardanwendung trägt jetzt das Stift-Symbol  
-  (document-edit), nicht mehr das Dokument-Öffnen-Symbol; fehlt es  
-  im Icon-Theme, greift der bisherige Name als Fallback
+- Image preview in a 60/40 split (F38, user request): The  
+  column splits into a 60 % area for the image (centered  
+  vertically and horizontally, across the full column width)  
+  and a 40 % area for the image information; the EXIF/size  
+  table (F36) runs in there, the split survives window  
+  resizing via a live follow-up. SVG previews use the same  
+  split, their size row sits in the info area
+- New icon for the open button (F40, user request): Opening  
+  the file in the default application now carries the pencil  
+  icon (document-edit), no longer the document-open icon; if  
+  it is missing in the icon theme, the previous name steps in  
+  as fallback
 
-### Removed (Entfernt)
+### Removed
 
-- Ausblenden-Knopf in der Panel-Kopfzeile (F40, Nutzer-Wunsch): Der  
-  Schalter ist als Vorschau-Umschalter in Nemos Werkzeugleiste  
-  gewandert (siehe Hinzugefügt) – Strg+Alt+P funktioniert unverändert
+- Hide button in the panel header (F40, user request): The  
+  toggle has moved into Nemo's toolbar as the preview toggle  
+  (see Added) – Ctrl+Alt+P keeps working unchanged
 
-### Fixed (Behoben)
+### Fixed
 
-- Foto-Informationen aus HEIC/HEIF (F41/F42, Nutzer-Meldung): Das  
-  EXIF liegt dort als „Exif“-Item mitten im Container – teils mit,  
-  teils ohne APP1-Vorspann, teils erst am Ende der Datei. Ein zu-  
-  fälliger früher „Exif“-Treffer in der Meta-Box brach die alte  
-  Einzelsuche ab; jetzt sammelt der Parser validierte Kandidaten  
-  im ganzen Puffer und nimmt den ersten mit EXIF  
-- Kaputte Office-Dateien zeigen ein Icon (K2): Statt einer nackten  
-  Hinweiszeile sitzt die generische Icon-Ansicht als visueller Anker  
-  über der Fehlermeldung  
-- SVG-Vorschau über die Cairo-Route (K3): Intrinsisch kleine SVGs  
-  füllen jetzt die Panelbreite (DPI-Rendern, Vektor bleibt scharf),  
-  und der Aufruf nutzt die aktuelle librsvg-API statt des deprecated  
-  get\_pixbuf(); ohne pycairo oder mit altem librsvg greift der  
-  bisherige Pfad als Fallback
-
+- Photo information from HEIC/HEIF (F41/F42, user report):  
+  The EXIF sits there as an "Exif" item in the middle of the  
+  container – sometimes with, sometimes without APP1 prefix,  
+  sometimes only at the end of the file. An accidental early  
+  "Exif" hit in the meta box aborted the old single search;  
+  the parser now collects validated candidates across the  
+  whole buffer and takes the first with EXIF
+- Broken office files show an icon (K2): Instead of a bare  
+  hint line the generic icon view sits as a visual anchor  
+  above the error message
+- SVG preview via the Cairo route (K3): Intrinsically small  
+  SVGs now fill the panel width (DPI rendering, vector stays  
+  sharp), and the call uses the current librsvg API instead  
+  of the deprecated get\_pixbuf(); without pycairo or with an  
+  old librsvg the previous path steps in as fallback
 ## \[0.21.0\] – 2026-10-30
 
-### Added (Hinzugefügt)
+### Added
 
-- Foto-Info-Tabelle mit EXIF-Daten (F36, Nutzer-Wunsch): Unter Bild-  
-Vorschauen steht eine Tabelle mit Höhe, Breite, Aufnahmedatum, Aufnahme-  
-ort (GPS in Dezimalgrad), Kameramodell, Belichtungszeit, Brennweite  
-mit 35-mm-Äquivalent, Blende und ISO-Wert – jede Zeile nur, wenn der  
-Wert vorhanden ist; Höhe/Breite folgen der EXIF-Drehung. Der EXIF-  
-Parser läuft mit Python-Bordmitteln im Worker-Thread (keine neue  
-Abhängigkeit); herstellerspezifische Unterschiede fangen Standard-  
-Fallbacks ab: Belichtungszeit/Blende notfalls aus den APEX-Werten,  
-Datum als Kaskade Original → Digitalisiert → Datei, Kameramodell ohne  
-Hersteller-Dopplung. Das bisherige Maße-Label ist in der Tabelle  
-aufgegangen
+- Photo info table with EXIF data (F36, user request): Below  
+  image previews sits a table with height, width, shooting  
+  date, shooting location (GPS in decimal degrees), camera  
+  model, exposure time, focal length with 35-mm equivalent,  
+  aperture and ISO – each row only if the value exists;  
+  height/width follow the EXIF rotation. The EXIF parser runs  
+  with Python built-ins in the worker thread (no new  
+  dependency); vendor differences are caught by standard  
+  fallbacks: exposure time/aperture from APEX values if  
+  needed, date as a cascade original → digitized → file,  
+  camera model without vendor duplication. The previous size  
+  label has been absorbed into the table
 
 ## \[0.20.0\] – 2026-10-29
 
-### Added (Hinzugefügt)
+### Added
 
-- Genre in der Musik-Vorschau (F35, Nutzer-Wunsch): Der Discoverer liest  
-das Genre-Tag mit; die Zeile erscheint nur, wenn das Tag vorhanden ist
+- Genre in the music preview (F35, user request): The  
+  Discoverer reads the genre tag along; the row appears only  
+  if the tag exists
 
-### Changed (Geändert)
+### Changed
 
-- Cover-Schatten neu ausgerichtet (F35, Nutzer-Wunsch): Der Schlags-  
-schatten der Cover sitzt jetzt rechts und unten, reicht dort 3 px  
-weiter und ist insgesamt transparenter (4 % Deckkraft je Stufe  
-statt 5,5 %)
-- Musik-Infos umgestellt (F35, Nutzer-Wunsch): Das Jahr steht nicht mehr  
-in der Album-Zeile, sondern als eigene Zeile darunter – Bezeichnung  
-„Zuerst erschienen“
-- Doppelpunkte (F35, Nutzer-Wunsch): Alle Bezeichnungen der Info-  
-Tabellen (Musik, Video, EML, E-Book, Schrift) enden auf einen  
-Doppelpunkt – zentral im Tabellen-Helfer gesetzt
-- Kopfzeile ausgedünnt (F35, Nutzer-Wunsch): Icon, Dateiname, Typ, Größe  
-und Änderungsdatum sind aus dem Kopfbereich der Vorschau-Spalte  
-entfernt – all das zeigt die Nemo-Liste bereits. Übrig bleiben die  
-Öffnen- und Ausblenden-Knöpfe; der Hinweis „(Datei nicht gefunden)“  
-steht jetzt im Inhaltsbereich
+- Cover shadow re-aligned (F35, user request): The drop  
+  shadow of the covers now sits right and bottom, extends  
+  3 px further there and is more transparent overall (4 %  
+  opacity per step instead of 5.5 %)
+- Music info rearranged (F35, user request): The year no  
+  longer sits in the album row but as its own row below –  
+  label "First released"
+- Colons (F35, user request): All labels of the info tables  
+  (music, video, EML, e-book, font) end with a colon – set  
+  centrally in the table helper
+- Header thinned out (F35, user request): Icon, file name,  
+  type, size and modification date are removed from the  
+  header area of the preview column – Nemo's list shows all  
+  of that already. What remains are the open and hide  
+  buttons; the hint "(file not found)" now sits in the  
+  content area
 
 ## \[0.19.0\] – 2026-10-29
 
-### Added (Hinzugefügt)
+### Added
 
-- Cover-Rahmen in der Musik-Vorschau (F34, Nutzer-Wunsch): Eingebettete  
-Cover bekommen dieselben abgerundeten Ecken wie die Platzhalter-  
-Kachel (56/640 der Kantenlänge – die Rundung skaliert mit der Anzeige  
-mit), und jeder Cover – eingebettet wie Platzhalter – trägt einen  
-kleinen Schlagschatten. Der Schatten entsteht gestapelt in Cairo aus  
-sechs halbtransparenten Kacheln, ohne Blur-Filter; ohne PangoCairo  
-bleibt das Cover ungerahmt. Video-Kacheln und Bild-Vorschauen sind  
-unberührt
+- Cover frame in the music preview (F34, user request):  
+  Embedded covers get the same rounded corners as the  
+  placeholder tile (56/640 of the edge length – the radius  
+  scales with the display), and every cover – embedded or  
+  placeholder – carries a small drop shadow. The shadow is  
+  built stacked in Cairo from six semi-transparent tiles,  
+  without blur filter; without PangoCairo the cover stays  
+  unframed. Video tiles and image previews are untouched
 
 ## \[0.18.0\] – 2026-10-29
 
-### Added (Hinzugefügt)
+### Added
 
-- Erweiterte Musik-Informationen (F33, Nutzer-Wunsch): Die Audio-  
-Vorschau ermittelt jetzt Titel, Interpret, Länge, Titelnummer  
-(„x von y“), Album mit Jahr, Albuminterpret, CD-Nummer („x von y“)  
-und Codec und zeigt jede Zeile nur bei Verfügbarkeit. Beim Jahr hat  
-die Originalveröffentlichung Vorrang (original-date), sonst wird das  
-Datums-Tag als Jahr gelesen. Besonderheiten der Tag-Formate werden  
-defensiv abgefangen: ID3 (MP3) und MP4 melden Titel-/CD-Nummern als  
-Zahlenpaar, Vorbis-Kommentare (FLAC, Ogg) teils als String „n/m“ –  
-beides wird verstanden; der Codec kommt aus dem Audio-Codec-Tag,  
-notfalls aus dem Container-Format
+- Extended music information (F33, user request): The audio  
+  preview now determines title, artist, duration, track  
+  number ("x of y"), album with year, album artist, disc  
+  number ("x of y") and codec and shows each row only if  
+  available. For the year the original release wins  
+  (original-date), otherwise the date tag is read as year.  
+  Peculiarities of the tag formats are caught defensively:  
+  ID3 (MP3) and MP4 report track/disc numbers as number  
+  pairs, Vorbis comments (FLAC, Ogg) partly as string "n/m"  
+  – both are understood; the codec comes from the audio  
+  codec tag, if needed from the container format
 
-### Changed (Geändert)
+### Changed
 
-- Audio-Vorschau umgeordnet: Die Abspielleiste (Play/Pause, Slider,  
-Position) sitzt mit etwas Abstand UNTER dem Cover, die Informationen  
-folgen darunter. Die bisherige Datei-Zeile entfällt – der Dateiname  
-steht im Nemo ohnehin nebenan
+- Audio preview rearranged: The playback bar (play/pause,  
+  slider, position) sits with some distance UNDER the cover,  
+  the information follows below. The previous file row is  
+  gone – Nemo shows the file name right next door anyway
 
 ## \[0.17.0\] – 2026-10-29
 
-### Changed (Geändert)
+### Changed
 
-- Bild-Vorschau mit Höhenkappe (F32, Bauabschnitt 1, Nutzer-  
-Wunsch): Bild-Vorschauen – Rasterbilder wie SVG – füllen  
-höchstens noch 60 % der Spaltenhöhe. Die Anzeige-Höhe koppelt  
-live an die aktuelle Spaltenhöhe: Beim Fenster-Resize zieht die  
-Live-Skalierung die Kappe nach (neues Höhen-Tracking im  
-size-allocate plus \_preview\_height). Das Bild wird nicht mehr  
-expandiert gepackt; der Container hält über keep\_height exakt  
-die (gekappelte) Bildhöhe. Direkt unter dem Bild sitzt ein  
-horizontaler Trenner mit 8 px Abstand oben und unten – der  
-Bereich darunter ist für zusätzliche Informationen zum Bild  
-reserviert und bleibt vorerst leer; das bestehende Maße-Label  
-(„W × H px") steht nun unter dem Trenner. Eingebettete Bilder  
-(Audio-Cover, Office-Miniaturansicht, Video-Frame) und alle  
-übrigen Vorschauen sind unberührt. Umgesetzt im Medien-Renderer  
-mit dem neuen Pack-Helfer \_pack\_image\_capped; die Erweiterung  
-\_scaled\_image um frac\_h sitzt im Panel-Kern und steht damit  
-allen Renderern offen
-
+- Image preview with height cap (F32, construction stage 1,  
+  user request): Image previews – raster images as well as  
+  SVG – fill at most 60 % of the column height. The display  
+  height couples live to the current column height: On  
+  window resize the live scaling pulls the cap along (new  
+  height tracking in size-allocate plus \_preview\_height).  
+  The image is no longer packed expanded; the container  
+  holds exactly the (capped) image height via keep\_height.  
+  Directly below the image sits a horizontal separator  
+  with 8 px distance top and bottom – the area below is  
+  reserved for additional image information and stays empty  
+  for now; the existing size label ("W × H px") now sits  
+  below the separator. Embedded images (audio covers, office  
+  thumbnails, video frames) and all other previews are  
+  untouched. Implemented in the media renderer with the new  
+  pack helper \_pack\_image\_capped; the \_scaled\_image  
+  extension by frac\_h sits in the panel core and is thus  
+  available to all renderers
 ## \[0.16.3\] – 2026-10-29
 
-### Changed (Geändert)
+### Changed
 
-- F24-Optik (Nutzer-Wunsch „zur besseren Unterscheidbarkeit“): Die  
-Zeilennummern erscheinen jetzt etwas dunkler und kleiner. Die  
-Deckkraft steigt von 60 % auf 75 % der Theme-Textfarbe – auf  
-hellem Grund waren die Nummern zu verwaschen –, und die Nummern-  
-schchrift skaliert auf 80 % der Textschriftgröße (mit Floor auf  
-1 pt, damit winzige Größenangaben nicht auf 0 rutschen). Die  
-gleiche verkleinerte Probe misst die Randbreite, sodass Rand  
-und Nummern-Schrift zusammenpassen; Kopier-Verhalten und alle  
-übrigen F24-Eigenschaften (Randzeichnung außerhalb des Buffers,  
-nur sichtbare Zeilen, Live-Toggle) bleiben unverändert
+- F24 look (user request "for better distinguishability"):  
+  The line numbers now appear slightly darker and smaller.  
+  Opacity rises from 60 % to 75 % of the theme text color –  
+  on light ground the numbers were too washed out –, and the  
+  number font scales to 80 % of the text font size (with a  
+  floor at 1 pt so tiny sizes do not slip to 0). The same  
+  scaled probe measures the margin width so margin and  
+  number font match; copy behavior and all other F24  
+  properties (margin drawing outside the buffer, only  
+  visible lines, live toggle) remain unchanged
 
 ## \[0.16.2\] – 2026-10-28
 
-### Fixed (Behoben)
+### Fixed
 
-- F24-Feld-Fix 2, erster Befund (Testfeld 0.16.1): Der Platz für  
-die Zeilennummern war da, die Nummern blieben aber unsichtbar.  
-„draw“ ist ein RUN\_LAST-Signal – der per connect() angemeldete  
-Handler lief VOR der TextView-Standardzeichnung, die danach den  
-Hintergrund füllt und die Randzeichnung übermalt. Der Handler  
-wird jetzt per connect\_after() angemeldet und zeichnet ÜBER der  
-Standardzeichnung (klassische Overlay-Ordnung)
-- F24-Feld-Fix 2, zweiter Befund: Deaktivierte Zeilennummern in  
-den Einstellungen wirkten sofort (der Text rückte vor), das  
-erneute Aktivieren tat aber nichts. Der Merker \_last\_textish  
-speicherte den linenumbers-Schalter statt „aktuelle Vorschau  
-ist TextView-basiert“ – nach dem Deaktivieren stand er auf  
-False, sodass der Toggle beim Re-Aktivieren nicht neu renderte.  
-Der Merker markiert jetzt TextView-basierte Vorschauen generell;  
-der Toggle wirkt damit live in beide Richtungen. Teure Renderer  
-(PDF, Office, Audio, Video, Bild, Ordner) bleiben wie bisher  
-unberührt
-- Härtung: Scheitert die Zeilennummern-Zeichnung ausnahmsweise  
-(künftige Nemo-/GTK-Änderungen), meldet der draw-Handler den  
-Fehler jetzt einmalig per dbg statt still – draw feuert oft,  
-ein Closure-Flag verhindert Log-Spam
+- F24 field fix 2, first finding (test field 0.16.1): The  
+  space for the line numbers was there, but the numbers  
+  stayed invisible. "draw" is a RUN\_LAST signal – the  
+  handler registered via connect() ran BEFORE the TextView  
+  standard drawing, which afterwards fills the background  
+  and paints over the margin. The handler is now registered  
+  via connect\_after() and draws ON TOP of the standard  
+  drawing (classic overlay order)
+- F24 field fix 2, second finding: Deactivated line numbers  
+  in the settings took effect immediately (the text moved  
+  up), but re-activating did nothing. The marker  
+  \_last\_textish stored the linenumbers toggle instead of  
+  "current preview is TextView-based" – after deactivating  
+  it sat at False, so the toggle did not re-render on  
+  re-activation. The marker now marks TextView-based previews  
+  in general; the toggle thus works live in both directions.  
+  Expensive renderers (PDF, office, audio, video, image,  
+  folder) remain untouched as before
+- Hardening: If the line number drawing ever fails (future  
+  Nemo/GTK changes), the draw handler now reports the error  
+  once via dbg instead of silently – draw fires often, a  
+  closure flag prevents log spam
 
 ## \[0.16.1\] – 2026-10-28
 
-### Fixed (Behoben)
+### Fixed
 
-- F24-Feld-Fix (Testfeld 0.16.0): Der Zeilennummern-Rand riss beim  
-ersten Anklicken einer Textdatei mit AttributeError ab – die  
-GI-Bindung von Pango.Layout bietet get\_pixel\_width() nicht an.  
-Die Randbreiten-Messung nutzt jetzt get\_pixel\_size(); der Fallback  
-auf die generische Kachel hatte den Absturz abgefangen, die Text-  
-Vorschau selbst blieb aber leer. Mit dem Fix erscheinen die  
-Zeilennummern wie in 0.16.0 vorgesehen
+- F24 field fix (test field 0.16.0): The line number margin  
+  crashed with an AttributeError on the first click onto a  
+  text file – the GI binding of Pango.Layout does not offer  
+  get\_pixel\_width(). The margin width measurement now uses  
+  get\_pixel\_size(); the fallback onto the generic tile had  
+  caught the crash, but the text preview itself stayed  
+  empty. With the fix the line numbers appear as intended  
+  in 0.16.0
 
 ## \[0.16.0\] – 2026-10-28
 
-### Added (Hinzugefügt)
+### Added
 
-- Zeilennummern in der reinen Text-Vorschau (F24, Nutzer-Wunsch):  
-Textdateien und endungslose Textdateien zeigen ihre Zeilen-  
-nummern am linken Rand. Die Nummern sind eine Randzeichnung  
-AUSSERHALB des Textbuffers – Auswahl und Kopie (Strg+C)  
-erfassen ausschließlich den Text selbst, die Nummern werden  
-nie mitkopiert. Umgebrochene Zeilen behalten ihre Nummer an  
-der ersten visuellen Zeile; gezeichnet werden nur die  
-sichtbaren Zeilen
-- Neue Rubrik „Textdateien“ im Einstellungsfenster: CheckButton  
-„Zeilennummern anzeigen (nicht kopierbar)“ – standardmäßig  
-aktiviert, sofort gespeichert (Schlüssel text\_line\_numbers in  
-der conf) und live auf die aktuell angezeigte Text-Vorschau  
-angewendet. Nur reine Textvorschauen werden beim Umschalten  
-neu aufgebaut; Markdown, E-Mail, E-Book und Font-Wasserfall  
-bleiben ohne Nummern und unberührt
-- Bewusst ohne GtkSourceView umgesetzt (kein neues Paket): Die  
-Nummern entstehen im draw-Handler des bestehenden TextView
+- Line numbers in the plain text preview (F24, user  
+  request): Text files and extensionless text files show  
+  their line numbers in the left margin. The numbers are a  
+  margin drawing OUTSIDE the text buffer – selection and  
+  copy (Ctrl+C) capture only the text itself, the numbers  
+  are never copied along. Wrapped lines keep their number  
+  on the first visual line; only the visible lines are  
+  drawn
+- New "Text files" section in the settings dialog:  
+  CheckButton "Show line numbers (not copyable)" – active  
+  by default, saved immediately (key text\_line\_numbers in  
+  the conf) and applied live to the currently shown text  
+  preview. Only plain text previews are rebuilt on  
+  toggling; markdown, e-mail, e-book and font waterfall  
+  stay without numbers and untouched
+- Deliberately built without GtkSourceView (no new package):  
+  The numbers are drawn in the draw handler of the existing  
+  TextView
 
 ## \[0.15.0\] – 2026-10-28
 
-### Changed (Geändert)
+### Changed
 
-- Struktur-Release (F28/F29/F31): Die Extension besteht aus acht  
-Modulen – der Panel-Kern (previewer\_panel.py) bleibt das Herz,  
-aber die Renderer für Medien (previewer\_render\_media.py),  
-Dokumente (previewer\_render\_docs.py) und Text  
-(previewer\_render\_text.py) sind als Mixin-Klassen ausgelagert,  
-ebenso die Toolbar samt Einstellungsfenster  
-(previewer\_toolbar.py). Zwei gemeinsame Basis-Helfer  
-(\_pixbuf\_from\_bytes, \_zf\_read\_capped) leben jetzt in  
-previewer\_util.py, wo sie allen Renderern zur Verfügung stehen
-- Der Einstieg (previewer.py) prüft beim Laden jetzt alle acht  
-Module auf identische PREVIEWER\_VERSION – liegt im Extension-  
-Ordner noch eine alte Fassung, warnt das Terminal sofort
-- F29: Die Toolbar ist – wie vom Nutzer angefragt als „sinnvoll  
-erachtet: umgesetzt“ – ein eigenes Mixin-Modul; die ActionBar,  
-das Einstellungsfenster (F12) und das Tastenkürzel Strg+Alt+P  
-verhalten sich unverändert
-- F28: Lange Kommentar- und Historienblöcke sind aus dem Code in  
-die neue REFERENZ.md ausgelagert; der Code trägt an ihrer Stelle  
-Marker der Form `# → REF PAN-R9-1` (Modul-Kürzel + Thema +  
-Nummer). REFERENZ.md ist ein lebendes Projektdokument im  
-Repository und wird bewusst NICHT mitdeployt – das Deployment  
-kopiert nur die \*.py-Dateien
-- Verhalten unverändert: Es gibt keine neuen Features und keinen  
-Bugfix – alle Renderer, Deckel (0.9.2), Thread-Disziplinen  
-(R1/B7) und Einstellungen (F12) wirken exakt wie in 0.14.1
+- Structure release (F28/F29/F31): The extension consists of  
+  eight modules – the panel core (previewer\_panel.py)  
+  remains the heart, but the renderers for media  
+  (previewer\_render\_media.py), documents  
+  (previewer\_render\_docs.py) and text  
+  (previewer\_render\_text.py) are outsourced as mixin  
+  classes, likewise the toolbar including the settings  
+  dialog (previewer\_toolbar.py). Two shared base helpers  
+  (\_pixbuf\_from\_bytes, \_zf\_read\_capped) now live in  
+  previewer\_util.py, where they are available to all  
+  renderers
+- The entry (previewer.py) now checks at load time that all  
+  eight modules carry the identical PREVIEWER\_VERSION – if  
+  an old copy sits in the extension folder, the terminal  
+  warns immediately
+- F29: The toolbar is – as the user asked, "considered useful:  
+  implemented" – its own mixin module; the action bar, the  
+  settings dialog (F12) and the shortcut Ctrl+Alt+P behave  
+  unchanged
+- F28: Long comment and history blocks are moved out of the  
+  code into the new REFERENZ.md; the code carries markers of  
+  the form `# → REF PAN-R9-1` (module prefix + topic +  
+  number) in their place. REFERENZ.md is a living project  
+  document in the repository and is deliberately NOT  
+  deployed – the deployment copies only the \*.py files
+- Behavior unchanged: There are no new features and no bug  
+  fix – all renderers, caps (0.9.2), thread disciplines  
+  (R1/B7) and settings (F12) work exactly as in 0.14.1
 
 ## \[0.14.1\] – 2026-10-28
 
-### Fixed (Behoben)
+### Fixed
 
-- Markdown-Tabellen waren so breit wie ihre längste Zelle und  
-zerfielen dann im TextView in wilden Umbruch (Feldtest 0.14.0  
-mit der Reihenfolge-Tabelle der planned.md): Tabellen halten  
-jetzt ein Gesamtbudget in Anzeigespalten – ausgelegt auf das  
-300-px-Standardpanel –, schmale Spalten behalten ihre volle  
-Breite, und überlange Zellen brechen mehrzeilig INNERHALB  
-ihrer Spalte um, wie im Browser. Die Spalten bleiben bündig,  
-Kopfzeile und graue Trennzeile laufen über alle Zeilen der  
-logischen Tabellenzeile. Zellen-Markup, das über einen  
-Zell-Umbruch hinwegläuft, wird bewusst nicht zusammengefügt –  
-gültiges Markup geht vor, der Rohtext-Fallback darf nie  
-wegen einer Tabelle greifen
-- Emoji-Breite: 🔴 ✅ ☑ und ähnliche Symbole belegen im TextView  
-zwei Anzeigespalten – die Breitenmessung der Tabellen zählt sie  
-jetzt doppelt (und den Variation-Selector FE0F gar nicht),  
-sonst standen Emoji-Zellen sichtbar daneben
-- Backslash-Escapes nach CommonMark (\[ wird zu \[) – 0.14.0  
-zeigte sie als Rohtext an, z.B. bei Überschriften wie
+- Markdown tables were as wide as their longest cell and  
+  then fell apart into wild wrapping in the TextView (field  
+  test 0.14.0 with the schedule table of planned.md):  
+  Tables now keep an overall budget in display columns –  
+  laid out for the 300-px default panel –, narrow columns  
+  keep their full width, and overlong cells wrap  
+  multi-line INSIDE their column, as in the browser. The  
+  columns stay flush, header and gray separator line run  
+  across all lines of the logical table row. Cell markup  
+  spanning a cell wrap is deliberately not glued together –  
+  valid markup wins, the raw text fallback must never kick  
+  in because of a table
+- Emoji width: 🔴 ✅ ☑ and similar symbols occupy two  
+  display columns in the TextView – the width measurement  
+  of the tables now counts them twice (and the variation  
+  selector FE0F not at all), otherwise emoji cells visibly  
+  stuck out
+- Backslash escapes per CommonMark (\[ becomes \[) – 0.14.0  
+  showed them as raw text, e.g. in headings like
   $$
   0.14.0
   $$
-- Maskierte Balken in Tabellen: `\|` ist in GFM ein literaler  
-Balken und kein Spaltentrenner
+- Masked bars in tables: `\\|` is a literal bar in GFM,  
+  not a column separator
 
 ## \[0.14.0\] – 2026-10-28
 
-### Changed (Geändert)
+### Changed
 
-- Markdown-Vorschau deutlich browserähnlicher (K4): Der Konverter  
-deckt jetzt die verbreiteten Markdown-Varianten (GitHub Flavored)  
-ab, statt nur den Standard-Kern. Neu sind GFM-Tabellen (Kopfzeile  
-fett, graue Trennzeile mit Box-Zeichen, Spalten bündig im  
-Monospace-Satz, Rechtsausrichtung bei `---:`), Task-Listen  
-(`[x]`/`[ ]` werden zu ☑/☐, erledigte Punkte erscheinen  
-durchgestrichen wie im Browser), sortierte Listen (1./1)),  
-eingerückte und verschachtelte Listen mit Ebenen-Zeichen  
-(•/◦/▪), Setext-Überschriften (`===`/`---` unter der Zeile),  
-fett+kursiv (`***…***`), `~~Durchstreichen~~`, mehrfach  
-verschachtelte Zitate (`> >`), Autolinks in spitzen Klammern,  
-Trennlinien auch mit Leerzeichen (`- - -`) sowie Links mit  
-runden Klammern in der URL (brachen bisher die Regex).  
-Überschriften der Ebenen 1 und 2 bekommen einen Unterstrich  
-(nähert den farbigen Balken der Browser-Darstellung an), und  
-Überschriften, Linien und Tabellen erhalten Luft nach oben –  
-Dokumente wie planned.md oder changelog.md erscheinen damit so  
-aufgebaut wie im Browser. Bewusst unverändert: kein Webview,  
-keine neuen Paket-Abhängigkeiten; breite Tabellen brechen im  
-Panel um, statt horizontal zu scrollen; 4-Spaces-Codeblöcke  
-bleiben unberücksichtigt (kollidiert mit Listeneinrückungen).  
-Die bestehende Sicherheitslinie bleibt: Ungültiges Markup führt  
-zur dbg-Meldung und zur Anzeige des Rohtexts
-
+- Markdown preview much more browser-like (K4): The  
+  converter now covers the widespread markdown variants  
+  (GitHub Flavored) instead of only the standard core. New:  
+  GFM tables (bold header, gray separator line with box  
+  characters, columns flush in monospace, right alignment  
+  with `---:`), task lists (`[x]`/`[ ]` become ☑/☐, checked  
+  items appear struck through as in the browser), ordered  
+  lists (1./1)), indented and nested lists with level  
+  characters (•/◦/▪), Setext headings (`===`/`---` below  
+  the line), bold+italic (`***…***`), `~~strikethrough~~`,  
+  multiply nested quotes (`> >`), autolinks in angle  
+  brackets, separator lines also with spaces (`- - -`) and  
+  links with parentheses in the URL (previously broke the  
+  regex). Headings of levels 1 and 2 get an underline  
+  (approximates the colored bar of the browser rendering),  
+  and headings, rules and tables get air above – documents  
+  like planned.md or changelog.md thus appear as  
+  structured as in the browser. Deliberately unchanged: no  
+  webview, no new package dependencies; wide tables wrap in  
+  the panel instead of scrolling horizontally; 4-space code  
+  blocks stay unconsidered (collides with list indentation).  
+  The existing safety line remains: invalid markup leads  
+  to the dbg message and to showing the raw text
 ## \[0.13.0\] – 2026-10-28
 
-### Added (Hinzugefügt)
+### Added
 
-- Einstellung „Standardbreite beim Start" (F12, Teil 2): Unter  
-„Allgemein" im Einstellungsfenster kann die Breite eingestellt  
-werden, mit der die Vorschauspalte nach dem Start von Nemo  
-geöffnet wird. Der SpinButton trägt den AKTUELLEN Wert vorab  
-(mindestens 260 px, dem kleinsten erlaubten Wert), daneben nennt  
-eine dezente Zeile den Standard (300 px) und kennzeichnet den  
-Ist-Zustand als „aktuell". Zieht der Nutzer die Vorschauspalte am  
-Trenner, wird die gewählte Breite automatisch zur künftigen  
-Startbreite: Sie landet – entprellt, erst wenn der Trenner  
-stillsteht – in der Konfigurationsdatei und beim nächsten Start  
-genau so angewendet. Änderungen im Einstellungsfenster greifen  
-sofort: Das Panel zieht live auf die neue Breite, ohne dass  
-gespeichert oder neu gestartet werden muss. Ist das  
-Einstellungsfenster offen, während am Trenner gezogen wird,  
-zieht der SpinButton mit (außer der Nutzer tippt dort gerade)
+- Setting "Default width at startup" (F12, part 2): Under  
+  "General" in the settings dialog the width can be set with  
+  which the preview column opens after Nemo starts. The  
+  SpinButton carries the CURRENT value in advance (at least  
+  260 px, the smallest allowed value); next to it a subtle  
+  line names the default (300 px) and marks the actual state  
+  as "current". If the user drags the preview column at the  
+  divider, the chosen width automatically becomes the future  
+  start width: it lands – debounced, only once the divider  
+  stands still – in the configuration file and is applied  
+  exactly like that on the next start. Changes in the  
+  settings dialog apply immediately: the panel pulls to the  
+  new width live, without saving or restarting. If the  
+  settings dialog is open while the divider is dragged, the  
+  SpinButton follows along (unless the user is typing in it  
+  right then)
 
-### Changed (Geändert)
+### Changed
 
-- Standard-Startbreite des Panels von 340 px auf 300 px geändert  
-(Nutzer-Wunsch); ohne Konfigurationsdatei gilt jetzt 300 px
+- Default start width of the panel changed from 340 px to  
+  300 px (user request); without a configuration file 300 px  
+  now applies
 
 ## \[0.12.1\] – 2026-10-28
 
-### Fixed (Behoben)
+### Fixed
 
-- Einstellungen wurden nicht gespeichert (B8, gemeldet aus dem  
-Testfeld): 0.12.0 griff für die Konfigurationsdatei auf Gio.Keyfile  
-zu – PyGObject bindet GKeyFile aber als GLib.KeyFile (GKeyFile ist  
-eine GLib-Klasse, keine Gio-Klasse). Der Fehler wurde von den  
-Defensiv-Blöcken gefangen („Konfiguration nicht speicherbar" im  
-Terminal-Log), das Einstellungsfenster blieb benutzbar, nur die  
-Persistenz war wirkungslos. Jetzt läuft die Datei über GLib.KeyFile  
-mit Kompatibilitäts-Auflösung für den alten Alias GLib.Keyfile  
-(gleiches Muster wie beim Discoverer in der Medien-Vorschau);  
-fehlt die Klasse im Binding, meldet das Panel das per dbg und  
-bleibt auf den Defaults, statt still zu scheitern
+- Settings were not saved (B8, reported from the test field):  
+  0.12.0 accessed Gio.Keyfile for the configuration file –  
+  but PyGObject binds GKeyFile as GLib.KeyFile (GKeyFile is  
+  a GLib class, not a Gio class). The error was caught by  
+  the defensive blocks ("configuration not saveable" in the  
+  terminal log), the settings dialog stayed usable, only  
+  the persistence was ineffective. The file now runs via  
+  GLib.KeyFile with a compatibility resolution for the old  
+  alias GLib.Keyfile (same pattern as with the Discoverer in  
+  the media preview); if the class is missing in the  
+  binding, the panel reports it via dbg and stays on the  
+  defaults instead of failing silently
 
 ## \[0.12.0\] – 2026-10-28
 
-### Added (Hinzugefügt)
+### Added
 
-- Einstellungsfenster (F12, Teil 1): Der Zahnrad-Knopf der Toolbar  
-öffnet jetzt das Konfigurationsfenster „Nemo-Previewer –  
-Einstellungen" – hier sammeln sich künftig ALLE Einstellungen der  
-Vorschauspalte. Erste funktionierende Einstellung: „Vorschauspalte  
-beim Start anzeigen" (abgehakt bleibt die Spalte nach dem Start von  
-Nemo zunächst unsichtbar; Strg+Alt+P blendet sie jederzeit wieder  
-ein). Jede Änderung wird sofort in  
-\~/.config/nemo-previewer/nemo-previewer.conf gespeichert (GLib-  
-natives INI-Format via Gio.Keyfile, keine neue Abhängigkeit,  
-Verzeichnis wird bei Bedarf angelegt) und bei jedem Start von Nemo  
-angewendet – der Einstieg wendet die Konfiguration erst NACH dem  
-Einblenden des Panels an, sonst würde eine verlangte Unsichtbarkeit  
-sofort wieder überschrieben. Kaputte oder halb geschriebene  
-Konfigurationen fallen still auf die Defaults zurück und hindern  
-Nemo nie am Start. Wiederholter Zahnrad-Klick holt das bestehende  
-Fenster nach vorn statt ein zweites zu öffnen
+- Settings dialog (F12, part 1): The gear button of the  
+  toolbar now opens the configuration window "Nemo Previewer  
+  – Settings" – ALL settings of the preview column will  
+  gather here. First working setting: "Show preview column  
+  at startup" (unchecked, the column stays invisible after  
+  Nemo starts; Ctrl+Alt+P shows it again at any time). Every  
+  change is saved immediately to  
+  \\~/.config/nemo-previewer/nemo-previewer.conf (GLib-native  
+  INI format via Gio.Keyfile, no new dependency, directory  
+  created if needed) and applied on every start of Nemo –  
+  the entry applies the configuration only AFTER showing the  
+  panel, otherwise a requested invisibility would be  
+  overridden immediately. Broken or half-written  
+  configurations fall back to the defaults silently and  
+  never keep Nemo from starting. A repeated gear click  
+  brings the existing window to the front instead of opening  
+  a second one
 
-### Changed (Geändert)
+### Changed
 
-- Vorschau-Toolbar \~5 px schmaler (Nutzer-Wunsch): Der Innenabstand  
-oben/unten der ActionBar liegt mit 3+4 px unter dem Adwaita-  
-Standard von 6+6 px; kann ein Theme die Regel nicht umsetzen,  
-bleibt es ohne Fehler beim Theme-Standard
+- Preview toolbar \\~5 px slimmer (user request): The inner  
+  padding top/bottom of the ActionBar sits at 3+4 px, below  
+  the Adwaita default of 6+6 px; if a theme cannot apply  
+  the rule, it stays with the theme default without error
 
 ## \[0.11.0\] – 2026-10-28
 
-### Added (Hinzugefügt)
+### Added
 
-- Vorschau-Toolbar (F19, Teil 1): Am unteren Rand der Vorschauspalte  
-läuft jetzt eine statische Toolbar (Gtk.ActionBar) mit eigener  
-Trennlinie über dem Inhaltsbereich – immer sichtbar, solange das  
-Panel aktiv ist (Nutzer-Entscheid: kein Ein-/Ausblenden je  
-Renderer; die Renderer-Aktionen F13/F20/F21/F24–F27 melden sich  
-später hier an). Rechts außen sitzt ein fester Einstellungs-Knopf  
-mit Zahnrad aus den Systemicons (preferences-system-symbolic,  
-Tooltip „Einstellungen"); im ersten Bauabschnitt bewusst ohne  
-Funktion – die Konfiguration (F12) dockt dort an, bis dahin  
-quittiert der Knopf Klicks nur im Terminal-Log
+- Preview toolbar (F19, part 1): At the bottom edge of the  
+  preview column a static toolbar (Gtk.ActionBar) with its  
+  own separator line above the content area now runs – always  
+  visible while the panel is active (user decision: no  
+  show/hide per renderer; the renderer actions  
+  F13/F20/F21/F24–F27 will register here later). On the far  
+  right sits a fixed settings button with a gear from the  
+  system icons (preferences-system-symbolic, tooltip  
+  "Settings"); in the first construction stage deliberately  
+  without function – the configuration (F12) will dock  
+  there; until then the button only acknowledges clicks in  
+  the terminal log
 
 ## \[0.10.4\] – 2026-10-28
 
-### Fixed (Behoben)
+### Fixed
 
-- Bild-Vorschau erschien auch nach dem R9-Fix 0.10.3 weiterhin nicht  
-(B7, zweiter Teil): Die im Idle-Callback gepackten Bild-Widgets  
-liegen zeitlich NACH dem show\_all() des Render-Durchlaufs und  
-wurden daher nie sichtbar – GTK3 zeigt ungezeigte Widgets nicht an.  
-Die R1-Medien-Vorschau trägt deshalb am Ende von \_media\_probe\_done  
-ein explizites eigenes show\_all (mit Kommentar); im R9-Bild-Umbau  
-von 0.10.2 war genau dieses übersehen worden. Jetzt zeigt der  
-Bild-Callback sein Ergebnis an beiden Exit-Pfaden (Vorschau UND  
-Fehler-Fallback) mit eigenem show\_all. Der „Lade Bild"-Zettel,  
-der bisher ewig stehen blieb, wird damit erstmals wirklich abgelöst.  
-Neu sind außerdem dbg-Diagnosezeilen, damit der Terminal-Log den  
-Bild-Weg jetzt nachvollziehbar zeigt: „Bild gelesen … (Bytes)",  
-„Bild dekodiert … (Maße)" und „Bild-Ergebnis verworfen, Auswahl  
-wechselte …" bei schnellem Weiterklicken
+- Image preview still did not appear even after the R9 fix  
+  0.10.3 (B7, second part): The image widgets packed in the  
+  idle callback lie temporally AFTER the show\_all() of the  
+  render pass and were therefore never shown – GTK3 does not  
+  display unshown widgets. The R1 media preview therefore  
+  carries an explicit own show\_all at the end of  
+  \_media\_probe\_done (with comment); exactly this had been  
+  overlooked in the R9 image rework of 0.10.2. The image  
+  callback now shows its result on both exit paths (preview  
+  AND error fallback) with its own show\_all. The "Loading  
+  image" note that previously stayed forever is thus truly  
+  replaced for the first time. Also new are dbg diagnostics  
+  lines so the terminal log can now trace the image path:  
+  "Image read … (bytes)", "Image decoded … (dimensions)"  
+  and "Image result discarded, selection moved on …" on  
+  fast clicking through
 
 ## \[0.10.3\] – 2026-10-28
 
-### Fixed (Behoben)
+### Fixed
 
-- R9-Regression aus 0.10.2 (B7): Im Feldtest erschienen gar keine  
-Bild-Vorschauen mehr. Ursache: 0.10.2 dekodierte die Bilder im  
-Hintergrund-Thread und erzeugte damit Gdk-Objekte (PixbufLoader)  
-außerhalb des GTK-Threads – gegen das bewährte R1-Muster der  
-Medien-Vorschau („keine Gdk-Objekte im Worker"); der Worker  
-scheiterte still, ohne Traceback oder Fehlerhinweis, und der  
-„Lade Bild"-Zettel blieb stehen. Jetzt liest der Hintergrund-  
-Thread nur noch die Datei (reines Python-I/O), Dekodierung,  
-EXIF-Drehung und Skalierung laufen zurück im GTK-Thread –  
-dieselbe Disziplin wie bei den Medien-Covern. Der unnötige  
-GI-Warm-up für die Bild-Dekodierung (er erzeugte einen  
-PixbufLoader, den niemand schloss – Quelle der GdkPixbuf-Warnung  
-„finalized without calling gdk\_pixbuf\_loader\_close()" im  
-Terminal-Log) entfiel komplett. Alle Beschleunigungs-Hebel aus  
-0.10.2 bleiben: „Lade Bild"-Hinweis sofort, Decode-Deckel  
-max(2 × Panelbreite, 1024), Originalmaße im Info-Label,  
-Stale-Verwurf bei schnellem Weiterklicken
-
+- R9 regression from 0.10.2 (B7): In the field test no image  
+  previews appeared at all. Cause: 0.10.2 decoded the images  
+  in the background thread and thereby created Gdk objects  
+  (PixbufLoader) outside the GTK thread – against the proven  
+  R1 pattern of the media preview ("no Gdk objects in the  
+  worker"); the worker failed silently, without traceback or  
+  error hint, and the "Loading image" note stayed. The  
+  background thread now only reads the file (pure Python  
+  I/O); decoding, EXIF rotation and scaling run back in the  
+  GTK thread – the same discipline as with the media covers.  
+  The unnecessary GI warm-up for the image decoding (it  
+  created a PixbufLoader that nobody closed – source of the  
+  GdkPixbuf warning "finalized without calling  
+  gdk\_pixbuf\_loader\_close()" in the terminal log) is gone  
+  completely. All acceleration levers from 0.10.2 remain:  
+  "Loading image" hint immediately, decode cap  
+  max(2 × panel width, 1024), original dimensions in the info  
+  label, stale discard on fast clicking through
 ## \[0.10.2\] – 2026-10-27
 
-### Changed (Geändert)
+### Changed
 
-- Bild-Vorschau beschleunigt (R9 aus planned.md): Große Bilder  
-(typisch 20-MB-JPEGs mit 50–100 Megapixeln) blockierten bisher die  
-komplette UI, weil Lesen, Dekodieren und EXIF-Drehung synchron im  
-GTK-Main-Loop liefen. Zweistufig wie bei der Medien-Vorschau:  
-Sofort erscheint ein „Lade Bild"-Hinweis, die Dekodierung läuft in  
-einem Hintergrund-Thread, und die fertige Pixbuf wird per Idle-  
-Callback ins Panel gereicht (bei weitergewanderter Auswahl still  
-verworfen). Zusätzlich dekodiert der size-prepared-Deckel statt  
-stur auf 4096 px auf max(2 × Panelbreite, 1024) – die Dekodierung  
-wird damit um ein Vielfaches billiger, die Live-Skalierung beim  
-Trenner-Ziehen verliert nichts. Das Info-Label zeigt jetzt die  
-ORIGINALMAßE aus dem Datei-Kopf statt der gedeckelten Dekodier-  
-größe. Der Bomben-Schutz aus 0.9.2 bleibt vollständig erhalten;  
-schlägt der Thread-Weg ausnahmsweise fehl, greift der bisherige  
-synchrone Pfad als Rettungsanker
+- Image preview accelerated (R9 from planned.md): Large  
+  images (typically 20-MB JPEGs with 50–100 megapixels)  
+  previously blocked the whole UI because reading, decoding  
+  and EXIF rotation ran synchronously in the GTK main  
+  loop. Two-stage as with the media preview: a "Loading  
+  image" hint appears immediately, the decoding runs in a  
+  background thread, and the finished pixbuf is handed into  
+  the panel via idle callback (silently discarded if the  
+  selection moved on). Additionally the size-prepared cap  
+  decodes to max(2 × panel width, 1024) instead of stubbornly  
+  at 4096 px – decoding becomes many times cheaper, the  
+  live scaling at divider dragging loses nothing. The info  
+  label now shows the ORIGINAL dimensions from the file  
+  header instead of the capped decode size. The bomb  
+  protection from 0.9.2 remains fully intact; if the thread  
+  path ever fails, the previous synchronous path steps in  
+  as a lifeline
 
 ## \[0.10.1\] – 2026-10-27
 
-### Fixed (Behoben)
+### Fixed
 
-- Markdown-Vorschau (B6): Der Textkörper wurde mit hartcodierter  
-Standardschrift in 9 pt override\_font-überschrieben und erschien  
-damit kleiner als die übrige Oberfläche – die Text-Vorschau  
-(Monospace) wirkt dagegen wie die System-Schriftgröße. Die  
-Markdown-Vorschau überschreibt die Schrift jetzt gar nicht mehr  
-und nutzt die System-Schrift des GTK-Themes (also die  
-Schriftgröße des Systems); Überschriften skalieren mit, da ihre  
-Größenangaben relativ zur Basis-Schrift sind. EML- und E-Book-  
-Vorschau bleiben vorerst bei 9 pt
+- Markdown preview (B6): The body was overridden with a  
+  hardcoded default font at 9 pt via override\_font and thus  
+  appeared smaller than the rest of the interface – the text  
+  preview (monospace) in contrast acts like the system font  
+  size. The markdown preview no longer overrides the font  
+  at all and uses the system font of the GTK theme (i.e.  
+  the system's font size); headings scale along since their  
+  size specs are relative to the base font. EML and e-book  
+  preview stay at 9 pt for now
 
 ## \[0.10.0\] – 2026-10-27
 
-### Added (Hinzugefügt)
+### Added
 
-- Text-Vorschau für endungslose Dateien (F23 aus planned.md): Frei  
-benannte Dateien (z.B. notes, todo, Dotfiles wie .bashrc) landeten  
-über den MIME-Typ-Rater auf application/octet-stream und zeigten  
-nur Icon und Datei-Infos. Dateien ohne Endung werden jetzt per  
-Inhalts-Sniffing geprüft: Die ersten 4 KB dürfen keine NULL-Bytes  
-und höchstens 5 % Steuerzeichen enthalten – nur dann zeigt der  
-Dispatcher die normale Text-Vorschau. Endungslose Binärdateien  
-(Executables, Core-Dumps) bleiben bei der generischen Ansicht;  
-die üblichen Kappeln der Text-Vorschau (256 KB / 2000 Zeilen)  
-greifen unverändert
+- Text preview for extensionless files (F23 from planned.md):  
+  Freely named files (e.g. notes, todo, dotfiles like  
+  .bashrc) landed on application/octet-stream via the MIME  
+  type guesser and showed only icon and file info. Files  
+  without extension are now checked by content sniffing:  
+  the first 4 KB must contain no NULL bytes and at most  
+  5 % control characters – only then does the dispatcher  
+  show the normal text preview. Extensionless binary files  
+  (executables, core dumps) stay with the generic view;  
+  the usual caps of the text preview (256 KB / 2000 lines)  
+  apply unchanged
 
 ## \[0.9.2\] – 2026-10-27
 
-Härtungs-Paket aus dem zweiten Sicherheitsaudit (Schwerpunkt  
-Pufferüberlauf/OOM): Klassische Überläufe sind auf Python-Ebene  
-ausgeschlossen; ein präpariertes Bild, PDF, EPUB, DOCX oder EML konnte  
-aber Nemo über Riesen-Allokationen abschießen. Keine neuen Funktionen,  
-normale Dateien verhalten sich unverändert.
+Hardening package from the second security audit (focus  
+buffer overflow/OOM): Classic overflows are ruled out at  
+the Python level; a doctored image, PDF, EPUB, DOCX or EML  
+could however shoot Nemo down via giant allocations. No  
+new functions, normal files behave unchanged.
 
-### Fixed (Behoben)
+### Fixed
 
-- Bild-Vorschau: GdkPixbuf dekodierte die VOLLE Auflösung, bevor die  
-Deckelung griff – ein PNG, das nur im Header 30000×30000 deklariert,  
-allozierte \~3,6 GB (OOM-Absturz). `_pixbuf_from_bytes` nutzt jetzt  
-den size-prepared-Deckel (Verkleinerung zur Dekodierzeit) und ist  
-jetzt auch die Primärroute der Bild-Vorschau (Rohdaten-Deckel  
-64 MB, Fallback `new_from_file_at_scale`)
-- PDF-Vorschau: Die untere Scale-Klammer (0.2) erzwang bei  
-pathologisch riesigen Seiten (\~100000 pt) Rendern in  
-20000×20000 px ≈ 1,6 GB je Seite – jetzt greift zusätzlich ein  
-Pixel-Budget (4096²) je Seite, das nur im Extremfall  
-flächentreu zurückrechnet
-- EML-Vorschau: Der Parser las die GESAMTE Datei – mehr-GB-.eml  
-fraßen Nemos Speicher; es werden jetzt die ersten 2 MB gelesen  
-(Kopfzeilen stehen ohnehin oben)
-- EPUB-Vorschau: `META-INF/container.xml` und die OPF-Datei wurden  
-ungekappt gelesen (Dekompressionsbomben-Lücke neben den bestehenden  
-R4-Deckeln für Kapitel und Cover) – beide jetzt über  
-`_zf_read_capped`
-- Office-Vorschau: Eingebettete Miniaturansicht (16-MB-Deckel) und  
-content.xml/word/document.xml (2-MB-Deckel) werden nicht mehr  
-ungekappt gelesen; Medien-Cover aus Tags mit 32-MB-Byte-Deckel
+- Image preview: GdkPixbuf decoded the FULL resolution  
+  before the cap kicked in – a PNG declaring only 30000×30000  
+  in its header allocated \\~3.6 GB (OOM crash).  
+  `_pixbuf_from_bytes` now uses the size-prepared cap  
+  (shrink at decode time) and is now also the primary route  
+  of the image preview (raw data cap 64 MB, fallback  
+  `new_from_file_at_scale`)
+- PDF preview: The lower scale clamp (0.2) forced rendering  
+  at 20000×20000 px ≈ 1.6 GB per page for pathologically  
+  giant pages (\\~100000 pt) – an additional pixel budget  
+  (4096²) per page now applies, recalculating area-true  
+  only in the extreme case
+- EML preview: The parser read the ENTIRE file – multi-GB  
+  .eml ate Nemo's memory; only the first 2 MB are read now  
+  (headers sit at the top anyway)
+- EPUB preview: `META-INF/container.xml` and the OPF file  
+  were read uncapped (decompression bomb gap next to the  
+  existing R4 caps for chapters and covers) – both now via  
+  `_zf_read_capped`
+- Office preview: Embedded thumbnail (16-MB cap) and  
+  content.xml/word/document.xml (2-MB cap) are no longer  
+  read uncapped; media covers from tags with a 32-MB byte  
+  cap
 
-### Changed (Geändert)
+### Changed
 
-- Auswahl-Erkennung (previewer\_select.py): Wildcall-Schutz – die per  
-berechnetem VTable-Offset gelesenen Funktionszeiger (peek\_selection,  
-get\_name, get\_uri) werden vor dem Aufruf gegen die ausführbaren  
-Adressbereiche der Nemo-Bibliotheken geprüft (`/proc/self/maps`);  
-ein Nemo-Update mit verschobenem Klassenlayout führt so zu einer  
-sauber abgeschalteten Route statt zu einem Wildcall, der Nemo  
-beenden würde
+- Selection detection (previewer\_select.py): Wildcall  
+  protection – the function pointers read via the computed  
+  vtable offset (peek\_selection, get\_name, get\_uri) are  
+  checked against the executable address ranges of the Nemo  
+  libraries before the call (`/proc/self/maps`); a Nemo  
+  update with a shifted class layout thus leads to a  
+  cleanly disabled route instead of a wildcall that would  
+  kill Nemo
 
 ## \[0.9.1\] – 2026-10-27
 
-Sicherheits- und Redundanz-Audit über alle vier Module; keine neuen  
-Funktionen, Verhalten der Vorschauen unverändert.
+Security and redundancy audit across all four modules; no  
+new functions, preview behavior unchanged.
 
-### Fixed (Behoben)
+### Fixed
 
-- Crowbar-Race im Einstieg (previewer.py): Eine überholte  
-Location-Widget-Crowbar konnte nach einem Ordnerwechsel noch platziert  
-werden und den aktuellen Ordnerpfad mit dem alten Pfad überschreiben;  
-der Pfad wird jetzt ausschließlich synchron in `get_widget` gesetzt
-- Poll-Timer-Leck im Einstieg (previewer.py): Der 500-ms-Sicherheits-  
-Timer lief nach dem Schließen des Nemo-Fensters als Zombie weiter;  
-er wird jetzt am Fenster-„destroy"-Signal abgeräumt
-- Office-Konvertierung nach Panel-Abbau (previewer\_panel.py): Der  
-child-watch auf die LibreOffice-Konvertierung konnte noch auf das  
-bereits abgebaute Panel treffen; das Ergebnis wird jetzt verworfen  
-und nur der Temp-Ordner aufgeräumt
+- Crowbar race in the entry (previewer.py): An outdated  
+  location widget crowbar could still be placed after a  
+  folder change and overwrite the current folder path with  
+  the old path; the path is now set exclusively synchronously  
+  in `get_widget`
+- Poll timer leak in the entry (previewer.py): The 500-ms  
+  safety timer kept running as a zombie after the Nemo  
+  window closed; it is now cleaned up on the window's  
+  "destroy" signal
+- Office conversion after panel teardown  
+  (previewer\_panel.py): The child watch on the LibreOffice  
+  conversion could still hit the already dismantled panel;  
+  the result is now discarded and only the temp folder  
+  cleaned up
 
-### Changed (Geändert)
+### Changed
 
-- Redundanz-Aufräumung (previewer\_panel.py, Verhalten unverändert): Der  
-TextView-Bau (zuvor fünf Mal identisch: Text, Markdown, EML-Körper,  
-E-Book, Office-Textauszug), das gekappte Textdatei-Lesen (Text +  
-Markdown) und die Info-Tabelle (zuvor inline in EML-Kopf, Audio und  
-Video neben `_meta_grid`) nutzen jetzt die gemeinsamen Helfer  
-`_text_view`, `_read_text_file` und `_meta_grid`
-- Redundanz-Aufräumung (previewer\_select.py, Verhalten unverändert):  
-VTable-Schleife und TreeView-Fallback lesen den Dateinamen jetzt über  
-den gemeinsamen Helfer `_iface_file_name`; der Basename aus einer  
-URI über `_name_from_uri` (zuvor jeweils mehrfach identisch  
-implementiert)
-- Modul-Kopf des Einstiegs aktualisiert: Video zeigt seit 0.7.0/0.8.0  
-eine Kachel mit Öffnen-Knopf (nicht mehr „Erstframe als Standbild")  
-und Poppler rendert alle Seiten scrollbar (nicht mehr „die erste  
-Seite scharf")
+- Redundancy cleanup (previewer\_panel.py, behavior  
+  unchanged): The TextView building (previously five times  
+  identical: text, markdown, EML body, e-book, office text  
+  excerpt), the capped text file reading (text + markdown)  
+  and the info table (previously inline in the EML header,  
+  audio and video next to `_meta_grid`) now use the shared  
+  helpers `_text_view`, `_read_text_file` and `_meta_grid`
+- Redundancy cleanup (previewer\_select.py, behavior  
+  unchanged): The vtable loop and the TreeView fallback now  
+  read the file name via the shared helper `_iface_file_  
+  name`; the basename from a URI via `_name_from_uri`  
+  (previously each implemented identically several times)
+- Entry module header updated: Video shows a tile with an  
+  open button since 0.7.0/0.8.0 (no longer "first frame as  
+  still image") and Poppler renders all pages scrollable  
+  (no longer "the first page sharp")
 
 ## \[0.9.0\] – 2026-10-27
 
-### Added (Hinzugefügt)
+### Added
 
-- PDF-Vorschau: Seitenanzeige „Seite X/Y" über dem scrollbaren  
-Bereich (F14 aus planned.md) – beim Scrollen zählt sie auf die  
-Seite nach, deren Unterkante den oberen Rand des Sichtfensters  
-überschreitet, also die Seite, über der man gerade steht.  
-Einseitige PDFs zeigen keine Anzeige; bei mehrseitigen PDFs mit  
-mehr als MAX\_PDF\_PAGES Seiten bleibt zusätzlich der bestehende  
-Hinweis „Erste X von Y Seiten"
+- PDF preview: Page indicator "Page X/Y" above the  
+  scrollable area (F14 from planned.md) – while scrolling  
+  it counts up to the page whose bottom edge crosses the  
+  top edge of the viewport, i.e. the page you are over.  
+  Single-page PDFs show no indicator; for multi-page PDFs  
+  with more than MAX\_PDF\_PAGES pages the existing hint  
+  "First X of Y pages" remains in addition
 
-### Changed (Geändert)
+### Changed
 
-- PDF-Vorschau: Der Hinweis „N Seiten – Vorschau nach unten scrollen."  
-ist entfallen – die neue Seitenanzeige vermittelt die Zahl inzwischen  
-selbst
+- PDF preview: The hint "N pages – scroll down for the  
+  preview." is gone – the new page indicator conveys the  
+  number by now
 
 ## \[0.8.0\] – 2026-10-27
 
-### Removed (Entfernt)
+### Removed
 
-- Video-Wiedergabe im Panel (0.7.0–0.7.2): vollständig zurückgebaut.  
-Im Testfeld ließ sich das Bild nicht stabil in die Vorschauspalte  
-binden – ohne das Paket gstreamer1.0-gtk3 fehlt gtksink (der Playbin  
-öffnete dann sein eigenes Fenster), und der Appsink-Eigenbau zeigte  
-trotz Fenster- und Neuzeichnen-Fixes (0.7.1, 0.7.2) im Feld kein  
-Bild. Die Video-Vorschau zeigt wie gehabt die generische Kachel  
-(Petrol-Verlauf, Abspiel-Dreieck, Filmperforation) samt Datei-  
-Informationen; abgespielt wird über den Öffnen-Knopf im Medien-  
-programm der Wahl. Die Player-Leiste bleibt exklusiv für Musik,  
-die zentralen Bausteine (\_playbin\_set\_uri/\_player\_bar) bleiben für  
-einen späteren Neuversuch erhalten
+- Video playback in the panel (0.7.0–0.7.2): Fully  
+  dismantled. In the test field the picture could not be  
+  bound stably into the preview column – without the  
+  package gstreamer1.0-gtk3 gtksink is missing (the  
+  playbin then opened its own window), and the custom  
+  appsink build showed no picture in the field despite  
+  window and redraw fixes (0.7.1, 0.7.2). The video preview  
+  shows the generic tile as before (dark petrol gradient,  
+  play triangle, film perforation) along with the file  
+  information; playback runs via the open button in the  
+  media program of choice. The player bar remains  
+  exclusively for music, the central building blocks  
+  (\_playbin\_set\_uri/\_player\_bar) remain preserved for a  
+  later retry
 
 ## \[0.7.2\] – 2026-10-27
 
-### Fixed (Behoben)
+### Fixed
 
-- Video-Vorschau (Eigenbau-Ausgabe): Ton lief, aber das Bild blieb bei  
-der Platzhalter-Kachel – die DrawingArea wurde nach ihrem ersten  
-(leeren) Zeichnen nie wieder zum Neuzeichnen angestoßen. Der  
-Frame-Timer ruft jetzt nach jedem gezogenen Bild explizit das  
-Neuzeichnen (queue\_draw) auf
+- Video preview (custom sink output): Sound ran but the  
+  picture stayed at the placeholder tile – the DrawingArea  
+  was never prompted to redraw after its first (empty)  
+  draw. The frame timer now explicitly calls the redraw  
+  (queue\_draw) after each pulled frame
 
 ## \[0.7.1\] – 2026-10-27
 
-### Fixed (Behoben)
+### Fixed
 
-- Video-Vorschau: Das Bild der Wiedergabe erschien in einem EIGENEN  
-Fenster statt in der Vorschauspalte, wenn gtksink fehlt (Paket  
-gstreamer1.0-gtk3) – der Playbin fällt in dem Fall auf seinen  
-Standard-Videosink zurück, der eigenständig ein Fenster öffnet. Die  
-Video-Ausgabe ist jetzt dreistufig: gtksink, wenn installiert; sonst  
-eine eigene DrawingArea, die über einen appsink (videoconvert,  
-Roh-Frames in RGBA, ca. 30 Bilder/s) die Frames selbst in die  
-Vorschauspalte zeichnet – ohne Zusatzpaket, auf X11 wie auf Wayland;  
-erst wenn beides nicht möglich ist, läuft die Wiedergabe nur mit  
-Ton (fakesink). Ein separates Fenster öffnet sich nie wieder
+- Video preview: The playback picture appeared in its OWN  
+  window instead of the preview column when gtksink was  
+  missing (package gstreamer1.0-gtk3) – the playbin falls  
+  back to its default video sink in that case, which opens  
+  a window on its own. The video output is now three-stage:  
+  gtksink if installed; otherwise an own DrawingArea that  
+  draws the frames into the preview column itself via an  
+  appsink (videoconvert, raw frames in RGBA, approx.  
+  30 fps) – without an extra package, on X11 as on  
+  Wayland; only if both are impossible does playback run  
+  with sound only (fakesink). A separate window never  
+  opens again
 
 ## \[0.7.0\] – 2026-10-27
 
-### Added (Hinzugefügt)
+### Added
 
-- Video-Vorschau (F22, Abschluss): Dateien ohne eingebettetes Vor-  
-schaubild zeigen jetzt eine generische Kachel wie bei Musik –  
-dunkler Petrol-Verlauf, halbtransparentes Abspiel-Dreieck und  
-Filmperforation am oberen und unteren Rand, in doppelter Auflösung  
-gezeichnet (HiDPI-scharf); fehlt PangoCairo, greift ein  
-video-x-generic-Icon-Fallback
-- Video-Vorschau (F22, Abschluss): Videos sind im Panel abspielbar –  
-der Playbin steckt seinen Bildausgang in ein gtksink-Widget, das  
-unter der Kachel erscheint; die Player-Leiste (Play/Pause, Slider,  
-Position) ist mit der Musik-Vorschau geteilt. Fehlt gtksink (Paket  
-gstreamer1.0-gtk3), läuft die Wiedergabe nur mit Ton, mit Hinweis
-- planned.md: Arbeitsdatei mit Schwachstellen-Analyse (Stand 0.4.1) und  
-Feature-Vorschlägen inklusive Lösungsskizzen, Aufwandsschätzung und  
-empfohlener Abarbeitungs-Reihenfolge
-- planned.md: F19–F22 ergänzt (Vorschau-Toolbar am unteren Rand,  
-OCR-Knopf bei PDFs, Office→PDF-Knopf, Video-Platzhalterbild und  
-Wiedergabe im Panel) inklusive Roadmap-Erweiterung
+- Video preview (F22, conclusion): Files without an  
+  embedded thumbnail now show a generic tile as with music  
+  – dark petrol gradient, semi-transparent play triangle  
+  and film perforation at the top and bottom edge, drawn  
+  at double resolution (HiDPI-sharp); if PangoCairo is  
+  missing, a video-x-generic icon fallback applies
+- Video preview (F22, conclusion): Videos are playable in  
+  the panel – the playbin puts its picture output into a  
+  gtksink widget that appears below the tile; the player  
+  bar (play/pause, slider, position) is shared with the  
+  music preview. If gtksink is missing (package  
+  gstreamer1.0-gtk3), playback runs with sound only, with  
+  a hint
+- planned.md: Working file with weakness analysis (as of  
+  0.4.1) and feature proposals including solution  
+  sketches, effort estimates and recommended order of  
+  processing
+- planned.md: F19–F22 added (preview toolbar at the  
+  bottom edge, OCR button for PDFs, office→PDF button,  
+  video placeholder image and playback in the panel)  
+  including roadmap extension
 
-### Changed (Geändert)
+### Changed
 
-- INSTALL.md: Debian-13-Hinweise ergänzt – es gibt dort kein Paket  
-„python-gi“ (die Python-3-Bindings heißen python3-gi und werden von  
-nemo-python mitgezogen, das Cinnamon auf Debian nicht vorinstalliert);  
-SVG-Paketname auf gir1.2-rsvg-2.0 vereinheitlicht (gültig auf Mint  
-und Debian); getestet auf Debian 13 (Trixie)
+- INSTALL.md: Debian 13 notes added – there is no package  
+  "python-gi" there (the Python 3 bindings are called  
+  python3-gi and are pulled in by nemo-python, which  
+  Cinnamon does not preinstall on Debian); SVG package  
+  name unified to gir1.2-rsvg-2.0 (valid on Mint and  
+  Debian); tested on Debian 13 (Trixie)
 
-### Removed (Entfernt)
+### Removed
 
-- Video-Vorschau: die in 0.6.0 eingeführte Standbild-Extraktion aus der  
-Videospur (Playbin + videoconvert ! jpegenc ! appsink im Worker-Thread)  
-ist wieder entfernt – sie lieferte in der Praxis kein Bild, und der  
-Kontakt mit dem im Mint-22-Binding fehlenden Gst.PlayFlags ließ das  
-GI-Warm-up (und damit jede Video-Vorschau) mit AttributeError  
-abstürzen. Eingebettete Vorschaubilder aus den Tags werden weiterhin  
-angezeigt, wenn vorhanden
-
+- Video preview: the still image extraction from the video  
+  track introduced in 0.6.0 (playbin + videoconvert !  
+  jpegenc ! appsink in the worker thread) is removed again  
+  – in practice it produced no picture, and touching the  
+  Gst.PlayFlags missing in the Mint 22 binding crashed  
+  the GI warm-up (and with it every video preview) with an  
+  AttributeError. Embedded preview images from the tags  
+  keep showing if present
 ## \[0.6.0\] – 2026-10-27
 
-### Added (Hinzugefügt)
+### Added
 
-- Video-Vorschau: Standbilder werden jetzt selbst aus der Videospur  
-extrahiert, wenn die Datei kein eingebettetes Vorschaubild im Tag  
-trägt – was bei Serien- und Filmdateien fast immer der Fall ist  
-(der bisherige Weg über TAG\_PREVIEW\_IMAGE lief daher praktisch nie  
-auf ein Ergebnis, sichtbar nach dem Discoverer-Fix in 0.5.0). Ein  
-Playbin mit einer videoconvert ! jpegenc ! appsink-Kette wird im  
-Erkundungs-Hintergrundthread in den PAUSED-Zustand versetzt; nach  
-dem Preroll fließt genau ein JPEG als Bytes zurück und wird im  
-GTK-Thread dekodiert – die UI blockiert nicht (max. 8 s Wartezeit,  
-dann greift der Hinweis). Voraussetzung: gstreamer1.0-plugins-good  
-(jpegenc); Audio wird weggeworfen, nur die Videospur wird dekodiert.  
-F22 aus planned.md, Teil 1 (Platzhalter-Kachel und Wiedergabe im  
-Panel folgen später)
+- Video preview: Still images are now extracted from the  
+  video track itself if the file carries no embedded  
+  thumbnail in the tags – which is almost always the case  
+  for series and movie files (the previous route via  
+  TAG\_PREVIEW\_IMAGE therefore practically never produced a  
+  result, visible after the Discoverer fix in 0.5.0). A  
+  playbin with a videoconvert ! jpegenc ! appsink chain is  
+  put into the PAUSED state in the probing background  
+  thread; after the preroll exactly one JPEG flows back as  
+  bytes and is decoded in the GTK thread – the UI does not  
+  block (max. 8 s wait, then the hint applies).  
+  Requirement: gstreamer1.0-plugins-good (jpegenc); audio is  
+  discarded, only the video track is decoded. F22 from  
+  planned.md, part 1 (placeholder tile and playback in the  
+  panel follow later)
 
 ## \[0.5.1\] – 2026-10-27
 
-### Changed (Geändert)
+### Changed
 
-- Ordner-Vorschau (K1, bewusst als Kompromiss gelöst): Versteckte  
-Einträge werden weiterhin mitgezählt, aber jetzt transparent  
-ausgewiesen – der Hinweis lautet „Der Ordner enthält X Dateien,  
-davon X versteckt" (bei einem Eintrag in der Einzahl; ohne  
-versteckte Einträge entfällt der Zusatz, bei leeren bzw. nicht  
-lesbaren Ordnern erscheint „Der Ordner ist leer." bzw. „Ordner").  
-Vorher verschwieg „Ordner mit X Einträgen", ob versteckte Dateien  
-enthalten sind – die Zahl stimmte dann auch nicht mit dem sichtbaren  
-Bestand im Dateimanager überein
+- Folder preview (K1, deliberately solved as a compromise):  
+  Hidden entries keep being counted but are now reported  
+  transparently – the hint reads "The folder contains X  
+  files, X of them hidden" (singular for one entry; without  
+  hidden entries the addition is omitted, for empty or  
+  unreadable folders "The folder is empty." respectively  
+  "Folder" appears). Previously "Folder with X entries"  
+  concealed whether hidden files are contained – the number  
+  then also did not match the visible stock in the file  
+  manager
 
 ## \[0.5.0\] – 2026-10-27
 
-### Added (Hinzugefügt)
+### Added
 
-- Audio-Vorschau: Auch ohne eingebettetes Cover erscheint über den  
-Mediaschaltflächen jetzt eine Platzhalter-Kachel – diagonaler  
-Farbverlauf (dunkles Blaugrau nach dunklem Violett) mit halb-  
-transparentem Notensymbol und abgerundeten Ecken, in Cairo/Pango in  
-doppelter Auflösung gezeichnet (HiDPI-scharf); fehlt PangoCairo,  
-greift ein Icon-Fallback auf dunklem Grund. Dateien mit und ohne  
-Cover zeigen damit ein einheitliches Erscheinungsbild (aus  
-planned.md vorgezogen, dort als F18 geführt)
+- Audio preview: Even without an embedded cover a  
+  placeholder tile now appears above the media controls –  
+  diagonal color gradient (dark blue-gray to dark violet)  
+  with a semi-transparent music note symbol and rounded  
+  corners, drawn in Cairo/Pango at double resolution  
+  (HiDPI-sharp); if PangoCairo is missing, an icon fallback  
+  on dark ground applies. Files with and without cover  
+  thus show a uniform appearance (pulled forward from  
+  planned.md, listed there as F18)
 
-### Fixed (Behoben)
+### Fixed
 
-- Audio/Video: Tags, Länge und Cover erschienen nie – auch nicht in  
-früheren Versionen. Ursache war ein Binding-Fehler im Quellcode seit  
-der ersten Audio-Vorschau: Die synchrone Erkundung heißt im  
-Python-Binding discover\_uri() (C-Name gst\_discoverer\_discover\_uri,  
-OHNE „\_sync“); ein discover\_uri\_sync existiert nicht, der  
-AttributeError wurde still geschluckt. Das neue Platzhalter-Cover  
-machte den Altfehler erstmals sichtbar. Die Erkundung ruft jetzt den  
-korrekten Namen auf; zusätzlich werden die beteiligten GI-Klassen  
-einmalig im GTK-Thread „warmgefahren“ (PyGObject löst Method-  
-Tabellen lazy auf) und die Erkundung läuft im Worker als fertig  
-aufgelöstes Callable
+- Audio/video: Tags, duration and covers never appeared –  
+  not even in earlier versions. The cause was a binding  
+  error in the source code since the first audio preview:  
+  The synchronous probing is called discover\_uri() in the  
+  Python binding (C name gst\_discoverer\_discover\_uri,  
+  WITHOUT "\_sync"); a discover\_uri\_sync does not exist, the  
+  AttributeError was silently swallowed. The new  
+  placeholder cover made the old error visible for the  
+  first time. The probing now calls the correct name;  
+  additionally the involved GI classes are warmed up once  
+  in the GTK thread (PyGObject resolves method tables  
+  lazily) and the probing runs in the worker as a fully  
+  resolved callable
 
 ## \[0.4.3\] – 2026-10-27
 
-### Changed (Geändert) — Robustheits-Paket aus planned.md (R1–R8)
+### Changed — Robustness package from planned.md (R1–R8)
 
-- R1: Die Medien-Erkundung für Audio/Video (GStreamer-Discoverer)  
-blockierte den GTK-Main-Loop – bei langsam erreichbaren Medien (USB,  
-Netzlaufwerk) fror das Fenster bis zu 10 Sekunden ein. Sie läuft  
-jetzt in einem Hintergrund-Thread; das Panel zeigt sofort einen  
-„Lese Medien-Informationen"-Hinweis und bleibt bedienbar, das  
-Ergebnis schwenkt per Idle zurück in den Main-Loop
-- R2: PDF-Vorschau: Seite 1 wird sofort gerendert, die übrigen Seiten  
-(bis MAX\_PDF\_PAGES) werden je eine pro Idle-Durchlauf nachgeschoben –  
-auch große oder gescannte PDFs stehen augenblicklich im Panel
-- R3: Skalier-Designfalle behoben: Die Live-Skalierung mit der  
-Panelbreite kannte nur EIN Bild pro Vorschau (Einzel-Slot) – jedes  
-weitere skalierte Bild (z.B. Cover plus eingebettete Bilder) hätte  
-das erste überschrieben. Die Skalier-Parameter liegen jetzt als  
-Python-Daten je Bild in einer Liste; beliebig viele Bilder skalieren mit
-- R4: EPUB-Lesedeckel gegen Dekompressions-Bomben: Kapitel-Dokumente  
-werden mit 2-MB-Deckel, Cover mit 16-MB-Deckel gelesen – ein  
-winziges, riesig entpacktes XHTML im EPUB kann das Panel nicht mehr  
-für Sekunden blockieren
-- R6: EPUB3-Navigationsdateien (properties="nav") werden beim  
-Textsammeln übersprungen – vorher konnte das Inhaltsverzeichnis als  
-„Textanfang" angezeigt werden
-- R7 (eingeschränkt): MOBI-Datensatzgrenzen werden bereinigt – halb  
-zerrissene Mehrbyte-Sequenzen und Trailing-Entry-Reste am Datensatz-  
-Rand erzeugten sichtbaren Zeichensalat zwischen Absätzen. Bewusst  
-NICHT umgesetzt: die vollständige Rückwärts-Dekodierung der Trailer-  
-Größen; ohne Referenzmaterial wäre ein Dekodierfehler schlimmer als  
-der kosmetische Fehler (siehe planned.md)
-- R5: Der Font-Temp-Ordner (\~/.local/share/nemo-python … Prozess-Temp)  
-wuchs unbegrenzt – jede angesehene Schrift wurde bis zum Prozessende  
-auf der Platte gehalten. Der Ordner ist jetzt auf 64 Kopien gedeckelt;  
-fontconfig behält entfernte Schriften im Speicher, bereits gesehene  
-Wasserfälle bleiben korrekt
+- R1: The media probing for audio/video (GStreamer  
+  Discoverer) blocked the GTK main loop – for slowly  
+  reachable media (USB, network drive) the window froze  
+  for up to 10 seconds. It now runs in a background  
+  thread; the panel immediately shows a "Reading media  
+  information" hint and stays operable, the result swings  
+  back into the main loop via idle
+- R2: PDF preview: Page 1 renders immediately, the  
+  remaining pages (up to MAX\_PDF\_PAGES) are pushed in one  
+  per idle pass – even large or scanned PDFs stand in the  
+  panel instantly
+- R3: Scaling design trap fixed: The live scaling with the  
+  panel width knew only ONE image per preview (single  
+  slot) – every additional scaled image (e.g. cover plus  
+  embedded images) would have overwritten the first. The  
+  scaling parameters now sit as Python data per image in a  
+  list; any number of images scale along
+- R4: EPUB read caps against decompression bombs: chapter  
+  documents are read with a 2-MB cap, covers with a  
+  16-MB cap – a tiny, hugely inflated XHTML inside the  
+  EPUB can no longer block the panel for seconds
+- R6: EPUB3 navigation files (properties="nav") are skipped  
+  when collecting text – previously the table of contents  
+  could show up as the "text beginning"
+- R7 (limited): MOBI record boundaries are cleaned –  
+  half-torn multibyte sequences and trailing entry  
+  remnants at the record edge produced visible character  
+  garbage between paragraphs. Deliberately NOT implemented:  
+  the full backward decoding of the trailer sizes; without  
+  reference material a decoding error would be worse than  
+  the cosmetic flaw (see planned.md)
+- R5: The font temp folder (\\~/.local/share/nemo-python …  
+  process temp) grew unbounded – every viewed font was  
+  held on disk until the process ended. The folder is now  
+  capped at 64 copies; fontconfig keeps removed fonts in  
+  memory, already seen waterfalls stay correct
 
-### Beobachtungspunkt (kein Code-Fix)
+### Watch item (no code fix)
 
-- R8: Die Auswahl-Erkennung greift auf interne Nemo-Strukturen zu  
-(Klassen-VTable-Offsets). Nach Nemo-Updates das Log prüfen: Melden  
-alle vier Module ihre Version und erscheinen „Auswahl geändert …"-Zeilen,  
-ist alles gut; die Fallback-Kaskade (VTable → GI → ATK) fängt  
-Abweichungen ab. Dauerhaft in planned.md beobachtet
+- R8: The selection detection accesses internal Nemo  
+  structures (class vtable offsets). After Nemo updates  
+  check the log: If all four modules report their version  
+  and "Selection changed …" lines appear, all is well; the  
+  fallback cascade (vtable → GI → ATK) catches deviations.  
+  Kept under observation in planned.md permanently
 
 ## \[0.4.2\] – 2026-10-27
 
-### Fixed (Behoben) — Bug-Paket aus planned.md (B1–B5)
+### Fixed — Bug package from planned.md (B1–B5)
 
-- B1: Zwei Schriften mit gleichem Dateinamen aus verschiedenen Ordnern  
-überschrieben sich gegenseitig bei der Fontconfig-Übernahme – der  
-Zielname enthält jetzt einen Hash des Quellpfads, der Wasserfall  
-zeigt immer die angewählte Datei
-- B2: Der Audio-Player kannte sein Trackende nicht (kein Bus-Watch):  
-nach dem Ende blieb das Pause-Icon stehen und die Position fror ein;  
-jetzt springt die Anzeige auf 0:00 zurück, und Abspielfehler  
-erscheinen als Hinweis im Panel statt unsichtbar zu bleiben
-- B3: Der Positionstimer lief ewig weiter (auch nach Fensterabbau) und  
-wurde nie aufgeräumt – er läuft jetzt nur während der Wiedergabe und  
-wird beim Wechseln, Stoppen und Abbauen sauber entfernt
-- B4: War der Office-Cache unbeschreibbar (Disk voll, \~/.cache  
-read-only), konvertierte LibreOffice bei jeder Auswahl erneut – das  
-Dokument wird nun als gescheitert vermerkt und die fertige PDF wird  
-direkt aus dem Temp-Ordner angezeigt (nicht weggeworfen)
-- B5: MOBI-Dateien wurden vollständig in den Speicher gelesen – eine  
-500-MB-AZW3 konnte Nemo einfrieren; es wird nur der Kopf bis 8 MB  
-gelesen, die Text-Datensätze stehen ohnehin am Dateianfang
+- B1: Two fonts with the same file name from different  
+  folders overwrote each other at the fontconfig pickup –  
+  the target name now contains a hash of the source path,  
+  the waterfall always shows the selected file
+- B2: The audio player did not know its track end (no bus  
+  watch): after the end the pause icon stayed and the  
+  position froze; the display now jumps back to 0:00, and  
+  playback errors appear as a hint in the panel instead of  
+  staying invisible
+- B3: The position timer ran forever (even after window  
+  teardown) and was never cleaned up – it now runs only  
+  during playback and is cleanly removed on switching,  
+  stopping and teardown
+- B4: If the office cache was unwritable (disk full,  
+  \\~/.cache read-only), LibreOffice converted again on  
+  every selection – the document is now marked as failed  
+  and the finished PDF is shown directly from the temp  
+  folder (not thrown away)
+- B5: MOBI files were read fully into memory – a 500-MB  
+  AZW3 could freeze Nemo; only the head up to 8 MB is  
+  read, the text records sit at the file start anyway
 
 ## \[0.4.1\] – 2026-10-27
 
-### Fixed (Behoben)
+### Fixed
 
-- Schrift-Wasserfall zeigte die Ersatzschrift statt der eigentlichen  
-Familie: GTKs Standard-Pango-FontMap wird beim Start gebaut und  
-überliest Schriften, die später über Fontconfig hinzugefügt werden.  
-Der Wasserfall wird jetzt mit einem eigenen, frischen FontMap in  
-eine Pixbuf vorgerendert (Textfarbe aus dem Theme, doppelt  
-vorgerendert und mit der Panelbreite live herunterskaliert).
+- Font waterfall showed the fallback font instead of the  
+  actual family: GTK's default Pango font map is built at  
+  startup and misses fonts added later via fontconfig.  
+  The waterfall is now pre-rendered with its own fresh  
+  font map into a pixbuf (text color from the theme,  
+  pre-rendered at double size and scaled down live with  
+  the panel width).
 
-### Changed (Geändert)
+### Changed
 
-- Größte Wasserfall-Größe von 48 pt auf 36 pt reduziert
+- Largest waterfall size reduced from 48 pt to 36 pt
 
 ## \[0.4.0\] – 2026-10-27
 
-### Added (Hinzugefügt)
+### Added
 
-- Schriftarten-Vorschau als Wasserfall (.ttf, .otf, .ttc): Die Datei  
-wird nur für den laufenden Prozess über Fontconfig eingebunden  
-(FcConfigAppFontAddDir via ctypes – nichts wird installiert), der  
-Familien- und Stilname wird direkt aus der sfnt-Namens-Tabelle  
-gelesen, und ein Probetext zeigt die Schrift in den Größen 8 bis  
-48 pt. Kann Pango die Familie nicht finden, erscheint ein Hinweis  
-und der Wasserfall läuft mit der Ersatzschrift. Keine neuen  
-Paket-Abhängigkeiten.
+- Font preview as waterfall (.ttf, .otf, .ttc): The file is  
+  pulled into fontconfig only for the running process  
+  (FcConfigAppFontAddDir via ctypes – nothing is  
+  installed), the family and style name is read directly  
+  from the sfnt name table, and a sample text shows the  
+  font at sizes 8 to 48 pt. If Pango cannot find the  
+  family, a hint appears and the waterfall runs with the  
+  fallback font. No new package dependencies.
 
 ## \[0.3.1\] – 2026-10-27
 
-### Changed (Geändert)
+### Changed
 
-- Installationsanleitung als eigene Datei INSTALL.md (Englisch) im  
-Repository: Voraussetzungen, optionale Pakete je Vorschautyp,  
-Installation, Upgrade, Deinstallation und Fehlerbehebung. Die  
-entsprechenden Installations- und Deinstallations-Passagen wurden  
-aus den Modul-Docstrings entfernt; sie verweisen nun auf INSTALL.md.
+- Installation guide as its own file INSTALL.md (English) in  
+  the repository: requirements, optional packages per  
+  preview type, installation, upgrade, uninstallation and  
+  troubleshooting. The corresponding installation and  
+  uninstall passages were removed from the module  
+  docstrings; they now refer to INSTALL.md.
 
 ## \[0.3.0\] – 2026-10-26
 
-### Added (Hinzugefügt)
+### Added
 
-- E-Book-Vorschau (nur Python-Bordmittel, keine neuen Pakete):
-  - EPUB (.epub): Titel, Autor und Sprache aus der OPF-Inhaltsdatei,  
-  eingebettetes Cover (Manifest-Verweis oder Heuristik) und der  
-  Textanfang in Lesereihenfolge (Spine)
-  - FictionBook 2 (.fb2): Titel und Autor, Cover aus der eingebetteten  
-  base64-Ressource, Textanfang des Hauptkörpers
-  - MOBI (.mobi, .prc, .azw, .azw3): Titel, Autor aus dem EXTH-Header  
-  und Textanfang; PalmDoc-Entpackung in reinem Python; Dateien mit  
-  HUFF/CDIC-Kompression werden mit Hinweis abgelehnt
-  - unlesbare/kaputte E-Books zeigen einen Hinweis statt einer leeren  
-  Vorschau
-- Neue Konstante MAX\_EBOOK\_CHARS (30 000 Zeichen Textanfang je Buch)
+- E-book preview (Python built-ins only, no new packages):
+  - EPUB (.epub): title, author and language from the OPF  
+  content file, embedded cover (manifest reference or  
+  heuristic) and the text beginning in reading order  
+  (spine)
+  - FictionBook 2 (.fb2): title and author, cover from the  
+  embedded base64 resource, text beginning of the main  
+  body
+  - MOBI (.mobi, .prc, .azw, .azw3): title, author from  
+  the EXTH header and text beginning; PalmDoc  
+  decompression in pure Python; files with HUFF/CDIC  
+  compression are rejected with a hint
+  - unreadable/broken e-books show a hint instead of an  
+  empty preview
+- New constant MAX\_EBOOK\_CHARS (30 000 characters text  
+  beginning per book)
 
 ## \[0.2.2\] – 2026-10-26
 
-### Fixed (Behoben)
+### Fixed
 
-- SVG-Dateien wurden nicht angezeigt (GdkPixbuf-Fehler „Format konnte  
-nicht erkannt werden"): GdkPixbuf bringt seit Version 2.42 keinen  
-SVG-Loader mehr mit. SVGs werden jetzt über librsvg gerendert, falls  
-vorhanden (Paket gir1.2-rsvg); andernfalls erscheint ein Hinweis  
-statt einer Fehlermeldung. Auch nicht ladende Rasterbilder zeigen  
-nun einen Hinweis statt einer leeren Vorschau.
-- Der Office-Cache wurde nie geschrieben: os.replace scheitert still  
-mit „Ungültiger Link über Gerätegrenzen hinweg" (EXDEV), wenn /tmp  
-ein tmpfs auf einem eigenen Gerät liegt. Dadurch konvertierte  
-LibreOffice dasselbe Dokument bei jeder Auswahl erneut. Der Cache  
-nutzt jetzt shutil.move, das geräteübergreifend kopiert – jede  
-Konvertierung läuft nur noch einmal pro Dokument-Version.
+- SVG files were not shown (GdkPixbuf error "format could  
+  not be recognized"): GdkPixbuf ships no SVG loader  
+  anymore since version 2.42. SVGs are now rendered via  
+  librsvg if present (package gir1.2-rsvg); otherwise a  
+  hint appears instead of an error message. Non-loading  
+  raster images also now show a hint instead of an empty  
+  preview.
+- The office cache was never written: os.replace fails  
+  silently with "Invalid link across device boundaries"  
+  (EXDEV) when /tmp is a tmpfs on its own device.  
+  Because of that LibreOffice converted the same document  
+  again on every selection. The cache now uses  
+  shutil.move, which copies across devices – every  
+  conversion runs only once per document version.
 
 ## \[0.2.1\] – 2026-10-26
 
-### Fixed (Behoben)
+### Fixed
 
-- Markdown-Vorschau blieb bei Dateien mit `---`-Linien (YAML-Front-Matter,  
-Trennlinien) leer: ein Operator-Rangfolge-Fehler erzeugte ungültige  
-Pango-Markup-Tags, die GTK beim Einfügen still verwarf. Korrigiert;  
-zusätzlich wird das Markup vor dem Einfügen validiert – im Zweifel  
-erscheint nun der Rohtext statt einer leeren Vorschau.
+- Markdown preview stayed empty for files with `---` lines  
+  (YAML front matter, separators): an operator precedence  
+  error produced invalid Pango markup tags that GTK  
+  silently discarded on insert. Fixed; additionally the  
+  markup is validated before insertion – in doubt the raw  
+  text now appears instead of an empty preview.
 
 ## \[0.2.0\] – 2026-10-26
 
-### Added (Hinzugefügt)
+### Added
 
-- Markdown-Vorschau (.md) gerendert: Überschriften, Fett-/Kursivschrift,  
-Inline- und Block-Code, Listen, Zitate, Trennlinien und Links als  
-formatierter Text (Pango-Markup, ohne neue Paket-Abhängigkeiten)
-- EML-Vorschau (.eml): Kopfzeilen (Betreff, Von, An, Cc, Datum) als  
-Tabelle plus Textkörper – bevorzugt text/plain, andernfalls wird der  
-HTML-Teil zu lesbarem Text bereinigt (Python-Bordmittel)
+- Markdown preview (.md) rendered: headings, bold/italic,  
+  inline and block code, lists, quotes, separators and  
+  links as formatted text (Pango markup, without new  
+  package dependencies)
+- EML preview (.eml): headers (subject, from, to, cc,  
+  date) as a table plus body – preferring text/plain,  
+  otherwise the HTML part is cleaned into readable text  
+  (Python built-ins)
 
-### Fixed (Behoben)
+### Fixed
 
-- EXIF-Ausrichtung von Bildern wird jetzt immer angewendet: Fotos, die  
-die Drehung nur im Orientation-Tag tragen, wurden zuvor quer bzw. im  
-falschen Format dargestellt; die Pixel-Maße unter der Vorschau  
-zeigen jetzt die tatsächlich angezeigte Orientierung
+- EXIF orientation of images is now always applied: photos  
+  that carry the rotation only in the orientation tag were  
+  previously shown sideways or in the wrong format; the  
+  pixel dimensions below the preview now show the  
+  orientation actually displayed
 
 ## \[0.1.0\] – 2026-10-26
 
-Erste versionierte Fassung der Nemo-Extension „Previewer“.
+First versioned release of the Nemo extension "Previewer".
 
-### Added (Hinzugefügt)
+### Added
 
-- Angedocktes Vorschau-Panel rechts im Nemo-Fenster (Crowbar-Technik über  
-Nemo.LocationWidgetProvider und Gtk.Paned), Trenner frei verschiebbar
-- Vorschauen: Bilder, Text/Quellcode, PDF (alle Seiten untereinander  
-scrollbar, bis 20 Seiten), Audio (GStreamer-Player mit Play/Pause,  
-Positions-Slider und Seek), Video (Standbild, Tags, Dauer), Ordner und  
-Dateiinformationen für alles andere
-- Office-Dokumente scharf: LibreOffice-Konvertierung im Hintergrund nach  
-PDF, gecacht in \~/.cache/previewer; während der Konvertierung die  
-eingebettete Miniaturansicht mit Hinweis, das scharfe Ergebnis erscheint  
-automatisch; ohne LibreOffice Miniaturansicht aus dem Dokument-ZIP
-- Auswahl-Erkennung über NemoView.peek\_selection (Klassen-VTable), die  
-Nemo-Auswahl-API, Gtk.IconView/TreeView und ATK-Fallbacks; Auswahl-  
-Signale werden zur Laufzeit entdeckt und verbunden
-- Live-Skalierung der Vorschau mit der Panelbreite ohne Neu-Rendern
-- Panel ein-/ausblenden per Strg+Alt+P
-- Vier-Module-Struktur (previewer.py, previewer\_panel.py,  
-previewer\_select.py, previewer\_util.py) mit Versionsabgleich beim Start:  
-veraltete Dateien im Extension-Ordner werden im Terminal-Log sofort  
-als ACHTUNG-Meldung sichtbar
-- changelog.md und semantische Versionierung ab 0.1.0
+- Docked preview panel on the right in the Nemo window  
+  (crowbar technique via Nemo.LocationWidgetProvider and  
+  Gtk.Paned), divider freely draggable
+- Previews: images, text/source code, PDF (all pages  
+  scrollable, up to 20 pages), audio (GStreamer player  
+  with play/pause, position slider and seek), video  
+  (still image, tags, duration), folders and file  
+  information for everything else
+- Office documents sharp: LibreOffice conversion in the  
+  background to PDF, cached in \\~/.cache/previewer;  
+  during the conversion the embedded thumbnail with hint,  
+  the sharp result appears automatically; without  
+  LibreOffice the thumbnail from the document ZIP
+- Selection detection via NemoView.peek\_selection (class  
+  vtable), the Nemo selection API, Gtk.IconView/TreeView  
+  and ATK fallbacks; selection signals are discovered and  
+  connected at runtime
+- Live scaling of the preview with the panel width without  
+  re-rendering
+- Panel show/hide via Ctrl+Alt+P
+- Four-module structure (previewer.py, previewer\_panel.py,  
+  previewer\_select.py, previewer\_util.py) with version  
+  check at startup: outdated files in the extension  
+  folder become visible in the terminal log immediately  
+  as a WARNING message
+- changelog.md and semantic versioning from 0.1.0
 
-### Fixed (Behoben)
+### Fixed
 
-- Audio-Positions-Slider zog beim Abspielen nicht mit: Bei unbekannter  
-Stücklänge (Discoverer versagte) war der Slider-Bereich nur 0–1 und der  
-Timer konnte ihn nie bewegen; der Bereich wird jetzt aus der echten  
-Abspiellänge nachgezogen, und während der Nutzer am Slider zieht,  
-schiebt der Timer ihn nicht mehr weg
-- GstPbutils.Discoverer-Konstruktor auf neueren PyGObject-Builds ungültig  
-(jetzt Discoverer.new mit Fallback) – dadurch erscheinen jetzt  
-Titel/Interpret/Album, Stücklänge und Cover bei Audio und Video
+- Audio position slider did not move along during  
+  playback: With unknown track length (Discoverer failed)  
+  the slider range was only 0–1 and the timer could never  
+  move it; the range is now pulled from the real playback  
+  length, and while the user drags the slider the timer  
+  no longer pushes it away
+- GstPbutils.Discoverer constructor invalid on newer  
+  PyGObject builds (now Discoverer.new with fallback) –  
+  title/artist/album, track length and cover now appear  
+  for audio and video

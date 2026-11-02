@@ -807,7 +807,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
 ### Internationalisierung &amp; Release-Vorbereitung
 
-- [ ] **F49 – Alle Dateien ins Englische übersetzen** (Nutzer-Entscheid 2026-11-01)
+- [x] **F49 – Alle Dateien ins Englische übersetzen** (Nutzer-Entscheid 2026-11-01)
 
   Chatsprache bleibt Deutsch – ALLE Dateien ohne Ausnahme künftig  
   nur noch Englisch: UI-Texte (Hinweise, Ordner-Vorschau,  
@@ -830,6 +830,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ✅ previewer_render_text.py (2026-11-02) – ALLE 86 Docstrings (Modul-Helfer + Klasse TextRendererMixin + Methoden) als TXT-DOC-1…86 nach REFERENZ.md migriert + UI-Strings/Exceptions/dbg/Kommentare englisch (u. a. Meta-Tabellen-Labels, vCard-/EML-Labels, „Buchtitel“ → „Book title“, _FONT_SAMPLE_TEXT → englisches Pangramm) + _render_sqlite-Erfolg-dbg („%d tables“) nachgerüstet (Nutzer-Entscheid: mit F49 gebündelt). Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende.
   ✅ previewer_panel.py (2026-11-02) – ALLE 30 Docstrings (Modul-Helfer _sniff_is_text/_silhouette, Klasse PreviewPanel + 27 Methoden) als PAN-DOC-1…30 nach REFERENZ.md migriert + UI-Strings englisch (u. a. „Mit Standardanwendung öffnen“ → „Open with the default application“, Ordner-Liste „Der Ordner enthält …“ → „The folder contains …“, Paket-Installationshinweise PDF/Audio) + deutsche Bezeichner farbe/_surface_css_farbe → color/_surface_css_color umbenannt (F49: auch Code-Bezeichner englisch). Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende.
   ✅ previewer_render_media.py (2026-11-02) – ALLE 40 Docstrings (15 Modul-Helfer, Klasse MediaRendererMixin + 24 Methoden) als MED-DOC-1…40 nach REFERENZ.md migriert + UI-Strings/EXIF-/Audio-/Video-Labels englisch (u. a. Kameramodell→Camera, Belichtungszeit→Exposure time, Maße→Dimensions, Titel→Title, Interpret→Artist, Länge→Length, „Abspielfehler – … Öffnen-Knopf“→„Playback error – view the file via the open button“, SVG-/Bild-Fehlerhinweise, „%d von %d“→„%d of %d“) – README.md ist bereits englisch und wird übersprungen (Nutzer-Entscheid). Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende.
+  ✅ F49-Abschluss (2026-11-02) – Sammel-Bump auf 0.47.0 in allen 8 py-Modulen (Modul-Kopf + PREVIEWER_VERSION, byte-neutral); changelog [0.47.0]-Eintrag ergänzt (Soll 74332 B); media-Rest-Strings nachgebessert: „Lade Bild – einen Moment …“ → „Loading image – one moment …“, „Lese Medien-Informationen – einen Moment …“ → „Reading media information – one moment …“ (Deploy-Fund des Nutzers); README.md war bereits englisch. F49 damit abgeschlossen – Ab sofort gilt: keine neuen deutschen Inhalte in Projektdateien.
 
 - [ ] **F51 – Vorbereitung auf das erste Release (1.0.0)** (Nutzer-Wunsch 2026-11-01)
 
