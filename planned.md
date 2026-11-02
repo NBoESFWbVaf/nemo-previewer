@@ -240,7 +240,12 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   einfrieren oder den Speicher sprengen (die Vorschau parst  
   automatisch bei Auswahl). **M** – *Skizze:* Eingabe vor dem  
   Parsen auf DOCTYPE/ENTITY prüfen und ablehnen (eigener Guard)  
-  oder defusedxml einbinden (neue Abhängigkeit, möglichst vermeiden).
+  oder defusedxml einbinden (neue Abhängigkeit, möglichst vermeiden).  
+  ✅ 0.43.0: umgesetzt als Guard \_xml\_dtd\_rejected in previewer\_util –  
+  prüft die ersten 64 KB auf DOCTYPE-/ENTITY-Deklarationen und  
+  lehnt ab (dbg); aufrufend: EPUB-OPF, FB2, .contact (render\_text),  
+  Office-XML (render\_docs); defusedxml bewusst nicht eingebunden  
+  (Bordmittel).
 
 - [ ] **R11 – FB2 ohne Lese-Deckel** (\_render\_ebook, previewer\_render\_text.py; Sicherheitsaudit 2026-11-01)
 
@@ -248,7 +253,11 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Formate haben Deckel (EML 2 MB, vCard 8 MB, EPUB-Chunks 2 MB,  
   Office 2 MB); eine riesige FB2 blockiert die Vorschau. **M** –  
   *Skizze:* Kopf mit Deckel lesen (Muster \_EML\_FILE\_CAP), Rest nur  
-  bei Bedarf.
+  bei Bedarf.  
+  ✅ 0.43.0: umgesetzt – \_FB2\_FILE\_CAP (8 MB) nach EML/vCard-Muster;  
+  \_fb2\_data parst aus dem Puffer (fromstring statt parse),  
+  abgeschnittene Riesen-Dateien laufen in den Öffnen-Hinweis  
+  des Aufrufers.
 
 ### ⚪ Kosmetik
 
@@ -1229,7 +1238,15 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   \_SNIFF\_BINARY\_MIMES ersetzt \_OPAQUE\_TYPES; UTF-8-Decodier-  
   Probe als zweites Snüffel-Kriterium (≥ 30 % 8-Bit ohne gültiges  
   UTF-8 → Binär); dbg-Zeile je Snüffel-Treffer.  
-  Deploy bestätigt (2026-11-02): alle Textdateien erkannt und entsprechend gerendert, keine Auffälligkeiten.
+  Deploy bestätigt (2026-11-02): alle Textdateien erkannt und entsprechend gerendert, keine Auffälligkeiten.  
+  ✅ 0.43.0 – R10 + R11 Sicherheits-Paket (Nutzer-Auftrag 2026-11-02):  
+  XML-Entity-Guard \_xml\_dtd\_rejected in previewer\_util (erste 64 KB  
+  auf DOCTYPE-/ENTITY-Deklarationen prüfen, Ablehnung mit dbg) vor  
+  allen xml.etree-Stellen (EPUB-OPF, FB2, .contact in render\_text,  
+  Office-XML in render\_docs; container.xml läuft per Regex und war  
+  nie betroffen); FB2-Lese-Deckel \_FB2\_FILE\_CAP (8 MB, parst aus  
+  dem Puffer statt ElementTree.parse(path)); defusedxml bewusst  
+  nicht eingebunden.
 
 ---
 
@@ -1267,10 +1284,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                                                  | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-02, 0.42.1/0.42.2 deployt)
+## Aktuelle Reihenfolge (Stand 2026-11-02, 0.43.0 gebaut)
 
-1. **R10 + R11 – Sicherheits-Paket** (XML-Entity-Guard, FB2-Lese-  
-   Deckel): klein, vor allen Features – Ziel 0.43.0.
+1. **0.43.0 testen und deployen** – steht aus (R10 + R11 sind drin)  
+   und ist Voraussetzung für alles Weitere.
 2. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden,  
    damit neue Inhalte (B9, F50, F52–F54) gleich englisch entstehen;  
    je Datei eine Runde.
