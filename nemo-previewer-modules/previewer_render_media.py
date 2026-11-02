@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.48.2
+previewer_render_media.py – Version 0.48.3
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -1352,6 +1352,10 @@ class MediaRendererMixin:
         view.set_cursor_visible(False)
         view.set_monospace(True)
         view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        view.set_left_margin(10)
+        view.set_right_margin(10)
+        view.set_top_margin(10)
+        view.set_bottom_margin(10)
         buf = view.get_buffer()
         buf.set_text("collecting – one moment …")
         scroll = Gtk.ScrolledWindow()
@@ -1387,7 +1391,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "0.48.2"
+PREVIEWER_VERSION = "0.48.3"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
