@@ -6,6 +6,16 @@ versioning: [Semantic Versioning](https://semver.org/).
 
 ## \[Unreleased\]
 
+## \[0.48.1\] – 2026-11-02
+
+### Fixed
+
+- F50 – The "more" button keeps its button frame (NORMAL  
+  relief) – before, it looked like plain text until hover.  
+- F50 – exiftool spawn: index the spawn result (res[0]..res[3])  
+  instead of a 4-value unpack – PyGObject tuples vary in size  
+  and the unpack raised "too many values to unpack (expected 4)".
+
 ## \[0.48.0\] – 2026-11-02
 
 ### Added
