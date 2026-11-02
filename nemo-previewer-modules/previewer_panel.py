@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.44.0
+previewer_panel.py – Version 0.45.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -664,6 +664,18 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         elif (mime == "application/x-mobipocket-ebook"
               or lower.endswith((".mobi", ".prc", ".azw", ".azw3"))):
             self._render_mobi(path)
+        # F60: package formats (DEB, RPM, Pacman) – text module.
+        elif (mime in ("application/vnd.debian.binary-package",
+                       "application/x-debian-package",
+                       "application/x-deb")
+              or lower.endswith(".deb")):
+            self._render_deb(path)
+        elif (mime in ("application/x-rpm",
+                       "application/x-redhat-package-manager")
+              or lower.endswith(".rpm")):
+            self._render_rpm(path)
+        elif lower.endswith((".pkg.tar.xz", ".pkg.tar.zst")):
+            self._render_pkg(path)
         elif (mime in ("font/ttf", "font/otf", "font/collection",
                        "application/x-font-ttf", "application/x-font-otf",
                        "application/vnd.ms-opentype")
@@ -1387,7 +1399,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_apply_panel_width_live: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.44.0"
+PREVIEWER_VERSION = "0.45.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
