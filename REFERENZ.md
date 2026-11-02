@@ -573,7 +573,7 @@ except Exception:
 ### MED-SPLIT-1 – Spalten-Aufteilung 60/40 mit Live-Nachzug (F38)
 
 - **Modul:** previewer\_render\_media.py
-- **Ort:** `_pack_image_capped` mit Helfer `_image_split_sync`, genutzt von `_render_image` und `_render_svg`
+- **Ort:** `_pack_image_capped` mit Helfer `_image_split_sync`, genutzt von `_render_image`, `_render_svg` und seit F59 (0.44.0) `_render_ebook` (E-Books: Cover oben, Buch-Infos unten)
 - **Anlass:** Gtk.Box kennt keine Prozent-Aufteilung – expand ist ein Schalter, kein Verhältnis. Der Bildbereich trägt deshalb 60 % der Spaltenhöhe als Größenanforderung; ein size-allocate-Nachzug hält die Aufteilung beim Fenster-Resize aktuell. Mittig-Position macht halign/valign CENTER am Gtk.Image (NICHT am ScrolledWindow – der Streifen-Bug im 0.22.0-Test), der Info-Bereich expandiert und füllt den Rest (≈ 40 %).
 
 ```text
@@ -719,11 +719,11 @@ except Exception:
         # beiden Lesevorgänge nicht).
 ```
 
-### TXT-MOBI-1 – MOBI-Randbereinigung (R7)
+### TXT-MOBI-1 – MOBI-Randbereinigung (R7, mit F59 entfallen)
 
 - **Modul:** previewer\_render\_text.py
-- **Ort:** `_mobi_data`, über `_mobi_edge`
-- **Anlass:** MOBI-Datensätze tragen Schmutzbytes am Rand; eine vollständige Trailer-Dekodierung wäre ohne Referenzmaterial riskant.
+- **Ort:** ehemals `_mobi_text` über `_mobi_edge` (mit F59 entfernt)
+- **Anlass:** MOBI-Datensätze tragen Schmutzbytes am Rand; eine vollständige Trailer-Dekodierung wäre ohne Referenzmaterial riskant. Mit F59 (0.44.0) ist die E-Book-Textvorschau abgeschafft – \_mobi\_text, \_mobi\_edge und die PalmDoc-Entpackung sind entfernt; MOBI zeigt nur noch Buchtitel, Autor (EXTH) und Ebookformat, und ohne Text-Extraktion blockiert HUFF/CDIC nicht mehr. Der historische R7-Kommentar:
 
 ```text
     # R7: MOBI-Datensätze können am Rand Schmutzbytes tragen – halb
