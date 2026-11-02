@@ -113,7 +113,7 @@ class PreviewToolbarMixin:
         chk = Gtk.CheckButton(label="Show preview side panel at launch")
         chk.set_tooltip_text(
             "Uncheck to keep the preview side panel hidden after "
-            "Nemo starts (Ctrl+Alt+P shows it again at any time)"
+            "Nemo starts (Ctrl+Alt+P shows it again at any time)")
         chk.set_active(self._conf_show_at_start)
         chk.connect("toggled", self._on_show_at_start_toggled)
         fbox.pack_start(chk, False, False, 0)
@@ -124,7 +124,7 @@ class PreviewToolbarMixin:
             label="Show folder contents in the preview")
         chk.set_tooltip_text(
             "Uncheck to show only the plain folder icon with file "
-            "info instead of the contents list"
+            "info instead of the contents list")
         chk.set_active(self._conf_folder_contents)
         chk.connect("toggled", self._on_folder_contents_toggled)
         fbox.pack_start(chk, False, False, 0)
@@ -142,7 +142,7 @@ class PreviewToolbarMixin:
         self._settings_spin.set_tooltip_text(
             "Width of the preview side panel Nemo opens with at "
             "every start – dragging the divider applies only to "
-            "the current session"
+            "the current session")
         self._settings_spin.connect("value-changed",
                                     self._on_start_width_changed)
         wrow.pack_start(self._settings_spin, False, False, 0)
@@ -161,7 +161,7 @@ class PreviewToolbarMixin:
         ln.set_tooltip_text(
             "Line numbers in the left margin of the text preview. "
             "The numbers are drawn outside the text – only the "
-            "text itself is selected and copied."
+            "text itself is selected and copied.")
         ln.set_active(self._conf_text_linenumbers)
         ln.connect("toggled", self._on_linenumbers_toggled)
         fbox.pack_start(ln, False, False, 0)
@@ -172,7 +172,7 @@ class PreviewToolbarMixin:
         syn.set_tooltip_text(
             "Colour source code (.py, .sh, .c …) in the text preview – "
             "requires the optional package gir1.2-gtksource-4; "
-            "when unchecked, the plain text always shows."
+            "when unchecked, the plain text always shows.")
         syn.set_active(self._conf_text_syntax)
         syn.connect("toggled", self._on_syntax_toggled)
         fbox.pack_start(syn, False, False, 0)
@@ -190,7 +190,7 @@ class PreviewToolbarMixin:
         lim.set_tooltip_text(
             "Uncheck to display PDF and Office documents completely "
             "without a limit – with very large documents this "
-            "costs more memory and time."
+            "costs more memory and time.")
         lim.set_active(self._conf_doc_page_limit)
         lim.connect("toggled", self._on_doc_limit_toggled)
         fbox.pack_start(lim, False, False, 0)
@@ -208,7 +208,7 @@ class PreviewToolbarMixin:
         self._settings_pages_spin.set_tooltip_text(
             "Number of pages that PDF and Office previews show at "
             "most – applies live, also to the document currently "
-            "displayed."
+            "displayed.")
         self._settings_pages_spin.connect(
             "value-changed", self._on_doc_max_pages_changed)
         prow.pack_start(self._settings_pages_spin, False, False, 0)
@@ -229,7 +229,7 @@ class PreviewToolbarMixin:
         self._settings_font_entry.set_text(self._conf_font_sample_text)
         self._settings_font_entry.set_tooltip_text(
             "Text for the font preview – applies live to the font "
-            "currently displayed. Empty text stays unsaved."
+            "currently displayed. Empty text stays unsaved.")
         self._settings_font_entry.connect(
             "changed", self._on_font_sample_changed)
         frow.pack_start(self._settings_font_entry, True, True, 0)
