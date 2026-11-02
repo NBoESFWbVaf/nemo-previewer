@@ -2634,6 +2634,9 @@ varies by version (ValueError, then EBADF) – the data now
 comes from a worker thread: subprocess.Popen with an ARGV
 list (no shell), stderr merged in, buffer fed via
 GLib.idle_add (R9: no Gdk in the worker).
+0.48.3 (user wish): 10px inner padding via the TextView
+left/right/top/bottom margins – the scrollbar stays flush
+at the window edge (F46 IX lesson: padding, no margin).
 ```
 
 ---
