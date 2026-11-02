@@ -852,6 +852,198 @@ GtkSourceView guessing and packing stay with the panel.
         # it); the default/current hint line was dropped.
 ```
 
+### TB-DOC-1 – Docstring: PreviewToolbarMixin (class)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin` (class)
+- **Reason:** Class marker – toolbar mixin with action bar (F19) and settings window (F12).
+
+```text
+Mixin: action bar (F19) + settings window (F12) of the panel.
+```
+
+### TB-DOC-2 – Docstring: \_on\_settings\_clicked
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._on\_settings\_clicked` (method)
+- **Reason:** Settings button in the toolbar opens the configuration window.
+
+```text
+F19/F12 (0.12.0): the settings button in the toolbar opens the
+configuration window. All settings of the preview column will
+gather there over time; changes apply immediately and land in
+the configuration file without an extra button.
+```
+
+### TB-DOC-3 – Docstring: \_open\_settings\_window
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._open\_settings\_window` (method)
+- **Reason:** Single-instance configuration window; since 0.40.0 four section helpers build the frames.
+
+```text
+F12 (0.12.0): configuration window of the preview column. The
+frame is in place; all settings will gather here over time
+(F12 catalogue: panel width, document page limit, waterfall
+sample text …) – each with instant saving via _config_save.
+Only ONE instance: another click on the gear brings the
+existing window to the front. Since 0.40.0 four section
+helpers build the individual frames.
+```
+
+### TB-DOC-4 – Docstring: \_settings\_frame\_general
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._settings\_frame\_general` (method)
+- **Reason:** General section: start behaviour, folder contents list (F48), default width at launch.
+
+```text
+Section "General": start behaviour, folder contents list
+(F48) and the default width at launch (→ REF TB-F12-1).
+```
+
+### TB-DOC-5 – Docstring: \_settings\_frame\_text
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._settings\_frame\_text` (method)
+- **Reason:** Text files section: line numbers (F24) and syntax highlighting (F44).
+
+```text
+Section "Text files" (F24, 0.16.0): line numbers and syntax
+highlighting – applies only to the plain text preview;
+rendered previews (Markdown, e-mail, e-book, font) have no
+line numbers.
+```
+
+### TB-DOC-6 – Docstring: \_settings\_frame\_docs
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._settings\_frame\_docs` (method)
+- **Reason:** Documents section: PDF/Office page limit with maximum value (F12 part 3).
+
+```text
+Section "Documents" (F12 part 3, 0.27.0): PDF/Office page
+limit with maximum value – applies live and is saved
+immediately.
+```
+
+### TB-DOC-7 – Docstring: \_settings\_frame\_fonts
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._settings\_frame\_fonts` (method)
+- **Reason:** Fonts section: waterfall sample text (F12, 0.34.0).
+
+```text
+Section "Fonts" (F12, 0.34.0): waterfall sample text –
+applies live to the font currently displayed (→ REF
+TXT-FONT-2).
+```
+
+### TB-DOC-8 – Docstring: \_on\_folder\_contents\_toggled
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._on\_folder\_contents\_toggled` (method)
+- **Reason:** F48 toggle – saves immediately and re-renders folder previews live.
+
+```text
+F48 (user request): save the folder contents list immediately
+and apply it live – if a folder is currently selected, the
+preview rebuilds instantly (contents list ↔ plain folder
+icon); file previews stay untouched.
+```
+
+### TB-DOC-9 – Docstring: \_on\_font\_sample\_changed
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._on\_font\_sample\_changed` (method)
+- **Reason:** Waterfall sample text – saves and re-renders font previews live.
+
+```text
+F12 (0.34.0, user request): save the waterfall sample text
+immediately and apply it live – if a font is currently
+selected (.ttf/.otf/.ttc), the waterfall rebuilds instantly
+with the new text. Empty text stays unsaved.
+```
+
+### TB-DOC-10 – Docstring: \_on\_linenumbers\_toggled
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._on\_linenumbers\_toggled` (method)
+- **Reason:** F24 toggle – rebuilds every TextView-based preview in both directions.
+
+```text
+F24 (0.16.0): save line numbers immediately and apply them
+live. 0.16.2: every TextView-based preview is rebuilt (text,
+Markdown, EML, e-book, font – the _last_textish flag in the
+core is now generally True when the current preview is
+TextView-based), so the toggle works in BOTH directions –
+also when re-enabling. PDF, Office, audio, video, image and
+folder stay untouched and are not re-rendered.
+```
+
+### TB-DOC-11 – Docstring: \_on\_syntax\_toggled
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._on\_syntax\_toggled` (method)
+- **Reason:** F44 follow-up – same live mechanism for syntax highlighting.
+
+```text
+F44 follow-up (0.28.1, user request): save syntax
+highlighting immediately and apply it live – the same
+mechanism as the line-number toggle: only TextView-based
+previews rebuild, everything else stays untouched.
+```
+
+### TB-DOC-12 – Docstring: \_on\_doc\_limit\_toggled
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._on\_doc\_limit\_toggled` (method)
+- **Reason:** Page-limit toggle with SpinButton sensitivity and live re-render.
+
+```text
+F12 part 3 (0.27.0): document page limit on/off – save
+immediately and apply live. The page-count SpinButton is only
+operable with the limit active; a displayed document preview
+rebuilds instantly via the _last_docview flag.
+```
+
+### TB-DOC-13 – Docstring: \_on\_doc\_max\_pages\_changed
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._on\_doc\_max\_pages\_changed` (method)
+- **Reason:** Maximum page count, clamped to 1–999, saved live.
+
+```text
+F12 part 3 (0.27.0): maximum page count (1–999) – save
+immediately and apply live, like the line-number toggle.
+```
+
+### TB-DOC-14 – Docstring: \_rerender\_docs
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._rerender\_docs` (method)
+- **Reason:** Live-rebuild counterpart for document previews (\_last\_docview flag).
+
+```text
+F12 part 3 (0.27.0): rebuild the current PDF/Office page view
+live – the counterpart to the _last_textish flag of the line
+numbers: only document previews react, everything else
+(image, audio, text …) stays untouched.
+```
+
+### TB-DOC-15 – Docstring: \_on\_start\_width\_changed
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._on\_start\_width\_changed` (method)
+- **Reason:** F12 start width – the SpinButton is the only source since 0.41.0.
+
+```text
+F12 (0.13.0): new start width from the SpinButton – adopt
+immediately, apply live and save (no extra button). 0.41.0:
+the SpinButton is the ONLY source of the start width –
+dragging the divider does not change it.
+```
+
 ---
 
 ## Media (MED)
