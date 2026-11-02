@@ -769,6 +769,22 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   stale PDFs nach dem Wechsel); offen für weitere Renderer (z. B.  
   calligraconverter). F21 (Office→PDF-Knopf) nutzt denselben Backend.
 
+- [ ] **F59 – E-Book-Vorschau neu: Cover oben, Buch-Infos unten** (Nutzer-Wunsch 2026-11-02)
+
+  Die Vorschauspalte teilt sich wie bei Bildern (F38) in 60 % oben /  
+  40 % unten. Oben zeigt NUR das eingebettete Cover – ohne Cover  
+  zeichnet \_ebook\_placeholder ein Hochformat-Bild (Buchdeckel-Gerüst,  
+  themeneutral wie der vCard-Platzhalter). Unten die Info-Tabelle wie  
+  bei Bilddateien, nur Zeilen mit gesetzten Tags: Buchtitel, Autor,  
+  Teil einer Reihe (EPUB: calibre:series oder EPUB3 belongs-to-  
+  collection; FB2: sequence), Anzahl Seiten (nur bei page-count-Meta  
+  im OPF – kein Standard-Tag), Ebookformat, Sprache. Die Textvorschau  
+  ist abgeschafft (unschön gerendert, die Buch-Infos reichen);  
+  \_epub\_text, \_fb2\_body\_text, \_mobi\_text und der PalmDoc-  
+  Entpacker sind entfernt.  
+  ✅ 0.44.0: umgesetzt – \_render\_ebook auf 60/40-Split  
+  (\_pack\_image\_capped), Loader-Signatur jetzt (rows, cover).
+
 ### Internationalisierung &amp; Release-Vorbereitung
 
 - [ ] **F49 – Alle Dateien ins Englische übersetzen** (Nutzer-Entscheid 2026-11-01)
@@ -1248,6 +1264,16 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   dem Puffer statt ElementTree.parse(path)); defusedxml bewusst  
   nicht eingebunden.
 
+  ✅ 0.44.0 – F59 E-Book-Vorschau neu (Nutzer-Wunsch 2026-11-02):  
+  60/40-Split wie Bilder (F38) – oben nur das eingebettete Cover  
+  (EPUB laut Manifest, FB2 aus der base64-binary), ohne Cover  
+  gezeichnetes Hochformat (\_ebook\_placeholder); unten die  
+  Info-Tabelle nur mit gesetzten Tags (Buchtitel, Autor, Reihe,  
+  Seiten, Ebookformat, Sprache); Textvorschau abgeschafft  
+  (\_epub\_text, \_fb2\_body\_text, \_mobi\_text, PalmDoc-Entpacker  
+  entfernt); HUFF/CDIC blockiert nicht mehr – Titel und Autor  
+  zeigen sich jetzt auch bei AZW-Dateien.
+
 ---
 
 ## Empfohlene Reihenfolge
@@ -1284,10 +1310,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                                                  | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-02, 0.43.0 gebaut)
+## Aktuelle Reihenfolge (Stand 2026-11-02, 0.44.0 gebaut)
 
-1. **0.43.0 testen und deployen** – steht aus (R10 + R11 sind drin)  
-   und ist Voraussetzung für alles Weitere.
+1. **0.43.0 und 0.44.0 testen und deployen** – beide stehen aus  
+   (R10 + R11; F59 E-Book-Vorschau) – Voraussetzung für alles Weitere.
 2. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden,  
    damit neue Inhalte (B9, F50, F52–F54) gleich englisch entstehen;  
    je Datei eine Runde.
