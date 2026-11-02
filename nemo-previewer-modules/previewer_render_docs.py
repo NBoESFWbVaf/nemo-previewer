@@ -58,8 +58,8 @@ except Exception:
     SOFFICE = None
 
 # LibreOffice conversion cache: ~/.cache/previewer/<hash>.pdf
+# → REF DOC-DOC-1
 def office_cache_dir():
-    """Cache-Ordner ~/.cache/previewer (wird bei Bedarf angelegt)."""
     d = os.path.join(GLib.get_user_cache_dir(), "previewer")
     try:
         os.makedirs(d, exist_ok=True)
@@ -68,8 +68,8 @@ def office_cache_dir():
     return d
 
 
+# → REF DOC-DOC-2
 def office_cache_path(path):
-    """Cache-Pfad des konvertierten PDFs (Key = Hash des absoluten Pfads)."""
     key = hashlib.sha1(
         os.path.abspath(path).encode("utf-8", "replace")).hexdigest()
     return os.path.join(office_cache_dir(), key + ".pdf")
@@ -98,13 +98,8 @@ _OFFICE_TEXT_ENTRIES = (
 _OFFICE_MAX_TEXT_CHARS = 4000
 
 
+# → REF DOC-DOC-3
 def _extract_office_text(zf, names):
-    """
-    Textauszug aus einem Office-ZIP ziehen. ODF trägt den Inhalt in
-    content.xml (text:p/text:h/text:span), OOXML in word/document.xml
-    (w:p/w:t) – in beiden Fällen genügt das Sammeln der Textknoten,
-    Absätze werden als Zeilenumbrüche übernommen.
-    """
     entry = next((n for n in _OFFICE_TEXT_ENTRIES if n in names), None)
     if not entry:
         return ""
@@ -112,9 +107,9 @@ def _extract_office_text(zf, names):
         # 0.9.2: read caps against decompression bombs – the text
         # excerpt only needs the document start anyway.
         raw = _zf_read_capped(zf, entry, _OFFICE_XML_CAP)
-        # R10: Office-XML kommt ohne DTD aus – Entity-Guard vor
-        # dem Parsen; bei Ablehnung bleibt der Textauszug leer.
-        if _xml_dtd_rejected(raw, "Office-XML " + entry):
+        # R10: Office XML comes without a DTD – entity guard
+        # before parsing; on rejection the text excerpt stays empty.
+        if _xml_dtd_rejected(raw, "Office XML " + entry):
             return ""
         root = ElementTree.fromstring(raw)
     except Exception:
@@ -147,11 +142,11 @@ _OFFICE_XML_CAP = 2 * 1024 * 1024     # content.xml / word/document.xml
 # ========================= Renderer: documents ==============================
 
 
+# → REF DOC-DOC-4
 class DocsRendererMixin:
-    """Mixin: Renderer für PDF- und Office-Dokumente."""
 
+    # → REF DOC-DOC-5
     def _pdf_page_pixbuf(self, page, target_w):
-        """Eine PDF-Seite auf target_w Pixel Breite rendern (weiße Unterlage)."""
         pw, ph = page.get_size()
         # Render at double target width so live scaling stays sharp
         # while dragging; extreme pages get capped (space, memory).
@@ -173,14 +168,8 @@ class DocsRendererMixin:
         page.render(cr)
         return Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
 
+    # → REF DOC-DOC-6
     def _pdf_page_cap(self):
-        """
-        F12 Teil 3 (0.27.0): Wirksamer Deckel für die Dokument-Vorschau
-        – 0 heißt unbegrenzt, sonst die Anzahl anzeigbarer Seiten.
-        Einstellbar im Einstellungsfenster (Performance); fehlen die
-        Konfig-Werte (alte conf, fremdes Binding), gilt der bisherige
-        Zustand: Begrenzung mit MAX_PDF_PAGES.
-        """
         try:
             if not self._conf_doc_page_limit:
                 return 0
@@ -188,25 +177,12 @@ class DocsRendererMixin:
         except Exception:
             return MAX_PDF_PAGES
 
+    # → REF DOC-DOC-7
     def _render_pdf(self, path):
-        """
-        PDF-Vorschau scrollbar: alle Seiten (bis zum eingestellten
-        Deckel, sonst alle) werden untereinander in einem scrollbaren
-        Bereich gestapelt. Jede Seite wird in doppelter Panelbreite
-        gerendert und bei Breitenänderung – wie bei der Bild-Vorschau –
-        nur neu skaliert, nicht neu gerendert.
-        F14: Über dem Bereich zeigt ein dezentes Label „Seite X von Y“,
-        das beim Scrollen auf die Seite am oberen Sichtfensterrand
-        nachführt – seit 0.27.0 IMMER, auch einseitige Dokumente
-        zeigen „Seite 1 von 1“ (Nutzer-Wunsch).
-        R2: Seite 1 wird sofort synchron gerendert, die übrigen Seiten
-        piecewise im GLib-Idle nachgeschoben – das Panel steht auch bei
-        großen/gescannten PDFs augenblicklich, die UI friert nicht ein.
-        """
         doc = Poppler.Document.new_from_file(GLib.filename_to_uri(path), None)
         n = doc.get_n_pages()
         if n == 0:
-            pack_hint(self._content, "PDF enthält keine Seiten.")
+            pack_hint(self._content, "The PDF contains no pages.")
             return
         cap = self._pdf_page_cap()
         count = n if cap == 0 else min(n, cap)
@@ -234,12 +210,12 @@ class DocsRendererMixin:
         except Exception as exc:
             dbg("PDF page 1 not renderable: %s" % exc)
         if not self._pdf_src:
-            pack_hint(self._content, "PDF konnte nicht gerendert werden.")
+            pack_hint(self._content, "The PDF could not be rendered.")
             self._pdf_box = None
             return
         # F14: page indicator above the scrollable area – ALWAYS, even
         # one-page documents show "Page 1 of 1"; counts while scrolling.
-        self._pdf_page_label = Gtk.Label(label="Seite 1 von %d" % count)
+        self._pdf_page_label = Gtk.Label(label="Page 1 of %d" % count)
         self._pdf_page_label.get_style_context().add_class("dim-label")
         self._content.pack_start(self._pdf_page_label, False, False, 0)
         scroll = Gtk.ScrolledWindow()
@@ -255,17 +231,13 @@ class DocsRendererMixin:
             GLib.idle_add(self._pdf_idle_step, doc, path, src_w, count, 1,
                           self._pdf_gen)
         if n > count:
-            pack_hint(self._content, "Erste %d von %d Seiten – ganze Datei über den "
-                       "Öffnen-Knopf betrachten." % (count, n))
+            pack_hint(self._content, "First %d of %d pages – view the whole file "
+                       "via the open button." % (count, n))
         # → REF DOC-F14-1
         self._content.show_all()
 
+    # → REF DOC-DOC-8
     def _pdf_idle_step(self, doc, path, src_w, count, i, gen):
-        """R2: eine weitere PDF-Seite im Idle rendern (UI bleibt flüssig).
-        Der Index wird im Aufruf geführt, nicht aus len(self._pdf_src)
-        abgeleitet – sonst könnte ein Renderfehler zur Endlosschleife
-        werden. Rückkehr False: nicht automatisch wiederholen, der
-        Nachschub wird jeweils explizit neu angesetzt."""
         try:
             # Abort if a newer render pass ran meanwhile (generation
             # bumped) or the PDF view was disposed (stale check).
@@ -290,14 +262,8 @@ class DocsRendererMixin:
         GLib.idle_add(self._pdf_idle_step, doc, path, src_w, count, i, gen)
         return False
 
+    # → REF DOC-DOC-9
     def _on_pdf_scrolled(self, adj):
-        """
-        F14: Seitenanzeige beim Scrollen nachführen. Aktuell ist die
-        Seite, deren Unterkante den oberen Rand des Sichtfensters
-        überschreitet – die Seite, über der man gerade steht. Die
-        Koordinaten der Seiten-Images sind Box-Koordinaten und damit
-        direkt mit dem Stellwert des Scrollbalkens vergleichbar.
-        """
         imgs = self._pdf_imgs
         if not imgs or self._pdf_page_label is None:
             return False
@@ -309,11 +275,11 @@ class DocsRendererMixin:
                 page = i + 1
                 break
         self._pdf_page_label.set_text(
-            "Seite %d von %d" % (page, max(1, self._pdf_count)))
+            "Page %d of %d" % (page, max(1, self._pdf_count)))
         return False
 
+    # → REF DOC-DOC-10
     def _pdf_scale_one(self, src, img, target):
-        """Eine PDF-Seite auf die Zielbreite skalieren und zuweisen."""
         sw, sh = src.get_width(), src.get_height()
         f = min(float(target) / sw, 1.0)   # never upscale
         w = max(1, int(sw * f))
@@ -321,8 +287,8 @@ class DocsRendererMixin:
         img.set_from_pixbuf(
             src.scale_simple(w, h, GdkPixbuf.InterpType.BILINEAR))
 
+    # → REF DOC-DOC-11
     def _apply_pdf_scale(self):
-        """Alle PDF-Seiten an die aktuelle Panelbreite anpassen."""
         srcs = self._pdf_src
         imgs = self._pdf_imgs
         if not srcs or not imgs:
@@ -337,18 +303,8 @@ class DocsRendererMixin:
         except Exception as e:
             dbg("docs/_apply_pdf_scale: suppressed: %s" % e)
 
+    # → REF DOC-DOC-12
     def _render_office(self, path):
-        """
-        Office-Dokumente (ODT/ODS/ODP, DOCX/XLSX/PPTX; F39: auch
-        DOC/XLS/PPT und RTF) – scharfe Route:
-        Ist ein frisches LibreOffice-Konvertierungs-PDF im Cache, wird
-        dessen Seiten per Poppler scharf und in voller Panelbreite
-        gerendert (identisch zur PDF-Vorschau, scrollbar). Sonst
-        erscheint zunächst die eingebettete Miniaturansicht mit
-        Hinweis, und die Konvertierung läuft im Hintergrund los – das
-        scharfe Ergebnis zeigt sich automatisch, sobald es fertig ist.
-        Ohne LibreOffice/Poppler bleibt es bei der Miniaturansicht.
-        """
         if HAVE_POPPLER and SOFFICE:
             cached = self._office_cached_pdf(path)
             if cached:
@@ -370,15 +326,8 @@ class DocsRendererMixin:
             return
         self._render_office_thumb(path, converting=False)
 
+    # → REF DOC-DOC-13
     def _render_office_thumb(self, path, converting=False):
-        """
-        Übergangs-Ansicht für Office-Dokumente: die vom Dokument selbst
-        eingebettete Miniaturansicht (Thumbnails/thumbnail.png bzw.
-        docProps/thumbnail.*). Nur wenn KEINE Miniaturansicht vorhanden
-        ist, wird ersatzweise ein Textauszug gezeigt. Bei converting=True
-        läuft parallel die LibreOffice-Konvertierung – dann mit Hinweis.
-        Seit 0.40.0 lesen zwei Helfer Paketdaten und No-ZIP-Hinweis.
-        """
         # F39: office formats without a ZIP part (binary + RTF) – the
         # thumbnail/text route leads nowhere here (→ REF DOC-LEGACY-1).
         if os.path.splitext(path)[1].lower() in _OFFICE_NOZIP_EXTS:
@@ -390,7 +339,7 @@ class DocsRendererMixin:
             # K2 (2026-10-30): only the hint line looks empty – the
             # file icon gives the error message a visual anchor.
             self._render_generic()
-            pack_hint(self._content, "Office-Dokument konnte nicht geöffnet werden: %s" % e)
+            pack_hint(self._content, "The office document could not be opened: %s" % e)
             return
         shown = False
         if thumb:
@@ -413,38 +362,29 @@ class DocsRendererMixin:
             self._text_view(text, font="Monospace 9")
             shown = True
         if not shown:
-            pack_hint(self._content, "Keine eingebettete Vorschau und kein Text "
-                       "gefunden – Datei über den Öffnen-Knopf betrachten.")
+            pack_hint(self._content, "No embedded preview and no text "
+                       "found – view the file via the open button.")
         if converting:
-            pack_hint(self._content, "Scharfe Vorschau wird im Hintergrund erstellt "
-                       "(LibreOffice) – einen Moment …")
+            pack_hint(self._content, "Sharp preview is being created in the "
+                       "background (LibreOffice) – one moment …")
 
+    # → REF DOC-DOC-14
     def _office_nozip_hint(self, converting):
-        """
-        F39: Hinweiszeile für Office-Formate OHNE ZIP-Teil (binär
-        und RTF) – eingebettete Miniaturansichten gibt es dort nicht,
-        nur die LibreOffice-Konvertierung hilft (→ REF DOC-LEGACY-1).
-        """
         if converting:
-            pack_hint(self._content, "Scharfe Vorschau wird im Hintergrund "
-                       "erstellt (LibreOffice) – einen Moment …")
+            pack_hint(self._content, "Sharp preview is being created in the "
+                       "background (LibreOffice) – one moment …")
         elif SOFFICE and HAVE_POPPLER:
             # F39: conversion ran but produced no result (broken
             # file) – do not retry endlessly.
-            pack_hint(self._content, "Scharfe Vorschau konnte nicht erstellt "
-                       "werden – Datei über den Öffnen-Knopf "
-                       "betrachten.")
+            pack_hint(self._content, "The sharp preview could not be created "
+                       "– view the file via the open button.")
         else:
-            pack_hint(self._content, "Keine Vorschau möglich – LibreOffice "
-                       "installieren (Paket libreoffice-core), "
-                       "dann konvertiert die Vorschau schar.")
+            pack_hint(self._content, "No preview possible – install "
+                       "LibreOffice (package libreoffice-core), then the "
+                       "preview converts in sharp quality.")
 
+    # → REF DOC-DOC-15
     def _office_package_data(self, path):
-        """
-        Eingebettete Miniaturansicht und Textauszug aus dem Office-
-        ZIP-Paket lesen (0.9.2: Lese-Deckel gegen Thumbnail-Bomben) –
-        wirft bei unlesbarem Paket; Rückgabe (thumb|None, text).
-        """
         with zipfile.ZipFile(path) as zf:
             names = set(zf.namelist())
             thumb = None
@@ -462,8 +402,8 @@ class DocsRendererMixin:
 
     # --- Office: sharp preview via LibreOffice ------------------------------
 
+    # → REF DOC-DOC-16
     def _office_cached_pdf(self, path):
-        """Frisch konvertiertes PDF aus dem Cache oder None."""
         try:
             cache_pdf = office_cache_path(path)
             if (os.path.exists(cache_pdf)
@@ -474,15 +414,14 @@ class DocsRendererMixin:
             dbg("docs/_office_cached_pdf: suppressed: %s" % e)
         return None
 
+    # → REF DOC-DOC-17
     def _office_fail(self, path):
-        """Remember a failed conversion (B4: capped at 256 paths, the
-        set then resets – retry loop protection)."""
         self._office_failed.add(path)
         if len(self._office_failed) > 256:
             self._office_failed.clear()
 
+    # → REF DOC-DOC-18
     def _office_start_job(self, path):
-        """LibreOffice-Konvertierung im Hintergrund starten."""
         if self._office_job is not None:
             return          # a conversion is already running
         if not SOFFICE or not HAVE_POPPLER:
@@ -508,8 +447,8 @@ class DocsRendererMixin:
         GLib.child_watch_add(pid, self._office_job_done,
                              (path, tmpdir, out_pdf))
 
+    # → REF DOC-DOC-19
     def _office_job_done(self, pid, status, data):
-        """Konvertierung beendet: Ergebnis cachen, Vorschau auffrischen."""
         path, tmpdir, out_pdf = data
         self._office_job = None
         # 0.9.1: panel already torn down (window closed, tab gone) –
