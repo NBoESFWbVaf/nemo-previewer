@@ -2065,6 +2065,548 @@ dragging the divider does not change it.
         # resize then however falls back to the raster pixbuf.
 ```
 
+### MED-DOC-1 – Docstring: \_media\_gi\_warmup
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_media\_gi\_warmup` (module level)
+- **Reason:** R1 hardening – GI method tables resolved once in the GTK thread.
+
+```text
+R1 hardening: PyGObject builds the method tables of GI classes
+only on the FIRST attribute access. So that the discovery
+worker (which reads the media tags) finds stable conditions,
+the first contact with all involved classes happens once in
+the GTK thread (see _media_probe_async). The name
+discover_uri_sync is deliberately touched here as well: if it
+does not exist in the binding, that is not an error – the
+discovery then falls back to the correct name discover_uri.
+```
+
+### MED-DOC-2 – Docstring: \_exif\_read\_ifd
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_read\_ifd` (module level)
+- **Reason:** TIFF IFD reader with EXIF/GPS sub-IFDs (B7 depth cap).
+
+```text
+Read a TIFF IFD: collects tag→(type, raw bytes) and loads the
+special pointers ExifIFD (0x8769) and GPSIFD (0x8825) as
+sub-IFDs. depth dampens pointer madness (B7).
+```
+
+### MED-DOC-3 – Docstring: \_exif\_str
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_str` (module level)
+- **Reason:** ASCII tag value as text.
+
+```text
+ASCII field (type 2) as text or None.
+```
+
+### MED-DOC-4 – Docstring: \_exif\_num
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_num` (module level)
+- **Reason:** First numeric value of a tag (SHORT/LONG).
+
+```text
+First numeric value (SHORT/LONG) of a tag or None.
+```
+
+### MED-DOC-5 – Docstring: \_exif\_frac
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_frac` (module level)
+- **Reason:** RATIONAL tag value as float.
+
+```text
+RATIONAL/SRATIONAL (num/den) as float or None.
+```
+
+### MED-DOC-6 – Docstring: \_exif\_dms
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_dms` (module level)
+- **Reason:** GPS degrees/minutes/seconds to decimal degrees.
+
+```text
+GPS degrees/minutes/seconds (3 RATIONALS) to decimal degrees.
+```
+
+### MED-DOC-7 – Docstring: \_xmp\_clean
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_xmp\_clean` (module level)
+- **Reason:** F38 XML remain and entity cleanup for XMP values.
+
+```text
+F38: strip XML remains from XMP values; decode entities.
+```
+
+### MED-DOC-8 – Docstring: \_xmp\_parse
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_xmp\_parse` (module level)
+- **Reason:** F38 XMP parser with on-board tools (regex over the RDF/XML).
+
+```text
+F38 (user wish): read XMP fields from the JPEG APP1 segment
+with Python on-board tools (regex over the embedded RDF/XML,
+no new mandatory dependency – matching the EXIF parser). The
+return is a dict: “Location” (IPTC Core, element OR attribute
+form) plus user-defined fields from non-standardized
+namespaces as “prefix:name” – only present, non-empty values.
+```
+
+### MED-DOC-9 – Docstring: \_exif\_valid
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_valid` (module level)
+- **Reason:** F42 structure check of a TIFF candidate.
+
+```text
+F42: structure check of a TIFF candidate (42 magic optional –
+Olympus ORF carries “RO” instead of 42): IFD0 offset ≥ 8,
+entry count 1–4096, first IFD completely inside the buffer.
+```
+
+### MED-DOC-10 – Docstring: \_exif\_bases
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_bases` (module level)
+- **Reason:** F42 EXIF candidates over the whole buffer (HEIC/RAW included).
+
+```text
+F42 (user report): returns EXIF candidates in the WHOLE
+buffer – pairs (base offset, check the 42 magic). Three
+sources:
+1. “Exif” markers as in JPEG APP1 – HEIC/HEIF EXIF items
+   partly carry the same prefix, often in the middle or at
+   the end of the file; behind it, after F36 padding, follows
+   the TIFF head. RAWs with an embedded JPEG (RAF, RW2) come
+   in the same way.
+2. Direct TIFF heads (II*/MM*) – HEIC items without prefix,
+   plain TIFF and TIFF-based RAWs (NEF, CR2, ARW, DNG, PEF)
+   carry it from byte 0 or in a sub-block.
+3. Olympus ORF heads (IIRO/IIRS) – TIFF-like, without the 42
+   magic.
+Every candidate is validated (_exif_valid), duplicates drop
+out. A wrong “Exif” hit – the item type in the HEIC meta box
+is one – fails the validation or yields no EXIF; the next
+candidate wins. Exactly that is where F41 failed: the
+earliest “Exif” hit alone determined whether and where to
+search. Order: markers before direct heads, each by
+position.
+```
+
+### MED-DOC-11 – Docstring: \_exif\_parse
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_parse` (module level)
+- **Reason:** F36/F42 EXIF core extraction with on-board tools and vendor fallbacks.
+
+```text
+F36: core EXIF information from JPEG/TIFF bytes – with
+Python on-board tools, without a new mandatory dependency.
+Vendor peculiarities are caught by standard fallbacks (APEX
+instead of direct value, date cascade, GPS decimal degrees).
+The return is a dict with finished display texts – only
+present values.
+F42 (user report): candidate loop – _exif_bases collects
+validated TIFF candidates in the whole buffer, the first one
+with EXIF wins (HEIC/HEIF and RAW, → REF MED-EXIF-3).
+```
+
+### MED-DOC-12 – Docstring: \_exif\_bo
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_bo` (module level)
+- **Reason:** S8 byte order of the TIFF head.
+
+```text
+S8 (0.42.0): byte order of the TIFF head – None if head or
+magic do not fit (MM/II; 42 magic, Olympus ORF carries “RO”).
+```
+
+### MED-DOC-13 – Docstring: \_exif\_camera
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_camera` (module level)
+- **Reason:** F36 camera model with vendor prefix shortening.
+
+```text
+F36: camera model – many models repeat the vendor in the
+model name (“Canon” + “Canon EOS …”): shorten only then.
+```
+
+### MED-DOC-14 – Docstring: \_exif\_parse\_at
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_parse\_at` (module level)
+- **Reason:** F42/S8 EXIF at one TIFF base offset, per topic helper.
+
+```text
+F42: EXIF at ONE TIFF base offset – the formatting part of
+the F36 logic, called per candidate by the candidate loop.
+S8 (0.42.0): decomposed – _exif_bo checks the head, a small
+helper fills the dict per topic block (camera, date,
+exposure, aperture, focal length, ISO/dimensions, location);
+everything stays in a try against broken files.
+```
+
+### MED-DOC-15 – Docstring: \_exif\_rows
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_rows` (module level)
+- **Reason:** F42 photo rows from EXIF/XMP for image view and RAW fallback.
+
+```text
+F42: photo rows from EXIF/XMP – shared by the image view
+(below height/width) and the RAW fallback (below the icon).
+Only present values, order as in the image table.
+```
+
+### MED-DOC-16 – Docstring: MediaRendererMixin (class)
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin` (class)
+- **Reason:** Class marker – image/SVG/audio/video renderers.
+
+```text
+Mixin: renderers for image (including EXIF), SVG, audio and video.
+```
+
+### MED-DOC-17 – Docstring: \_pack\_image\_capped
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_pack\_image\_capped` (method)
+- **Reason:** F38 60/40 column split for image previews.
+
+```text
+F38 (user wish): for image previews the column is split into
+a 60 % area for the image (centered vertically and
+horizontally) and a 40 % area for the image information;
+between the two a separator. The height of the image area is
+kept live at 60 % of the column height.
+```
+
+### MED-DOC-18 – Docstring: \_image\_split\_sync
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_image\_split\_sync` (method)
+- **Reason:** F38 live follow-up of the 60 % image area.
+
+```text
+F38: pull the image area to 60 % of the column height.
+```
+
+### MED-DOC-19 – Docstring: \_rsvg\_cairo\_pb
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_rsvg\_cairo\_pb` (method)
+- **Reason:** K3 Cairo route – SVG rendered DPI-like at panel width.
+
+```text
+K3 (2026-10-30): render SVG over the Cairo route
+(render_document) DPI-like at the panel width – intrinsically
+small SVGs stayed tiny so far, and get_pixbuf() is deprecated
+in newer librsvg. The return is (pixbuf, (width, height)) in
+INTRINSIC pixels or None – the caller then falls back to the
+previous get_pixbuf() path.
+```
+
+### MED-DOC-20 – Docstring: \_render\_svg
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_render\_svg` (method)
+- **Reason:** SVG preview via librsvg with K3 Cairo route and old-path fallback.
+
+```text
+SVG preview via librsvg: GdkPixbuf cannot load SVG.
+K3 (2026-10-30): prefers the Cairo route (_rsvg_cairo_pb –
+DPI-like at panel width, render_document instead of the
+deprecated get_pixbuf()); if it fails (no pycairo, old
+librsvg, no intrinsic size), the old path takes over.
+The dimensions label shows the INTRINSIC size.
+```
+
+### MED-DOC-21 – Docstring: \_render\_image
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_render\_image` (method)
+- **Reason:** R9 two-stage image loading without UI blockade.
+
+```text
+R9 (0.10.2) with field fix (0.10.3): large images
+(typically 20 MB JPEGs with 50–100 megapixels) blocked the
+GTK main loop – reading, decoding and EXIF rotation ran
+synchronously in one go on selection, the UI stood still.
+Two-stage like the media (R1): (1) show a hint immediately,
+the UI stays usable; (2) the daemon thread reads ONLY the
+file (pure Python I/O) and passes the bytes back via
+GLib.idle_add. Decoding, EXIF rotation and scaling run back
+in the GTK thread – the 0.10.2 field test showed: Gdk
+objects (PixbufLoader) in the worker fail silently, the R1
+pattern “no Gdk objects in the worker” applies here too.
+The speed lever stays the decode cap
+max(2 × panel width, 1024): decoding becomes many times
+cheaper, the live scaling loses nothing (the source stays
+wider than any panel width, as with PDF R2 at 2-fold
+width). The bomb protection from 0.9.2 stays fully intact.
+If the thread start exceptionally fails, the old
+synchronous path runs as a lifeline.
+```
+
+### MED-DOC-22 – Docstring: \_image\_probe\_done
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_image\_probe\_done` (method)
+- **Reason:** R9 return of the worker bytes into the GTK thread.
+
+```text
+R9 return (0.10.3/0.10.4): decode the bytes read in the
+worker HERE in the GTK thread (same discipline as the media
+covers in _media_probe_done – Gdk objects are only created
+in the GTK thread). Decode cap target_w; if the selection
+has moved on, the result is silently discarded.
+If decoding fails, the synchronous at_scale fallback takes
+over (it caps the decoding internally and is therefore also
+bomb-proof); only when that fails too does the generic
+error hint appear.
+0.10.4: all widgets packed here sit AFTER the show_all() of
+the render pass – exactly as in _media_probe_done, the
+callback therefore needs its OWN show_all, otherwise the
+preview stays invisible (the field cause of the B7
+regression, overlooked in 0.10.2/0.10.3).
+```
+
+### MED-DOC-23 – Docstring: \_render\_audio
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_render\_audio` (method)
+- **Reason:** Audio preview – cover, tags and player bar.
+
+```text
+Audio preview: cover, tags and player bar.
+R1: tags, duration and cover are detected in the background
+thread (see _media_probe_async) – the panel appears
+immediately with a reading hint and stays usable, instead of
+freezing on the spot when the medium is slow to reach.
+```
+
+### MED-DOC-24 – Docstring: \_media\_probe\_async
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_media\_probe\_async` (method)
+- **Reason:** R1 media discovery in a daemon thread (discover_uri fix).
+
+```text
+R1: media discovery without UI blockade. The GStreamer
+discoverer runs in a daemon thread (tags, duration, image
+bytes – NO pixbuf, Gdk objects are only created back in the
+GTK thread) and swings the result into the main loop via
+GLib.idle_add; finish is the continuation
+(_finish_audio/_finish_video).
+
+R1 fix (0.5.0 test result): the synchronous discovery is
+called discover_uri() in the Python binding – the C name
+gst_discoverer_discover_uri is bound WITHOUT “_sync”; a
+discover_uri_sync does not exist (AttributeError). The
+tags/duration/cover discovery had therefore NEVER worked –
+the placeholder cover (F18) exposed the old bug for the
+first time. Additionally, the GI classes are warmed up once
+HERE in the GTK thread (PyGObject resolves method tables
+lazily) and the discovery runs in the worker as a fully
+resolved callable.
+```
+
+### MED-DOC-25 – Docstring: \_media\_probe\_done
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_media\_probe\_done` (method)
+- **Reason:** R1 return of the background discovery into the GTK main loop.
+
+```text
+R1: return of the background discovery into the GTK main loop.
+```
+
+### MED-DOC-26 – Docstring: \_media\_cover\_placeholder
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_media\_cover\_placeholder` (method)
+- **Reason:** F18/F22 generic tile for media without an embedded image.
+
+```text
+Generic tile for media without an embedded image: dark tile
+with a diagonal color gradient, a semi-transparent symbol and
+rounded corners – drawn at double resolution (640 px for a
+320 px display) so the tile stays sharp on HiDPI screens
+too. Music without a cover (F18) shows the note symbol,
+video without an embedded preview image (F22) the play
+triangle with film perforation at the top and bottom edge.
+Without PangoCairo (or on drawing errors) an icon fallback
+on a dark background takes over.
+```
+
+### MED-DOC-27 – Docstring: \_tag\_number\_pair
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_tag\_number\_pair` (method)
+- **Reason:** F33 (number, total) from the tag list, codec-dependent.
+
+```text
+F33: read (number, total) from the tag list – track number
+and disc number are packaged differently depending on the
+codec.
+```
+
+### MED-DOC-28 – Docstring: \_tag\_year
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_tag\_year` (method)
+- **Reason:** F33 release year over three date shapes.
+
+```text
+F33: release year – the original release takes precedence,
+otherwise the date tag is read as the year.
+```
+
+### MED-DOC-29 – Docstring: \_cover\_shadowed
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_cover\_shadowed` (method)
+- **Reason:** F34 cover with placeholder corners and drop shadow.
+
+```text
+F34: cover with placeholder corners and a small drop shadow.
+```
+
+### MED-DOC-30 – Docstring: \_finish\_audio
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_finish\_audio` (method)
+- **Reason:** R1 continuation – cover, player bar and info rows (F33 order).
+
+```text
+R1 continuation: build cover, player bar and info. F33
+(user wish): the bar sits with some distance BELOW the
+cover, the information follows underneath – no longer above
+it.
+```
+
+### MED-DOC-31 – Docstring: \_playbin\_set\_uri
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_playbin\_set\_uri` (method)
+- **Reason:** B2 playbin with bus watch – central building block.
+
+```text
+Create the playbin once and set the URI. B2: bus watch –
+without it the player does not know its track end (pause
+icon stayed, position froze) and playback errors remained
+invisible. Central building block – a later retry of video
+playback can reuse it unchanged.
+```
+
+### MED-DOC-32 – Docstring: \_player\_bar
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_player\_bar` (method)
+- **Reason:** B2/B3 player bar – play/pause, slider, position.
+
+```text
+Build and pack the player bar (play/pause, slider,
+position) – the central building block of the music preview
+(B2/B3).
+```
+
+### MED-DOC-33 – Docstring: \_on\_player\_eos
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_on\_player\_eos` (method)
+- **Reason:** B2 track end handling.
+
+```text
+Track end: back to the beginning, icon back to play (B2).
+```
+
+### MED-DOC-34 – Docstring: \_on\_player\_error
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_on\_player\_error` (method)
+- **Reason:** B2 silent stop on playback errors.
+
+```text
+Playback error: stop silently and report in the panel (B2).
+```
+
+### MED-DOC-35 – Docstring: \_ensure\_progress\_timer
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_ensure\_progress\_timer` (method)
+- **Reason:** B3 position timer, only while playing.
+
+```text
+Create the position timer if it is not running right now (B3).
+```
+
+### MED-DOC-36 – Docstring: \_render\_video
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_render\_video` (method)
+- **Reason:** Video preview – tile and info via R1 discovery.
+
+```text
+Video preview: tile and info.
+R1: discovery in the background thread (see
+_media_probe_async) – the UI stays usable immediately.
+Without an embedded preview image the generic tile appears
+as with music (F22). The panel playback from 0.7.0–0.7.2 was
+removed again in 0.8.0 – to play, the open button (media
+program of choice).
+```
+
+### MED-DOC-37 – Docstring: \_finish\_video
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_finish\_video` (method)
+- **Reason:** R1 continuation for the video preview.
+
+```text
+R1 continuation: build tile and info.
+```
+
+### MED-DOC-38 – Docstring: \_tick\_player
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_tick\_player` (method)
+- **Reason:** B3 position display tick while playing.
+
+```text
+Update the position display (B3: only during playback).
+```
+
+### MED-DOC-39 – Docstring: \_ensure\_seek\_range
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_ensure\_seek\_range` (method)
+- **Reason:** Slider range follow-up to the real duration.
+
+```text
+Adjust the slider range to the real duration (ns) if necessary.
+```
+
+### MED-DOC-40 – Docstring: \_update\_seek\_pos
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_update\_seek\_pos` (method)
+- **Reason:** Slider follow-up to the current position.
+
+```text
+Move the slider to the current position (ns).
+```
+
 ---
 
 ## Documents (DOC)
