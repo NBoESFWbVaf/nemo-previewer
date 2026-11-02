@@ -1276,7 +1276,8 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Office-XML in render\_docs; container.xml läuft per Regex und war  
   nie betroffen); FB2-Lese-Deckel \_FB2\_FILE\_CAP (8 MB, parst aus  
   dem Puffer statt ElementTree.parse(path)); defusedxml bewusst  
-  nicht eingebunden.
+  nicht eingebunden.  
+  Deploy bestätigt (2026-11-02): keine Auffälligkeiten.
 
   ✅ 0.44.0 – F59 E-Book-Vorschau neu (Nutzer-Wunsch 2026-11-02):  
   60/40-Split wie Bilder (F38) – oben nur das eingebettete Cover  
@@ -1286,7 +1287,8 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Seiten, Ebookformat, Sprache); Textvorschau abgeschafft  
   (\_epub\_text, \_fb2\_body\_text, \_mobi\_text, PalmDoc-Entpacker  
   entfernt); HUFF/CDIC blockiert nicht mehr – Titel und Autor  
-  zeigen sich jetzt auch bei AZW-Dateien.
+  zeigen sich jetzt auch bei AZW-Dateien.  
+  Deploy bestätigt (2026-11-02): keine Auffälligkeiten.
 
   ✅ 0.45.0 – F60 Paket-Vorschau (Nutzer-Wunsch 2026-11-02): DEB  
   (ar+control.tar), RPM (struct-Header) und Arch (.pkg.tar.xz über  
@@ -1295,6 +1297,16 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   scrollbar (pack\_meta\_grid wrap=True); zstd und RPM-cpio bleiben  
   außen vor (Bordmittel-Grenze); PKGBUILD/.SRCINFO laufen über die  
   Text-Vorschau. Dispatch: .deb/.rpm/.pkg.tar.xz/.pkg.tar.zst.
+
+  ✅ 0.45.1 – F60.1 Paket-Fixes (Nutzer-Test 0.45.0, 2026-11-02):  
+  (1) invalid header bei manchen .deb – die Kompression wurde am  
+  ar-Member-NAMEN geraten; jetzt snifft \_tar\_sniff\_mode die  
+  Magie-Bytes (gzip/xz/zstd) des Members selbst, und ar-Namen  
+  werden um IEEE-Trailingslashes bereinigt. (2) Wartezeit bei  
+  großen Paketen: Icon-Dekomprimier-Budget von 48 MB auf 8 MB  
+  gesenkt – die Info-Tabelle kommt sofort, das Icon bleibt best  
+  effort (Riesen-Payloads zeigen den Platzhalter).  
+  Deploy 0.45.0 getestet (2026-11-02): beide F60-Funde gefixt in 0.45.1.
 
 ---
 
@@ -1332,10 +1344,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                                                  | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-02, 0.45.0 gebaut)
+## Aktuelle Reihenfolge (Stand 2026-11-02, 0.45.1 gebaut)
 
-1. **0.43.0, 0.44.0 und 0.45.0 testen und deployen** – alle drei  
-   stehen aus (0.43.0: R10 + R11; 0.44.0: F59; 0.45.0: F60) – Voraussetzung für alles Weitere.
+1. **0.45.1 testen und deployen** – steht aus (F60.1: deb-Sniffing,  
+   Icon-Budget).
 2. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden,  
    damit neue Inhalte (B9, F50, F52–F54) gleich englisch entstehen;  
    je Datei eine Runde.
