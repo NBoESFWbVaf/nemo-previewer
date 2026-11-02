@@ -105,6 +105,38 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ✅ 0.12.1: umgesetzt wie skizziert (Resolver \_KEYFILE\_CLS +  
   \_KEYFILE\_FLAGS\_NONE auf Modulebene, dbg in beiden Pfaden).
 
+- [ ] **B9 – Bild-Informationen korrigieren** (previewer\_render\_media.py; Nutzer-Wunsch 2026-11-01)
+
+  Die in der Bild-Vorschau angezeigten Informationen sind zu  
+  korrigieren; die konkreten fehlerhaften Felder erheben wir beim  
+  Antritt der Runde (Nutzer meldet die falschen Angaben). *Skizze:*  
+  offen – nach Konkretisierung.
+
+- [ ] **B10 – Textdateien zuverlässig erkennen (.pub/.crt/.csr/.pref …)** (previewer\_panel.py; Nutzer-Fund 2026-11-02)
+
+  Lesbare Textdateien werden nicht gerendert: Die Erkennung  
+  vertraut auf MIME-Datenbank und Endungs-Whitelist  
+  (\_TEXT\_EXTRAS/\_OPAQUE\_TYPES); der Snüffel greift nur bei  
+  endungslosen Dateien (F23) und „opaque“-Typen (F47). Endungen  
+  wie .pub, .crt, .csr, .pref tippt die Datenbank weder text/*  
+  noch „opaque“ – trotz lesbarem Inhalt bleibt die Generic-  
+  Vorschau. *Skizze:* Snüffel als letzte Instanz – VOR dem  
+  Generic-Fallback IMMER \_sniff\_is\_text(path) befragen,  
+  unabhängig von Endung und MIME (Bilder/Töne/Videos/PDF/Fonts/  
+  Office bleiben durch die früheren Dispatch-Zweige draußen,  
+  zusätzlich kleine Binär-Blacklist: zip, gzip, x-7z-compressed,  
+  x-tar, x-executable, x-sharedlib); Snüffel um UTF-8-Decodier-  
+  Probe als zweites Kriterium ergänzen (nach NULL-Bytes und  
+  Steuerzeichen-Anteil); Whitelist bleibt nur fürs Syntax-  
+  Highlighting (GtkSource) zuständig; beim Antritt der Runde  
+  dbg-Befund je Beispiel-Endung erheben (geratener MIME +  
+  Snüffel-Ergebnis).  
+  ✅ 0.42.2: umgesetzt wie skizziert (Snüffel als letzte Instanz  
+  vor Generic, \_SNIFF\_BINARY\_MIMES-Blacklist, UTF-8-Decodier-  
+  Probe mit 30-%-Schwelle, dbg-Zeile je Snüffel-Treffer;  
+  \_OPAQUE\_TYPES entfallen, \_TEXT\_EXTRAS bleibt fürs Syntax-  
+  Highlighting).
+
 ### 🟡 Risiken
 
 - [x] **R1 – Discoverer synchron** (`_render_audio`, `_render_video`)
@@ -200,6 +232,23 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   zusätzlich scheiterte, war ohne Anzeige nicht unterscheidbar.  
   Die R1-Struktur (nur I/O im Thread) bleibt trotzdem die richtige  
   Basis. ✅ 0.10.4 zeigt das Ergebnis an.
+
+- [ ] **R10 – XML-Entity-Expansion (Billion Laughs)** (Sicherheitsaudit 2026-11-01: EPUB-OPF, FB2, .contact/EML-XML in previewer\_render\_text.py; OOXML in previewer\_render\_docs.py)
+
+  xml.etree expandiert interne DTD-Entities ohne Obergrenze – eine  
+  fremde Datei von wenigen KB kann die Vorschau beim Anklicken  
+  einfrieren oder den Speicher sprengen (die Vorschau parst  
+  automatisch bei Auswahl). **M** – *Skizze:* Eingabe vor dem  
+  Parsen auf DOCTYPE/ENTITY prüfen und ablehnen (eigener Guard)  
+  oder defusedxml einbinden (neue Abhängigkeit, möglichst vermeiden).
+
+- [ ] **R11 – FB2 ohne Lese-Deckel** (\_render\_ebook, previewer\_render\_text.py; Sicherheitsaudit 2026-11-01)
+
+  ElementTree.parse(path) liest die gesamte FB2 – alle anderen  
+  Formate haben Deckel (EML 2 MB, vCard 8 MB, EPUB-Chunks 2 MB,  
+  Office 2 MB); eine riesige FB2 blockiert die Vorschau. **M** –  
+  *Skizze:* Kopf mit Deckel lesen (Muster \_EML\_FILE\_CAP), Rest nur  
+  bei Bedarf.
 
 ### ⚪ Kosmetik
 
@@ -396,19 +445,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
 ### Neue Formate
 
-- [ ] **F3 – Archiv-Vorschau** (ZIP/TAR): Inhaltsliste, Anzahl,
-
-  Gesamtgröße – reine `zipfile`/`tarfile`-Bordmittel. **S**
-- [ ] **F4 – CBZ/CBR** (Comic = ZIP von Bildern): Seiten-Streifen wie
-
-  bei der PDF-Vorschau; CBR nur bei vorhandenem unrar. **M**
-- [ ] **F5 – Animated GIF/WebP abspielen**
-
-  (`GdkPixbuf.PixbufAnimation` → `Gtk.Image` statt Pixbuf). **S**
 - [ ] **F6 – SQLite-Datenbanken** (.db/.sqlite): Tabellenliste +
 
   Zeilenanzahl (stdlib `sqlite3`). **S**
-- [ ] **F7 – Visitenkarten: vCard/LDIF/Contact, ICS-Tabelle**
+- [ ] **F7 – Visitenkarten: vCard/LDIF/Contact**
 
   (Nutzer-Wunsch 2026-10-30) Alle gängigen Visitenkartenformate  
   (.vcf/.vcard, vCard 2.1/3.0/4.0; .ldif; .contact) werden als  
@@ -429,14 +469,45 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Drittel dezenter (56/960 statt 56/640 – auch Musikcover).  
   ✅ Teil 3 in 0.26.0 – (Nutzer-Hinweis): Karten-Deckel entfallen,  
   ALLE Kontakte erscheinen scrollbar; LDIF (.ldif) und Windows-  
-  Contact (.contact) als weitere Formate (→ REF TXT-VCARD-1).  
-  Offen: ICS – Termine als Tabelle (wie EML-Kopf). **S**
+  Contact (.contact) als weitere Formate (→ REF TXT-VCARD-1).
+- [ ] **F52 – Kalenderdateien (.ics): Termine als Tabelle** (entkoppelt aus F7, Nutzer-Wunsch 2026-11-01)
+
+  ICS-Dateien als Termintabelle (Muster EML-Kopf): Zusammenfassung,  
+  Datum/Zeit (Start/Ende), Ort, ggf. Beschreibung; mehrere Termine  
+  scrollbar untereinander, Deckel wie bei den Visitenkarten. **S**
 - [ ] **F8 – CSV als echte Tabelle** (Gtk.TreeView). **M**
 - [ ] **F9 – EXIF-Tabelle für Fotos** (Kamera, Datum, Belichtung). **M**
-- [ ] **F10 – Torrent-Dateien** (bencode-Parser, \~40 Zeilen). **S**
 - [ ] **F11 – WOFF1-Fonts** (zlib-entpackter sfnt → Wasserfall läuft
 
   mit). **S**
+- [ ] **F54 – EML: Anhänge anzeigen und extrahieren** (Nutzer-Wunsch 2026-11-01)
+
+  Die EML-Vorschau listet Anhänge (Name, Größe, Typ) und extrahiert  
+  sie auf Knopf in einen wählbaren Ordner (Gtk.FileChooserDialog,  
+  konfliktfreier Dateiname); MIME-Teile aus dem bestehenden Parser,  
+  Base64-Dekodierung mit email-Bordmitteln, Größen-Deckel wie bei  
+  den Text-Pfaden. **M**
+- [ ] **F56 – Tabellenkalkulationen als echte Tabelle (.ods/.xlsx)** (Nutzer-Wunsch 2026-11-01)
+
+  Spreadsheets zeigen wir bislang nur als LibreOffice-PDF (scharf,  
+  aber seitenweise und erst nach der Konvertierung); neu: native  
+  Tabelle im Stil von F8 (Gtk.TreeView) – sofort, ohne LibreOffice.  
+  **M** – *Skizze:* .xlsx und .ods sind ZIPs, die wir eh schon lesen  
+  (Miniatur/Text): xlsx über xl/workbook.xml, sharedStrings und  
+  worksheets (inkl. gecachte Formel-Ergebnisse), ods über content.xml;  
+  Parsen mit zipfile + xml.etree MIT dem R10-Guard (DOCTYPE/ENTITY  
+  prüfen – fremde Datei!); Deckel wie bei der Ordner-Liste (z. B.  
+  300 Zeilen × 30 Spalten mit Rest-Hinweis), Spaltenköpfe aus Zeile 1  
+  bzw. Spaltenbuchstaben, mehrere Blätter als Umschalter (Blatt 1/3);  
+  Einstellung in der Rubrik „Dokumente“ (an/aus – aus zeigt das PDF  
+  mit Formatierung); Spalten rücken nach: die Tabelle folgt der  
+  Breite der Vorschauspalte und rendert bei jedem Breitenwechsel  
+  neu (Ziehen am Trenner wie SpinButton – Muster \_last\_docview  
+  und \_last\_textish): Spaltenbreiten neu verteilt, mehr Platz  
+  zeigt mehr Spalten, Überhang horizontal scrollbar; .xls (BIFF,  
+  binär) bleibt LibreOffice-only (→  
+  F39-Form). Grenzen: keine Farben/verbundenen Zellen, Zahlenformate  
+  vereinfacht.
 
 ### Bedienung &amp; Komfort
 
@@ -464,9 +535,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Änderungen greifen live über den Merker \_last\_docview.  
   Offen: die übrigen Einstellungen (Wasserfall-Probetext …)  
   andocken.
-- [ ] **F13 – Knöpfe „Im Dateimanager zeigen" + „Pfad kopieren"** neben
+- [ ] **F13 – Knopf „Im Dateimanager zeigen“** neben
 
   Öffnen. **S**
+- [ ] **F53 – Knopf „Pfad kopieren“** (entkoppelt aus F13, Nutzer-Wunsch 2026-11-01)
+
+  Kopiert den Pfad der angezeigten Datei in die Zwischenablage  
+  (Gtk.Clipboard); Knopf neben „Im Dateimanager zeigen“ (F13). **S**
 - [x] **F14 – PDF-Seitenanzeige** „Seite 3/47" beim Scrollen. **S**
 
   ✅ 0.9.0: dezentes dim-Label über dem scrollbaren Bereich; beim  
@@ -480,7 +555,6 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 - [ ] \*\*F15 – Audio: Lautstärke-Slider; bei Mehrfachauswahl Titel
 
   vor/zurück.\*\* **S–M**
-- [ ] **F16 – Bild-Zoom**: Klick öffnet 1:1-Ansicht im Panel. **M**
 - [ ] **F17 – Panel links/rechts umschaltbar** (Crowbar parametrisieren).
 
   **M**
@@ -508,7 +582,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
   Kontextsensitive Knopfleiste unter dem Vorschaubereich; die  
   Renderer melden ihre Aktionen, statt Buttons frei im Inhalt zu  
-  streuen. Basis für F13 (Pfad kopieren), F20 (OCR), F21  
+  streuen. Basis für F13/F53 (Pfad kopieren), F20 (OCR), F21  
   (Office→PDF) und F24–F27 (Zeilennummern, Zeilenabstand,  
   Bild→PNG-mit-Alpha, Mehrfachauswahl-Aktionen). **M** – *Skizze:*  
   Gtk.ActionBar (oder ButtonBox) als fester Fuß der Spalte unter  
@@ -627,7 +701,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Nutzer-Wunsch: „wenn möglich und sinnvoll")  
   Die F19-Toolbar ggf. als fünftes Modul führen statt als Teil von  
   previewer\_panel.py. **S–M** – *Skizze:* Wird sinnvoll, sobald der  
-  Aktionen-Katalog wächst (F13, F20, F21, F24–F27): Eine eigene  
+  Aktionen-Katalog wächst (F13, F53, F20, F21, F24–F27): Eine eigene  
   Datei hält das Panel schlanker und die Toolbar isoliert testbar.  
   previewer\_toolbar importiert nur GTK + previewer\_util, NICHT das  
   Panel – das Panel instanziiert die Toolbar und meldet (Icon,  
@@ -644,27 +718,6 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Einstellungsfenster (F12) und Strg+Alt+P ist das Mixin-Modul  
   previewer\_toolbar.py (PreviewToolbarMixin) und importiert nur  
   GTK + previewer\_util, das Panel erbt – keine Zirkel-Imports.
-- [ ] **F22 – Video-Platzhalterbild + Wiedergabe im Panel**
-
-  Filmdateien ohne Standbild bekommen dieselbe generische Kachel wie  
-  Musik ohne Cover (Symbol z.B. Filmstreifen/Kamera statt Noten);  
-  wenn möglich soll der Film außerdem im Panel abspielbar sein wie  
-  Musik (Player-Leiste mit Position/Slider). **M–L** – *Skizze:*  
-  `_media_cover_placeholder` um ein Symbol-Parameter ergänzen;  
-  Wiedergabe über den bestehenden Playbin mit Gtk-Video-Sink  
-  (`Gst.ElementFactory.make("gtksink")` → `get_widget()` in eine  
-  DrawingArea unter dem Standbild packen), Player-Leiste und  
-  EOS/Timer-Logik aus `_finish_audio` wiederverwenden; ohne gtksink  
-  nur Ton mit Hinweis. ✅ Kachel in 0.7.0 (Abspiel-Dreieck +  
-  Filmperforation, Petrol-Verlauf) – besteht und bleibt. Die Standbild-  
-  Extraktion aus 0.6.0 (Teil 1) wurde in 0.7.0 wieder entfernt – sie  
-  lieferte nie ein Bild und ließ das GI-Warm-up am fehlenden  
-  Gst.PlayFlags des Mint-22-Bindings abstürzen. Die Wiedergabe war  
-  0.7.0–0.7.2 eingebaut (gtksink, Appsink-Eigenbau, Redraw-Fix) und  
-  wurde in 0.8.0 VOLLSTÄNDIG zurückgebaut: gtksink fehlt ohne  
-  gstreamer1.0-gtk3, der Eigenbau zeigte im Feld kein Bild. Später neu  
-  angehen; \_playbin\_set\_uri/\_player\_bar bleiben als Bausteine.
-
 - [x] **F44 – Syntax-Hervorhebung in der Text-Vorschau** (Nutzer-Wunsch). **M**
 
   ✅ 0.28.0: \_render\_text reicht source\_path an \_text\_view  
@@ -681,6 +734,89 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   umschaltbar (Rubrik „Textdateien", Schlüssel  
   text\_syntax), Default an – abgehakt zeigt sich immer der  
   schlichte Text; der Schalter greift live über \_last\_textish.
+
+- [ ] **F50 – Exiftool-Dialog für Bild-Details** (Nutzer-Wunsch 2026-11-01)
+
+  Link „weitere Informationen“ in der Bild-Vorschau, der ein Fenster  
+  mit allen restlichen Bildinformationen öffnet, geholt via  
+  exiftool. **M** – *Skizze:* exiftool per shutil.which prüfen (ohne  
+  exiftool Hinweis statt Link, Debian-Paket libimage-exiftool-perl);  
+  Aufruf als ARGV-Liste via GLib.spawn\_async wie bei LibreOffice  
+  (KEIN Shell-Interpret), Ausgabe mit Zeilen-Deckel in einen  
+  scrollbaren TextView.
+
+- [ ] **F55 – Office-Renderer frei wählbar (LibreOffice/OnlyOffice)** (Nutzer-Wunsch 2026-11-01)
+
+  Die scharfe Office-Vorschau (Hintergrund-Konvertierung ins Cache-PDF)  
+  soll nicht mehr fest an LibreOffice hängen: Der Nutzer wählt den  
+  Renderer im Einstellungsfenster (Auto/LibreOffice/OnlyOffice; conf-  
+  Schlüssel office\_renderer), Erkennung per shutil.which (soffice bzw.  
+  x2t aus onlyoffice-desktopeditors). **M–L** – *Skizze:* LibreOffice sitzt  
+  bereits an EINER Stelle (SOFFICE + \_render\_office → Cache-PDF); einen  
+  Converter-Schritt dazwischenlegen: OnlyOffice headless via x2t (XML-  
+  Parameterdatei mit m\_sFileFrom/m\_sFileTo), Aufruf als ARGV-Liste ohne  
+  Shell wie bei LibreOffice; Auto = Kette LibreOffice → OnlyOffice →  
+  Miniatur/Text wie heute; Cache-Schlüssel um den Renderer ergänzen (sonst  
+  stale PDFs nach dem Wechsel); offen für weitere Renderer (z. B.  
+  calligraconverter). F21 (Office→PDF-Knopf) nutzt denselben Backend.
+
+### Internationalisierung &amp; Release-Vorbereitung
+
+- [ ] **F49 – Alle Dateien ins Englische übersetzen** (Nutzer-Entscheid 2026-11-01)
+
+  Chatsprache bleibt Deutsch – ALLE Dateien ohne Ausnahme künftig  
+  nur noch Englisch: UI-Texte (Hinweise, Ordner-Vorschau,  
+  Einstellungsfenster, Toolbar), deutsche Docstrings (u. a. die  
+  Zerlegungs-Docstrings der 0.42.x-Runden), DIAG-Hinweistexte  
+  sowie changelog.md, planned.md, REFERENZ.md, INSTALL.md und  
+  README.md komplett; künftig keine neuen deutschen Inhalte mehr.  
+  **L** – *Skizze:* je Datei eine Übersetzungs-Runde mit Sichttest;  
+  UI-Texte zentral als Konstanten sammeln (Vorarbeit für echte  
+  i18n via gettext).
+
+- [ ] **F51 – Vorbereitung auf das erste Release (1.0.0)** (Nutzer-Wunsch 2026-11-01)
+
+  Vor dem Release abarbeiten: Versionsstand 1.0.0 in allen 8 py  
+  und den md-Dateien; git-Tag v1.0.0 + GitHub-Release (Beschreibung  
+  aus changelog.md); README.md finalisieren – die dort genannten  
+  Wünsche „Font aus der Vorschau installieren“ und  
+  „Office-Dokument per Knopf zu PDF“ einordnen (umsetzen oder aus  
+  dem README nehmen) und hier in planned erfassen; INSTALL.md an  
+  das Repo-Layout anpassen (die git-clone-Pfade sind noch stale);  
+  LICENSE prüfen; Byte-Verifikation aller 12 Dateien;  
+  VERBOSE\_DIAG-Default für den Release entscheiden.
+
+### Kompatibilität
+
+- [ ] **F57 – Gegen GTK4 prüfen** (Nutzer-Wunsch 2026-11-01)
+
+  Den Code regelmäßig gegen GTK4 prüfen, damit ein späterer Port  
+  möglich bleibt: Gtk-Deprecation-Warnungen im Log beobachten;  
+  keine in GTK4 entfernten APIs neu einführen (u. a. „draw“ →  
+  „snapshot“, Gdk.Screen → Gdk.Display/Gdk.Monitor, Container-  
+  add → \_set\_child/append, Event-Handler → Gesture-Controller);  
+  Bestandsaufnahme je Modul als REFERENZ-Abschnitt, wo im GTK4-  
+  Fall was anfällt – Nemo-API-Port (Caja) separat bewerten. **M**.
+
+### Audits vor dem Release
+
+- [ ] **F58 – Audit-Paket vor dem Release (1.0.0)** (Nutzer-Entscheid 2026-11-01)
+
+  Jeder noch offene Audit wird VOR dem Release (F51) abge-  
+  schlossen; Befunde laufen als neue Items in planned ein:  
+  (1) GTK4-Erstprüfung (F57); (2) Performance – Render-Zeiten je  
+  Format (große PDFs, Office-Konvertierung, volle Ordner) und  
+  Ladezeit des Einstiegs; (3) Speicher/Leaks – Signal-Handler  
+  und Referenzen bei den Live-Re-Renders (\_last\_docview und  
+  Co.), Pixbuf-Caches, Cache-Wachstum in ~/.cache/previewer/  
+  begrenzen; (4) Reentrancy/Threading – Klicks/Wechsel während  
+  laufender LibreOffice-Konvertierung, Timeout-ID-Disziplin;  
+  (5) a11y – erreichbare Rollen/States systematisch prüfen;  
+  (6) i18n-Vorarbeit – hardkodierte UI-Strings zählen und  
+  sammeln (bringt F49 mit); (7) Umgebungs-Matrix – Nemo-  
+  Versionen, Python-Minimum, Wayland vs. X11; (8) Lizenz-/  
+  Abhängigkeits-Audit (bleibt in F51 verankert). **L**.
+
 ---
 
 ## Teil 3: Nach dem ersten Release (1.0.0)
@@ -722,6 +858,26 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   beim ersten Erkennen einer zweiten Ansicht, bis A umgesetzt  
   ist – aus der stillen Verwirrung wird eine ehrliche Meldung.  
   Auch C erst nach dem Release angehen (stört nicht dringend).
+- [ ] **F22 – Video-Platzhalterbild + Wiedergabe im Panel**
+
+  Filmdateien ohne Standbild bekommen dieselbe generische Kachel wie  
+  Musik ohne Cover (Symbol z.B. Filmstreifen/Kamera statt Noten);  
+  wenn möglich soll der Film außerdem im Panel abspielbar sein wie  
+  Musik (Player-Leiste mit Position/Slider). **M–L** – *Skizze:*  
+  `_media_cover_placeholder` um ein Symbol-Parameter ergänzen;  
+  Wiedergabe über den bestehenden Playbin mit Gtk-Video-Sink  
+  (`Gst.ElementFactory.make("gtksink")` → `get_widget()` in eine  
+  DrawingArea unter dem Standbild packen), Player-Leiste und  
+  EOS/Timer-Logik aus `_finish_audio` wiederverwenden; ohne gtksink  
+  nur Ton mit Hinweis. ✅ Kachel in 0.7.0 (Abspiel-Dreieck +  
+  Filmperforation, Petrol-Verlauf) – besteht und bleibt. Die Standbild-  
+  Extraktion aus 0.6.0 (Teil 1) wurde in 0.7.0 wieder entfernt – sie  
+  lieferte nie ein Bild und ließ das GI-Warm-up am fehlenden  
+  Gst.PlayFlags des Mint-22-Bindings abstürzen. Die Wiedergabe war  
+  0.7.0–0.7.2 eingebaut (gtksink, Appsink-Eigenbau, Redraw-Fix) und  
+  wurde in 0.8.0 VOLLSTÄNDIG zurückgebaut: gtksink fehlt ohne  
+  gstreamer1.0-gtk3, der Eigenbau zeigte im Feld kein Bild. Später neu  
+  angehen; \_playbin\_set\_uri/\_player\_bar bleiben als Bausteine.
 - [ ] **F32 – Zusätzliche Informationen unterhalb des Bildes**
 
   (Nutzer-Wunsch 2026-10-29) Bild-Vorschauen jeglicher Art – AUS-  
@@ -1066,6 +1222,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   selection-changed zu loggen – Nemo 6 liefert die ATK-Selection-API  
   am ScrolledWindowAccessible nicht, die Ausnahmen sind erwartet.  
 
+  ✅ 0.42.2 – B10 Text-Erkennung (Nutzer-Entscheid): Schnüffler  
+  als letzte Instanz vor der Generic-Vorschau (unbekannte Endungen  
+  wie .pub/.crt/.csr/.pref sehen die Text-Vorschau);  
+  \_SNIFF\_BINARY\_MIMES ersetzt \_OPAQUE\_TYPES; UTF-8-Decodier-  
+  Probe als zweites Snüffel-Kriterium (≥ 30 % 8-Bit ohne gültiges  
+  UTF-8 → Binär); dbg-Zeile je Snüffel-Treffer.  
+
 ---
 
 ## Empfohlene Reihenfolge
@@ -1087,10 +1250,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 8e      | R9 – Große Bilder asynchron dekodieren + Dekodierung auf Anzeigegröße (vorgezogen, aus dem Testfeld gemeldet)                                                                                                                                                                           | ✅ 0.10.2 (Patch)                                                             |
 | 8f      | B7 – R9-Regression: Dekodierung zurück in den GTK-Thread (Feldtest 0.10.2)                                                                                                                                                                                                              | ✅ 0.10.3 (Patch; Teil des Fixes)                                             |
 | 8g      | B7 – fehlendes show\_all im Bild-Idle-Callback: eigentliche Feld-Ursache (R1-Muster nachgezogen)                                                                                                                                                                                        | ✅ 0.10.4 (Patch)                                                             |
-| 9       | K2, K5 (Kosmetik-Rest) + F3, F5, F12 (Favoriten: Archiv, GIF, Konfiguration)                                                                                                                                                                                                            | später (vorher 0.10.0)                                                       |
-| 10      | F4, F6–F11 nach Bedarf                                                                                                                                                                                                                                                                  | später                                                                       |
-| 11      | F13, F15–F17 + K3, K4, K6, K7 nach Bedarf                                                                                                                                                                                                                                               | später                                                                       |
-| 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + F25–F27 (Toolbar-Erweiterungen: Zeilenabstand, Bild→PNG-mit-Alpha, Mehrfachauswahl: PDFs zusammenfügen; F24 ✅ 0.16.0, F29 ✅ 0.15.0) + Neuversuch F22-Wiedergabe | später                                                                       |
+| 9       | K2, K5 (Kosmetik-Rest) + F12 (Konfiguration; F3/F5 am 2026-11-01 entfernt)                                                                                                                                                                                                              | später (vorher 0.10.0)                                                       |
+| 10      | F6, F8, F9, F11 nach Bedarf (F4/F10 am 2026-11-01 entfernt)                                                                                                                                                                                                                             | später                                                                       |
+| 11      | F13, F15, F17 + K6, K7 nach Bedarf (F16 am 2026-11-01 entfernt)                                                                                                                                                                                                                         | später                                                                       |
+| 12      | F19–F21 (Toolbar-Paket: Vorschau-Toolbar, OCR-Knopf bei PDFs, Office→PDF-Knopf; F19 zuerst, F20/F21 bauen darauf auf) + F25–F27 (Toolbar-Erweiterungen: Zeilenabstand, Bild→PNG-mit-Alpha, Mehrfachauswahl: PDFs zusammenfügen; F24 ✅ 0.16.0, F29 ✅ 0.15.0)                             | später                                                                       |
 | 12a     | F19 Teil 1 – Toolbar-Grundgerüst: statische ActionBar am unteren Rand, Einstellungs-Knopf (Zahnrad-Systemicon) rechts                                                                                                                                                                   | ✅ 0.11.0 (Minor)                                                             |
 | 12b     | F12 Teil 1 – Einstellungsfenster (öffnet über Zahnrad), Konfigurationsdatei \~/.config/nemo-previewer/nemo-previewer.conf mit sofortiger Speicherung + Anwendung bei jedem Start; erste Einstellung: Sichtbarkeit beim Start                                                            | ✅ 0.12.0 (Minor)                                                             |
 | 12c     | B8 – F12-Feld-Fix: GLib.KeyFile statt Gio.Keyfile (Persistenz war wirkungslos)                                                                                                                                                                                                          | ✅ 0.12.1 (Patch)                                                             |
@@ -1101,5 +1264,38 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 16      | K4-Feld-Fix – Tabellen-Gesamtbudget mit mehrzeiligem Zell-Umbruch, Emoji-Breite, Backslash-Escapes, maskierte Balken                                                                                                                                                                    | ✅ 0.14.1 (Patch; Feldtest 0.14.0)                                            |
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                                                  | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
+
+## Aktuelle Reihenfolge (Stand 2026-11-01, nach der Umstrukturierung)
+
+1. **0.42.1 testen und deployen** – steht aus und ist Voraussetzung  
+   für alles Weitere.
+2. **B10 – zuverlässige Text-Erkennung** (Snüffel als letzte Instanz,  
+   UTF-8-Decodier-Probe, Binär-Blacklist): VORGEZOGEN (Nutzer-  
+   Entscheidung 2026-11-02), direkt nach dem 0.42.1-Deploy –  
+   Bugfix-Paket, Ziel 0.42.2.
+3. **R10 + R11 – Sicherheits-Paket** (XML-Entity-Guard, FB2-Lese-  
+   Deckel): klein, vor allen Features – Ziel 0.43.0.
+4. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden,  
+   damit neue Inhalte (B9, F50, F52–F54) gleich englisch entstehen;  
+   je Datei eine Runde.
+5. **B9 + F50 – Bild-Runde**: B9 mit der Nutzer-Meldung der  
+   fehlerhaften Felder, darauf aufbauend der Exiftool-Dialog.
+6. **F52 + F54 – Text-Runde**: ICS-Termintabelle und EML-Anhänge  
+   zusammen (beide previewer\_render\_text.py).
+7. **F13 + F53 – Knopf-Runde**: „Im Dateimanager zeigen“ und  
+   „Pfad kopieren“ (je **S**).
+8. **Kleinzeug nach Bedarf**: F15, F17, F25, K5, K6, K7.
+9. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits  
+   (GTK4/F57, Performance, Speicher/Leaks, Reentrancy, a11y, i18n-  
+   Strings, Umgebungs-Matrix) – Befunde einplanen.
+10. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien,  
+   git-Tag v1.0.0, GitHub-Release.
+11. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane),  
+   F32, F37 – wie vereinbart im Branch erproben.
+
+Nicht eingeplant (Pool nach Bedarf): F1, F2, F6, F8, F9, F11, F20, F21,  
+F26, F27, F55, F56, F57 – F21 (Office→PDF-Knopf) spätestens bei F51 entscheiden  
+(README-Wunsch umsetzen oder aus dem README nehmen); F55 bündelt sich  
+gut mit F21 – beide nutzen denselben wählbaren Office-Backend.
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
