@@ -6,6 +6,22 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.42.2\] – 2026-11-02
+
+### Fixed (Behoben)
+
+- B10 – Textdateien zuverlässig erkennen (Nutzer-Fund): Der  
+  Schnüffler entscheidet als letzte Instanz vor der Generic-  
+  Vorschau über den INHALT – lesbare Dateien mit Endungen, deren  
+  geratener MIME-Typ weder text/\* noch „opaque“ war (.pub, .crt,  
+  .csr, .pref …), sehen jetzt die Text-Vorschau statt nur Icon;  
+  \_OPAQUE\_TYPES ist entfallen, bekannte Binär-Typen (zip, gzip,  
+  x-tar, x-7z, x-rar, x-executable, x-sharedlib …) stehen in der  
+  Blacklist \_SNIFF\_BINARY\_MIMES draußen; \_sniff\_is\_text hat  
+  die UTF-8-Decodier-Probe als zweites Kriterium (8-Bit-Dichte  
+  ohne gültiges UTF-8 ≥ 30 % → Binär); je Snüffel-Treffer loggt  
+  eine dbg-Zeile den geratenen MIME.
+
 ## \[0.42.1\] – 2026-11-01
 
 ### Fixed (Behoben)
