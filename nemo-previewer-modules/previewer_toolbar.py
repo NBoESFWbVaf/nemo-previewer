@@ -31,8 +31,8 @@ from previewer_util import (
 # =============================== Toolbar ====================================
 
 
+# → REF TB-DOC-1
 class PreviewToolbarMixin:
-    """Mixin: ActionBar (F19) + Einstellungsfenster (F12) des Panels."""
 
     def _build_toolbar(self, window):
         # --- F19: toolbar at the bottom of the preview column (0.11.0) ---
@@ -43,7 +43,7 @@ class PreviewToolbarMixin:
         self._toolbar = Gtk.ActionBar()
         self._btn_settings = Gtk.Button.new_from_icon_name(
             "preferences-system-symbolic", Gtk.IconSize.BUTTON)
-        self._btn_settings.set_tooltip_text("Einstellungen")
+        self._btn_settings.set_tooltip_text("Settings")
         self._btn_settings.set_relief(Gtk.ReliefStyle.NONE)
         self._btn_settings.connect("clicked", self._on_settings_clicked)
         self._toolbar.pack_end(self._btn_settings)
@@ -67,25 +67,12 @@ class PreviewToolbarMixin:
         except Exception as e:
             dbg("toolbar/_build_toolbar: suppressed: %s" % e)
 
+    # → REF TB-DOC-2
     def _on_settings_clicked(self, button):
-        """
-        F19/F12 (0.12.0): Einstellungs-Knopf der Toolbar öffnet das
-        Konfigurationsfenster. Dort sammeln sich künftig ALLE Einstel-
-        lungen der Vorschauspalte; Änderungen greifen sofort und
-        landen ohne Extra-Knopf in der Konfigurationsdatei.
-        """
         self._open_settings_window()
 
+    # → REF TB-DOC-3
     def _open_settings_window(self):
-        """
-        F12 (0.12.0): Konfigurationsfenster der Vorschauspalte. Der
-        Rahmen steht jetzt; hier sammeln sich künftig ALLE Einstel-
-        lungen (F12-Katalog: Panelbreite, Dokument-Deckel, Wasser-
-        fall-Probetext …) – jede mit sofortiger Speicherung via
-        _config_save. Nur EINE Instanz: ein erneuter Klick auf das
-        Zahnrad holt das bestehende Fenster nach vorn. Seit 0.40.0
-        bauen vier Rubrik-Helfer die einzelnen Abschnitte.
-        """
         if self._settings_win is not None:
             try:
                 self._settings_win.present()
@@ -93,7 +80,7 @@ class PreviewToolbarMixin:
             except Exception:
                 self._settings_win = None
         win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
-        win.set_title("Nemo-Previewer – Einstellungen")
+        win.set_title("Nemo-Previewer – Settings")
         try:
             win.set_transient_for(self._window)
         except Exception as e:
@@ -109,28 +96,24 @@ class PreviewToolbarMixin:
         box.pack_start(self._settings_frame_docs(), False, False, 0)
         box.pack_start(self._settings_frame_fonts(), False, False, 0)
 
-        btn_close = Gtk.Button.new_with_label("Schließen")
+        btn_close = Gtk.Button.new_with_label("Close")
         btn_close.connect("clicked", lambda *a: win.destroy())
         box.pack_start(btn_close, False, False, 0)
 
         win.show_all()
         self._settings_win = win
 
+    # → REF TB-DOC-4
     def _settings_frame_general(self):
-        """
-        Rubrik „Allgemein“: Start-Verhalten, Ordner-Inhaltsliste
-        (F48) und die Standardbreite beim Start (→ REF TB-F12-1).
-        """
-        frame = Gtk.Frame(label="Allgemein")
+        frame = Gtk.Frame(label="General")
         fbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         fbox.set_border_width(8)
         frame.add(fbox)
 
-        chk = Gtk.CheckButton(label="Vorschauspalte beim Start anzeigen")
+        chk = Gtk.CheckButton(label="Show preview side panel at launch")
         chk.set_tooltip_text(
-            "Abhaken, damit die Vorschauspalte nach dem Start von "
-            "Nemo zunächst ausgeblendet bleibt (Strg+Alt+P blendet "
-            "sie jederzeit wieder ein)")
+            "Uncheck to keep the preview side panel hidden after "
+            "Nemo starts (Ctrl+Alt+P shows it again at any time)"
         chk.set_active(self._conf_show_at_start)
         chk.connect("toggled", self._on_show_at_start_toggled)
         fbox.pack_start(chk, False, False, 0)
@@ -138,18 +121,17 @@ class PreviewToolbarMixin:
         # F48: folder contents list on/off – default on; off shows the
         # plain folder icon with file info (→ REF PAN-FOLDER-2).
         chk = Gtk.CheckButton(
-            label="Ordnerinhalte in der Vorschau anzeigen")
+            label="Show folder contents in the preview")
         chk.set_tooltip_text(
-            "Abhaken, damit markierte Ordner nur das schlichte "
-            "Ordner-Icon mit Dateiinformationen zeigen statt der "
-            "Inhaltsliste")
+            "Uncheck to show only the plain folder icon with file "
+            "info instead of the contents list"
         chk.set_active(self._conf_folder_contents)
         chk.connect("toggled", self._on_folder_contents_toggled)
         fbox.pack_start(chk, False, False, 0)
 
         # → REF TB-F12-1
         wrow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        lbl_width = Gtk.Label(label="Standardbreite beim Start")
+        lbl_width = Gtk.Label(label="Default width at launch")
         lbl_width.set_halign(Gtk.Align.START)
         wrow.pack_start(lbl_width, False, False, 0)
         adj = Gtk.Adjustment(value=self._panel_width,
@@ -158,72 +140,63 @@ class PreviewToolbarMixin:
         self._settings_spin = Gtk.SpinButton.new(adj, 1.0, 0)
         self._settings_spin.set_value(self._panel_width)
         self._settings_spin.set_tooltip_text(
-            "Breite der Vorschauspalte, mit der Nemo bei jedem Start "
-            "öffnet – Ziehen am Trenner gilt nur für die laufende "
-            "Sitzung")
+            "Width of the preview side panel Nemo opens with at "
+            "every start – dragging the divider applies only to "
+            "the current session"
         self._settings_spin.connect("value-changed",
                                     self._on_start_width_changed)
         wrow.pack_start(self._settings_spin, False, False, 0)
         fbox.pack_start(wrow, False, False, 0)
         return frame
 
+    # → REF TB-DOC-5
     def _settings_frame_text(self):
-        """
-        Rubrik „Textdateien“ (F24, 0.16.0): Zeilennummern und
-        Syntax-Hervorhebung – gilt nur die schlichte Text-Vorschau,
-        gerenderte Vorschauen (Markdown, E-Mail, E-Book, Font) haben
-        keine Zeilennummern.
-        """
-        frame = Gtk.Frame(label="Textdateien")
+        frame = Gtk.Frame(label="Text files")
         fbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         fbox.set_border_width(8)
         frame.add(fbox)
 
         ln = Gtk.CheckButton(
-            label="Zeilennummern anzeigen (nicht kopierbar)")
+            label="Show line numbers (not copyable)")
         ln.set_tooltip_text(
-            "Zeilennummern am linken Rand der Text-Vorschau. Die "
-            "Nummern sind eine Randzeichnung außerhalb des Texts – "
-            "ausgewählt und kopiert wird nur der Text selbst.")
+            "Line numbers in the left margin of the text preview. "
+            "The numbers are drawn outside the text – only the "
+            "text itself is selected and copied."
         ln.set_active(self._conf_text_linenumbers)
         ln.connect("toggled", self._on_linenumbers_toggled)
         fbox.pack_start(ln, False, False, 0)
         # F44: syntax highlighting as a switch – default on, saved
         # immediately and applied live.
         syn = Gtk.CheckButton(
-            label="Syntax-Hervorhebung in Quellcode-Dateien")
+            label="Syntax highlighting in source code files")
         syn.set_tooltip_text(
-            "Quellcode (.py, .sh, .c …) in der Text-Vorschau einfärben – "
-            "braucht das optionale Paket gir1.2-gtksource-4; abgehakt "
-            "zeigt sich immer der schlichte Text.")
+            "Colour source code (.py, .sh, .c …) in the text preview – "
+            "requires the optional package gir1.2-gtksource-4; "
+            "when unchecked, the plain text always shows."
         syn.set_active(self._conf_text_syntax)
         syn.connect("toggled", self._on_syntax_toggled)
         fbox.pack_start(syn, False, False, 0)
         return frame
 
+    # → REF TB-DOC-6
     def _settings_frame_docs(self):
-        """
-        Rubrik „Dokumente“ (F12 Teil 3, 0.27.0): PDF/Office-
-        Seitenbegrenzung mit Maximalwert – greift live und wird
-        sofort gespeichert.
-        """
-        frame = Gtk.Frame(label="Dokumente (PDF und Office)")
+        frame = Gtk.Frame(label="Documents (PDF and Office)")
         fbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         fbox.set_border_width(8)
         frame.add(fbox)
 
         lim = Gtk.CheckButton(
-            label="Vorschauseiten begrenzen (Performance)")
+            label="Limit preview pages (performance)")
         lim.set_tooltip_text(
-            "Abhaken, damit PDF- und Office-Dokumente ohne Begrenzung "
-            "komplett angezeigt werden – bei sehr großen Dokumenten "
-            "kostet das mehr Speicher und Zeit.")
+            "Uncheck to display PDF and Office documents completely "
+            "without a limit – with very large documents this "
+            "costs more memory and time."
         lim.set_active(self._conf_doc_page_limit)
         lim.connect("toggled", self._on_doc_limit_toggled)
         fbox.pack_start(lim, False, False, 0)
 
         prow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        lbl_pages = Gtk.Label(label="Maximale Seitenzahl")
+        lbl_pages = Gtk.Label(label="Maximum number of pages")
         lbl_pages.set_halign(Gtk.Align.START)
         prow.pack_start(lbl_pages, False, False, 0)
         padj = Gtk.Adjustment(value=self._conf_doc_max_pages,
@@ -233,35 +206,30 @@ class PreviewToolbarMixin:
         self._settings_pages_spin.set_value(self._conf_doc_max_pages)
         self._settings_pages_spin.set_sensitive(self._conf_doc_page_limit)
         self._settings_pages_spin.set_tooltip_text(
-            "Anzahl der Seiten, die PDF- und Office-Vorschauen höchstens "
-            "untereinander zeigen – greift live, auch für das gerade "
-            "angezeigte Dokument.")
+            "Number of pages that PDF and Office previews show at "
+            "most – applies live, also to the document currently "
+            "displayed."
         self._settings_pages_spin.connect(
             "value-changed", self._on_doc_max_pages_changed)
         prow.pack_start(self._settings_pages_spin, False, False, 0)
         fbox.pack_start(prow, False, False, 0)
         return frame
 
+    # → REF TB-DOC-7
     def _settings_frame_fonts(self):
-        """
-        Rubrik „Schriftarten“ (F12, 0.34.0): Wasserfall-Probetext –
-        greift live auf die gerade angezeigte Schrift (→ REF
-        TXT-FONT-2).
-        """
-        frame = Gtk.Frame(label="Schriftarten")
+        frame = Gtk.Frame(label="Fonts")
         frame.set_border_width(8)
         frow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                        spacing=8)
         frame.add(frow)
-        flabel = Gtk.Label(label="Wasserfall-Probetext")
+        flabel = Gtk.Label(label="Waterfall sample text")
         flabel.set_halign(Gtk.Align.START)
         frow.pack_start(flabel, False, False, 0)
         self._settings_font_entry = Gtk.Entry()
         self._settings_font_entry.set_text(self._conf_font_sample_text)
         self._settings_font_entry.set_tooltip_text(
-            "Text für die Schrift-Vorschau – greift live auf die "
-            "gerade angezeigte Schrift. Leerer Text bleibt "
-            "ungespeichert.")
+            "Text for the font preview – applies live to the font "
+            "currently displayed. Empty text stays unsaved."
         self._settings_font_entry.connect(
             "changed", self._on_font_sample_changed)
         frow.pack_start(self._settings_font_entry, True, True, 0)
@@ -277,25 +245,15 @@ class PreviewToolbarMixin:
         self._conf_show_at_start = chk.get_active()
         self._config_save()
 
+    # → REF TB-DOC-8
     def _on_folder_contents_toggled(self, chk):
-        """
-        F48 (Nutzer-Wunsch): Ordner-Inhaltsliste sofort speichern
-        und live anwenden – ist gerade ein Ordner markiert, baut
-        sich die Vorschau sofort um (Inhaltsliste ↔ schlichtes
-        Ordner-Icon); Datei-Vorschauen bleiben unberührt.
-        """
         self._conf_folder_contents = chk.get_active()
         self._config_save()
         if self._path and os.path.isdir(self._path):
             self._render()
 
+    # → REF TB-DOC-9
     def _on_font_sample_changed(self, entry):
-        """
-        F12 (0.34.0, Nutzer-Wunsch): Wasserfall-Probetext sofort
-        speichern und live anwenden – ist gerade eine Schrift
-        markiert (.ttf/.otf/.ttc), baut sich der Wasserfall sofort
-        mit dem neuen Text auf. Leerer Text bleibt ungespeichert.
-        """
         t = entry.get_text()
         if t.strip():
             self._conf_font_sample_text = t
@@ -304,52 +262,30 @@ class PreviewToolbarMixin:
                 self._path.lower())[1] in (".ttf", ".otf", ".ttc"):
             self._render()
 
+    # → REF TB-DOC-10
     def _on_linenumbers_toggled(self, chk):
-        """
-        F24 (0.16.0): Zeilennummern sofort speichern und live
-        anwenden. 0.16.2: Neu aufgebaut wird jede TextView-basierte
-        Vorschau (Text, Markdown, EML, E-Book, Font – der Merker
-        _last_textish steht im Kern jetzt generell auf True, wenn
-        die aktuelle Vorschau TextView-basiert ist), damit der
-        Toggle in BEIDE Richtungen wirkt – auch beim Re-Aktivieren.
-        PDF, Office, Audio, Video, Bild und Ordner bleiben
-        unberührt und werden nicht neu gerendert.
-        """
         self._conf_text_linenumbers = chk.get_active()
         self._config_save()
         if self._last_textish and self._path:
             self._render()
 
+    # → REF TB-DOC-11
     def _on_syntax_toggled(self, chk):
-        """
-        F44-Nachtrag (0.28.1, Nutzer-Wunsch): Syntax-Hervorhebung
-        sofort speichern und live anwenden – derselbe Mechanismus wie
-        beim Zeilennummern-Toggle: nur TextView-basierte Vorschauen
-        bauen sich neu auf, alles andere bleibt unberührt.
-        """
         self._conf_text_syntax = chk.get_active()
         self._config_save()
         if self._last_textish and self._path:
             self._render()
 
+    # → REF TB-DOC-12
     def _on_doc_limit_toggled(self, chk):
-        """
-        F12 Teil 3 (0.27.0): Dokument-Deckel an/aus – sofort speichern
-        und live anwenden. Der SpinButton zur Seitenzahl ist nur bei
-        aktivem Deckel bedienbar; eine angezeigte Dokument-Vorschau
-        baut sich über den Merker _last_docview sofort neu auf.
-        """
         self._conf_doc_page_limit = chk.get_active()
         self._config_save()
         if self._settings_pages_spin is not None:
             self._settings_pages_spin.set_sensitive(chk.get_active())
         self._rerender_docs()
 
+    # → REF TB-DOC-13
     def _on_doc_max_pages_changed(self, spin):
-        """
-        F12 Teil 3 (0.27.0): Maximale Seitenzahl (1–999) – sofort
-        speichern und live anwenden, wie der Zeilennummern-Toggle.
-        """
         try:
             value = max(1, min(999, int(spin.get_value())))
             if value == self._conf_doc_max_pages:
@@ -360,23 +296,13 @@ class PreviewToolbarMixin:
         except Exception as e:
             dbg("toolbar/_on_doc_max_pages_changed: suppressed: %s" % e)
 
+    # → REF TB-DOC-14
     def _rerender_docs(self):
-        """
-        F12 Teil 3 (0.27.0): Aktuelle PDF-/Office-Seitenansicht live
-        neu aufbauen – das Gegenstück zum Merker _last_textish der
-        Zeilennummern: Nur Dokument-Vorschauen reagieren, alles andere
-        (Bild, Audio, Text …) bleibt unberührt.
-        """
         if self._last_docview and self._path:
             self._render()
 
+    # → REF TB-DOC-15
     def _on_start_width_changed(self, spin):
-        """
-        F12 (0.13.0): Neue Startbreite aus dem SpinButton – sofort
-        übernehmen, live anwenden und speichern (kein Extra-Knopf).
-        0.41.0: Der SpinButton ist die EINZIGE Quelle der
-        Startbreite – Ziehen am Trenner ändert sie nicht.
-        """
         try:
             value = int(spin.get_value())
             if value == self._panel_width:
