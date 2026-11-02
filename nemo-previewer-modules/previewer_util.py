@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.42.2
+previewer_util.py – Version 0.43.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -219,6 +219,28 @@ def _zf_read_capped(zf, name, cap):
     with zf.open(name) as zh:
         return zh.read(cap)
 
+
+def _xml_dtd_rejected(data, source):
+    """
+    R10: Entity-Guard für alle xml.etree-Parsestellen (EPUB-OPF,
+    FB2, .contact, Office-XML). xml.etree folgt keinen externen
+    Entities, DOCTYPE-Deklarationen mit internen Entities
+    expandiert es aber rückhaltlos – ein „Billion Laughs“-Dokument
+    belegt, bevor die Vorschau reagieren kann, ein Vielfaches der
+    Dateigröße an Speicher. Die gezeigten Formate kommen praktisch
+    ohne DTD aus: Enthält der Dateikopf (erste 64 KB) eine DOCTYPE-
+    Deklaration oder ENTITY-Definition, wird das Parsen abgelehnt;
+    der Aufrufer zeigt seinen Öffnen-Hinweis statt des Inhalts.
+    """
+    head = data[:65536]
+    if isinstance(head, bytes):
+        head = head.decode("utf-8", "replace")
+    low = head.lower()
+    if "<!doctype" in low or "<!entity" in low:
+        dbg("util/_xml_dtd_rejected: %s: DTD abgelehnt (R10)" % source)
+        return True
+    return False
+
 # ------------------------------ Widget helpers ------------------------------
 
 def pack_hint(box, text):
@@ -336,5 +358,5 @@ def build_text_view(view, text, font, markup):
     return scroll
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.42.2"
+PREVIEWER_VERSION = "0.43.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
