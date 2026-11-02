@@ -454,9 +454,12 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 
 ### Neue Formate
 
-- [ ] **F6 – SQLite-Datenbanken** (.db/.sqlite): Tabellenliste +
+- [x] **F6 – SQLite-Datenbanken** (.db/.sqlite): Tabellenliste +
 
-  Zeilenanzahl (stdlib `sqlite3`). **S**
+  Zeilenanzahl (stdlib `sqlite3`). **S**  
+  ✅ 0.46.0 – Text-Modul \_sqlite\_data: Magie-Check, query\_only,
+  PRAGMA table\_info, COUNT mit Progress-Deckel – Tabelle/Spalten/Zeilen
+  als TreeView (→ REF TXT-SQL-1).
 - [ ] **F7 – Visitenkarten: vCard/LDIF/Contact**
 
   (Nutzer-Wunsch 2026-10-30) Alle gängigen Visitenkartenformate  
@@ -484,7 +487,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ICS-Dateien als Termintabelle (Muster EML-Kopf): Zusammenfassung,  
   Datum/Zeit (Start/Ende), Ort, ggf. Beschreibung; mehrere Termine  
   scrollbar untereinander, Deckel wie bei den Visitenkarten. **S**
-- [ ] **F8 – CSV als echte Tabelle** (Gtk.TreeView). **M**
+- [x] **F8 – CSV als echte Tabelle** (Gtk.TreeView). **M**  
+  ✅ 0.46.0 – Text-Modul \_csv\_data + \_pack\_table: Trenner und Kopfzeile
+  snifft csv.Sniffer selbst (Nutzer-Anforderung), 1000-Zeilen-Vorschau,
+  klick-sortierbar (→ REF TXT-CSV-1).
 - [ ] **F9 – EXIF-Tabelle für Fotos** (Kamera, Datum, Belichtung). **M**
 - [ ] **F11 – WOFF1-Fonts** (zlib-entpackter sfnt → Wasserfall läuft
 
@@ -1306,7 +1312,19 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   großen Paketen: Icon-Dekomprimier-Budget von 48 MB auf 8 MB  
   gesenkt – die Info-Tabelle kommt sofort, das Icon bleibt best  
   effort (Riesen-Payloads zeigen den Platzhalter).  
-  Deploy 0.45.0 getestet (2026-11-02): beide F60-Funde gefixt in 0.45.1.
+  Deploy 0.45.0 getestet (2026-11-02): beide F60-Funde gefixt in 0.45.1.  
+  Deploy bestätigt (2026-11-02): keine Auffälligkeiten – beide Fixes wirken.  
+  ✅ 0.46.0 – F6 + F8 Tabellen-Runde (Nutzer-Auftrag 2026-11-02):  
+  F8 CSV als echte Gtk.TreeView – Trennzeichen UND Kopfzeile  
+  ermittelt das Modul selbst (csv.Sniffer: Komma, Semikolon,  
+  TAB, Pipe – Nutzer-Anforderung: Spalten-/Zellenbegrenzung  
+  nie aus dem Dateinamen raten), 4-MB-Deckel, 1000-Zeilen-  
+  Vorschau, Spalten klick-sortierbar und resizebar. F6 SQLite  
+  (.db/.sqlite) – Tabellenliste mit Spalten und Zeilenanzahl,  
+  Struktur aus dem Schema (query\_only read-only, Magie-Check  
+  gegen Fremd-.db, COUNT-Progress-Deckel nach F60-Lektion).  
+  Neuer generischer Tabellen-Renderer \_pack\_table – F56 kann
+  ihn später mitnutzen.
 
 ---
 
@@ -1344,10 +1362,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                                                  | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-02, 0.45.1 gebaut)
+## Aktuelle Reihenfolge (Stand 2026-11-02, 0.46.0 gebaut)
 
-1. **0.45.1 testen und deployen** – steht aus (F60.1: deb-Sniffing,  
-   Icon-Budget).
+1. **0.46.0 testen und deployen** – steht aus (F6 + F8: SQLite-  
+   Vorschau, CSV-Tabelle mit Trenner-Sniffing).
 2. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden,  
    damit neue Inhalte (B9, F50, F52–F54) gleich englisch entstehen;  
    je Datei eine Runde.
@@ -1366,7 +1384,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 9. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane),  
    F32, F37 – wie vereinbart im Branch erproben.
 
-Nicht eingeplant (Pool nach Bedarf): F1, F2, F6, F8, F9, F11, F20, F21,  
+Nicht eingeplant (Pool nach Bedarf): F1, F2, F9, F11, F20, F21,  
 F26, F27, F55, F56, F57 – F21 (Office→PDF-Knopf) spätestens bei F51 entscheiden  
 (README-Wunsch umsetzen oder aus dem README nehmen); F55 bündelt sich  
 gut mit F21 – beide nutzen denselben wählbaren Office-Backend.
