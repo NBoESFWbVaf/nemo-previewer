@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.48.0
+previewer_render_media.py – Version 0.48.1
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -752,7 +752,6 @@ class MediaRendererMixin:
             # install hint appears instead of the button.
             if EXIFTOOL:
                 btn = Gtk.Button(label="more")
-                btn.set_relief(Gtk.ReliefStyle.NONE)
                 btn.set_halign(Gtk.Align.START)
                 btn.connect("clicked", self._on_exif_more)
                 self._image_info_box.pack_start(btn, False, False, 0)
@@ -1380,9 +1379,11 @@ class MediaRendererMixin:
             return False
 
         try:
-            pid, stdin, out, err = GLib.spawn_async_with_pipes(
+            res = GLib.spawn_async_with_pipes(
                 None, [EXIFTOOL, path], None,
                 GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None)
+            # PyGObject tuples vary in size – index, do not unpack.
+            pid, stdin, out, err = res[0], res[1], res[2], res[3]
             os.close(stdin)
             os.close(err)
             GLib.io_add_watch(
@@ -1396,7 +1397,7 @@ class MediaRendererMixin:
             buf.set_text("exiftool failed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.48.0"
+PREVIEWER_VERSION = "0.48.1"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
