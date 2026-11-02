@@ -764,7 +764,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   text\_syntax), Default an – abgehakt zeigt sich immer der  
   schlichte Text; der Schalter greift live über \_last\_textish.
 
-- [ ] **F50 – Exiftool-Dialog für Bild-Details** (Nutzer-Wunsch 2026-11-01)
+- [x] **F50 – Exiftool-Dialog für Bild-Details** (Nutzer-Wunsch 2026-11-01)
 
   Link „weitere Informationen“ in der Bild-Vorschau, der ein Fenster  
   mit allen restlichen Bildinformationen öffnet, geholt via  
@@ -773,6 +773,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Aufruf als ARGV-Liste via GLib.spawn\_async wie bei LibreOffice  
   (KEIN Shell-Interpret), Ausgabe mit Zeilen-Deckel in einen  
   scrollbaren TextView.
+  ✅ F50 (2026-11-02, 0.48.0) – umgesetzt: „more"-Button im 40-%-Infobereich (nur Bild-Ansicht) öffnet Fenster mit ALLEN EXIF-Details via exiftool (Rohdaten, formatiert; ARGV-Spawn absolut/kein Shell, io-Watch im GTK-Loop, 2000-Zeilen-Deckel, Monospace-TextView; ohne exiftool Install-Hinweis libimage-exiftool-perl); Foto-Tabelle endet bei ISO (XMP-Felder raus, Location bleibt).
 
 - [ ] **F55 – Office-Renderer frei wählbar (LibreOffice/OnlyOffice)** (Nutzer-Wunsch 2026-11-01)
 

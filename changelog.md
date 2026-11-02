@@ -6,6 +6,22 @@ versioning: [Semantic Versioning](https://semver.org/).
 
 ## \[Unreleased\]
 
+## \[0.48.0\] – 2026-11-02
+
+### Added
+
+- F50 – Photo preview: "more" button in the 40% info area opens a  
+  window with ALL EXIF details via exiftool, raw but formatted  
+  (monospace read-only view, capped at 2000 lines); without  
+  exiftool the info area shows an install hint (Debian package  
+  libimage-exiftool-perl) instead of the button.  
+
+### Changed
+
+- F50 – Photo info table ends at ISO: the XMP custom fields leave  
+  the table (Location stays); all details live in the "more" window  
+  now.
+
 ## \[0.47.0\] – 2026-11-02
 
 ### Changed

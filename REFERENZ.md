@@ -2264,7 +2264,10 @@ everything stays in a try against broken files.
 ```text
 F42: photo rows from EXIF/XMP – shared by the image view
 (below height/width) and the RAW fallback (below the icon).
-Only present values, order as in the image table.
+Only present values, order as in the image table. F50
+(user wish 2026-11-02): the table ends at ISO – the XMP
+custom fields leave the table; ALL contained details show
+in the "more" window via exiftool.
 ```
 
 ### MED-DOC-16 – Docstring: MediaRendererMixin (class)
@@ -2605,6 +2608,24 @@ Adjust the slider range to the real duration (ns) if necessary.
 
 ```text
 Move the slider to the current position (ns).
+```
+
+### MED-DOC-41 – Docstring: \_on\_exif\_more
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_on\_exif\_more` (method)
+- **Reason:** F50 "more" window – ALL EXIF details via exiftool.
+
+```text
+F50 (user wish 2026-11-02): the "more" button in the photo
+info area opens a window with ALL EXIF details of the image,
+raw but formatted – fetched via exiftool. Spawn as an ARGV
+list with the absolute path (no shell, no PATH search); the
+io watch runs in the GTK main loop (no Gdk in a worker);
+monospace read-only TextView, output capped at 2000 lines;
+without exiftool the button never appears – the info area
+shows an install hint with the Debian package name
+libimage-exiftool-perl instead.
 ```
 
 ---

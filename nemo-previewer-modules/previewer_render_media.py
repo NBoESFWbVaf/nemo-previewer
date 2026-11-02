@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.47.0
+previewer_render_media.py – Version 0.48.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -12,6 +12,7 @@ import os
 import sys
 import math
 import re
+import shutil
 import struct
 import threading
 import traceback
@@ -79,6 +80,11 @@ try:
     HAVE_CAIRO = True
 except Exception as e:
     dbg("media/module-level: suppressed: %s" % e)
+
+# F50: exiftool lists ALL EXIF details in the "more" window; the
+# absolute path goes into the ARGV spawn (no shell, no PATH search).
+# Debian package: libimage-exiftool-perl.
+EXIFTOOL = shutil.which("exiftool")
 
 
 # Process state for media probing (convention: module dict, no
@@ -497,9 +503,6 @@ def _exif_rows(exif, xmp):
                 "Aperture", "ISO"):
         if exif and key in exif:
             rows.append((key, exif[key]))
-    if xmp:
-        for key in [k for k in xmp if k != "Location"][:10]:
-            rows.append((key, xmp[key]))
     return rows
 
 # ========================== Renderer: media =================================
@@ -744,6 +747,22 @@ class MediaRendererMixin:
             rows += _exif_rows(exif, xmp)
             # F38: table into the 40% info area of the split.
             pack_meta_grid(rows, self._image_info_box)
+            # F50 (user wish 2026-11-02): "more" button opens a window
+            # with ALL EXIF details via exiftool; without exiftool an
+            # install hint appears instead of the button.
+            if EXIFTOOL:
+                btn = Gtk.Button(label="more")
+                btn.set_relief(Gtk.ReliefStyle.NONE)
+                btn.set_halign(Gtk.Align.START)
+                btn.connect("clicked", self._on_exif_more)
+                self._image_info_box.pack_start(btn, False, False, 0)
+            else:
+                hint = Gtk.Label(
+                    label="more via exiftool – "
+                    "install package libimage-exiftool-perl")
+                hint.get_style_context().add_class("dim-label")
+                hint.set_halign(Gtk.Align.START)
+                self._image_info_box.pack_start(hint, False, False, 0)
         except Exception as e:
             dbg("media/_image_probe_done: suppressed: %s" % e)
         # → REF MED-B7-1
@@ -1320,8 +1339,64 @@ class MediaRendererMixin:
             except Exception as e:
                 dbg("media/_stop_playback: suppressed: %s" % e)
 
+    # → REF MED-DOC-41
+    def _on_exif_more(self, *a):
+        path = self._path
+        win = Gtk.Window()
+        win.set_title("EXIF details – %s" % os.path.basename(path))
+        win.set_default_size(560, 420)
+        view = Gtk.TextView()
+        view.set_editable(False)
+        view.set_cursor_visible(False)
+        view.set_monospace(True)
+        view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        buf = view.get_buffer()
+        buf.set_text("collecting – one moment …")
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                          Gtk.PolicyType.AUTOMATIC)
+        scroll.add(view)
+        win.add(scroll)
+        win.show_all()
+        chunks = []
 
-PREVIEWER_VERSION = "0.47.0"
+        def on_out(src, cond):
+            # io watch runs in the GTK main loop – no Gdk in a worker.
+            if cond & GLib.IOCondition.IN:
+                try:
+                    data = os.read(src, 65536)
+                except OSError:
+                    data = b""
+                if data:
+                    chunks.append(data.decode("utf-8", "replace"))
+                    return True
+            os.close(src)
+            lines = "".join(chunks).splitlines()
+            if len(lines) > 2000:
+                extra = len(lines) - 2000
+                lines = lines[:2000]
+                lines.append("… (%d more lines – capped)" % extra)
+            buf.set_text("\n".join(lines))
+            return False
+
+        try:
+            pid, stdin, out, err = GLib.spawn_async_with_pipes(
+                None, [EXIFTOOL, path], None,
+                GLib.SpawnFlags.DO_NOT_REAP_CHILD, None, None)
+            os.close(stdin)
+            os.close(err)
+            GLib.io_add_watch(
+                out,
+                GLib.IOCondition.IN | GLib.IOCondition.HUP
+                | GLib.IOCondition.ERR, on_out)
+            # Reap the child; the window content arrives via on_out.
+            GLib.child_watch_add(pid, lambda *x: None)
+        except Exception as e:
+            dbg("media/_on_exif_more: suppressed: %s" % e)
+            buf.set_text("exiftool failed: %s" % e)
+
+
+PREVIEWER_VERSION = "0.48.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
