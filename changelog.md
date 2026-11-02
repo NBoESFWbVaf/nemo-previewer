@@ -6,6 +6,22 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.45.1\] – 2026-11-02
+
+### Fixed (Behoben)
+
+- F60.1 – Paket-Vorschau nachgeschärft (Nutzer-Test 0.45.0): (1)  
+  invalid header bei manchen .deb – die Kompression wurde am ar-  
+  Member-NAMEN geraten; je nach Werkzeug tragen die Namen aber  
+  IEEE-Slashes ('control.tar.gz/'), und zst-Namen entgingen der  
+  Weiche ganz. Jetzt snifft \_tar\_sniff\_mode die Magie-Bytes  
+  (gzip/xz/zstd) des Members selbst, und ar-Namen werden um  
+  Trailingslashes bereinigt. (2) Große Pakete brauchten lange bis  
+  zur Anzeige, weil die Icon-Suche vor der Info-Tabelle lief und  
+  bis zu 48 MB Payload dekomprimierte – das Budget steht jetzt  
+  bei 8 MB: Die Vorschau kommt in Bruchteilen von Sekunden, das  
+  Icon bleibt best effort (Riesen-Payloads zeigen den Platzhalter). 
+
 ## \[0.45.0\] – 2026-11-02
 
 ### Added (Hinzugefügt)
