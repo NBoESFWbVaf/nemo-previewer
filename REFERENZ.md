@@ -2075,3 +2075,1106 @@ Conversion finished: cache the result, refresh the preview.
         # Frame and shadow need NO pycairo – the draw
         # callback gets its Cairo context delivered by GTK.
 ```
+
+### TXT-DOC-1 – Docstring: \_pango\_escape
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_pango\_escape` (module level)
+- **Reason:** Central markup escaper for all text renderers.
+
+```text
+Escape text for Pango markup (& < >).
+```
+
+### TXT-DOC-2 – Docstring: \_md\_inline
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_md\_inline` (module level)
+- **Reason:** Inline Markdown formatting to Pango markup.
+
+```text
+Inline formatting: ***bold+italic***, **bold**, __bold__,
+*italic*, _italic_, ~~strikethrough~~ (GFM), `code`,
+[link](url) – also with parentheses in the URL –,
+<https://autolink>, ![image](url).
+```
+
+### TXT-DOC-3 – Docstring: \_md\_heading
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_md\_heading` (module level)
+- **Reason:** Headings with browser-like look, no extra widgets.
+
+```text
+Heading (ATX or Setext): size by depth, H1/H2 with an
+underline – approximates the colored bar of the browser
+rendering, without extra widgets.
+```
+
+### TXT-DOC-4 – Docstring: \_md\_w
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_md\_w` (module level)
+- **Reason:** Display-width estimate for GFM table layout.
+
+```text
+Estimate the display width of a string: emoji and symbols
+occupy two columns in the TextView (🔴 ✅ ☑ …), the variation
+selector FE0F none at all, everything else exactly one.
+Without this estimate, emoji cells were off by the emoji
+width.
+```
+
+### TXT-DOC-5 – Docstring: \_md\_split\_cells
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_md\_split\_cells` (module level)
+- **Reason:** S9 helper – splits a Markdown table row into cells.
+
+```text
+S9 (0.42.0): Split a Markdown line into cells – strip
+leading and trailing bars; a bar escaped with a backslash
+is NOT a separator (GFM).
+```
+
+### TXT-DOC-6 – Docstring: \_md\_wrap\_cell
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_md\_wrap\_cell` (module level)
+- **Reason:** S9 helper – wraps one cell to the column width.
+
+```text
+S9 (0.42.0): Break a cell into display segments of width w
+(word wrap, hard break for overlong words); fitting cells
+stay unchanged.
+```
+
+### TXT-DOC-7 – Docstring: \_md\_fmt\_row
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_md\_fmt\_row` (module level)
+- **Reason:** S9 helper – renders one table row as flush lines.
+
+```text
+S9 (0.42.0): Render a table row as flush <tt> lines –
+wrapped, padded and escaped per column, bold for the
+header row.
+```
+
+### TXT-DOC-8 – Docstring: \_md\_widths
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_md\_widths` (module level)
+- **Reason:** S9 helper – column width budget with safety net.
+
+```text
+S9 (0.42.0): Column widths within a total budget – narrow
+columns keep their full width, the rest is distributed
+proportionally among the wide ones; a safety net shrinks
+the widest column until the budget holds (0.14.0 field
+test: the order table in planned.md was meters wide and
+fell apart in the TextView).
+```
+
+### TXT-DOC-9 – Docstring: \_md\_table
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_md\_table` (module level)
+- **Reason:** GFM table reader – the S9 flow keeper.
+
+```text
+Read a GFM table starting at line i: header line, separator
+line with :--/--:/:-:, any number of rows. Returns (markup
+lines, next index) or None if no table stands there. As in
+the browser a total budget applies: narrow columns keep
+their full width, overlong cells wrap multi-line WITHIN
+their column – the columns stay flush instead of the
+longest cell bloating all lines (0.14.0 field test: the
+order table in planned.md was meters wide and fell apart in
+the TextView). Header line bold, grey separator line,
+right-aligned at '---:'. Widths are measured on the RAW
+cell and padded BEFORE escaping, so &amp; does not spoil
+the alignment. Markup that runs across a cell wrap is
+deliberately NOT rejoined – valid markup matters more than
+looks; the raw text fallback in _render_markdown must
+never trigger because of a table. S9 (0.42.0): Decomposed
+– _md_split_cells, _md_widths and _md_fmt_row (with
+_md_wrap_cell, _md_plain) are module helpers; the flow
+remains here.
+```
+
+### TXT-DOC-10 – Docstring: \_markdown\_to\_pango
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_markdown\_to\_pango` (module level)
+- **Reason:** Markdown preview without a webview (deliberate partial parser).
+
+```text
+Translate Markdown to Pango markup – deliberately not a
+full parser, but with the widespread variants (GitHub
+Flavored Markdown): ATX (#) and Setext headings (===/---)
+with an underline at H1/H2, bold/italic/bold+italic,
+~~strike~~, inline and block code, unordered lists with
+level markers (•/◦/▪), ordered (1./1)), task lists ([x] → ☑
+with strikethrough as in the browser, [ ] → ☐), indented
+lists, multiply nested quotes, horizontal rules (spaces
+allowed: - - -), links (parentheses in the URL included),
+autolinks and GFM tables. Headings, rules and tables get
+air above – that reads like in the browser. No webview, no
+new package dependencies; deliberately left out: 4-space
+code blocks (collides with list indentation).
+```
+
+### TXT-DOC-11 – Docstring: \_html\_to\_text
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_html\_to\_text` (module level)
+- **Reason:** HTML part of an EML into readable text.
+
+```text
+Roughly clean HTML into readable text (for EML text bodies).
+```
+
+### TXT-DOC-12 – Docstring: \_xml\_local
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_xml\_local` (module level)
+- **Reason:** Namespace-free tag matching for OPF/FB2/contact XML.
+
+```text
+XML tag without namespace (OPF and FB2 do not skip them).
+```
+
+### TXT-DOC-13 – Docstring: \_meta\_rows
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_meta\_rows` (module level)
+- **Reason:** Shared metadata rows for e-books and packages (S3/F59/F60).
+
+```text
+S3 (0.42.0): Metadata rows of the e-book formats – empty
+values drop out. F59 (0.44.0): book title, author, series,
+pages, e-book format, language – only set tags show a row.
+F60 (0.45.0): Renamed – the package formats (DEB, RPM,
+Pacman) use the helper too.
+```
+
+### TXT-DOC-14 – Docstring: \_series\_text
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_series\_text` (module level)
+- **Reason:** F59 – series row from name and volume number.
+
+```text
+F59 (0.44.0): Series text from name and volume number –
+"Name – Volume 2.5"; without a number just the name,
+without a name nothing at all (the row then drops via
+_meta_rows).
+```
+
+### TXT-DOC-15 – Docstring: \_ebook\_placeholder
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_ebook\_placeholder` (module level)
+- **Reason:** F59 – drawn cover for e-books without one.
+
+```text
+F59 (0.44.0): Drawn portrait cover for e-books without an
+embedded cover – book cover skeleton in grey tones (spine
+stripe, title bar, text line hints), theme-neutral like
+the vCard placeholder. Without Cairo it returns None; the
+caller then shows the open hint.
+```
+
+### TXT-DOC-16 – Docstring: \_epub\_opf\_path
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_epub\_opf\_path` (module level)
+- **Reason:** S3 helper – OPF path from container.xml with fallback.
+
+```text
+S3 (0.42.0): OPF path of an EPUB – first from
+META-INF/container.xml, else fallback to the first .opf
+name (→ REF TXT-EPUB-1).
+```
+
+### TXT-DOC-17 – Docstring: \_epub\_metadata
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_epub\_metadata` (module level)
+- **Reason:** S3/F59 – OPF evaluation, manifest and cover id.
+
+```text
+S3 (0.42.0): Evaluate the OPF – title/author/language,
+manifest (id → href, media type, properties) and cover id
+(cover-image properties, else meta name=cover). F59
+(0.44.0): series and pages added – calibre:series (plus
+index) or EPUB3 belongs-to-collection (plus
+group-position); pages only if the OPF carries a page-count
+meta (no standard tag – no tag, no row). The spine is gone
+with the text preview (F59).
+```
+
+### TXT-DOC-18 – Docstring: \_epub\_cover
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_epub\_cover` (module level)
+- **Reason:** S3 helper – cover bytes per manifest or heuristic.
+
+```text
+S3 (0.42.0): Cover bytes – per the manifest, else
+heuristic: the file name contains "cover" and looks like an
+image.
+```
+
+### TXT-DOC-19 – Docstring: \_epub\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_epub\_data` (module level)
+- **Reason:** EPUB loader (rows, cover) – S3 decomposition flow.
+
+```text
+Open an EPUB: metadata (F59: book title, author, series,
+pages, language) and cover bytes. Returns (rows, cover) –
+the text preview was dropped with F59. S3 (0.42.0):
+Decomposed – _epub_opf_path, _epub_metadata and _epub_cover
+each parse one part; the flow remains here.
+```
+
+### TXT-DOC-20 – Docstring: \_fb2\_metadata
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_fb2\_metadata` (module level)
+- **Reason:** S3/F59 – FB2 head fields.
+
+```text
+S3 (0.42.0): FB2 head – title, author (first-/last-name)
+and cover reference (coverpage l:href). F59 (0.44.0):
+language (<lang>) and series (<sequence name number>)
+added; the body is gone with the text preview (F59).
+```
+
+### TXT-DOC-21 – Docstring: \_fb2\_cover
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_fb2\_cover` (module level)
+- **Reason:** S3 helper – FB2 cover from the binary resource.
+
+```text
+S3 (0.42.0): Cover from the embedded <binary> resource
+(base64).
+```
+
+### TXT-DOC-22 – Docstring: \_fb2\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_fb2\_data` (module level)
+- **Reason:** FictionBook loader with the R11 read cap.
+
+```text
+FictionBook 2 (.fb2): book title, author, series, language
+and cover (base64 binary). Returns (rows, cover) – the text
+preview was dropped with F59. S3 (0.42.0): Decomposed –
+_fb2_metadata and _fb2_cover each one part; the flow
+remains here. R11: Read cap like EML/vCard (the cover sits
+as base64 in the file, a few MB are normal) – huge FB2s get
+truncated and are then not parsed at all: the ParseError
+runs into the caller's open hint instead of memory
+pressure at the panel.
+```
+
+### TXT-DOC-23 – Docstring: \_mobi\_records
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_mobi\_records` (module level)
+- **Reason:** S3 helper – Palm record offsets.
+
+```text
+S3 (0.42.0): Palm records from offset 78 – 8 bytes per
+entry, the offset sits in the first three bytes.
+```
+
+### TXT-DOC-24 – Docstring: \_mobi\_header
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_mobi\_header` (module level)
+- **Reason:** S3 helper – MOBI header record and EXTH author.
+
+```text
+S3 (0.42.0): MOBI header record – compression method,
+encoding, first non-book record and the EXTH author (entry
+type 100).
+```
+
+### TXT-DOC-25 – Docstring: \_mobi\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_mobi\_data` (module level)
+- **Reason:** MOBI loader – title/author without HUFF/CDIC blocking (F59).
+
+```text
+MOBI/PRC (Palm container): book title and author (EXTH).
+Returns (rows, None) – F59: e-books show cover and info
+table instead of text; MOBI covers sit as a REC entry
+(addressed differently), so the preview shows the drawn
+placeholder. Without text extraction HUFF/CDIC no longer
+blocks – title and author now show for AZW files too.
+S3 (0.42.0): Decomposed – _mobi_records and _mobi_header
+each one part; the flow remains here.
+```
+
+### TXT-DOC-26 – Docstring: \_WindowReader (class)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_WindowReader` (class)
+- **Reason:** Class marker – F60 budgeted read window for tar streams.
+
+```text
+F60 (0.45.0): read() window over a file with a budget –
+tarfile in stream mode (r|gz, r|xz) only needs read(), and
+the budget stops the icon hunt in huge packages with an
+EOFError (cap pattern like R11/B5 instead of memory
+pressure).
+```
+
+### TXT-DOC-27 – Docstring: \_tar\_sniff\_mode
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_tar\_sniff\_mode` (module level)
+- **Reason:** F60.1 – compression from magic bytes, not member names.
+
+```text
+F60.1 (0.45.1): tarfile mode from the MAGIC BYTES of the
+member – gz and xz are on-board tools, zst is not (None →
+caller shows a hint or leaves the icon out). Guessing from
+the ar member name became the invalid-header finding:
+depending on the tool the names carry IEEE slashes
+('control.tar.gz/').
+```
+
+### TXT-DOC-28 – Docstring: \_pkg\_icon\_score
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_pkg\_icon\_score` (module level)
+- **Reason:** F60 – icon candidate ranking.
+
+```text
+F60: Icon candidate? PNG/JPG under icons/ or pixmaps/,
+small enough; 48x48 and apps score best (best score -3).
+```
+
+### TXT-DOC-29 – Docstring: \_deb\_control\_fields
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_deb\_control\_fields` (module level)
+- **Reason:** F60 – deb control parsing with continuation lines.
+
+```text
+F60 (0.45.0): deb control file – 'Field: value',
+continuation lines (leading spaces) attach to the value;
+' .' is the paragraph break in the long description. First
+field wins.
+```
+
+### TXT-DOC-30 – Docstring: \_kb\_size
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_kb\_size` (module level)
+- **Reason:** F60 – Installed-Size formatting.
+
+```text
+F60: deb Installed-Size is in KB – format it readably.
+```
+
+### TXT-DOC-31 – Docstring: \_deb\_rows
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_deb\_rows` (module level)
+- **Reason:** F60 – deb info rows via \_meta\_rows.
+
+```text
+F60 (0.45.0): Info rows from the control file – only set
+fields; the description splits into short and long.
+```
+
+### TXT-DOC-32 – Docstring: \_deb\_icon
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_deb\_icon` (module level)
+- **Reason:** F60/F60.1 – app icon from data.tar with probe read.
+
+```text
+F60: App icon from data.tar – best effort with a budget.
+0.45.1: compression from magic bytes (6-byte probe read,
+see _tar_sniff_mode), not from the member name.
+```
+
+### TXT-DOC-33 – Docstring: \_deb\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_deb\_data` (module level)
+- **Reason:** F60 – Debian package loader (ar archive).
+
+```text
+F60 (0.45.0): Debian package (.deb) – ar archive:
+control.tar.<gz|xz> carries the control file (on-board
+tools), data.tar.<gz|xz> the payload, from which the first
+app icon is fished best effort (budget, else a drawn
+placeholder). Returns (rows, icon).
+```
+
+### TXT-DOC-34 – Docstring: \_rpm\_section
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_rpm\_section` (module level)
+- **Reason:** F60 – RPM header section parsing.
+
+```text
+F60 (0.45.0): RPM header section from pos – magic 8E AD E8,
+16-byte header (index count + store size), 16-byte index
+entries each (tag, type, offset, count) and the data store.
+Returns (index, store, end).
+```
+
+### TXT-DOC-35 – Docstring: \_rpm\_value
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_rpm\_value` (module level)
+- **Reason:** F60 – RPM tag value decoding by type.
+
+```text
+F60: First value of an RPM tag – STRING (7) and I18NSTRING
+(9) as str, STRING_ARRAY (6) as list, INT32 (4) as int;
+else None.
+```
+
+### TXT-DOC-36 – Docstring: \_rpm\_rows
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_rpm\_rows` (module level)
+- **Reason:** F60 – RPM info rows via \_meta\_rows.
+
+```text
+F60: Info rows from the RPM header – only set tags.
+```
+
+### TXT-DOC-37 – Docstring: \_rpm\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_rpm\_data` (module level)
+- **Reason:** F60 – RPM loader, cpio payload deliberately out.
+
+```text
+F60 (0.45.0): RPM – lead (96 B), signature header and main
+header sit at the file start (on-board tools: struct); the
+cpio payload stays out (usually zstd) – the preview shows
+the drawn placeholder. Returns (rows, None).
+```
+
+### TXT-DOC-38 – Docstring: \_pkginfo\_fields
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_pkginfo\_fields` (module level)
+- **Reason:** F60 – .PKGINFO single/multi field split.
+
+```text
+F60 (0.45.0): .PKGINFO ('key = value' per line) – collect
+multi lines (depend, optdepend, makedepend, license,
+group); for single fields the first value wins. Returns
+(single, multi).
+```
+
+### TXT-DOC-39 – Docstring: \_pkg\_rows
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_pkg\_rows` (module level)
+- **Reason:** F60 – Pacman info rows via \_meta\_rows.
+
+```text
+F60: Info rows from .PKGINFO – only set fields.
+```
+
+### TXT-DOC-40 – Docstring: \_pkg\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_pkg\_data` (module level)
+- **Reason:** F60 – Arch/Pacman loader, one stream pass for icon and meta.
+
+```text
+F60 (0.45.0): Arch/Pacman package (.pkg.tar.xz, AUR builds
+among others) – .PKGINFO gives the metadata, the app icon
+is fished in the same stream pass (budget, else
+placeholder). .pkg.tar.zst would need zstd – not an
+on-board tool, then the open hint. Returns (rows, icon).
+```
+
+### TXT-DOC-41 – Docstring: \_package\_placeholder
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_package\_placeholder` (module level)
+- **Reason:** F60 – drawn package icon (box with format signet).
+
+```text
+F60 (0.45.0): Drawn package icon (box with lid and format
+signet) for packages without a readable app icon – e.g.
+RPM (cpio payload) or tar.zst. Without Cairo: None, the
+caller then shows the open hint.
+```
+
+### TXT-DOC-42 – Docstring: \_font\_info
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_font\_info` (module level)
+- **Reason:** Family and style from the sfnt name table (pure bytes).
+
+```text
+Read family and style from the name table of a
+TrueType/OpenType file (sfnt header, name table – pure
+byte work). Returns (format text, family, style).
+```
+
+### TXT-DOC-43 – Docstring: \_fc\_add\_font\_file
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_fc\_add\_font\_file` (module level)
+- **Reason:** Per-process Fontconfig takeover via ctypes.
+
+```text
+Register a font file with Fontconfig for THIS process –
+without installing it system-wide: copy into a temporary
+folder, then FcConfigAppFontAddDir (libfontconfig via
+ctypes). Pango then reads the family via Fontconfig as
+usual.
+```
+
+### TXT-DOC-44 – Docstring: \_font\_known
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_font\_known` (module level)
+- **Reason:** Family check against a FRESH font map.
+
+```text
+Is the family in the given (fresh) font map? The check
+goes through a NEW font map, because GTK's default font
+map only knows the state at startup.
+```
+
+### TXT-DOC-45 – Docstring: \_vcard\_unfold
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_unfold` (module level)
+- **Reason:** vCard folding – standard plus 2.1 soft wrapping.
+
+```text
+Join line continuations: standard folding (line starts
+with a space or tab, RFC 6350) and the soft wrapping of
+vCard 2.1 (line ends with =, only with QUOTED-PRINTABLE).
+```
+
+### TXT-DOC-46 – Docstring: \_vcard\_split
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_split` (module level)
+- **Reason:** Property line into (name, params, value).
+
+```text
+Split a property line into (name, params, value). The
+first colon separates head and value – further colons in
+the value (URLs, time stamps) stay untouched. Bare vCard
+2.1 parameters (without TYPE=) land under TYPE.
+```
+
+### TXT-DOC-47 – Docstring: \_vcard\_parse
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_parse` (module level)
+- **Reason:** Text into card tuples, quoted-printable decoded.
+
+```text
+Split text into cards. Each card is a list of (name,
+params, value). Quoted-printable values are decoded here;
+other escapes stay raw – callers resolve them with
+_vcard_unescape.
+```
+
+### TXT-DOC-48 – Docstring: \_vcard\_unescape
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_unescape` (module level)
+- **Reason:** vCard value escapes.
+
+```text
+Resolve vCard escapes in the value (comma, semicolon,
+line break).
+```
+
+### TXT-DOC-49 – Docstring: \_vcard\_props
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_props` (module level)
+- **Reason:** All values of a property as pairs.
+
+```text
+All values of a property as (params, value) pairs.
+```
+
+### TXT-DOC-50 – Docstring: \_vcard\_first
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_first` (module level)
+- **Reason:** First non-empty property value.
+
+```text
+First non-empty value of a property (unescaped).
+```
+
+### TXT-DOC-51 – Docstring: \_vcard\_display\_name
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_display\_name` (module level)
+- **Reason:** Display name with FN/N/nickname fallback chain.
+
+```text
+Display name: FN, else composed from N, else the nickname.
+```
+
+### TXT-DOC-52 – Docstring: \_vcard\_tel\_label
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_tel\_label` (module level)
+- **Reason:** Telephone label from the TYPE parameter (German labels until F49).
+
+```text
+Telephone label from the TYPE parameter.
+```
+
+### TXT-DOC-53 – Docstring: \_vcard\_adr
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_adr` (module level)
+- **Reason:** ADR into a readable address.
+
+```text
+ADR line (post box through country) into a readable
+address.
+```
+
+### TXT-DOC-54 – Docstring: \_vcard\_bday
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_bday` (module level)
+- **Reason:** Birthday in dot notation.
+
+```text
+Birthday in dot notation (1985-04-12 or 19850412).
+```
+
+### TXT-DOC-55 – Docstring: \_vcard\_photo
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_photo` (module level)
+- **Reason:** Card photo – inline base64 or local URI only.
+
+```text
+Photo of the card as bytes – inline base64 (ENCODING=b or
+BASE64, vCard 2.1 also with a bare parameter) or a local
+file URI (VALUE=URI respectively a file: spec). Network
+URIs are deliberately NOT loaded – the preview does not
+ask anyone on the net; the placeholder applies.
+```
+
+### TXT-DOC-56 – Docstring: \_vcard\_circle
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_circle` (module level)
+- **Reason:** F7 – round photo crop with the F34 clip technique.
+
+```text
+F7: Crop the photo square and centered and mask it
+circularly (alpha channel at the edge) – the same Cairo
+clip technique as the cover corners (F34). Without Cairo
+the cropped square stays square.
+```
+
+### TXT-DOC-57 – Docstring: \_vcard\_placeholder
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_vcard\_placeholder` (module level)
+- **Reason:** F7 – round placeholder with person silhouette.
+
+```text
+F7: Round placeholder – bright circle with a muted person
+silhouette (head and shoulder arc), theme-neutral in grey
+tones. Without Cairo it returns None; the caller then shows
+a theme icon as a stopgap.
+```
+
+### TXT-DOC-58 – Docstring: \_ldif\_unfold
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_ldif\_unfold` (module level)
+- **Reason:** LDIF line continuation.
+
+```text
+LDIF line continuation (line starts with a space,
+RFC 2849).
+```
+
+### TXT-DOC-59 – Docstring: \_ldif\_record
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_ldif\_record` (module level)
+- **Reason:** One LDIF record into card tuples.
+
+```text
+Turn one LDIF record into card tuples – None if the
+record carries no contact fields (organizational
+containers, groups).
+```
+
+### TXT-DOC-60 – Docstring: \_ldif\_parse
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_ldif\_parse` (module level)
+- **Reason:** LDIF address books into the vCard card structure.
+
+```text
+LDIF address book (Thunderbird/Mozilla/Outlook exports):
+records are separated by blank lines; base64 values
+(double colon) are decoded, jpegPhoto stays raw. Each
+record goes through _ldif_record into the same card
+structure as vCard.
+```
+
+### TXT-DOC-61 – Docstring: \_contact\_one
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_contact\_one` (module level)
+- **Reason:** One .contact XML node into a card tuple.
+
+```text
+ONE contact node as a card tuple. Attributes are
+recognized via the LOCAL element names – the Microsoft
+namespace changes with the Windows version. Values sit in
+the element text or the Value attribute; photos stay out
+(the format embeds them inconsistently), the placeholder
+applies.
+```
+
+### TXT-DOC-62 – Docstring: \_contact\_parse
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_contact\_parse` (module level)
+- **Reason:** Windows contact file (XML) into cards.
+
+```text
+Windows contact file (.contact, XML): usually the ROOT
+already carries the contact; files with several contact
+nodes (collection) get all of them. Without a recognizable
+contact: empty list – the caller then shows the open hint.
+```
+
+### TXT-DOC-63 – Docstring: \_csv\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_csv\_data` (module level)
+- **Reason:** F8 – CSV loader with sniffer and caps.
+
+```text
+F8: returns (headers, rows, delim, truncated).
+```
+
+### TXT-DOC-64 – Docstring: \_sqlite\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_sqlite\_data` (module level)
+- **Reason:** F6 – schema-driven table list with progress cap.
+
+```text
+F6: Table list (name, columns, row count) from the
+schema. The magic check sends foreign files (.db is not
+always SQLite) to the open hint. The progress cap stops
+endless COUNT scans over huge tables (F60 lesson: the
+preview must be there immediately).
+```
+
+### TXT-DOC-65 – Docstring: TextRendererMixin (class)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin` (class)
+- **Reason:** Class marker – all text-side renderers.
+
+```text
+Mixin: renderers for text, Markdown, EML, e-book, font,
+vCard.
+```
+
+### TXT-DOC-66 – Docstring: \_read\_text\_file
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_read\_text\_file` (method)
+- **Reason:** Capped file read for text and Markdown.
+
+```text
+Read a file capped: (text, truncated) – text and Markdown.
+```
+
+### TXT-DOC-67 – Docstring: \_render\_markdown
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_markdown` (method)
+- **Reason:** Markdown with visible formatting, raw text on markup failure.
+
+```text
+Markdown with visible formatting: headings, bold/italic,
+code, lists, quotes and links render via Pango markup (no
+webview, no new packages). If markup generation ever
+fails, the raw text appears.
+```
+
+### TXT-DOC-68 – Docstring: \_render\_eml
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_eml` (method)
+- **Reason:** EML preview with header table and body.
+
+```text
+EML files (RFC 822): header lines (subject, from, to, Cc,
+date) as a table, below the text body. Prefers
+text/plain; if missing, the HTML part is cleaned into
+readable text. All with Python on-board tools (email
+module).
+```
+
+### TXT-DOC-69 – Docstring: \_eml\_body
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_eml\_body` (method)
+- **Reason:** Text body extraction with HTML fallback.
+
+```text
+Text body of an e-mail: text/plain preferred, else HTML.
+```
+
+### TXT-DOC-70 – Docstring: \_render\_vcard
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_vcard` (method)
+- **Reason:** F7 – contact card formats as business cards.
+
+```text
+F7 (user request): contact card formats as a business
+card – vCard (.vcf/.vcard, dialects 2.1, 3.0, 4.0), LDIF
+address books (.ldif) and Windows contacts (.contact,
+XML). Each card carries a rectangular frame with the
+corner radius of the music covers (F34 formula) plus the
+same drop shadow. Card head: round photo (inline base64
+or a local URI, else the drawn placeholder circle), below
+the name in large, position and company, then the contact
+data as the usual table. ALL cards of the file appear
+below each other in a scroll area; with a single contact
+no scrollbar shows, naturally.
+```
+
+### TXT-DOC-71 – Docstring: \_vcard\_card\_widget
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_vcard\_card\_widget` (method)
+- **Reason:** F7 – one card widget with the draw-callback frame.
+
+```text
+F7: ONE business card as a widget. The frame – a rounded
+rectangle with the corner radius of the music covers plus
+the same drop shadow – is drawn in the draw signal BEHIND
+the widgets (→ _vcard_card_draw). Returns: (widget,
+photo?)
+```
+
+### TXT-DOC-72 – Docstring: \_vcard\_card\_draw
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_vcard\_card\_draw` (method)
+- **Reason:** F7 – card background: frame, shadow, NO fill.
+
+```text
+F7: Background of the business card – rounded rectangle
+with the corner radius of the embedded music covers
+(0.25.1 a third more subtle: 56/960 of the smaller edge),
+the same drop shadow (F34/F35: six stacked, growing
+tiles) and NO fill – the card stays transparent, in dark
+mode a white tile base hurts the eyes. Returns False:
+GTK draws the widgets on top afterwards.
+```
+
+### TXT-DOC-73 – Docstring: \_render\_ebook
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_ebook` (method)
+- **Reason:** F59 – e-book presentation after the image model.
+
+```text
+F59 (0.44.0): New e-book presentation after the image
+model – cover at the top (60 %), without a cover a drawn
+portrait placeholder, below (40 %) the info table (book
+title, author, series, pages, e-book format, language –
+only set tags). The text preview is dropped: it rendered
+poorly, the book info suffices. If the book cannot be
+read, there is a hint plus the generic preview.
+```
+
+### TXT-DOC-74 – Docstring: \_render\_epub
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_epub` (method)
+- **Reason:** EPUB preview (F59 model).
+
+```text
+EPUB preview (F59: cover on top, book info below).
+```
+
+### TXT-DOC-75 – Docstring: \_render\_fb2
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_fb2` (method)
+- **Reason:** FictionBook-2 preview (F59 model).
+
+```text
+FictionBook-2 preview (F59: cover on top, book info
+below).
+```
+
+### TXT-DOC-76 – Docstring: \_render\_mobi
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_mobi` (method)
+- **Reason:** MOBI/PRC/AZW preview (F59 model).
+
+```text
+MOBI/PRC/AZW preview (F59: placeholder lid, book info).
+```
+
+### TXT-DOC-77 – Docstring: \_pack\_package\_capped
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_pack\_package\_capped` (method)
+- **Reason:** F60 – inverse split: 40 % icon, 60 % scrollable info.
+
+```text
+F60 (0.45.0): Inverse image split (F38): 40 % icon on
+top, 60 % info area below – the latter sits in a
+ScrolledWindow because package info (description,
+dependencies) likes to be longer than the area. The split
+follows window resizes (pattern _image_split_sync).
+```
+
+### TXT-DOC-78 – Docstring: \_package\_split\_sync
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_package\_split\_sync` (method)
+- **Reason:** F60 – icon area tracks 40 % of the column height.
+
+```text
+F60: Pull the icon area to 40 % of the column height.
+```
+
+### TXT-DOC-79 – Docstring: \_render\_package
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_package` (method)
+- **Reason:** F60 – package preview flow (DEB, RPM, Arch).
+
+```text
+F60 (0.45.0): Package preview (DEB, RPM, Arch/Pacman) –
+40 % icon on top (embedded app icon from the payload, else
+the drawn package placeholder), 60 % info table below in
+the scrollable area. If the package cannot be read, there
+is a hint plus the generic preview.
+```
+
+### TXT-DOC-80 – Docstring: \_render\_deb
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_deb` (method)
+- **Reason:** Debian package preview entry.
+
+```text
+Debian package preview (F60: icon on top, info
+scrollable).
+```
+
+### TXT-DOC-81 – Docstring: \_render\_rpm
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_rpm` (method)
+- **Reason:** RPM preview entry.
+
+```text
+RPM preview (F60: placeholder icon, info scrollable).
+```
+
+### TXT-DOC-82 – Docstring: \_render\_pkg
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_pkg` (method)
+- **Reason:** Arch package preview entry.
+
+```text
+Arch package preview (F60: icon on top, info scrollable).
+```
+
+### TXT-DOC-83 – Docstring: \_pack\_table
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_pack\_table` (method)
+- **Reason:** F8/F6 – real tables as Gtk.TreeView (F56 reuse later).
+
+```text
+F8/F6 (0.46.0): Real tables as Gtk.TreeView – scrollable
+in both directions, columns clickable-sortable and
+width-draggable. F56 (spreadsheets) can reuse the same
+renderer later.
+```
+
+### TXT-DOC-84 – Docstring: \_render\_csv
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_csv` (method)
+- **Reason:** F8 – CSV as a real table, delimiter and header from content.
+
+```text
+F8 (0.46.0): CSV as a real table. The module detects
+delimiter AND header line from the content itself (user
+requirement: the column/cell delimiter is never guessed
+from the file name) – csv.Sniffer tries comma, semicolon,
+TAB and pipe against the first lines.
+```
+
+### TXT-DOC-85 – Docstring: \_render\_sqlite
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_sqlite` (method)
+- **Reason:** F6 – SQLite table list, read-only, schema-driven.
+
+```text
+F6 (0.46.0): SQLite databases – table list with columns
+and row count. The structure comes entirely from the
+schema (sqlite_master, PRAGMA table_info), opened
+read-only (PRAGMA query_only).
+```
+
+### TXT-DOC-86 – Docstring: \_render\_font
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_font` (method)
+- **Reason:** Font waterfall with a fresh Pango font map.
+
+```text
+Font waterfall (TrueType, OpenType, collections): the
+file is registered with Fontconfig for this process only
+(nothing is installed). The waterfall is pre-rendered
+into a pixbuf with a FRESH Pango font map – GTK's default
+font map is built at startup and overlooks fonts added at
+runtime (labels would silently show the fallback font).
+The finished image uses the usual live scaling with the
+panel width.
+```
