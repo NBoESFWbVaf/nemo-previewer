@@ -518,6 +518,20 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   F39-Form). Grenzen: keine Farben/verbundenen Zellen, Zahlenformate  
   vereinfacht.
 
+- [ ] **F60 – Paket-Vorschau: DEB, RPM, Arch (40 % Icon / 60 % Infos)** (Nutzer-Wunsch 2026-11-02)
+
+  Paketdateien (.deb, .rpm, .pkg.tar.xz – AUR-Bauten) zeigen 40 %  
+  Icon oben (best effort das erste App-Icon aus dem Payload mit  
+  Dekomprimier-Budget, sonst gezeichneter Paket-Platzhalter mit  
+  Format-Signet), 60 % Info-Tabelle unten – scrollbar, weil  
+  Paket-Infos (Beschreibung, Abhängigkeiten) gern länger sind als  
+  der Bereich; alle Parser sind Bordmittel (ar+tarfile für deb,  
+  struct für den RPM-Header, tarfile für .PKGINFO), zstd bleibt  
+  außen vor (control.tar.zst/pkg.tar.zst → Hinweis, RPM-cpio →  
+  Platzhalter). ✅ 0.45.0: umgesetzt im Text-Modul (\_render\_package,  
+  \_pack\_package\_capped mit 40/60-Sync, \_WindowReader-Budget,  
+  \_package\_placeholder; pack\_meta\_grid mit wrap=True mehrzeilig).
+
 ### Bedienung &amp; Komfort
 
 - [ ] **F12 – Konfiguration der Vorschauspalte** (Nutzer-Wunsch;
@@ -1274,6 +1288,14 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   entfernt); HUFF/CDIC blockiert nicht mehr – Titel und Autor  
   zeigen sich jetzt auch bei AZW-Dateien.
 
+  ✅ 0.45.0 – F60 Paket-Vorschau (Nutzer-Wunsch 2026-11-02): DEB  
+  (ar+control.tar), RPM (struct-Header) und Arch (.pkg.tar.xz über  
+  .PKGINFO) mit 40/60-Split – Icon oben (App-Icon best effort mit  
+  48-MB-Budget, sonst gezeichneter Platzhalter), Info-Tabelle unten  
+  scrollbar (pack\_meta\_grid wrap=True); zstd und RPM-cpio bleiben  
+  außen vor (Bordmittel-Grenze); PKGBUILD/.SRCINFO laufen über die  
+  Text-Vorschau. Dispatch: .deb/.rpm/.pkg.tar.xz/.pkg.tar.zst.
+
 ---
 
 ## Empfohlene Reihenfolge
@@ -1310,10 +1332,10 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                                                  | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-02, 0.44.0 gebaut)
+## Aktuelle Reihenfolge (Stand 2026-11-02, 0.45.0 gebaut)
 
-1. **0.43.0 und 0.44.0 testen und deployen** – beide stehen aus  
-   (R10 + R11; F59 E-Book-Vorschau) – Voraussetzung für alles Weitere.
+1. **0.43.0, 0.44.0 und 0.45.0 testen und deployen** – alle drei  
+   stehen aus (0.43.0: R10 + R11; 0.44.0: F59; 0.45.0: F60) – Voraussetzung für alles Weitere.
 2. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden,  
    damit neue Inhalte (B9, F50, F52–F54) gleich englisch entstehen;  
    je Datei eine Runde.
