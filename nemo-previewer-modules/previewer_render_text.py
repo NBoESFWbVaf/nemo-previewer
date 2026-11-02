@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.43.0
+previewer_render_text.py – Version 0.44.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -42,7 +42,7 @@ if _HERE not in sys.path:
 from previewer_util import (
     dbg,
     MAX_TEXT_BYTES, MAX_TEXT_LINES, MAX_IMAGE_HEIGHT,
-    MAX_EBOOK_CHARS, pick_icon,
+    pick_icon,
     _zf_read_capped, _pixbuf_from_bytes,
     _xml_dtd_rejected,
     pack_hint,
@@ -495,46 +495,63 @@ def _xml_local(tag):
     return tag.rsplit("}", 1)[-1]
 
 
-def _palmdoc_decompress(data):
-    """
-    PalmDoc-Entpackung (MOBI-Kompressionsverfahren 1). Bytes 0x80–0xBF
-    sind Rückverweise; byteweise Kopieren behandelt Überlappungen richtig.
-    """
-    out = bytearray()
-    i, n = 0, len(data)
-    while i < n:
-        b = data[i]
-        i += 1
-        if b == 0 or 9 <= b <= 0x7f:
-            out.append(b)
-        elif b <= 8:
-            out.extend(data[i:i + b])
-            i += b
-        elif b <= 0xbf:
-            if i < n:
-                dist = (((b & 0x3f) << 8) | data[i]) + 1
-                i += 1
-                start = len(out) - dist
-                if 0 <= start < len(out):
-                    for _ in range((b >> 6) + 2):
-                        out.append(out[start])
-                        start += 1
-        else:
-            out.append(0x20)              # space + (byte ^ 0x80)
-            out.append(b ^ 0x80)
-    return bytes(out)
-
-
-_EBOOK_CHUNK_CAP = 2 * 1024 * 1024     # R4: max bytes per spine document
+_EBOOK_CHUNK_CAP = 2 * 1024 * 1024     # R4: max bytes für OPF-Container-Dokumente
 _EBOOK_COVER_CAP = 16 * 1024 * 1024    # R4: max bytes for cover images
 
 
 def _ebook_rows(pairs):
     """
     S3 (0.42.0): Metadaten-Zeilen der E-Book-Formate – leere Werte
-    fallen weg (Titel, Autor, Sprache).
+    fallen weg. F59 (0.44.0): Buchtitel, Autor, Reihe, Seiten,
+    Ebookformat, Sprache – nur gesetzte Tags zeigen eine Zeile.
     """
     return [(k, v) for k, v in pairs if v]
+
+
+def _series_text(series, index):
+    """
+    F59 (0.44.0): Reihen-Angabe aus Name und Bandnummer – „Name –
+    Band 2.5“; ohne Nummer nur der Name, ohne Name gar nichts
+    (dann fällt die Zeile über _ebook_rows weg).
+    """
+    if not series:
+        return None
+    if index:
+        return "%s – Band %s" % (series, index)
+    return series
+
+
+def _ebook_placeholder(w=240, h=360):
+    """
+    F59 (0.44.0): Gezeichnetes Hochformat-Cover für E-Books ohne
+    eingebettetes Cover – Buchdeckel-Gerüst in Grautönen (Rücken-
+    Streifen, Titel-Balken, Textzeilen-Andeutungen), themeneutral
+    wie der vCard-Platzhalter. Ohne Cairo gibt es None zurück;
+    der Aufrufer zeigt dann den Öffnen-Hinweis.
+    """
+    if not HAVE_PANGOCAIRO:
+        return None
+    try:
+        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        cr = cairo.Context(surf)
+        pat = cairo.LinearGradient(0.0, 0.0, 0.0, h)
+        pat.add_color_stop_rgba(0.0, 0.90, 0.90, 0.92, 1.0)
+        pat.add_color_stop_rgba(1.0, 0.76, 0.76, 0.80, 1.0)
+        cr.set_source(pat)
+        cr.paint()
+        cr.set_source_rgba(0.62, 0.62, 0.66, 1.0)
+        cr.rectangle(0, 0, w * 0.09, h)
+        cr.fill()
+        cr.rectangle(w * 0.18, h * 0.16, w * 0.64, h * 0.075)
+        cr.fill()
+        for i in range(4):
+            cr.rectangle(w * 0.18, h * (0.30 + i * 0.055),
+                         w * (0.64 - i * 0.06), h * 0.018)
+            cr.fill()
+        return Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
+    except Exception as e:
+        dbg("E-book placeholder failed (%s)" % e)
+        return None
 
 
 def _epub_opf_path(zf, names):
@@ -566,13 +583,18 @@ def _epub_opf_path(zf, names):
 def _epub_metadata(root):
     """
     S3 (0.42.0): OPF auswerten – Titel/Autor/Sprache, Manifest
-    (id → href, Media type, properties), Spine in Lesereihenfolge
-    und Cover-ID (cover-image-Properties, sonst meta name=cover).
+    (id → href, media type, properties) und Cover-ID (cover-image-
+    Properties, sonst meta name=cover). F59 (0.44.0): Reihe und
+    Seiten dazu – calibre:series (plus Index) oder EPUB3 belongs-to-
+    collection (plus group-position); Seiten nur, wenn das OPF einen
+    page-count-Meta trägt (kein Standard-Tag – ohne Tag keine
+    Zeile). Der Spine entfällt mit der Text-Vorschau (F59).
     """
     title = author = lang = None
     manifest = {}          # id -> (href, media type)
-    spine = []             # hrefs in reading order
     cover_id = None
+    series = series_index = pages = None
+    coll_id = None         # id der belongs-to-collection-Meta (EPUB 3)
     for el in root.iter():
         tag = _xml_local(el.tag)
         if tag == "title" and title is None:
@@ -590,14 +612,29 @@ def _epub_metadata(root):
                     item.get("properties") or "")
                 if "cover-image" in (item.get("properties") or ""):
                     cover_id = item.get("id")
-        elif tag == "spine":
-            for itemref in el:
-                if _xml_local(itemref.tag) == "itemref":
-                    spine.append(itemref.get("idref"))
-        elif (tag == "meta" and el.get("name") == "cover"
-                and cover_id is None):
-            cover_id = el.get("content")
-    return title, author, lang, manifest, spine, cover_id
+        elif tag == "meta":
+            name = el.get("name") or ""
+            prop = el.get("property") or ""
+            if name == "cover" and cover_id is None:
+                cover_id = el.get("content")
+            elif name == "calibre:series" and series is None:
+                series = (el.get("content") or "").strip()
+            elif (name == "calibre:series_index"
+                    and series_index is None):
+                series_index = (el.get("content") or "").strip()
+            elif prop == "belongs-to-collection" and series is None:
+                series = (el.text or "").strip()
+                coll_id = el.get("id")
+            elif (prop == "group-position" and series_index is None
+                    and (not el.get("refines") or not coll_id
+                         or el.get("refines") == "#" + coll_id)):
+                series_index = (el.text or "").strip()
+            elif prop == "page-count" and pages is None:
+                pages = (el.text or "").strip()
+            elif name == "page-count" and pages is None:
+                pages = (el.get("content") or "").strip()
+    return (title, author, lang, manifest, cover_id,
+            series, series_index, pages)
 
 
 def _epub_cover(zf, names, base, manifest, cover_id):
@@ -625,41 +662,13 @@ def _epub_cover(zf, names, base, manifest, cover_id):
     return cover
 
 
-def _epub_text(zf, base, spine, manifest):
-    """
-    S3 (0.42.0): Textanfang – Spine-Dokumente in Lesereihenfolge zu
-    Text (R6: die EPUB3-Navigationsdatei properties="nav" ist das
-    Inhaltsverzeichnis, KEIN Buchtext).
-    """
-    parts = []
-    total = 0
-    for idref in spine:
-        if total >= MAX_EBOOK_CHARS:
-            break
-        href, mtype, props = manifest.get(idref, (None, None, ""))
-        if not href:
-            continue
-        if "nav" in props.split():
-            continue
-        if mtype and "html" not in mtype and "xml" not in mtype:
-            continue
-        try:
-            raw = _zf_read_capped(zf, base + href, _EBOOK_CHUNK_CAP)
-        except KeyError:
-            continue
-        chunk = _html_to_text(raw.decode("utf-8", "replace"))
-        if chunk.strip():
-            parts.append(chunk)
-            total += len(chunk)
-    return "\n\n".join(parts)[:MAX_EBOOK_CHARS]
-
-
 def _epub_data(path):
     """
-    EPUB öffnen: Metadaten (Titel, Autor, Sprache), Cover-Bytes und der
-    Textanfang in Lesereihenfolge (Spine). Rückgabe (rows, cover, text).
-    S3 (0.42.0): Zerlegt – _epub_opf_path, _epub_metadata, _epub_cover
-    und _epub_text parsen je einen Teil; hier bleibt der Ablauf.
+    EPUB öffnen: Metadaten (F59: Buchtitel, Autor, Reihe, Seiten,
+    Sprache) und Cover-Bytes. Rückgabe (rows, cover) – die Text-
+    vorschau ist mit F59 abgeschafft.
+    S3 (0.42.0): Zerlegt – _epub_opf_path, _epub_metadata und
+    _epub_cover parsen je einen Teil; hier bleibt der Ablauf.
     """
     with zipfile.ZipFile(path) as zf:
         names = zf.namelist()
@@ -671,21 +680,27 @@ def _epub_data(path):
         if _xml_dtd_rejected(opf_raw, "EPUB-OPF " + opf_path):
             raise ValueError("DOCTYPE im OPF (R10-Entity-Guard)")
         root = ElementTree.fromstring(opf_raw)
-        title, author, lang, manifest, spine, cover_id = _epub_metadata(root)
+        (title, author, lang, manifest, cover_id,
+         series, series_index, pages) = _epub_metadata(root)
         cover = _epub_cover(zf, names, base, manifest, cover_id)
-        text = _epub_text(zf, base, spine, manifest)
-    return _ebook_rows((("Titel", title), ("Autor", author),
-                        ("Sprache", lang))), cover, text
+    return (_ebook_rows((("Buchtitel", title), ("Autor", author),
+                         ("Teil einer Reihe", _series_text(series,
+                                                           series_index)),
+                         ("Anzahl Seiten", pages),
+                         ("Ebookformat", "EPUB"), ("Sprache", lang))),
+            cover)
 
 
 def _fb2_metadata(root):
     """
     S3 (0.42.0): FB2-Kopf – Titel, Autor (first-/last-name) und
-    Cover-Referenz (coverpage l:href), plus der ERSTE Körper.
+    Cover-Referenz (coverpage l:href). F59 (0.44.0): Sprache
+    (<lang>) und Reihe (<sequence name number>) dazu; der Körper
+    entfällt mit der Text-Vorschau (F59).
     """
-    title = author = None
+    title = author = lang = None
     cover_ref = None
-    body = None
+    series = seq_index = None
     for el in root.iter():
         tag = _xml_local(el.tag)
         if tag == "book-title" and title is None:
@@ -699,43 +714,17 @@ def _fb2_metadata(root):
                 elif ct == "last-name":
                     last = (child.text or "").strip()
             author = " ".join(x for x in (first, last) if x)
+        elif tag == "lang" and lang is None:
+            lang = (el.text or "").strip()
         elif tag == "coverpage" and cover_ref is None:
             for child in el:
                 if _xml_local(child.tag) == "image":
                     cover_ref = (child.get("l:href") or
                                  child.get("href") or "").lstrip("#")
-        elif tag == "body" and body is None:
-            body = el
-    return title, author, cover_ref, body
-
-
-def _fb2_body_text(body):
-    """
-    S3 (0.42.0): Textanfang des ersten Körpers – Absätze, Titel,
-    Zwischenzeilen und Leerzeilen; Fußnoten-Körper bleiben außen
-    vor.
-    """
-    lines = []
-    total = 0
-    if body is not None:
-        for el in body.iter():
-            tag = _xml_local(el.tag)
-            if tag in ("p", "v", "subtitle", "text-author"):
-                txt = "".join(el.itertext()).strip()
-                if txt:
-                    lines.append(txt)
-                    total += len(txt) + 1
-            elif tag == "title":
-                lines.append("")
-                txt = "".join(el.itertext()).strip()
-                if txt:
-                    lines.append(txt)
-                    total += len(txt) + 1
-            elif tag == "empty-line":
-                lines.append("")
-            if total >= MAX_EBOOK_CHARS:
-                break
-    return "\n".join(lines)[:MAX_EBOOK_CHARS]
+        elif tag == "sequence" and series is None:
+            series = (el.get("name") or "").strip() or None
+            seq_index = (el.get("number") or "").strip() or None
+    return title, author, lang, cover_ref, series, seq_index
 
 
 def _fb2_cover(root, cover_ref):
@@ -759,10 +748,11 @@ def _fb2_cover(root, cover_ref):
 
 def _fb2_data(path):
     """
-    FictionBook 2 (.fb2): Titel, Autor, Cover (base64-binär) und
-    Textanfang des ersten Körpers (Fußnoten-Körper werden ignoriert).
-    S3 (0.42.0): Zerlegt – _fb2_metadata, _fb2_body_text und
-    _fb2_cover je einen Teil; hier bleibt der Ablauf.
+    FictionBook 2 (.fb2): Buchtitel, Autor, Reihe, Sprache und
+    Cover (base64-binär). Rückgabe (rows, cover) – die Text-Vorschau
+    ist mit F59 abgeschafft.
+    S3 (0.42.0): Zerlegt – _fb2_metadata und _fb2_cover je einen
+    Teil; hier bleibt der Ablauf.
     R11: Lese-Deckel wie EML/vCard (Cover steckt als base64 in
     der Datei, ein paar MB sind normal) – Riesen-FB2s werden
     abgeschnitten und dann gar nicht mehr geparst: Der ParseError
@@ -775,14 +765,17 @@ def _fb2_data(path):
     if _xml_dtd_rejected(raw, "FB2 " + path):
         raise ValueError("DOCTYPE in der FB2-Datei (R10-Entity-Guard)")
     root = ElementTree.fromstring(raw).getroot()
-    title, author, cover_ref, body = _fb2_metadata(root)
-    text = _fb2_body_text(body)
+    title, author, lang, cover_ref, series, seq_index = _fb2_metadata(root)
     cover = _fb2_cover(root, cover_ref)
-    return _ebook_rows((("Titel", title), ("Autor", author))), cover, text
+    return (_ebook_rows((("Buchtitel", title), ("Autor", author),
+                         ("Teil einer Reihe", _series_text(series,
+                                                           seq_index)),
+                         ("Ebookformat", "FB2"), ("Sprache", lang))),
+            cover)
 
 
-_MOBI_MAX_BYTES = 8 * 1024 * 1024   # B5: Text-Records stehen ohnehin am
-                                    # Dateianfang – nur bis hierher lesen
+_MOBI_MAX_BYTES = 8 * 1024 * 1024   # B5: Titel- und EXTH-Daten stehen ohnehin
+                                    # am Dateianfang – nur bis hierher lesen
 
 
 def _mobi_records(data):
@@ -844,41 +837,16 @@ def _mobi_header(recs):
     return compression, encoding, first_non_book, author
 
 
-def _mobi_text(recs, compression, encoding, first_non_book):
-    """
-    S3 (0.42.0): Buchtext – Datensätze 1 bis first_non_book, je
-    dekomprimiert (PalmDoc bei Verfahren 1), dekodiert und von
-    Steuerzeichen befreit, zuletzt HTML zu Text (→ REF
-    TXT-MOBI-1).
-    """
-    _mobi_edge = ("\ufffd\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c"
-                  "\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19"
-                  "\x1a\x1b\x1c\x1d\x1e\x1f")
-    parts = []
-    total = 0
-    for rec in recs[1:first_non_book]:
-        if compression == 1:
-            rec = _palmdoc_decompress(rec)
-        chunk = rec.decode(encoding, "replace").strip(_mobi_edge)
-        if not chunk:
-            continue
-        parts.append(chunk)
-        total += len(chunk)
-        if total >= MAX_EBOOK_CHARS * 2:
-            break
-    return _html_to_text(" ".join(parts))[:MAX_EBOOK_CHARS]
-
-
 def _mobi_data(path):
     """
-    MOBI/PRC (Palm-Container): Titel, Autor (EXTH) und Textanfang.
-    Unterstützt Kompressionsverfahren 1 (PalmDoc) und 2 (unkomprimiert);
-    HUFF/CDIC (einige neuere AZW) wird abgelehnt – KF8-Dateien (AZW3)
-    liefern bestenfalls HTML-Reste, sind aber lesbar, wenn PalmDoc
-    komprimiert ist. Es wird nur der Dateikopf bis _MOBI_MAX_BYTES
-    gelesen (B5): riesige AZW3-Dateien sollen Nemo nicht einfrieren.
-    S3 (0.42.0): Zerlegt – _mobi_records, _mobi_header und
-    _mobi_text je einen Teil; hier bleibt der Ablauf.
+    MOBI/PRC (Palm-Container): Buchtitel und Autor (EXTH). Rückgabe
+    (rows, None) – F59: E-Books zeigen Cover und Info-Tabelle statt
+    Text; MOBI-Cover stecken als REC-Eintrag (anders adressiert),
+    daher zeigt die Vorschau den gezeichneten Platzhalter. Ohne
+    Text-Extraktion blockiert HUFF/CDIC nicht mehr – Titel und
+    Autor zeigen sich jetzt auch bei AZW-Dateien.
+    S3 (0.42.0): Zerlegt – _mobi_records und _mobi_header je einen
+    Teil; hier bleibt der Ablauf.
     """
     with open(path, "rb") as fh:
         data = fh.read(_MOBI_MAX_BYTES)
@@ -886,12 +854,9 @@ def _mobi_data(path):
         raise ValueError("kein MOBI-Container")
     title = data[0:32].split(b"\x00")[0].decode("utf-8", "replace").strip()
     recs = _mobi_records(data)
-    compression, encoding, first_non_book, author = _mobi_header(recs)
-    if compression not in (1, 2):
-        raise ValueError("Kompressionsverfahren %d nicht unterstützt "
-                         "(HUFF/CDIC)" % compression)
-    text = _mobi_text(recs, compression, encoding, first_non_book)
-    return _ebook_rows((("Titel", title), ("Autor", author))), None, text
+    author = _mobi_header(recs)[3]
+    return (_ebook_rows((("Buchtitel", title), ("Autor", author),
+                         ("Ebookformat", "MOBI"))), None)
 
 # --- Fonts: waterfall for TrueType/OpenType (stdlib) -------------------------
 
@@ -1853,48 +1818,54 @@ class TextRendererMixin:
 
     def _render_ebook(self, path, loader, fmt):
         """
-        Gemeinsamer E-Book-Ablauf: Metadaten-Kopf, Cover-Bild (lebt mit
-        der Panelbreite) und der Textanfang in einem scrollbaren TextView.
-        Lässt sich das Buch nicht lesen (kaputt oder HUFF-Kompression),
-        erscheint ein Hinweis plus generische Vorschau.
+        F59 (0.44.0): Neue E-Book-Darstellung nach Bild-Vorbild –
+        oben (60 %) das Cover, ohne Cover ein gezeichneter Hochformat-
+        Platzhalter, unten (40 %) die Info-Tabelle (Buchtitel, Autor,
+        Reihe, Seiten, Ebookformat, Sprache – nur gesetzte Tags). Die
+        Textvorschau ist abgeschafft: sie renderte unschön, die
+        Buch-Infos reichen. Lässt sich das Buch nicht lesen, gibt es
+        einen Hinweis plus generische Vorschau.
         """
         try:
-            rows, cover, text = loader(path)
+            rows, cover = loader(path)
         except Exception as e:
             dbg("E-book unreadable (%s): %s" % (path, e))
             pack_hint(self._content, "E-Book konnte nicht gelesen werden: %s" % e)
             self._render_generic()
             return
         if not rows:
-            rows = [("Format", fmt)]
-        pack_meta_grid(rows, self._content)
+            rows = [("Ebookformat", fmt)]
+        pb = None
         if cover:
             try:
                 pb = _pixbuf_from_bytes(cover)
-                scroll = self._scaled_image(
-                    pb, MAX_IMAGE_HEIGHT, upscale=True, keep_height=True,
-                    max_upscale=2.0)
-                self._content.pack_start(scroll, False, False, 0)
             except Exception as exc:
                 dbg("E-book cover not displayable: %s" % exc)
-        if not text.strip():
-            pack_hint(self._content, "Kein lesbarer Text gefunden – Datei über den "
+        if pb is None:
+            pb = _ebook_placeholder()
+        if pb is None:
+            pack_hint(self._content, "Kein Cover vorhanden – Datei über den "
                        "Öffnen-Knopf betrachten.")
+            pack_meta_grid(rows, self._content)
             return
-        # 0.9.1: text start via the shared TextView helper
-        # (previously built identically inline).
-        self._text_view(text)
+        # 60/40-Split wie Bilder (F38): _pack_image_capped setzt
+        # _image_info_box, die Info-Zeilen landen im unteren Teil.
+        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=True,
+                                    keep_height=True, max_upscale=2.0,
+                                    frac_h=0.6)
+        self._pack_image_capped(scroll)
+        pack_meta_grid(rows, self._image_info_box)
 
     def _render_epub(self, path):
-        """EPUB-Vorschau (Titel, Autor, Cover, Textanfang)."""
+        """EPUB-Vorschau (F59: Cover oben, Buch-Infos unten)."""
         self._render_ebook(path, _epub_data, "EPUB")
 
     def _render_fb2(self, path):
-        """FictionBook-2-Vorschau (Titel, Autor, Cover, Textanfang)."""
-        self._render_ebook(path, _fb2_data, "FictionBook")
+        """FictionBook-2-Vorschau (F59: Cover oben, Buch-Infos unten)."""
+        self._render_ebook(path, _fb2_data, "FB2")
 
     def _render_mobi(self, path):
-        """MOBI/PRC/AZW-Vorschau (Titel, Autor, Textanfang)."""
+        """MOBI/PRC/AZW-Vorschau (F59: Platzhalter-Deckel, Buch-Infos)."""
         self._render_ebook(path, _mobi_data, "MOBI")
 
     def _render_font(self, path):
@@ -1995,7 +1966,7 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-PREVIEWER_VERSION = "0.43.0"
+PREVIEWER_VERSION = "0.44.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "K4 markdown and read caps stay)"
