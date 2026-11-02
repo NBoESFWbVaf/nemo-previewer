@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.45.1
+previewer_panel.py – Version 0.46.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -676,6 +676,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._render_rpm(path)
         elif lower.endswith((".pkg.tar.xz", ".pkg.tar.zst")):
             self._render_pkg(path)
+        elif (mime in ("text/csv", "text/comma-separated-values",
+                       "application/csv")
+              or lower.endswith((".csv", ".tsv", ".tab"))):
+            self._render_csv(path)
+        elif (mime in ("application/vnd.sqlite3", "application/x-sqlite3")
+              or lower.endswith((".db", ".sqlite", ".sqlite3"))):
+            self._render_sqlite(path)
         elif (mime in ("font/ttf", "font/otf", "font/collection",
                        "application/x-font-ttf", "application/x-font-otf",
                        "application/vnd.ms-opentype")
@@ -1399,7 +1406,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_apply_panel_width_live: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.45.1"
+PREVIEWER_VERSION = "0.46.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
