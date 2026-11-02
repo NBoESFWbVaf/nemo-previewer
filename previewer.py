@@ -74,8 +74,8 @@ for _mod in (previewer_util, previewer_select, previewer_panel,
 
 # ============================== Provider ===================================
 
+# → REF ENT-DOC-1
 class PanelState:
-    """Zustand pro Nemo-Fenster (am Fenster-Objekt gespeichert)."""
 
     def __init__(self, window):
         self.window = window
@@ -95,13 +95,8 @@ class PanelState:
         # the left edge otherwise showed black.
         self.hpaned.connect("draw", self._on_hpaned_draw)
 
+    # → REF ENT-DOC-2
     def _install_toolbar_toggle(self):
-        """
-        F40 (Nutzer-Wunsch): Ein-/aus-Knopf für die Vorschau-Seiten-
-        leiste in Nemos Werkzeugleiste, neben der Ansichtenauswahl.
-        Der Zustand bleibt synchron: Strg+Alt+P und der Knopf
-        schalten dasselbe Panel, notify::visible zieht nach.
-        """
         # Idempotent: reconciliation may run repeatedly; a button
         # already packed is never added twice. → REF ENT-TOGGLE-1
         if self.toggle_btn is not None or getattr(
@@ -121,7 +116,7 @@ class PanelState:
             btn.set_image(Gtk.Image.new_from_icon_name(
                 icon, Gtk.IconSize.BUTTON))
             btn.set_relief(Gtk.ReliefStyle.NONE)
-            self._pack_toggle(btn, icon, "Titelleiste",
+            self._pack_toggle(btn, icon, "title bar",
                               lambda b: bar.pack_end(b))
             return
         # Route 2: classic Nemo – the view buttons sit in a GtkToolbar
@@ -135,12 +130,12 @@ class PanelState:
         btn = Gtk.ToggleToolButton()
         btn.set_icon_name(icon)
         pos = self._pos_after_view_buttons(toolbar)
-        self._pack_toggle(btn, icon, "Toolbar",
+        self._pack_toggle(btn, icon, "toolbar",
                            lambda b: toolbar.insert(b, pos))
 
+    # → REF ENT-DOC-3
     def _pack_toggle(self, btn, icon, where, pack):
-        """F40: Knopf fertigmachen, einpacken, verkabeln, loggen."""
-        btn.set_tooltip_text("Vorschau-Seitenleiste (Strg+Alt+P)")
+        btn.set_tooltip_text("Preview side panel (Ctrl+Alt+P)")
         # F40: sync the initial state – notify::visible only fires on
         # change; set_active before connecting triggers nothing (→ REF ENT-TOGGLE-1).
         btn.set_active(self.panel.get_visible())
@@ -158,8 +153,8 @@ class PanelState:
         dbg("Preview toggle placed in Nemo's %s (icon: %s)"
             % (where, icon))
 
+    # → REF ENT-DOC-4
     def _find_first_widget(self, widget, pred):
-        """F40: Widget-Baum rekursiv durchsuchen, erstes Match liefern."""
         if pred(widget):
             return widget
         if isinstance(widget, Gtk.Container):
@@ -169,12 +164,8 @@ class PanelState:
                     return found
         return None
 
+    # → REF ENT-DOC-5
     def _pos_after_view_buttons(self, toolbar):
-        """
-        F40: Position direkt hinter dem letzten Ansichts-Knopf der
-        Toolbar (dessen Icon heißt view-…-symbolic). Ohne Fund -1,
-        dann hängt insert() hinten an.
-        """
         pos = -1
         for item in toolbar.get_children():
             child = item.get_child()
@@ -182,8 +173,8 @@ class PanelState:
                 pos = toolbar.get_item_index(item)
         return -1 if pos < 0 else pos + 1
 
+    # → REF ENT-DOC-6
     def _has_view_icon(self, widget):
-        """F40: Hat das Widget (rekursiv) ein view-…-Icon? (Gtk.Image)."""
         if isinstance(widget, Gtk.Image):
             try:
                 name = widget.get_icon_name()[0]
@@ -197,28 +188,22 @@ class PanelState:
                     return True
         return False
 
+    # → REF ENT-DOC-7
     def _on_toolbar_toggle(self, btn):
-        """F40: Knopf schaltet dieselbe Route wie Strg+Alt+P."""
         if btn.get_active():
             self.panel.show_all()
         else:
             self.panel.hide()
 
+    # → REF ENT-DOC-8
     def _on_panel_visibility(self, panel, prop):
-        """F40: Panel woanders umgeschaltet – Knopf-Zustand nachziehen."""
         try:
             self.toggle_btn.set_active(panel.get_visible())
         except Exception as e:
             dbg("previewer/_on_panel_visibility: suppressed: %s" % e)
 
+    # → REF ENT-DOC-9
     def _on_hpaned_draw(self, paned, cr):
-        """
-        F46 X (0.34.1, Nutzer-Fund): Der linke Rand der Vorschau-
-        spalte gehört dem Griff-Fenster des injizierten Gtk.Paned –
-        ungemalt, im Lightmode ein schwarzer Rahmen. Der Painter
-        des Panels malt dieselbe Fläche mit der Ketten-Farbe
-        (→ REF PAN-BG-2).
-        """
         try:
             self.panel._paint_background(paned, cr)
         except Exception as e:
@@ -249,14 +234,8 @@ def _uri_to_dir(uri):
             return None
 
 
+# → REF ENT-DOC-10
 def _reconcile(st):
-    """
-    Panel an der rechten Kante des Nemo-Fensters verankern.
-    Technik: Das direkte Kindelement der Fenster-Hauptbox, das die
-    Dateiansicht enthält (der Nemo-'Pane'), wird in unser HPaned
-    verpackt: [ Pane | Panel ]. Das Panel sitzt damit zuverlässig am
-    rechten Rand und behält seine Position über Reiterwechsel hinweg.
-    """
     window = st.window
     view = find_view(window)
     if view is None:
@@ -355,8 +334,8 @@ def _reconcile(st):
     st._view_ok(view)
 
 
+# → REF ENT-DOC-11
 def _detach(st):
-    """Panel aus dem Widget-Baum lösen und Originalstruktur wiederherstellen."""
     parent = st.hpaned.get_parent()
     if parent is None:
         return
@@ -387,15 +366,8 @@ def _detach(st):
         traceback.print_exc()
 
 
+# → REF ENT-DOC-12
 def _connect_view_signals(st, view):
-    """
-    Auswahl-Signale dynamisch entdecken und verbinden. Statt einen
-    festen Signalnamen zu raten, werden im Teilbaum der Ansicht und
-    auf den AtkSelection-Objekten alle void-Signale mit 'select' im
-    Namen verbunden – so ist es egal, ob Nemo Striche oder Unter-
-    striche benutzt. Verbunden wird pro Widget; die Handler-IDs
-    landen als (Objekt, ID)-Paare in st.view_handlers.
-    """
     names_found = set()
 
     for w in walk(view):
@@ -424,15 +396,8 @@ def _connect_view_signals(st, view):
         % (type_name(view), ", ".join(sorted(names_found)) or "none"))
 
 
+# → REF ENT-DOC-13
 def _dump_a11y_once(st):
-    """
-    Den a11y-Baum der Ansicht bis zu zweimal ausgeben: einmal nach dem
-    Verbinden (Grundzustand) und einmal beim ersten Auswahl-Signal
-    (Zustand nach dem Klick). Die Zeilen zeigen Tiefe, Kinderzahl,
-    Rolle, Namen, AtkSelection-Zähler sowie SELECTED/FOCUSED – damit
-    ist sichtbar, wo Nemo die Auswahl tatsächlich hergibt.
-    Nur bei VERBOSE_DIAG – im Alltagsbetrieb still.
-    """
     if not VERBOSE_DIAG:
         return
     if st._a11y_dumps >= 2 or st.view is None:
@@ -504,8 +469,8 @@ def _dump_a11y_once(st):
     dbg("%s – end of dump" % tag)
 
 
+# → REF ENT-DOC-14
 def _view_ok(self, view):
-    """Signal-Anmeldung (self ist hier ein PanelState via Erweiterung unten)."""
     if self.view is not view:
         for obj, hid in self.view_handlers:
             try:
@@ -560,13 +525,13 @@ def _refresh(st):
         traceback.print_exc()
 
 
+# → REF ENT-DOC-15
 def _refresh_soon(st):
-    """Auswahl-Refresh in den Main-Loop einplanen (Signal-Kontext verlassen)."""
     GLib.idle_add(lambda: (_refresh(st), False)[1])
 
 
+# → REF ENT-DOC-16
 def _poll(st):
-    """Timer: Reconciliation + Auswahl-Abgleich als Sicherheitsnetz."""
     try:
         _reconcile(st)
         _refresh(st)
@@ -575,11 +540,8 @@ def _poll(st):
     return True
 
 
+# → REF ENT-DOC-17
 def _on_window_destroyed(window, st):
-    """
-    Fenster wird abgebaut (0.9.1): den 500-ms-Poll-Timer abräumen –
-    sonst liefe er als Zombie nach dem Fensterende ewig weiter.
-    """
     try:
         if st.poll_id:
             GLib.source_remove(st.poll_id)
@@ -604,15 +566,8 @@ def _get_state(window):
     return st
 
 
+# → REF ENT-DOC-18
 def _on_crowbar_placed(crowbar, window, uri, tries):
-    """
-    Idle-Callback: crowbar ist jetzt im Baum → Panel injizieren.
-    0.9.1: Der Ordnerpfad wird hier NICHT mehr aus dem (eventuell
-    überholten) uri gesetzt – _get_widget schreibt st.dir_path bereits
-    synchron beim Anfordern der Crowbar. Eine alte Crowbar, die erst
-    NACH einer neueren platziert wird, konnte sonst den aktuellen
-    Pfad mit einem ALTEN Pfad überschreiben.
-    """
     st = _get_state(window)
     if crowbar.get_parent() is None:
         tries[0] += 1
@@ -624,8 +579,8 @@ def _on_crowbar_placed(crowbar, window, uri, tries):
 
 # ------- Provider class (dynamic, so NameAndDescProvider stays optional) ----
 
+# → REF ENT-DOC-19
 def _is_desktop_window(window):
-    """Erkennt Desktop-Fenster, damit dort kein Vorschau-Panel landet."""
     name = type_name(window)
     # Cinnamon/Nemo versions differ in their concrete type names.
     if "desktop" in name.lower():
@@ -641,8 +596,8 @@ def _is_desktop_window(window):
     return False
 
 
+# → REF ENT-DOC-20
 def _get_widget(self, uri, window):
-    """LocationWidgetProvider: liefert die unsichtbare 'Brechstange'."""
     window_type = type_name(window)
     dbg("get_widget called for %s (window type: %s)" % (uri, window_type))
     if _is_desktop_window(window):
@@ -664,7 +619,7 @@ def _get_widget(self, uri, window):
 
 def _get_name_and_desc(self):
     return ["previewer:::"
-            "Angedockte Vorschau der ausgewählten Datei:::"]
+            "Docked preview of the selected file:::"]
 
 
 _bases = [GObject.GObject, Nemo.LocationWidgetProvider]
