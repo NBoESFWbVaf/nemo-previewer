@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.42.1
+previewer_util.py – Version 0.42.2
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -336,5 +336,5 @@ def build_text_view(view, text, font, markup):
     return scroll
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.42.1"
+PREVIEWER_VERSION = "0.42.2"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
