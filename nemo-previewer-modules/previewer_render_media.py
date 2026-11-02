@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.46.0
+previewer_render_media.py – Version 0.47.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -630,7 +630,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-21
     def _render_image(self, path):
-        pack_hint(self._content, "Lade Bild – einen Moment …")
+        pack_hint(self._content, "Loading image – one moment …")
         try:
             target_w = max(1024, self._preview_width() * 2)
         except Exception:
@@ -756,7 +756,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-24
     def _media_probe_async(self, path, uri, finish, video=False):
-        pack_hint(self._content, "Lese Medien-Informationen – einen Moment …")
+        pack_hint(self._content, "Reading media information – one moment …")
         _media_gi_warmup()
         try:
             try:
@@ -1321,7 +1321,7 @@ class MediaRendererMixin:
                 dbg("media/_stop_playback: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.46.0"
+PREVIEWER_VERSION = "0.47.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
