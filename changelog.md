@@ -6,6 +6,24 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.43.0\] – 2026-11-02
+
+### Fixed (Behoben)
+
+- R10 – XML-Entity-Guard (Sicherheitsaudit): \_xml\_dtd\_rejected  
+  in previewer\_util prüft vor jedem xml.etree-Parsen die ersten  
+  64 KB auf DOCTYPE-/ENTITY-Deklarationen und lehnt sie ab – ein  
+  „Billion Laughs“-Dokument kann die Vorschau nicht mehr einfrieren  
+  oder den Speicher sprengen. Geschützt: EPUB-OPF, FB2, .contact  
+  (previewer\_render\_text.py) und Office-XML (previewer\_render\_  
+  docs.py); EPUB-container.xml wird per Regex gelesen und war nie  
+  betroffen; defusedxml bewusst nicht eingebunden (Bordmittel).  
+- R11 – FB2-Lese-Deckel (Sicherheitsaudit): \_fb2\_data liest statt  
+  ElementTree.parse(path) (ganze Datei) maximal \_FB2\_FILE\_CAP  
+  (8 MB) und parst aus dem Puffer – wie EML/vCard haben damit alle  
+  Formate einen Deckel; abgeschnittene Riesen-Dateien laufen in  
+  den Öffnen-Hinweis statt in Speicher-Druck.
+
 ## \[0.42.2\] – 2026-11-02
 
 ### Fixed (Behoben)
