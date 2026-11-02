@@ -2626,10 +2626,14 @@ monospace read-only TextView, output capped at 2000 lines;
 without exiftool the button never appears – the info area
 shows an install hint with the Debian package name
 libimage-exiftool-perl instead.
-0.48.1 fixes (user deploy feedback): the "more" button
-keeps NORMAL relief (it must look like a button); the spawn
-result is indexed (res[0]..res[3]) – PyGObject tuples vary
-in size, a 4-value unpack raises ValueError.
+0.48.1 (user deploy feedback): the "more" button keeps
+NORMAL relief (it must look like a button).
+0.48.2: button margins move it 10px down and right of the
+table; PyGObject's spawn_async_with_pipes return tuple
+varies by version (ValueError, then EBADF) – the data now
+comes from a worker thread: subprocess.Popen with an ARGV
+list (no shell), stderr merged in, buffer fed via
+GLib.idle_add (R9: no Gdk in the worker).
 ```
 
 ---
