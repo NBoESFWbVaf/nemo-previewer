@@ -826,6 +826,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   ✅ previewer_util.py (2026-11-02) – Rest-Strings übersetzt (mime-Fallback „unbekannt“ → „unknown“, Trace-Repr-Fallback „<keine Repräsentation>“ → „<no repr>“, R10-dbg „DTD abgelehnt“ → „DTD rejected“) + ALLE 14 Docstrings als UT-DOC-1…14 nach REFERENZ.md migriert. Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende.
   ✅ previewer_toolbar.py (2026-11-02) – komplettes Einstellungsfenster + Tooltips ins Englische übersetzt (u. a. „Ordnerinhalte in der Vorschau anzeigen“ → „Show folder contents in the preview“, „Schriftarten“ → „Fonts“, „Einstellungen“ → „Settings“) + ALLE 15 Docstrings (Klasse + 14 Methoden) als TB-DOC-1…15 nach REFERENZ.md migriert. Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende.
   ✅ previewer_render_docs.py (2026-11-02) – UI-Strings übersetzt (PDF-/Office-Hinweise, „Seite X von Y“ → „Page X of Y“, LibreOffice-Installationstipp) + R10-Kommentar/Log-Label englisch (0.43.0-Rest) + ALLE 19 Docstrings (Klasse + 16 Methoden + 2 Modul-Helfer) als DOC-DOC-1…19 nach REFERENZ.md migriert. Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende.
+  ✅ previewer_select.py (2026-11-02) – keine deutschen UI-/Log-/Kommentar-Reste (nur Docstrings) + ALLE 26 Docstrings (17 Modul-Helfer + Klasse SelectionReader + 8 statische Methoden) als SEL-DOC-1…26 nach REFERENZ.md migriert. Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende.
 
 - [ ] **F51 – Vorbereitung auf das erste Release (1.0.0)** (Nutzer-Wunsch 2026-11-01)
 
