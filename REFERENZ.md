@@ -735,6 +735,23 @@ except Exception:
     # Datensatz entfernt den sichtbaren Großteil des Mülls.
 ```
 
+### TXT-PKG-1 – Paket-Split 40/60 mit scrollbarer Info-Fläche (F60)
+
+- **Modul:** previewer\_render\_text.py (Split + Renderer), previewer\_panel.py (Dispatch), previewer\_util.py (wrap)
+- **Ort:** `\_pack\_package\_capped` mit `\_package\_split\_sync`, genutzt von `\_render\_package` (DEB, RPM, Arch)
+- **Anlass:** Nutzer-Wunsch (2026-11-02): Paket-Infos sind umfangreicher als Bild-Infos – deshalb die UMGEKEHRTE Aufteilung zu MED-SPLIT-1: 40 % Icon oben, 60 % Info-Tabelle unten, und die liegt im ScrolledWindow (v-Scroll automatisch, Overlay-Scrolling aus), weil Beschreibung und Abhängigkeiten den Bereich gern übersteigen. Der Icon-Bereich trägt 40 % der Spaltenhöhe als Request, ein size-allocate-Nachzug hält das beim Fenster-Resize aktuell (Muster \_image\_split\_sync). Das Icon kommt best effort aus dem Payload (\_WindowReader mit 48-MB-Dekomprimier-Budget gegen Riesen-Pakete; Score bevorzugt 48x48/apps), sonst zeichnet \_package\_placeholder den Karton mit Format-Signet (DEB/RPM/PKG). pack\_meta\_grid packt die Werte mit wrap=True mehrzeilig statt ellipisiert – nur gesetzte Felder zeigen eine Zeile.
+
+```text
+        top.set_size_request(-1,
+                             max(80, int(self._preview_height() * 0.4)))
+        top.connect("size-allocate", self._package_split_sync)
+        ...
+        info_scroll.set_policy(Gtk.PolicyType.NEVER,
+                               Gtk.PolicyType.AUTOMATIC)
+        info_scroll.set_overlay_scrolling(False)
+        info_scroll.add(bottom)
+```
+
 ### TXT-FONT-1 – Font-Kopie-Register (R5)
 
 - **Modul:** previewer\_render\_text.py
