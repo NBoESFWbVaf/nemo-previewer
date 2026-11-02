@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.44.0
+previewer_util.py – Version 0.45.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -256,7 +256,7 @@ def pack_hint(box, text):
     box.pack_start(lbl, False, False, 0)
 
 
-def pack_meta_grid(rows, container):
+def pack_meta_grid(rows, container, wrap=False):
     """
     Schlüssel-Wert-Tabelle (dim-Label links, Wert rechts mit
     END-Ellipsize und Tooltip) – zentraler Helfer für E-Book-,
@@ -268,6 +268,10 @@ def pack_meta_grid(rows, container):
     ihren 40-%-Info-Bereich mit.
     S6 (0.42.0): Als Mixin-Methode _meta_grid des Panels geboren,
     jetzt util-weit nutzbar.
+    F60 (0.45.0): wrap=True packt die Werte mehrzeilig statt mit
+    END-Ellipsize – Paket-Infos (Beschreibung, Abhängigkeiten)
+    sind länger als eine Zeile und laufen in den scrollbaren
+    Info-Bereich der Paket-Vorschau.
     """
     grid = Gtk.Grid()
     grid.set_row_spacing(2)
@@ -281,7 +285,11 @@ def pack_meta_grid(rows, container):
         kl.get_style_context().add_class("dim-label")
         vl = Gtk.Label(label=v)
         vl.set_halign(Gtk.Align.START)
-        vl.set_ellipsize(Pango.EllipsizeMode.END)
+        if wrap:
+            vl.set_line_wrap(True)
+            vl.set_ellipsize(Pango.EllipsizeMode.NONE)
+        else:
+            vl.set_ellipsize(Pango.EllipsizeMode.END)
         vl.set_hexpand(True)
         vl.set_tooltip_text(v)
         grid.attach(kl, 0, i, 1, 1)
@@ -358,5 +366,5 @@ def build_text_view(view, text, font, markup):
     return scroll
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.44.0"
+PREVIEWER_VERSION = "0.45.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
