@@ -735,6 +735,33 @@ except Exception:
     # Datensatz entfernt den sichtbaren Großteil des Mülls.
 ```
 
+### TXT-CSV-1 – CSV als echte Tabelle (F8)
+
+- **Modul:** previewer\_render\_text.py (\_render\_csv, \_pack\_table), previewer\_panel.py (Dispatch)
+- **Ort:** `\_csv\_data` snifft Trennzeichen und Kopfzeile selbst
+- **Anlass:** Nutzer-Wunsch: CSV als Gtk.TreeView statt Textbrei – und die Spalten-/Zellenbegrenzung ermittelt das Modul selbst (Nutzer-Anforderung, nie aus dem Dateinamen geraten): `csv.Sniffer` probiert Komma, Semikolon, TAB und Pipe gegen die ersten 64 KB und entscheidet auch über die Kopfzeile; Bordmittel csv, 4-MB-Lese-Deckel, 1000-Zeilen-Vorschau mit Hinweis. `\_pack\_table` baut die TreeView (resizable, klick-sortierbar, horizontal scrollbar) – F56 (Tabellenkalkulationen) kann denselben Renderer später wiederverwenden.
+
+```text
+        sniffer = csv.Sniffer()
+        delim = sniffer.sniff(sample, delimiters=",;\t|").delimiter
+        ...
+        col.set_sort_column_id(i)
+```
+
+### TXT-SQL-1 – SQLite-Tabellenübersicht (F6)
+
+- **Modul:** previewer\_render\_text.py (\_render\_sqlite), previewer\_panel.py (Dispatch)
+- **Ort:** `\_sqlite\_data` – Magie-Check, Schema, read-only
+- **Anlass:** Nutzer-Wunsch: Tabellenliste + Zeilenanzahl (.db/.sqlite). Die Struktur kommt aus dem Schema selbst: Der 16-Byte-Magie-Check („SQLite format 3“) schickt Fremd-Dateien in den Öffnen-Hinweis, `PRAGMA query_only` öffnet garantiert read-only, `sqlite_master` liefert die Tabellen, `PRAGMA table_info` die Spaltennamen, `SELECT COUNT(*)` die Zeilen. Ein Progress-Deckel (2 Mio Opcodes) stoppt endlose Full-Scans über Riesen-Tabellen (F60-Lektion: die Vorschau muss sofort da sein) – solche Zähler zeigen „…“.
+
+```text
+        con.execute("PRAGMA query_only = 1")
+        con.set_progress_handler(lambda: 1, _SQLITE_COUNT_STEPS)
+        ...
+        cols = ", ".join(r[1] for r in con.execute(
+            'PRAGMA table_info(%s)' % q))
+```
+
 ### TXT-PKG-1 – Paket-Split 40/60 mit scrollbarer Info-Fläche (F60)
 
 - **Modul:** previewer\_render\_text.py (Split + Renderer), previewer\_panel.py (Dispatch), previewer\_util.py (wrap)
