@@ -824,6 +824,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   planned.md bleibt auf Deutsch (Nutzer-Entscheid 2026-11-02) und wird nicht übersetzt.  
   ✅ previewer.py (2026-11-02) – UI-Strings übersetzt + ALLE 20 Docstrings als ENT-DOC-1…20 nach REFERENZ.md migriert (neue Konvention: JEDER Docstring wandert mit eigenem Marker, auch einzeilige; Modul-Kopf-Docstring bleibt im Code). Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende (Nutzer-Entscheid).
   ✅ previewer_util.py (2026-11-02) – Rest-Strings übersetzt (mime-Fallback „unbekannt“ → „unknown“, Trace-Repr-Fallback „<keine Repräsentation>“ → „<no repr>“, R10-dbg „DTD abgelehnt“ → „DTD rejected“) + ALLE 14 Docstrings als UT-DOC-1…14 nach REFERENZ.md migriert. Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende.
+  ✅ previewer_toolbar.py (2026-11-02) – komplettes Einstellungsfenster + Tooltips ins Englische übersetzt (u. a. „Ordnerinhalte in der Vorschau anzeigen“ → „Show folder contents in the preview“, „Schriftarten“ → „Fonts“, „Einstellungen“ → „Settings“) + ALLE 15 Docstrings (Klasse + 14 Methoden) als TB-DOC-1…15 nach REFERENZ.md migriert. Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende.
 
 - [ ] **F51 – Vorbereitung auf das erste Release (1.0.0)** (Nutzer-Wunsch 2026-11-01)
 
