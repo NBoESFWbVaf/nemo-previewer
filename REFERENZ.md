@@ -589,6 +589,363 @@ except Exception:
 # take over).
 ```
 
+### SEL-DOC-1 – Docstring: \_gobject\_pointer
+
+- **Module:** previewer\_select.py
+- **Location:** `\_gobject\_pointer` (module level)
+- **Reason:** Raw GObject pointer extraction for ctypes access (capsule or int).
+
+```text
+Determine the GObject pointer of a PyGObject wrapper.
+PyGObject usually stores it as a PyCapsule in __gpointer__;
+some builds return an integer directly. Both variants are
+supported, including nameless capsules (PyCapsule_GetPointer
+demands an exact name match – on a name mismatch the old
+path silently returned None).
+```
+
+### SEL-DOC-2 – Docstring: \_read\_cptr
+
+- **Module:** previewer\_select.py
+- **Location:** `\_read\_cptr` (module level)
+- **Reason:** Memory read helper for the vtable route.
+
+```text
+Read a pointer from process memory (address addr + offset).
+```
+
+### SEL-DOC-3 – Docstring: \_native\_vtable\_api
+
+- **Module:** previewer\_select.py
+- **Location:** `\_native\_vtable\_api` (module level)
+- **Reason:** One-time preparation of the native vtable API.
+
+```text
+Prepare vtable access to NemoView.peek_selection (once).
+```
+
+### SEL-DOC-4 – Docstring: \_nemo\_addr\_ranges
+
+- **Module:** previewer\_select.py
+- **Location:** `\_nemo\_addr\_ranges` (module level)
+- **Reason:** Fail-closed address ranges for wild-call protection.
+
+```text
+Address ranges of all executable mappings of Nemo libraries
+(read once from /proc/self/maps). Returns None if the maps
+are not readable – callers treat that as fail-closed:
+rather switch off one route too many than risk a possible
+wild call.
+```
+
+### SEL-DOC-5 – Docstring: \_ptr\_in\_nemo
+
+- **Module:** previewer\_select.py
+- **Location:** `\_ptr\_in\_nemo` (module level)
+- **Reason:** Pointer range check against the Nemo mappings.
+
+```text
+True if ptr lies within one of the Nemo address ranges.
+```
+
+### SEL-DOC-6 – Docstring: \_name\_from\_uri
+
+- **Module:** previewer\_select.py
+- **Location:** `\_name\_from\_uri` (module level)
+- **Reason:** Central URI-to-basename conversion.
+
+```text
+File name (basename) from a Nemo URI – one place, one truth.
+```
+
+### SEL-DOC-7 – Docstring: \_iface\_file\_name
+
+- **Module:** previewer\_select.py
+- **Location:** `\_iface\_file\_name` (module level)
+- **Reason:** File name via the NemoFileInfo interface with 0.9.2 wild-call protection.
+
+```text
+File name of a raw NemoFile pointer via the NemoFileInfo
+interface: get_name if the pointer is present; otherwise
+get_uri with basename fallback. Returns "" if there is
+nothing to fetch.
+The caller must have validated file_ptr against the NemoFile
+GType beforehand (api["is_a"]).
+0.9.2: the function pointers are checked against the Nemo
+address ranges before the call (wild-call protection) – if a
+Nemo update shifts the interface layout, the wrong pointer
+is never called; "" is returned silently instead.
+```
+
+### SEL-DOC-8 – Docstring: \_vtable\_selection\_names
+
+- **Module:** previewer\_select.py
+- **Location:** `\_vtable\_selection\_names` (module level)
+- **Reason:** Vtable selection read, returns (names, supported).
+
+```text
+Read the selection via NemoView.peek_selection. Returns
+(names, supported); supported=False means the strategy is
+not usable. names=[] is a valid, empty selection.
+```
+
+### SEL-DOC-9 – Docstring: \_nemo\_file\_name\_from\_ptr
+
+- **Module:** previewer\_select.py
+- **Location:** `\_nemo\_file\_name\_from\_ptr` (module level)
+- **Reason:** File name of a raw NemoFile pointer via ctypes.
+
+```text
+Determine the file name of a raw NemoFile pointer (ctypes
+via the NemoFileInfo interface). Returns "" if the pointer
+is invalid or the vtable API is not ready. Validates the
+instance against the NemoFile GType beforehand – a wrong
+pointer is never followed.
+0.9.1: the interface read logic lives in the shared helper
+_iface_file_name (previously identical in
+_vtable_selection_names).
+```
+
+### SEL-DOC-10 – Docstring: \_dump\_widget\_tree
+
+- **Module:** previewer\_select.py
+- **Location:** `\_dump\_widget\_tree` (module level)
+- **Reason:** Verbose diagnostics – widget tree with selection methods.
+
+```text
+Diagnose actual GTK descendants and their selection-related
+methods.
+```
+
+### SEL-DOC-11 – Docstring: \_signals\_of\_gtype
+
+- **Module:** previewer\_select.py
+- **Location:** `\_signals\_of\_gtype` (module level)
+- **Reason:** Own void signals with 'select' in the name.
+
+```text
+Void signals of this GType with 'select' in the name
+(without inherited ones).
+```
+
+### SEL-DOC-12 – Docstring: selection\_signals
+
+- **Module:** previewer\_select.py
+- **Location:** `selection\_signals` (module level)
+- **Reason:** All selection signals including inherited and interface signals.
+
+```text
+All 'selection' signals of a GObject – including inherited
+ones by walking the GType hierarchy upwards; additionally
+the signals of implemented interfaces (ATK reports
+selection changes e.g. via an interface signal of
+AtkSelection).
+Nemo does not guarantee uniform signal naming (hyphens vs.
+underscores); nothing is guessed here – the actual name is
+read at runtime. Sorted list, possibly empty.
+```
+
+### SEL-DOC-13 – Docstring: \_atk\_children
+
+- **Module:** previewer\_select.py
+- **Location:** `\_atk\_children` (module level)
+- **Reason:** Defensive ATK children enumeration (get\_n\_children may lie).
+
+```text
+Determine the children of an ATK object defensively.
+get_n_children() fails on some systems (Nemo views reported
+-1, the a11y tree seemed empty); therefore, on exception or
+nonsense, ref_child() is tried blindly for the first indices
+until ref_child itself fails.
+Returns a (possibly empty) list – never None.
+```
+
+### SEL-DOC-14 – Docstring: \_a11y\_root
+
+- **Module:** previewer\_select.py
+- **Location:** `\_a11y\_root` (module level)
+- **Reason:** Mapped a11y root, None for unusable views.
+
+```text
+Mapped a11y root of the view (None if the view is unusable).
+
+Never call ATK on a view that is hidden or being torn down.
+```
+
+### SEL-DOC-15 – Docstring: \_atk\_selection\_objects
+
+- **Module:** previewer\_select.py
+- **Location:** `\_atk\_selection\_objects` (module level)
+- **Reason:** All AtkSelection implementors in the view's a11y tree.
+
+```text
+Collect all AtkSelection implementors in the a11y tree of
+the view.
+```
+
+### SEL-DOC-16 – Docstring: is\_nemo\_view
+
+- **Module:** previewer\_select.py
+- **Location:** `is\_nemo\_view` (module level)
+- **Reason:** Positive-only Nemo file view detection (no sidebar trees).
+
+```text
+Is this widget a real Nemo FILE view?
+IMPORTANT: NOT the sidebar trees! 'NemoPlacesTreeView'
+(places sidebar) starts with 'Nemo' and ends with 'View',
+but it is a GtkTreeView of the sidebar – exactly this case
+sabotaged the selection detection invisibly for a long
+time. Detection therefore runs positively only: via the
+base type NemoView or the known view names, never via
+'starts with Nemo + ends with View'.
+```
+
+### SEL-DOC-17 – Docstring: find\_view
+
+- **Module:** previewer\_select.py
+- **Location:** `find\_view` (module level)
+- **Reason:** Only mapped views count as a fallback.
+
+```text
+Return only a currently mapped Nemo file view.
+
+While switching folders the old view can still be in the
+widget tree although its GObject instance is already being
+torn down. Therefore no unmapped view is returned as a
+fallback anymore.
+```
+
+### SEL-DOC-18 – Docstring: SelectionReader (class)
+
+- **Module:** previewer\_select.py
+- **Location:** `SelectionReader` (class)
+- **Reason:** Class marker – multi-stage selection reader.
+
+```text
+Reads the current selection of the Nemo view – multi-stage.
+```
+
+### SEL-DOC-19 – Docstring: read
+
+- **Module:** previewer\_select.py
+- **Location:** `SelectionReader.read` (static method)
+- **Reason:** Entry point – the first non-empty result wins across all strategies.
+
+```text
+Returns (list_of_names, strategy) or (None, None) if the
+selection was not readable. ALL strategies are asked and
+the first NON-EMPTY result wins:
+1. NemoView.peek_selection via the class vtable (primary API)
+2. Gtk.IconView/Gtk.TreeView selection
+3. ATK selection, SELECTED state and focus as fallback
+If a strategy reports [] (readable, but nothing selected),
+the others are still asked – a 'blind' strategy can never
+block the others.
+```
+
+### SEL-DOC-20 – Docstring: \_read\_nemo\_vtable
+
+- **Module:** previewer\_select.py
+- **Location:** `SelectionReader._read\_nemo\_vtable` (static method)
+- **Reason:** Primary strategy with one-time exception reporting.
+
+```text
+Selection via NemoView.peek_selection (vtable) – see module
+head.
+
+Returns None if the strategy is not available, otherwise
+the (possibly empty) name list. An empty list is a valid
+selection, not an error. Unexpected exceptions (which
+read() would otherwise swallow silently) are reported once
+with cause so silent failures become visible.
+```
+
+### SEL-DOC-21 – Docstring: \_read\_icon\_view
+
+- **Module:** previewer\_select.py
+- **Location:** `SelectionReader._read\_icon\_view` (static method)
+- **Reason:** Direct GTK selection for icon views.
+
+```text
+Direct GTK selection for Gtk.IconView-based Nemo views.
+```
+
+### SEL-DOC-22 – Docstring: \_read\_atk
+
+- **Module:** previewer\_select.py
+- **Location:** `SelectionReader._read\_atk` (static method)
+- **Reason:** ATK route – the first real selection wins.
+
+```text
+Via the accessibility interface (icon view). ALL
+AtkSelection implementations in the a11y tree of the view
+are asked; the first with a real selection wins. This way a
+wrong AtkSelection object (which always reports 0) can no
+longer swallow the real selection.
+```
+
+### SEL-DOC-23 – Docstring: \_read\_atk\_states
+
+- **Module:** previewer\_select.py
+- **Location:** `SelectionReader._read\_atk\_states` (static method)
+- **Reason:** ATK SELECTED-state fallback for the icon view.
+
+```text
+Fallback for the icon view: collect all objects with ATK
+state SELECTED in the a11y tree of the view and take their
+names. Returns the names or None (tree not evaluable).
+```
+
+### SEL-DOC-24 – Docstring: \_read\_atk\_focused
+
+- **Module:** previewer\_select.py
+- **Location:** `SelectionReader._read\_atk\_focused` (static method)
+- **Reason:** Single-click fallback via the focused object.
+
+```text
+Single-click fallback: name the single focused object in
+the a11y tree. After a simple click the clicked icon is
+focused, even if AtkSelection fails. The name only counts
+if it resolves to a real file in the displayed folder.
+```
+
+### SEL-DOC-25 – Docstring: \_tree\_row\_name
+
+- **Module:** previewer\_select.py
+- **Location:** `SelectionReader._tree\_row\_name` (static method)
+- **Reason:** List-row name in two stages (NemoFile column 0 + string columns).
+
+```text
+Determine the file name of a marked list row.
+
+Nemo's list model (nemo-list-model.h) stores NO string in
+column 0 but the NemoFile object; the pixbufs follow in
+columns 1–7, the visible file name only sits in one of the
+dynamic attribute columns (12+, depending on sorting/column
+choice). Hence two stages:
+1. Read column 0: a PyGObject wrapper is asked via its
+   NemoFileInfo interface methods (get_name/get_uri) –
+   exactly this is how all Nemo Python extensions read
+   their files. If PyGObject only yields the raw pointer
+   (int), the ctypes route takes over
+   (_nemo_file_name_from_ptr). The result serves as a
+   fallback.
+2. Additionally scan ALL string columns and prefer the
+   string that resolves to a real file in the displayed
+   folder; otherwise the first string, and at the very end
+   the name from stage 1.
+```
+
+### SEL-DOC-26 – Docstring: \_read\_tree
+
+- **Module:** previewer\_select.py
+- **Location:** `SelectionReader._read\_tree` (static method)
+- **Reason:** GtkTreeView route (list and compact views).
+
+```text
+GtkTreeView-based views (list, compact).
+```
+
 ---
 
 ## Helpers (UT)
