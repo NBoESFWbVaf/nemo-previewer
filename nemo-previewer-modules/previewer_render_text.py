@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.42.2
+previewer_render_text.py – Version 0.43.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -44,6 +44,7 @@ from previewer_util import (
     MAX_TEXT_BYTES, MAX_TEXT_LINES, MAX_IMAGE_HEIGHT,
     MAX_EBOOK_CHARS, pick_icon,
     _zf_read_capped, _pixbuf_from_bytes,
+    _xml_dtd_rejected,
     pack_hint,
     pack_meta_grid,
     cover_round_path,
@@ -66,6 +67,10 @@ except Exception as e:
 # and decoding bombs – crafted files must never blow up Nemo.
 _EML_FILE_CAP = 2 * 1024 * 1024      # .eml: headers + start of the body
 _VCARD_FILE_CAP = 8 * 1024 * 1024    # vCard: properties + base64 photo
+_FB2_FILE_CAP = 8 * 1024 * 1024      # R11: FB2 mit Deckel – Cover sitzt als
+                                     # base64 in der Datei, Riesen-FB2s
+                                     # werden abgeschnitten und dann gar
+                                     # nicht mehr geparst
 
 # --- Markdown -> Pango markup (preview quality, not a full parser) ---
 
@@ -661,8 +666,11 @@ def _epub_data(path):
         # → REF TXT-EPUB-1
         opf_path = _epub_opf_path(zf, names)
         base = (opf_path.rsplit("/", 1)[0] + "/") if "/" in opf_path else ""
-        root = ElementTree.fromstring(
-            _zf_read_capped(zf, opf_path, _EBOOK_CHUNK_CAP))
+        opf_raw = _zf_read_capped(zf, opf_path, _EBOOK_CHUNK_CAP)
+        # R10: OPF kommt ohne DTD aus – Entity-Guard vor dem Parsen.
+        if _xml_dtd_rejected(opf_raw, "EPUB-OPF " + opf_path):
+            raise ValueError("DOCTYPE im OPF (R10-Entity-Guard)")
+        root = ElementTree.fromstring(opf_raw)
         title, author, lang, manifest, spine, cover_id = _epub_metadata(root)
         cover = _epub_cover(zf, names, base, manifest, cover_id)
         text = _epub_text(zf, base, spine, manifest)
@@ -755,8 +763,18 @@ def _fb2_data(path):
     Textanfang des ersten Körpers (Fußnoten-Körper werden ignoriert).
     S3 (0.42.0): Zerlegt – _fb2_metadata, _fb2_body_text und
     _fb2_cover je einen Teil; hier bleibt der Ablauf.
+    R11: Lese-Deckel wie EML/vCard (Cover steckt als base64 in
+    der Datei, ein paar MB sind normal) – Riesen-FB2s werden
+    abgeschnitten und dann gar nicht mehr geparst: Der ParseError
+    läuft in den Öffnen-Hinweis des Aufrufers statt in Speicher-
+    Druck beim Panel.
     """
-    root = ElementTree.parse(path).getroot()
+    with open(path, "rb") as fh:
+        raw = fh.read(_FB2_FILE_CAP)
+    # R10: FB2 kommt ohne DTD aus – Entity-Guard vor dem Parsen.
+    if _xml_dtd_rejected(raw, "FB2 " + path):
+        raise ValueError("DOCTYPE in der FB2-Datei (R10-Entity-Guard)")
+    root = ElementTree.fromstring(raw).getroot()
     title, author, cover_ref, body = _fb2_metadata(root)
     text = _fb2_body_text(body)
     cover = _fb2_cover(root, cover_ref)
@@ -1483,6 +1501,10 @@ def _contact_parse(text):
     bekommen alle. Ohne erkennbaren Kontakt: leere Liste – der
     Aufrufer zeigt dann den Öffnen-Hinweis.
     """
+    # R10: Kontakt-XML kommt ohne DTD aus – Entity-Guard vor dem
+    # Parsen; bei Ablehnung gilt die Datei als nicht lesbar.
+    if _xml_dtd_rejected(text, ".contact"):
+        return []
     try:
         root = ElementTree.fromstring(text)
     except Exception:
@@ -1973,7 +1995,7 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-PREVIEWER_VERSION = "0.42.2"
+PREVIEWER_VERSION = "0.43.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "K4 markdown and read caps stay)"
