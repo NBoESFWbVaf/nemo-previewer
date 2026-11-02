@@ -1221,6 +1221,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   \_read\_atk\_focused, rec) sind wieder still, statt bei jedem  
   selection-changed zu loggen – Nemo 6 liefert die ATK-Selection-API  
   am ScrolledWindowAccessible nicht, die Ausnahmen sind erwartet.  
+  Deploy bestätigt (2026-11-02): keine Auffälligkeiten.
 
   ✅ 0.42.2 – B10 Text-Erkennung (Nutzer-Entscheid): Schnüffler  
   als letzte Instanz vor der Generic-Vorschau (unbekannte Endungen  
@@ -1228,6 +1229,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   \_SNIFF\_BINARY\_MIMES ersetzt \_OPAQUE\_TYPES; UTF-8-Decodier-  
   Probe als zweites Snüffel-Kriterium (≥ 30 % 8-Bit ohne gültiges  
   UTF-8 → Binär); dbg-Zeile je Snüffel-Treffer.  
+  Deploy bestätigt (2026-11-02): alle Textdateien erkannt und entsprechend gerendert, keine Auffälligkeiten.
 
 ---
 
@@ -1265,32 +1267,26 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                                                  | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-01, nach der Umstrukturierung)
+## Aktuelle Reihenfolge (Stand 2026-11-02, 0.42.1/0.42.2 deployt)
 
-1. **0.42.1 testen und deployen** – steht aus und ist Voraussetzung  
-   für alles Weitere.
-2. **B10 – zuverlässige Text-Erkennung** (Snüffel als letzte Instanz,  
-   UTF-8-Decodier-Probe, Binär-Blacklist): VORGEZOGEN (Nutzer-  
-   Entscheidung 2026-11-02), direkt nach dem 0.42.1-Deploy –  
-   Bugfix-Paket, Ziel 0.42.2.
-3. **R10 + R11 – Sicherheits-Paket** (XML-Entity-Guard, FB2-Lese-  
+1. **R10 + R11 – Sicherheits-Paket** (XML-Entity-Guard, FB2-Lese-  
    Deckel): klein, vor allen Features – Ziel 0.43.0.
-4. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden,  
+2. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden,  
    damit neue Inhalte (B9, F50, F52–F54) gleich englisch entstehen;  
    je Datei eine Runde.
-5. **B9 + F50 – Bild-Runde**: B9 mit der Nutzer-Meldung der  
+3. **B9 + F50 – Bild-Runde**: B9 mit der Nutzer-Meldung der  
    fehlerhaften Felder, darauf aufbauend der Exiftool-Dialog.
-6. **F52 + F54 – Text-Runde**: ICS-Termintabelle und EML-Anhänge  
+4. **F52 + F54 – Text-Runde**: ICS-Termintabelle und EML-Anhänge  
    zusammen (beide previewer\_render\_text.py).
-7. **F13 + F53 – Knopf-Runde**: „Im Dateimanager zeigen“ und  
+5. **F13 + F53 – Knopf-Runde**: „Im Dateimanager zeigen“ und  
    „Pfad kopieren“ (je **S**).
-8. **Kleinzeug nach Bedarf**: F15, F17, F25, K5, K6, K7.
-9. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits  
+6. **Kleinzeug nach Bedarf**: F15, F17, F25, K5, K6, K7.
+7. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits  
    (GTK4/F57, Performance, Speicher/Leaks, Reentrancy, a11y, i18n-  
    Strings, Umgebungs-Matrix) – Befunde einplanen.
-10. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien,  
+8. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien,  
    git-Tag v1.0.0, GitHub-Release.
-11. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane),  
+9. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane),  
    F32, F37 – wie vereinbart im Branch erproben.
 
 Nicht eingeplant (Pool nach Bedarf): F1, F2, F6, F8, F9, F11, F20, F21,  
