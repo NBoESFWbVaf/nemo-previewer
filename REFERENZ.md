@@ -1,180 +1,418 @@
-# REFERENZ.md – Kommentar-Referenz der Nemo-Extension „Previewer“
+# REFERENZ.md – Comment Reference of the Nemo Extension “Previewer”
 
-**Zweck.** Seit dem Struktur-Release 0.15.0 (F28) stehen lange Kommentar-  
-und Historienblöcke nicht mehr im Code. An ihrer Stelle trägt der Code genau  
-einen Marker der Form `# → REF <MODUL>-<THEMA>-<NNN>`; der ausgelagerte Text  
-liegt hier, zusammen mit Modul, Ort und Anlass. Der Code bleibt damit  
-schlank und lesbar, die Projekthistorie geht nicht verloren.
+**Purpose.** Since the structure release 0.15.0 (F28), long comment  
+and history blocks no longer live in the code. In their place the code  
+carries exactly one marker of the form `# → REF <MODULE>-<TOPIC>-<NNN>`;  
+the out-sourced text lives here, together with module, location and  
+reason. The code stays lean and readable, the project history is not  
+lost. Since F49 (2026-11-02) this file is entirely English — the  
+migrated text blocks are translations of the original German comments.
 
-**Konventionen.**
+**Conventions.**
 
-- Marker-Format: `# → REF <MODUL>-<THEMA>-<NNN>` – Modul-Kürzel, Themen-  
-Kürzel (B/R/K/F-Nummer oder sprechender Name), fortlaufende Nummer je  
-Thema, z. B. `# → REF PAN-R9-1`.
-- Modul-Präfixe: `ENT` (previewer.py), `PAN` (previewer\_panel.py),  
+- Marker format: `# → REF <MODULE>-<TOPIC>-<NNN>` – module prefix, topic  
+prefix (B/R/K/F number or a speaking name), running number per topic,  
+e.g. `# → REF PAN-R9-1`.
+- Module prefixes: `ENT` (previewer.py), `PAN` (previewer\_panel.py),  
 `SEL` (previewer\_select.py), `UT` (previewer\_util.py),  
 `TB` (previewer\_toolbar.py), `MED` (previewer\_render\_media.py),  
 `DOC` (previewer\_render\_docs.py), `TXT` (previewer\_render\_text.py).
-- Ausgelagert werden Kommentar-Runs ab 5 zusammenhängenden Zeilen. Was  
-NICHT wandert: STAND-/Versions-Zeilen, PREVIEWER\_VERSION, Docstrings,  
-einzeilige Abschnittstitel und kurze Inline-Hinweise.
-- Einträge hier: ID, Modul, Ort (Funktion/Block), Anlass in einem Satz,  
-Originaltext verbatim in einem Text-Block.
-- Diese Datei ist ein LEBENDES Projektdokument: Sie wird laufend gepflegt  
-und mit jedem Kommentar-Umbau erweitert. Sie wird bewusst NICHT mit-  
-deployt – die Extension braucht sie nicht zur Laufzeit; das Deployment  
-kopiert nur die \*.py-Dateien.
+- Out-sourced are comment runs of 5 connected lines or more. What does  
+NOT migrate: STAND-/version lines, PREVIEWER\_VERSION, one-line  
+section titles and short inline hints. Since F49 (2026-11-02, user  
+request) ALL function and class docstrings migrate as well – every  
+docstring gets its own marker and its own entry (topic DOC, running  
+number per module); only the module head docstring stays in the code  
+(version anchor).
+- Entries here: ID, module, location (function/block), reason in one  
+sentence, the out-sourced comment text in a text block (English since  
+F49 — the original German comments are preserved in the git history).
+- This file is a LIVING project document: it is maintained continuously  
+and extended with every comment rework. It is deliberately NOT deployed  
+– the extension does not need it at runtime; deployment copies only the  
+\*.py files.
 
-**Themen-Kürzel in diesem Dokument:** B (Bugfix), R (Robustheit),  
-K (Kosmetik), F (Feature) plus sprechende Kürzel für Code-Themen ohne  
-Ticket-Nummer (z. B. FILTER, VTABLE, HR).
+**Topic prefixes in this document:** B (bugfix), R (robustness),  
+K (cosmetics), F (feature) plus speaking prefixes for code topics  
+without ticket number (e.g. FILTER, VTABLE, HR).
 
 ---
 
-## Einstieg (ENT)
+## Entry point (ENT)
 
-### ENT-FILTER-1 – Gtk-Protokoll-Filter
+### ENT-FILTER-1 – Gtk protocol filter
 
-- **Modul:** previewer.py
-- **Ort:** Modul-Ebene, unter dem Abschnittstitel „Gtk-Protokoll-Filter“, über `_GTK_FOREACH_MSG` / `_install_log_filter()`
-- **Anlass:** Gtk druckt beim Ordnerwechsel eine kritische Meldung für bereits halb zerstörte Widgets – genau diese eine Meldung wird gefiltert.
+- **Module:** previewer.py
+- **Location:** module level, below the section title “Gtk protocol filter”, above `_GTK_FOREACH_MSG` / `_install_log_filter()`
+- **Reason:** When switching folders, Gtk prints a critical message for already half-destroyed widgets – exactly this one message is filtered.
 
 ```text
 #
-# Beim Ordnerwechsel baut Nemo den alten Slot ab. GTK druckt dabei
-# teilweise die Meldung
+# When switching folders, Nemo tears down the old slot. While doing
+# so, GTK sometimes prints the message
 #   gtk_container_foreach: assertion 'GTK_IS_CONTAINER (container)' failed
-# für Widgets, die bereits halb zerstört sind – auch wenn fremder Code
-# (wie diese Extension) den Baum nur liest. Genau DIESE eine Meldung
-# wird unterdrückt; alle anderen Gtk-Meldungen bleiben sichtbar.
+# for widgets that are already half-destroyed – even when foreign code
+# (like this extension) only reads the tree. Exactly THIS one message
+# is suppressed; all other Gtk messages stay visible.
 ```
 
-### ENT-TOGGLE-1 – Vorschau-Umschalter in Nemos Werkzeugleiste (F40)
+### ENT-TOGGLE-1 – Preview toggle in Nemo's toolbar (F40)
 
-- **Modul:** previewer.py
-- **Ort:** `PanelState._install_toolbar_toggle` (nachgerüstet in `_view_ok`), Rückkanäle `_on_toolbar_toggle`/`_on_panel_visibility`, Helfer `_pack_toggle`/`_find_first_widget`/`_pos_after_view_buttons`/`_has_view_icon`
-- **Anlass:** Der Nutzer wollte den Ein-/aus-Schalter nicht mehr im Panel-Kopf, sondern in Nemos Werkzeugleiste neben der Ansichtenauswahl. Die erste Annahme, Nemos Toolbar sei eine GtkHeaderBar-Unterklasse, bewahrheitete sich auf klassischem Nemo (Cinnamon) nicht: get\_titlebar() liefert NULL, der Knopf erschien nie. Nemo bietet keine offizielle Erweiterungs-API für die Toolbar – aber NemoToolbar ist nur ein GtkBox, und die Ansichts-Knöpfe stecken in einer GtkToolbar aus dem UIManager. Deshalb zwei Installations-Routen: Route 1 bei CSD (Titelleiste ist GtkHeaderBar) – GtkToggleButton per pack\_end; pack\_end nimmt in GTK3 NUR das Kind-Argument, mehr Argumente werfen einen TypeError. Route 2 klassisch – \_find\_first\_widget durchsucht den Widget-Baum nach der ersten GtkToolbar, \_pos\_after\_view\_buttons setzt den GtkToggleToolButton direkt hinter den letzten Ansichts-Knopf (erkannt am view-…-Icon seiner Gtk.Image), ohne Fund hängt insert(-1) hinten an. Zwei Synchronisations-Fälle: der Knopf schaltet dasselbe Panel wie Strg+Alt+P (toggled → show/hide), und umgekehrt zieht notify::visible am Panel den Knopf nach (Show-at-Start-Einstellung, Tastenkürzel) – beide Richtungen konvergieren, da set\_active auf den gleichbleibenden Wert kein toggled mehr auslöst. Seit 0.34.1 (F40-Nachtrag, Nutzer-Fund): Der Knopf zeigte den offenen Zustand beim Start nicht an – notify::visible feuert nur bei Wechseln, das Panel ist beim Einpacken aber schon sichtbar (die Injektion ruft show all), also zog der Knopf nie nach. \_pack\_toggle synchronisiert deshalb direkt beim Einpacken: set\_active auf den Panel-Zustand, VOR dem toggled-Connect (löst nichts aus).
+- **Module:** previewer.py
+- **Location:** `PanelState._install_toolbar_toggle` (retrofitted in `_view_ok`), feedback channels `_on_toolbar_toggle`/`_on_panel_visibility`, helpers `_pack_toggle`/`_find_first_widget`/`_pos_after_view_buttons`/`_has_view_icon`
+- **Reason:** The user wanted the on/off toggle out of the panel header and into Nemo's toolbar, next to the view selector. The first assumption, that Nemo's toolbar is a GtkHeaderBar subclass, did not hold on classic Nemo (Cinnamon): get\_titlebar() returns NULL, the button never appeared. Nemo offers no official extension API for the toolbar – but NemoToolbar is just a GtkBox, and the view buttons sit in a GtkToolbar from the UIManager. Hence two installation routes: route 1 for CSD (title bar is a GtkHeaderBar) – GtkToggleButton via pack\_end; in GTK3 pack\_end takes ONLY the child argument, more arguments raise a TypeError. Route 2 classic – \_find\_first\_widget searches the widget tree for the first GtkToolbar, \_pos\_after\_view\_buttons places the GtkToggleToolButton directly behind the last view button (recognized by the view-… icon of its Gtk.Image), without a hit insert(-1) appends at the end. Two synchronisation cases: the button toggles the same panel as Ctrl+Alt+P (toggled → show/hide), and conversely notify::visible on the panel updates the button (show-at-start setting, keyboard shortcut) – both directions converge because set\_active on the unchanged value no longer fires toggled. Since 0.34.1 (F40 follow-up, user finding): the button did not show the open state at startup – notify::visible only fires on changes, but the panel is already visible when packing (the injection calls show all), so the button never caught up. \_pack\_toggle therefore synchronizes directly when packing: set\_active on the panel state, BEFORE the toggled connect (fires nothing).
 
 ```text
-        # PanelState entsteht genau einmal pro Fenster, aber die
-        # Versöhnung (_reconcile) läuft mehrfach – der Knopf wird am
-        # Fenster-Objekt gemerkt (Python-Attribut, nicht GObject-
-        # set_data – PyGObject blockiert die Daten-Methoden) und nie
-        # doppelt gepackt. Die Installation geschieht nachgereicht in
-        # _view_ok, weil die Werkzeugleiste beim ersten PanelState-Bau
-        # theoretisch noch nicht stehen muss.
-        # Zwei Installations-Routen: GtkHeaderBar als Titelleiste
-        # (CSD) bekommt einen GtkToggleButton per pack_end (nur das
-        # Kind-Argument!); klassisches Nemo bekommt die GtkToolbar im
-        # Widget-Baum markiert und einen GtkToggleToolButton direkt
-        # hinter die Ansichts-Knöpfe.
-        # Die Icon-Wahl läuft über pick_icon: Nicht jedes Mint-/Nemo-
-        # Theme liefert jeden Namen – der erste vorhandene gewinnt,
-        # der letzte Fallback (pan-end-symbolic) existiert immer in
-        # GTK selbst. Ohne HeaderBar und GtkToolbar bleibt Strg+Alt+P
-        # (dbg-Hinweis).
+        # PanelState is created exactly once per window, but the
+        # reconciliation (_reconcile) runs several times – the button
+        # is remembered on the window object (Python attribute, not
+        # GObject set_data – PyGObject blocks the data methods) and
+        # never packed twice. The installation happens deferred in
+        # _view_ok, because the toolbar may theoretically not be in
+        # place yet during the first PanelState build.
+        # Two installation routes: a GtkHeaderBar as title bar
+        # (CSD) receives a GtkToggleButton via pack_end (ONLY the
+        # child argument!); classic Nemo gets the GtkToolbar in the
+        # widget tree marked and a GtkToggleToolButton directly
+        # behind the view buttons.
+        # The icon choice runs through pick_icon: not every Mint/
+        # Nemo theme provides every name – the first existing one
+        # wins, the last fallback (pan-end-symbolic) always exists
+        # in GTK itself. Without header bar and GtkToolbar,
+        # Ctrl+Alt+P remains (dbg hint).
+```
+
+### ENT-DOC-1 – Docstring: PanelState (class)
+
+- **Module:** previewer.py
+- **Location:** class `PanelState`
+- **Reason:** Per-window state, stored on the window object.
+
+```text
+State per Nemo window (stored on the window object).
+```
+
+### ENT-DOC-2 – Docstring: \_install\_toolbar\_toggle
+
+- **Module:** previewer.py
+- **Location:** `PanelState._install_toolbar_toggle` (method)
+- **Reason:** F40 – installs the preview on/off button in Nemo's toolbar.
+
+```text
+F40 (user request): on/off button for the preview side panel
+in Nemo's toolbar, next to the view selector. The state stays
+synchronized: Ctrl+Alt+P and the button toggle the same panel,
+notify::visible pulls it along.
+```
+
+### ENT-DOC-3 – Docstring: \_pack\_toggle
+
+- **Module:** previewer.py
+- **Location:** `PanelState._pack_toggle` (method)
+- **Reason:** F40 – finishes, packs, wires and logs the toggle button.
+
+```text
+F40: finish the button, pack it, wire it up, log it.
+```
+
+### ENT-DOC-4 – Docstring: \_find\_first\_widget
+
+- **Module:** previewer.py
+- **Location:** `PanelState._find_first_widget` (method)
+- **Reason:** F40 – recursive widget-tree search for the first match.
+
+```text
+F40: search the widget tree recursively, return the first match.
+```
+
+### ENT-DOC-5 – Docstring: \_pos\_after\_view\_buttons
+
+- **Module:** previewer.py
+- **Location:** `PanelState._pos_after_view_buttons` (method)
+- **Reason:** F40 – insert position behind the last view button.
+
+```text
+F40: position directly behind the last view button of the
+toolbar (its icon is called view-…-symbolic). Without a match -1,
+insert() then appends at the end.
+```
+
+### ENT-DOC-6 – Docstring: \_has\_view\_icon
+
+- **Module:** previewer.py
+- **Location:** `PanelState._has_view_icon` (method)
+- **Reason:** F40 – checks recursively for a view-… icon.
+
+```text
+F40: Does the widget (recursively) carry a view-…-icon? (Gtk.Image).
+```
+
+### ENT-DOC-7 – Docstring: \_on\_toolbar\_toggle
+
+- **Module:** previewer.py
+- **Location:** `PanelState._on_toolbar_toggle` (method)
+- **Reason:** F40 – the button toggles the same panel as Ctrl+Alt+P.
+
+```text
+F40: the button toggles the same route as Ctrl+Alt+P.
+```
+
+### ENT-DOC-8 – Docstring: \_on\_panel\_visibility
+
+- **Module:** previewer.py
+- **Location:** `PanelState._on_panel_visibility` (method)
+- **Reason:** F40 – keeps the button in sync when the panel is toggled elsewhere.
+
+```text
+F40: panel toggled elsewhere – pull the button state along.
+```
+
+### ENT-DOC-9 – Docstring: \_on\_hpaned\_draw
+
+- **Module:** previewer.py
+- **Location:** `PanelState._on_hpaned_draw` (method)
+- **Reason:** F46 X – paints the unpainted Paned handle window.
+
+```text
+F46 X (0.34.1, user finding): the left edge of the preview
+column belongs to the handle window of the injected Gtk.Paned –
+unpainted, a black frame in light mode. The panel's painter
+paints the same area with the chain color (→ REF PAN-BG-2).
+```
+
+### ENT-DOC-10 – Docstring: \_reconcile
+
+- **Module:** previewer.py
+- **Location:** `_reconcile(st)` (module level)
+- **Reason:** Core injection – anchors the panel at the right window edge.
+
+```text
+Anchor the panel at the right edge of the Nemo window.
+Technique: the direct child of the window's main box that
+contains the file view (the Nemo 'Pane') is wrapped into our
+HPaned: [ Pane | Panel ]. The panel thus sits reliably at the
+right edge and keeps its position across tab switches.
+```
+
+### ENT-DOC-11 – Docstring: \_detach
+
+- **Module:** previewer.py
+- **Location:** `_detach(st)` (module level)
+- **Reason:** Reverse injection – restores the original widget structure.
+
+```text
+Detach the panel from the widget tree and restore the original structure.
+```
+
+### ENT-DOC-12 – Docstring: \_connect\_view\_signals
+
+- **Module:** previewer.py
+- **Location:** `_connect_view_signals(st, view)` (module level)
+- **Reason:** Dynamically discovers and connects selection signals.
+
+```text
+Discover and connect selection signals dynamically. Instead of
+guessing a fixed signal name, all void signals with 'select' in
+the name are connected in the view's subtree and on the
+AtkSelection objects – so it does not matter whether Nemo uses
+hyphens or underscores. Connected per widget; the handler IDs
+land as (object, ID) pairs in st.view_handlers.
+```
+
+### ENT-DOC-13 – Docstring: \_dump\_a11y\_once
+
+- **Module:** previewer.py
+- **Location:** `_dump_a11y_once(st)` (module level)
+- **Reason:** A11y tree dump, at most twice, only with VERBOSE_DIAG.
+
+```text
+Print the view's a11y tree at most twice: once after connecting
+(base state) and once at the first selection signal (state
+after the click). The lines show depth, child count, role,
+names, AtkSelection counters and SELECTED/FOCUSED – making it
+visible where Nemo actually serves the selection from.
+Only with VERBOSE_DIAG – silent in daily operation.
+```
+
+### ENT-DOC-14 – Docstring: \_view\_ok
+
+- **Module:** previewer.py
+- **Location:** `_view_ok(self, view)` (module level, patched onto PanelState)
+- **Reason:** Signal registration after successful injection.
+
+```text
+Signal registration (self is a PanelState here via the extension below).
+```
+
+### ENT-DOC-15 – Docstring: \_refresh\_soon
+
+- **Module:** previewer.py
+- **Location:** `_refresh_soon(st)` (module level)
+- **Reason:** Leaves the signal context before the refresh runs.
+
+```text
+Schedule the selection refresh into the main loop (leave the signal context).
+```
+
+### ENT-DOC-16 – Docstring: \_poll
+
+- **Module:** previewer.py
+- **Location:** `_poll(st)` (module level)
+- **Reason:** Timer-driven reconciliation and selection sync.
+
+```text
+Timer: reconciliation + selection sync as a safety net.
+```
+
+### ENT-DOC-17 – Docstring: \_on\_window\_destroyed
+
+- **Module:** previewer.py
+- **Location:** `_on_window_destroyed(window, st)` (module level)
+- **Reason:** 0.9.1 – tears down the poll timer with the window.
+
+```text
+The window is torn down (0.9.1): clear the 500 ms poll timer –
+otherwise it would keep running as a zombie forever after the
+window's end.
+```
+
+### ENT-DOC-18 – Docstring: \_on\_crowbar\_placed
+
+- **Module:** previewer.py
+- **Location:** `_on_crowbar_placed(crowbar, window, uri, tries)` (module level)
+- **Reason:** Idle callback – injects the panel once the crowbar is in the tree.
+
+```text
+Idle callback: the crowbar is in the tree now → inject the
+panel. 0.9.1: the folder path is NOT set from the (possibly
+outdated) uri anymore – _get_widget already writes st.dir_path
+synchronously when requesting the crowbar. Otherwise an old
+crowbar placed only AFTER a newer one could overwrite the
+current path with an OLD path.
+```
+
+### ENT-DOC-19 – Docstring: \_is\_desktop\_window
+
+- **Module:** previewer.py
+- **Location:** `_is_desktop_window(window)` (module level)
+- **Reason:** Keeps desktop windows free of a preview panel.
+
+```text
+Detects desktop windows so no preview panel lands there.
+```
+
+### ENT-DOC-20 – Docstring: \_get\_widget
+
+- **Module:** previewer.py
+- **Location:** `_get_widget(self, uri, window)` (module level)
+- **Reason:** LocationWidgetProvider – returns the invisible crowbar box.
+
+```text
+LocationWidgetProvider: returns the invisible 'crowbar'.
 ```
 
 ---
 
-## Panel-Kern (PAN)
+## Panel core (PAN)
 
-### ENT-MODDIR-1 – Modul-Unterordner nemo-previewer-modules (0.35.0)
+### ENT-MODDIR-1 – Module subfolder nemo-previewer-modules (0.35.0)
 
-- **Modul:** previewer.py (Import-Pfad), INSTALL.md (Anleitung)
-- **Ort:** Import-Block vor `from previewer\_util import …`; dbg-Zeile nach install\_step\_trace; ACHTUNG-Meldung der Versionsprüfung
-- **Anlass:** Nutzer-Wunsch (2026-11-01): Der Extension-Ordner soll aufgeräumt werden – nur die Einstiegsdatei previewer.py bleibt direkt unter nemo-python/extensions liegen (Nemo lädt nur dort), die sieben Modul-Dateien wandern in den Unterordner nemo-previewer-modules. Der Einstieg ergänzt den bestehenden \_HERE-Mechanismus: \_MODDIR = Unterordner neben der Einstiegsdatei; existiert er, landet er per sys.path.insert(0) VOR dem Extension-Ordner auf dem Import-Pfad – flache Alt-Kopien (flaches Layout bis 0.34.1) verlieren dadurch gegen die Unterordner-Dateien, egal in welcher Reihenfolge eingefügt wird. Fehlt der Unterordner, läuft alles wie bisher flach (Rückwärts-Robustheit). dbg „Module-Ordner: …“ bestätigt den aktiven Pfad je Start; die ACHTUNG-Meldung der Versionsprüfung nennt jetzt beide Fundorte. Die Module importieren einander weiterhin über ihre schlichten Namen – kein Paket, kein \_\_init\_\_, der Import-Mechanismus bleibt unverändert.
+- **Module:** previewer.py (import path), INSTALL.md (instructions)
+- **Location:** import block before `from previewer\_util import …`; dbg line after install\_step\_trace; WARNING message of the version check
+- **Reason:** User request (2026-11-01): The extension folder shall be tidied up – only the entry file previewer.py stays directly under nemo-python/extensions (Nemo only loads there), the seven module files move into the subfolder nemo-previewer-modules. The entry point extends the existing \_HERE mechanism: \_MODDIR = subfolder next to the entry file; if it exists, it lands on the import path via sys.path.insert(0) BEFORE the extension folder – flat legacy copies (flat layout up to 0.34.1) therefore lose against the subfolder files, no matter in which order they were inserted. If the subfolder is missing, everything keeps running flat as before (backwards robustness). dbg “Module dir: …” confirms the active path at each start; the WARNING message of the version check now names both locations. The modules keep importing each other via their plain names – no package, no \_\_init\_\_, the import mechanism stays unchanged.
 
 ```text
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
-# 0.35.0 (Nutzer-Wunsch): Die sieben Modul-Dateien liegen im
-# Unterordner nemo-previewer-modules – er steht im Import-Pfad
-# VOR dem Extension-Ordner, deshalb gewinnen die neuen Dateien
-# selbst dann, wenn flache Alt-Kopien im Extension-Ordner lagen
+# 0.35.0 (user request): the seven module files live in the
+# subfolder nemo-previewer-modules – it sits on the import path
+# BEFORE the extension folder, so the new files win even if flat
+# legacy copies were in the extension folder
 # (→ REF ENT-MODDIR-1).
 _MODDIR = os.path.join(_HERE, "nemo-previewer-modules")
 if os.path.isdir(_MODDIR) and _MODDIR not in sys.path:
     sys.path.insert(0, _MODDIR)
 ```
 
-### PAN-B8-1 – KeyFile-Resolver (B8)
+### PAN-B8-1 – KeyFile resolver (B8)
 
-- **Modul:** previewer\_panel.py
-- **Ort:** Modul-Ebene, vor dem try-Block um `_KEYFILE_CLS` / `_KEYFILE_FLAGS_NONE`
-- **Anlass:** B8 (0.12.1): Gio.Keyfile existiert nicht – GKeyFile heißt in PyGObject GLib.KeyFile; defensiver Resolver mit dbg statt still.
-
-```text
-# B8 (0.12.1): GKeyFile wird von PyGObject als GLib.KeyFile gebunden
-# (GLib, NICHT Gio – 0.12.0 griff auf Gio.Keyfile zu und scheiterte
-# laut Testfeld mit „'gi.repository.Gio' object has no attribute
-# 'Keyfile'“). Defensiv beide Namen auflösen (gleiche Begründung wie
-# beim Discoverer in _media_probe_async); fehlt die Klasse ganz,
-# dbggen Lade-/Speicherpfad und die Defaults bleiben stehen.
-```
-
-### PAN-R2-1 – Render-Generation (R2)
-
-- **Modul:** previewer\_panel.py
-- **Ort:** `__init__`, über `self._pdf_gen = 0`
-- **Anlass:** Render-Generation zählt `_clear_content` hoch; Idle-Nachträge erkennen daran veraltete Vorschauen (ein `self._path`-Vergleich würde beim Office-Cache falsch greifen).
+- **Module:** previewer\_panel.py
+- **Location:** module level, before the try block around `_KEYFILE_CLS` / `_KEYFILE_FLAGS_NONE`
+- **Reason:** B8 (0.12.1): Gio.Keyfile does not exist – GKeyFile is bound in PyGObject as GLib.KeyFile; defensive resolver with dbg instead of silence.
 
 ```text
-        # R2: Render-Generation – _clear_content zählt sie hoch; die
-        # Idle-Nachschub-Schritte erkennen daran, ob ihre Vorschau noch
-        # aktuell ist. (Ein self._path-Vergleich würde FALSCH greifen:
-        # Office rendert seine PDF aus dem Cache, während self._path
-        # weiterhin das ODT/DOCX ist.)
+# B8 (0.12.1): PyGObject binds GKeyFile as GLib.KeyFile
+# (GLib, NOT Gio – 0.12.0 reached for Gio.Keyfile and failed
+# loudly in the field with "'gi.repository.Gio' object has no
+# attribute 'Keyfile'"). Resolve both names defensively (same
+# reasoning as for the Discoverer in _media_probe_async); if the
+# class is missing entirely, dbg the load/save paths and the
+# defaults stay in place.
 ```
 
-### PAN-F12-1 – Konfig-Defaults im Konstruktor (F12)
+### PAN-R2-1 – Render generation (R2)
 
-- **Modul:** previewer\_panel.py
-- **Ort:** `__init__`, über `self._conf_show_at_start = True`
-- **Anlass:** F12 (0.12.0/0.13.0): Defaults zuerst setzen, dann conf-Datei drüberlesen; angewendet bei jedem Start. 0.27.0 (F12 Teil 3): dockt hier an – Schlüssel doc\_page\_limit (Begrenzung ja/nein) und doc\_max\_pages (1–999, Default 20 = bisheriges MAX\_PDF\_PAGES); der Merker \_last\_docview lässt Änderungen live auf die angezeigte Dokument-Vorschau wirken.
+- **Module:** previewer\_panel.py
+- **Location:** `__init__`, above `self._pdf_gen = 0`
+- **Reason:** The render generation is incremented by `_clear_content`; idle follow-ups use it to recognize stale previews (a `self._path` comparison would trigger falsely with the office cache).
 
 ```text
-        # F12 (0.12.0/0.13.0): Konfiguration der Vorschauspalte –
-        # Werte aus ~/.config/nemo-previewer/nemo-previewer.conf,
-        # angewendet bei jedem Start (siehe _config_load/
-        # apply_start_settings). Defaults zuerst setzen, dann Datei
-        # drüberlesen.
+        # R2: render generation – _clear_content increments it; the
+        # idle supply steps use it to tell whether their preview is
+        # still current. (A self._path comparison would trigger
+        # FALSELY: office renders its PDF from the cache while
+        # self._path keeps pointing at the ODT/DOCX.)
 ```
 
-### PAN-F23-1 – Schnüffler-Aufruf im Dispatch (F23)
+### PAN-F12-1 – Config defaults in the constructor (F12)
 
-- **Modul:** previewer\_panel.py
-- **Ort:** `_render_inner`, über `self._render_text(path)`
-- **Anlass:** Endungslose Dateien sind meist Text; der Gio-MIME-Rater kennt nur bekannte Namen – der Schnüffler entscheidet über den Inhalt. 0.42.2 (B10): Der endungslose Sonderweg ist im vereinheitlichten B10-Zweig aufgegangen (→ PAN-B10-1).
+- **Module:** previewer\_panel.py
+- **Location:** `__init__`, above `self._conf_show_at_start = True`
+- **Reason:** F12 (0.12.0/0.13.0): set defaults first, then read the conf file over them; applied at every start. 0.27.0 (F12 part 3) hooks in here – the keys doc\_page\_limit (limit yes/no) and doc\_max\_pages (1–999, default 20 = the former MAX\_PDF\_PAGES); the marker \_last\_docview lets changes act live on the displayed document preview.
 
 ```text
-            # F23: endungslose Dateien sind in der Regel Text (Notizen,
-            # Dotfiles, Skripte ohne Suffix) – der MIME-Typ-Rater von Gio
-            # errät nur bekannte Namen wie README/Makefile. Der Schnüffler
-            # entscheidet über den Inhalt; Binärdateien ohne Endung
-            # (Executables, Core-Dumps) fallen durch und bleiben generisch.
+        # F12 (0.12.0/0.13.0): configuration of the preview column –
+        # values from ~/.config/nemo-previewer/nemo-previewer.conf,
+        # applied at every start (see _config_load/
+        # apply_start_settings). Set defaults first, then read the
+        # file over them.
 ```
 
-### PAN-F47-1 – Schnüffel-Fallback für opake Typen (F47)
+### PAN-F23-1 – Sniffer call in the dispatch (F23)
 
-- **Modul:** previewer\_panel.py
-- **Ort:** `_render_inner`, neuer Zweig vor `self._render_generic()`; zusätzlich .theme/.old/.bak/.orig in \_TEXT\_EXTRAS und das neue \_OPAQUE\_TYPES am Modulkopf (0.42.2/B10: \_OPAQUE\_TYPES entfallen, → PAN-B10-1)
-- **Anlass:** Nutzer-Fund (2026-10-31): Reine Textdateien bekamen keine Text-Vorschau, weil der Typ-Rater der MIME-Datenbank nur den NAMEN liest – index.theme galt als application/x-theme, .xsession-errors.old als application/x-trash („Sicherheitskopie"); .xsession-errors dagegen hat als Dotfile KEINE Endung (splitext zählt den führenden Punkt zum Namen) und lief dem F23-Schnüffler in die Arme. Fix: (1) .theme/.old/.bak/.orig in die Endungs-Whitelist \_TEXT\_EXTRAS (.swp bleibt draußen – Vim-Swap ist binär); (2) bei „opaken" Typen (application/x-trash, application/x-theme, application/octet-stream) lässt der Dispatch den Schnüffler über den INHALT entscheiden, bevor die Vorschau aufgibt – lesbarer Text bekommt die Text-Vorschau, Binärdateien fallen an der Schwelle (NULL-Bytes, ≥ 5 % Steuerzeichen in den ersten 4 KB). Damit sehen künftig auch unbekannte Endungen mit Textinhalt eine Vorschau.
+- **Module:** previewer\_panel.py
+- **Location:** `_render_inner`, above `self._render_text(path)`
+- **Reason:** Files without extension are mostly text; the Gio MIME rater only knows popular names – the sniffer decides by content. 0.42.2 (B10): the extensionless special route merged into the unified B10 branch (→ PAN-B10-1).
+
+```text
+            # F23: files without extension are usually text (notes,
+            # dotfiles, scripts without a suffix) – Gio's MIME rater
+            # only guesses popular names like README/Makefile. The
+            # sniffer decides by content; binary files without an
+            # extension (executables, core dumps) fall through and
+            # stay generic.
+```
+
+### PAN-F47-1 – Sniffer fallback for opaque types (F47)
+
+- **Module:** previewer\_panel.py
+- **Location:** `_render_inner`, new branch before `self._render_generic()`; additionally .theme/.old/.bak/.orig in \_TEXT\_EXTRAS and the new \_OPAQUE\_TYPES at the module head (0.42.2/B10: \_OPAQUE\_TYPES removed, → PAN-B10-1)
+- **Reason:** User finding (2026-10-31): plain text files got no text preview because the MIME database rater only reads the NAME – index.theme counted as application/x-theme, .xsession-errors.old as application/x-trash (“backup copy”); .xsession-errors on the other hand, as a dotfile, has NO extension (splitext counts the leading dot as part of the name) and ran straight into the F23 sniffer. Fix: (1) .theme/.old/.bak/.orig into the extension whitelist \_TEXT\_EXTRAS (.swp stays out – Vim swap is binary); (2) for “opaque” types (application/x-trash, application/x-theme, application/octet-stream) the dispatch lets the sniffer decide over the CONTENT before the preview gives up – readable text gets the text preview, binaries fail at the threshold (NULL bytes, ≥ 5 % control characters within the first 4 KB). From now on, unknown extensions with text content also get a preview.
 
 ```text
         elif mime in _OPAQUE_TYPES and _sniff_is_text(path):
             self._render_text(path)
 ```
 
-0.42.2 (B10): Der opake Sonderweg ist im B10-Zweig aufgegangen
-(→ PAN-B10-1); die Binär-Blacklist \_SNIFF\_BINARY\_MIMES tritt an
-die Stelle von \_OPAQUE\_TYPES.
+0.42.2 (B10): The opaque special route merged into the B10 branch
+(→ PAN-B10-1); the binary blacklist \_SNIFF\_BINARY\_MIMES takes the
+place of \_OPAQUE\_TYPES.
 
-### PAN-B10-1 – Schnüffler als letzte Instanz (B10)
+### PAN-B10-1 – Sniffer as the last instance (B10)
 
-- **Modul:** previewer\_panel.py
-- **Ort:** `_render_inner`, letzter elif-Zweig vor `self._render_generic()`; zusätzlich \_SNIFF\_BINARY\_MIMES am Modulkopf und die UTF-8-Decodier-Probe in \_sniff\_is\_text
-- **Anlass:** Nutzer-Fund (2026-11-02): Lesbare Textdateien mit Endungen, deren geratener MIME-Typ weder text/* noch „opaque“ war (.pub, .crt, .csr, .pref …), fielen trotz lesbarem Inhalt auf die Generic-Vorschau – der Schnüffler griff nur bei endungslosen Dateien (F23) und opaken Typen (F47). Fix: Der Dispatch befragt \_sniff\_is\_text IMMER als letzte Instanz vor dem Generic-Fallback, unabhängig von Endung und MIME; Bilder/Töne/Videos/PDF/Fonts/Office bleiben durch die früheren Dispatch-Zweige draußen, bekannte Binär-Typen (zip, gzip, x-tar, x-bzip2, x-xz, x-7z-compressed, x-rar, x-executable, x-sharedlib, x-ms-dos-executable) über die Blacklist. \_sniff\_is\_text prüft zweistufig: NULL-Bytes und ≥ 5 % Steuerzeichen in den ersten 4 KB, danach die UTF-8-Decodier-Probe – ein Kopf mit ≥ 30 % 8-Bit-Bytes ohne gültiges UTF-8 gilt als gepackt/verschlüsselt (Latin-1-Text bleibt erlaubt); je Snüffel-Treffer loggt eine dbg-Zeile den geratenen MIME.
+- **Module:** previewer\_panel.py
+- **Location:** `_render_inner`, last elif branch before `self._render_generic()`; additionally \_SNIFF\_BINARY\_MIMES at the module head and the UTF-8 decoding probe in \_sniff\_is\_text
+- **Reason:** User finding (2026-11-02): readable text files with extensions whose guessed MIME type was neither text/* nor “opaque” (.pub, .crt, .csr, .pref …) fell through to the generic preview despite readable content – the sniffer only applied to extensionless files (F23) and opaque types (F47). Fix: The dispatch now consults \_sniff\_is\_text ALWAYS as the last instance before the generic fallback, regardless of extension and MIME; images/audio/video/PDF/fonts/office stay out via the earlier dispatch branches, known binary types (zip, gzip, x-tar, x-bzip2, x-xz, x-7z-compressed, x-rar, x-executable, x-sharedlib, x-ms-dos-executable) via the blacklist. \_sniff\_is\_text checks in two stages: NULL bytes and ≥ 5 % control characters within the first 4 KB, then the UTF-8 decoding probe – a head with ≥ 30 % 8-bit bytes that do not decode as valid UTF-8 counts as packed/encrypted (Latin-1 text stays allowed); on every sniffer hit a dbg line logs the guessed MIME.
 
 ```text
         elif mime not in _SNIFF_BINARY_MIMES and _sniff_is_text(path):
@@ -183,42 +421,42 @@ die Stelle von \_OPAQUE\_TYPES.
             self._render_text(path)
 ```
 
-### PAN-BILD-1 – Mindesthöhe bei keep\_height
+### PAN-BILD-1 – Minimum height with keep\_height
 
-- **Modul:** previewer\_panel.py
-- **Ort:** `_apply_scale`, über `if item["keeph"]:`
-- **Anlass:** Mindesthöhe hält den Container auf Bildhöhe; die Scrollposition wird nach dem Aufziehen/Zurückschieben-Zyklus zurückgesetzt.
-
-```text
-                # Mindesthöhe nur bei keep_height: hält den Container auf
-                # Bildhöhe, wenn er nicht expandiert gepackt ist (sonst
-                # würde das Bild unten abgeschnitten). Zusätzlich die
-                # Scrollposition zurücksetzen – nach einem Aufziehen-/
-                # Zurückschieben-Zyklus stünde das Bild sonst versetzt.
-```
-
-### PAN-FOLDER-1 – Ordner-Vorschau als Inhalts-Liste (F43)
-
-- **Modul:** previewer\_panel.py
-- **Ort:** `_render_folder`
-- **Anlass:** Nutzer-Wunsch: Statt eines Ordner-Icons zeigt die Vorschau den Inhalt in Listenform. os.scandir trennt Ordner und Dateien; angezeigt werden Ordner zuerst (fett, rechte Spalte „Ordner“), dann Dateien (rechte Spalte Größe via human\_size), je alphabetisch case-insensitiv. K1 bleibt: ALLE Einträge zählen, Versteckte weist der Kopf-Hinweis separat aus; seit 0.30.0 stehen sie nur dann gedimmt in der Liste, wenn Nemo sie anzeigt. Deckel: Nur die ersten 300 Zeilen werden als Widgets gebaut (Gtk.ListBox im ScrolledWindow), der Rest als dim-Fußzeile „… und N weitere“. Namen mit MIDDLE-Ellipsize plus Tooltip; Ordner-Namen via markup\_escape\_text fett gesetzt. Seit 0.29.0 (Nutzer-Wunsch): Vor jedem Namen sitzt ein Gtk.Image mit dem Eintrags-Icon – Ordner über inode/directory, Dateien über Gio.content\_type\_guess zum Namen und content\_type\_get\_icon, MENU-Größe, Fallback folder bzw. text-x-generic –, und die ListBox trägt den Innenabstand der Text-Vorschauen als Rand (10/10/8/8 px). Seit 0.30.0/0.30.1 (Nutzer-Wunsch/-Fund): Die Icons sind strikt symbolisch – Kandidaten aus Gio.content\_type\_get\_icon mit -symbolic-Suffix gegen Gtk.IconTheme.has\_icon geprüft (0.30.1: GTK lud sonst bei fehlender Variante heimlich das farbige Voll-Icon, dunkle Platten im Darkmode), Fallback folder-symbolic bzw. text-x-generic-symbolic – und folgen damit dem System-Theme (Darkmode hell, Lightmode dunkel); die Liste zeigt Versteckte nur, wenn Nemo sie anzeigt (org.nemo.preferences show-hidden-files, Strg+H). Seit 0.31.1 (Nutzer-Fund): Die dunklen Platten tauchten auch unter dem strengen Symbol-Ladekurs wieder auf; je Render protokolliert dbg „Ordner-Icons:" das Abbild Inhaltstyp→gewähltes Symbol, um die tatsächlich geladenen Theme-Symbole im Log sichtbar zu machen. Seit 0.31.2 (Nutzer-Fund): Die 0.31.1-Diagnose bestätigte – der Ladekurs wählt durchweg -symbolic-Namen, das WhiteSur-Theme liefert unter diesen Namen aber selbst farbige Icons (dunkle Platten) –, deshalb zeichnet \_render\_folder jedes gewählte Symbol als einfarbige Silhouette in der Vordergrundfarbe der Liste nach: Alphakanal (Form) bleibt, RGB einheitlich auf die Textfarbe (Helfer \_silhouette, Nachzeichnung je Symbol einmal pro Render gecacht). Seit 0.31.3 (Nutzer-Fund): Die Silhouetten-Farbe kommt vom angedockten Panel statt von der frisch gebauten, noch nicht im Fenster hängenden Liste – deren Kontext hatte noch kein endgültiges Theme, weshalb die Icons im Lightmode weiß und unsichtbar wurden (F43-Fix III); die dbg-Zeile protokolliert seitdem zusätzlich die entnommene Vordergrundfarbe. Seit 0.31.4 (Nutzer-Wunsch): Die Liste füllt die Spalte randlos – der Außenrand des Inhaltsbereichs (\_render\_inner setzt ihn pro Render auf 8 px zurück, der Ordner-Zweig nullte ihn). Seit 0.31.8 (F46 VI, Nutzer-Fund) ist der Randlos-Wunsch zurückgenommen: Erst ohne den 8-px-Außenrand erreichte das eigene, transparente GdkWindow des Scroll-Fensters die Plattenkante und zeigte schwarz; der Rand bleibt seither auch im Ordner-Zweig stehen. Seit 0.31.11 (F46 IX, Nutzer-Beschreibung): Das 10/10/8/8-Innen-Padding sitzt nicht mehr als ListBox-Margin vor der Platte (das legte den schwarzen Träger der Liste frei, sichtbar nur bei überlanger Liste), sondern als Ränder an den Zeilen-Inhalten – 10 px seitlich je Zeile, 8 px oben an der ersten und unten am letzten; die Platte füllt den Viewport randvoll. Seit 0.42.0 (Spaghetti-Audit-Runde 2, S2): \_render\_folder ist nur noch der Ablauf – \_folder\_symbol wählt und färbt das Icon nach, \_folder\_row baut eine Zeile, \_folder\_scroll kapselt das Scroll-Fenster samt F46-Hintergrund-Absicherung; Verhalten unverändert.
+- **Module:** previewer\_panel.py
+- **Location:** `_apply_scale`, above `if item["keeph"]:`
+- **Reason:** The minimum height keeps the container at image height; the scroll position is reset after the grow/shrink cycle.
 
 ```text
-        # Gtk.ListBox ist nicht selbst scrollbar – ScrolledWindow.add
-        # legt in GTK3 automatisch einen Viewport darunter. Selection
-        # NONE: Die Liste ist eine Vorschau, kein Navigator – Klicks
-        # bleiben bei Nemos Dateiansicht, nicht im Panel.
-        # Die 300-Zeilen-Grenze ist ein reiner Widget-Deckel: Sortier-
-        # reihenfolge und Zählung (K1) erfassen ALLE Einträge, nur
-        # der Widget-Bau stoppt – dieselbe Disziplin wie der Bomben-
-        # Deckel bei Bildern.
+                # Minimum height only with keep_height: keeps the
+                # container at image height when it is not packed
+                # expanding (otherwise the image would be cut off
+                # at the bottom). Also reset the scroll position –
+                # after a grow/shrink cycle the image would
+                # otherwise sit shifted.
 ```
 
-### PAN-FOLDER-2 – Ordner-Inhaltsliste einstellbar (F48)
+### PAN-FOLDER-1 – Folder preview as a content list (F43)
 
-- **Modul:** previewer\_panel.py (Dispatch + Konfiguration), previewer\_toolbar.py (Schalter)
-- **Ort:** `_render_inner` am `is_dir`-Zweig; Defaults in `\_\_init\_\_`, Laden/Speichern in \_config\_load/\_config\_save (Schlüssel folder\_contents); Einstellungsfenster, Rubrik „Allgemein“
-- **Anlass:** Nutzer-Wunsch (2026-10-31): Die Ordner-Vorschau mit Inhaltsliste (F43) soll der obligatorische Standard bleiben – aber abschaltbar. Der Schalter „Ordnerinhalte in der Vorschau anzeigen“ (Default an, sofort gespeichert) zeigt bei Abwahl das schlichte Ordner-Icon mit Dateiinformationen (das Verhalten vor 0.23.0); das Umschalten baut einen gerade markierten Ordner live um (os.path.isdir auf \_path), Datei-Vorschauen bleiben unberührt. Unlesbare und leere Ordner behalten ihre Hinweise („Ordner“ / „Der Ordner ist leer.“), unabhängig vom Schalter.
+- **Module:** previewer\_panel.py
+- **Location:** `_render_folder`
+- **Reason:** User request: instead of a folder icon, the preview shows the content as a list. os.scandir separates folders and files; folders are shown first (bold, right column “folder”), then files (right column size via human\_size), each alphabetically case-insensitive. K1 stays: ALL entries count, hidden ones are reported separately by the header hint; since 0.30.0 they appear dimmed in the list only when Nemo shows them. Cap: only the first 300 rows are built as widgets (Gtk.ListBox in a ScrolledWindow), the rest as a dim footer “… and N more”. Names with MIDDLE ellipsize plus tooltip; folder names set bold via markup\_escape\_text. Since 0.29.0 (user request): a Gtk.Image with the entry's icon sits in front of every name – folders via inode/directory, files via Gio.content\_type\_guess on the name and content\_type\_get\_icon, MENU size, fallback folder resp. text-x-generic –, and the ListBox carries the inner padding of the text previews as margin (10/10/8/8 px). Since 0.30.0/0.30.1 (user request/finding): the icons are strictly symbolic – candidates from Gio.content\_type\_get\_icon with a -symbolic suffix checked against Gtk.IconTheme.has\_icon (0.30.1: otherwise GTK secretly loaded the colored full icon when the variant was missing, dark plates in dark mode), fallback folder-symbolic resp. text-x-generic-symbolic – and therefore follow the system theme (light in dark mode, dark in light mode); the list shows hidden entries only when Nemo does (org.nemo.preferences show-hidden-files, Ctrl+H). Since 0.31.1 (user finding): the dark plates reappeared even under the strict symbol loading course; per render, dbg “Folder icons:” logs the map content type→chosen symbol to make the actually loaded theme symbols visible in the log. Since 0.31.2 (user finding): the 0.31.1 diagnosis was confirmed – the loading course consistently picks -symbolic names, but the WhiteSur theme itself provides colored icons under those names (dark plates) –, therefore \_render\_folder now redraws every chosen symbol as a monochrome silhouette in the list's foreground color: the alpha channel (shape) stays, RGB uniformly becomes the text color (helper \_silhouette, the redraw is cached once per symbol per render). Since 0.31.3 (user finding): the silhouette color now comes from the docked panel instead of the freshly built list that is not yet attached to the window – its context did not have a final theme yet, which made the icons white and invisible in light mode (F43 fix III); since then the dbg line additionally logs the extracted foreground color. Since 0.31.4 (user request): the list fills the column edge to edge – the outer margin of the content area (\_render\_inner resets it to 8 px per render, the folder branch zeroed it). Since 0.31.8 (F46 VI, user finding) the edge-to-edge request is withdrawn: only without the 8-px outer margin did the scroll window's own transparent GdkWindow reach the plate edge and show black; since then the margin stays in the folder branch too. Since 0.31.11 (F46 IX, user description): the 10/10/8/8 inner padding no longer sits as a ListBox margin in front of the plate (that exposed the list's black carrier, visible only with an overlong list), but as margins on the row contents – 10 px sideways per row, 8 px on top of the first and below the last; the plate fills the viewport edge to edge. Since 0.42.0 (spaghetti audit round 2, S2): \_render\_folder is only the flow – \_folder\_symbol picks and tints the icon, \_folder\_row builds one row, \_folder\_scroll wraps the scroll window including the F46 background safeguard; behaviour unchanged.
+
+```text
+        # Gtk.ListBox is not scrollable by itself – ScrolledWindow.add
+        # automatically puts a viewport underneath in GTK3. Selection
+        # NONE: the list is a preview, not a navigator – clicks
+        # stay with Nemo's file view, not in the panel.
+        # The 300-row limit is a pure widget cap: sort order and
+        # counting (K1) cover ALL entries, only the widget building
+        # stops – the same discipline as the bomb cap for images.
+```
+
+### PAN-FOLDER-2 – Folder content list configurable (F48)
+
+- **Module:** previewer\_panel.py (dispatch + configuration), previewer\_toolbar.py (toggle)
+- **Location:** `_render_inner` at the `is_dir` branch; defaults in `\_\_init\_\_`, load/save in \_config\_load/\_config\_save (key folder\_contents); settings window, section “General”
+- **Reason:** User request (2026-10-31): the folder preview with content list (F43) stays the mandatory default – but switchable off. The toggle “Show folder contents in the preview” (default on, saved immediately) shows the plain folder icon with file information when deselected (the behaviour before 0.23.0); toggling rebuilds a currently selected folder live (os.path.isdir on \_path), file previews stay untouched. Unreadable and empty folders keep their hints (“Folder” / “The folder is empty.”), regardless of the toggle.
 
 ```text
         if is_dir:
@@ -228,26 +466,26 @@ die Stelle von \_OPAQUE\_TYPES.
                 self._render_generic()
 ```
 
-### PAN-VCARD-1 – Visitenkarten-Dispatch (F7)
+### PAN-VCARD-1 – vCard dispatch (F7)
 
-- **Modul:** previewer\_panel.py
-- **Ort:** Typ-Kette in `_render`, direkt nach dem `.eml`-Zweig
-- **Anlass:** Nutzer-Wunsch: ALLE bekannten Visitenkartenformate werden als Visitenkarte gerendert, nicht als Textdatei – vCard (.vcf/.vcard, MIME text/vcard), LDIF (.ldif) und Windows-Contact (.contact); die Endungs-Prüfung fängt auch die Formate ab, die shared-mime-info nur als text/plain bzw. XML einstufen würde. Der Renderer \_render\_vcard lebt im Text-Modul; der Dispatch zweigt VOR dem generischen text/-Zweig ab, damit die MIME-Erkennung die Karte nicht als Klartext wegschluckt.
+- **Module:** previewer\_panel.py
+- **Location:** type chain in `_render`, directly after the `.eml` branch
+- **Reason:** User request: ALL known contact card formats are rendered as a card, not as a text file – vCard (.vcf/.vcard, MIME text/vcard), LDIF (.ldif) and Windows-Contact (.contact); the extension check also catches the formats that shared-mime-info would only classify as text/plain resp. XML. The renderer \_render\_vcard lives in the text module; the dispatch branches off BEFORE the generic text/ branch so the MIME detection does not swallow the card as plain text.
 
 ```text
         elif (lower.endswith((".vcf", ".vcard", ".ldif", ".contact"))
               or mime == "text/vcard"):
-            # F7: Visitenkartenformate – vCard, LDIF, Windows-Contact
-            # (Renderer im Text-Modul).
+            # F7: contact card formats – vCard, LDIF, Windows-Contact
+            # (renderer in the text module).
             # → REF PAN-VCARD-1
             self._render_vcard(path)
 ```
 
-### PAN-F44-1 – Optionales GtkSource-Binding (F44)
+### PAN-F44-1 – Optional GtkSource binding (F44)
 
-- **Modul:** previewer\_panel.py
-- **Ort:** Modulkopf, unterhalb der Mixin-Importe
-- **Anlass:** 0.28.0 (Nutzer-Wunsch): Syntax-Hervorhebung in der Text-Vorschau. GtkSourceView wird wie Poppler im Docs-Modul als OPTIONALES Binding geladen; fehlt es (Paket gir1.2-gtksource-4), bleibt alles beim bisherigen TextView. \_source\_language rät die Sprache über den Dateinamen, \_source\_scheme wählt bei dunklem GTK-Theme oblivion (ersatzweise solarized-dark), sonst classic. 0.28.1 (Nutzer-Wunsch): über die Einstellung text\_syntax an/aus schaltbar (Rubrik „Textdateien“), Default an.
+- **Module:** previewer\_panel.py
+- **Location:** module head, below the mixin imports
+- **Reason:** 0.28.0 (user request): syntax highlighting in the text preview. GtkSourceView is loaded like Poppler in the docs module as an OPTIONAL binding; if it is missing (package gir1.2-gtksource-4), everything stays with the previous TextView. \_source\_language guesses the language from the file name, \_source\_scheme picks oblivion for a dark GTK theme (fallback solarized-dark), else classic. 0.28.1 (user request): switchable on/off via the setting text\_syntax (section “Text files”), default on.
 
 ```text
 # → REF PAN-F44-1
@@ -260,486 +498,691 @@ except Exception:
     pass
 ```
 
-### PAN-BG-1 – Panel malt seinen Hintergrund selbst (F46)
+### PAN-BG-1 – Panel paints its own background (F46)
 
-- **Modul:** previewer\_panel.py
-- **Ort:** `__init__`, direkt nach `set_size_request`
-- **Anlass:** Nutzer-Fund (0.31.3, Screenshots Dark-/Lightmode): Die schwarzen Flächen, die seit 0.30.0 für Icon-Platten gehalten wurden, waren der ungemalte Hintergrund der Vorschauspalte – ober-/unterhalb der Ordner-Liste und in der Bildlaufleisten-Region zeichnete kein Widget, und ungemalte Flächen bleiben schwarz; sichtbar wurde das erst bei langen Listen (Bildlaufleiste da, Randbereiche leer), im Lightmode deckte das Theme die Flächen zufällig mit. Die Stilklasse background am Panel lässt GTK die normale Fensterhintergrundfarbe des Themes zeichnen. Seit 0.31.4 (Nutzer-Fund/-Wunsch): Die Stilklasse allein genügte nicht – GtkBox ruft gtk\_render\_background nie selbst auf; das Panel zeichnet deshalb im draw-Signal (\_on\_panel\_draw) als Erstes den themed Hintergrund unter alle Kinder – mit dem Stil-Kontext des Nemo-Toplevels, denn der Panel-Kontext trägt bei WhiteSur-Dark womöglich keine aufgelöste Hintergrundfarbe. Und die Ordner-Liste füllt die Spalte randlos: \_render\_inner setzt den Außenrand des Inhaltsbereichs pro Render auf 8 px zurück, der Ordner-Zweig nullt ihn – das Padding liegt damit INNERHALB des Listenfensters (Nutzer-Wunsch).
+- **Module:** previewer\_panel.py
+- **Location:** `__init__`, directly after `set_size_request`
+- **Reason:** User finding (0.31.3, screenshots dark/light mode): the black areas that had been taken for icon plates since 0.30.0 were the unpainted background of the preview column – above/below the folder list and in the scrollbar region no widget painted, and unpainted areas stay black; this only became visible with long lists (scrollbar present, margin areas empty), in light mode the theme happened to cover the areas. The style class background on the panel makes GTK paint the theme's normal window background color. Since 0.31.4 (user finding/request): the style class alone was not enough – GtkBox never calls gtk\_render\_background itself; the panel therefore paints the themed background in the draw signal (\_on\_panel\_draw) as the first thing, under all children – with the Nemo toplevel's style context, because the panel context might carry no resolved background color under WhiteSur-Dark. And the folder list fills the column edge to edge: \_render\_inner resets the content area's outer margin to 8 px per render, the folder branch zeroed it – the padding thus sits INSIDE the list window (user request).
 
 ```text
-        # 0.31.3 (F46, Nutzer-Fund): Stilklasse background – das
-        # Panel malt seine leeren Flächen selbst, sonst blieben
-        # sie ungemalt schwarz (→ REF PAN-BG-1).
+        # 0.31.3 (F46, user finding): style class background – the
+        # panel paints its own empty areas, otherwise they stay
+        # unpainted black (→ REF PAN-BG-1).
         self.get_style_context().add_class("background")
 ```
 
-### PAN-BG-2 – Hintergrund-Kette statt festem Toplevel-Kontext (F46 III)
+### PAN-BG-2 – Background chain instead of a fixed toplevel context (F46 III)
 
-- **Modul:** previewer\_panel.py
-- **Ort:** \_paint\_background / \_on\_panel\_draw; draw-Connect am Scroll-Fenster in \_render\_folder
-- **Anlass:** Nutzer-Fund (0.31.5, beide Modi): Der 0.31.4-Hintergrund über den Toplevel-Stil-Kontext blieb wirkungslos – erstens löst WhiteSur dort offenbar keine Hintergrundfarbe auf, zweitens trägt GtkScrolledWindow ein eigenes GdkWindow, sodass die Panel-Malerei die Bildlaufleisten-Region nie erreicht (Nemos eigene Liste zeigt dort dunkelgrau, das Panel zeigte schwarz, sobald die Ordner-Liste scrolle). Der Painter läuft deshalb als Kette: Panel-Kontext (Stilklasse background), Toplevel, Kontext des gerenderten Inhalts (Gtk.ListBox/Gtk.TextView – deren Platte ist ja sichtbar gemalt), sonst eine aus der Vordergrundfarbe abgeleitete Grundfläche (hell im Lightmode, dunkel im Darkmode). Er hängt zusätzlich am Scroll-Fenster der Ordner-Liste – ohne eigenes GdkWindow bliebe das Doppel-Malen unsichtbar. dbg „Panel-Hintergrund:" protokolliert Quelle und alle Kandidatenfarben, aber nur bei Wechsel (Merker \_bg\_dbg\_key gegen dbg-Flut im draw-Signal); die Ordner-Diagnose meldet zusätzlich scroll.get\_has\_window(). Seit 0.31.6 (F46 IV, Nutzer-Fund): Die schwarze Scrollbar-Ebene blieb auch unter der Kette – der Painter hängt deshalb zusätzlich am Viewport und, nach deren Realisieren (\_on\_scroll\_realized), an beiden Bildlaufleisten; dbg „Panel-Hintergrund (Widget):" nennt das jeweils malende Widget, und \_dbg\_list\_margins liest die ListBox-Margins nach dem Realisieren zurück (CSS-Override-Verdacht gegen das verschwundene Listen-Padding). Seit 0.31.7 (F46 V, Nutzer-Fund): dbg bewies arbeitende Painter (alle vier Widgets, quelle=Panel) und gesetzte Margins (10/10/8/8) – der Streifen blieb trotzdem; Ursachen-Verdacht: Der draw-Painter läuft vor dem Widget-Standard-Draw, Theme-Flächen (Trough, Viewport) überdecken ihn, und die Margin-Streifen zeigen den Viewport-Hintergrund statt der Platte. Deshalb setzt die neue Methode zusätzlich eine CSS-Regel (Klasse pvw-surface, Anwendungspriorität über dem Theme) auf Viewport und Bildlaufleisten (beim Realisieren nachgereicht), und der Painter-dbg nennt je Widget zusätzlich die Eigen-Farbe des Widget-Kontexts („Eigen=…“) – zeigt, was das Theme dort selbst malt. Seit 0.31.8 (F46 VI, Nutzer-Fund): Der Nutzer erinnerte richtig – vor dem Randlos-Wunsch aus 0.31.4 gab es keinen schwarzen Hintergrund; erst das Nullen des Außenrands ließ das transparente GdkWindow des Scroll-Fensters an die Plattenkante reichen. Der Ordner-Zweig nullt den Rand nicht mehr (8 px von \\_render\\_inner bleiben), die CSS-Regel deckt zusätzlich das Scroll-Fenster selbst und die Junction ab, der dbg-Merker ist je Widget eigener (ein einzelner ließ die Zeilen endlos pendeln – Logflut), und die CSS-dbg-Zeile druckt nur noch bei Farbwechsel. Seit 0.31.9 (F46 VII, Nutzer-Fund): Auch unter 0.31.8 blieb der Streifen, obwohl alle Flächen Grau malen – \\_dbg\\_pixels (GLib.timeout\\_add nach dem Ordner-Render) liest deshalb echte Pixel an neun Punkten (Kante, Bildlaufleisten-Spalte in zwei Tiefen, Platten-Rand, Spalte oben/unten, Panelrand, Platten-Mitte, vor dem Panel) via Gdk.pixbuf\\_get\\_from\\_window und dbg-t sie als „Panel-Pixel:“-Zeile – sie verrät, WO Schwarz wirklich sitzt. Seit 0.31.10 (F46 VIII, Pixelsonden-Fund): Die Sonden ertappten das Schwarz exklusiv an Spalte-2 (pw-12) – im Streifen zwischen Plattenkante und Bildlaufleisten-Spalte, und nur, solange die Leiste sichtbar ist (bei kurzen Listen steht dort grau; der untere Sondenpunkt zeigt mit rgb(48,48,48) den Undershoot-Fade ÜBER unserem Grau – die Fläche ist also bemalt). Ursache: Overlay-Scrolling lässt den Balken in einem eigenen Gdk-Fenster über dem Viewport floaten, dessen ungemalte Teile schwarz bleiben. Die Ordner-Liste schaltet deshalb per set\_overlay\_scrolling(False) auf den klassischen Inline-Balken – Painter und CSS greifen damit zuverlässig; die Sonden bleiben als Verifikation drin. Zudem trug die STAND-Zeile von previewer\_panel \_-Escapes im Modul-Docstring (Python-SyntaxWarning bei jedem Start) – entfernt. Seit 0.31.11 (F46 IX, Nutzer-Beschreibung): Der 0.31.10-Test bestätigte den Inline-Balken (kein Sondenpunkt mehr rgb(0,0,0); Rinne rgb(41,41,41), Slider rgb(121,121,121) – der Look von Nemos eigener Liste), doch der Nutzer sah weiter Schwarz und beschrieb die Lage: Die schwarze Ebene ist der TRÄGER der Ordnerliste (Eltern-Ebene), sichtbar nur bei überlanger Liste; die Bildlaufleiste selbst passt. Fix: Das 10/10/8/8-Padding sitzt jetzt IN der Platte – hbox-Ränder (10 px seitlich, 8 px oben an der ersten, unten am letzten Zeilen-Inhalt) statt ListBox-Margins; die Platte füllt den Viewport randvoll und deckt den Träger komplett ab. Zusätzlich liest \_dbg\_pixels als Panel-Scan ein komplettes horizontales Farbprofil in Panelhöhe (Farbläufe komprimiert, Schwarz-Pixel-Zähler) – es zeigt auch Streifen zwischen den festen Sonden. Seit 0.34.1 (F46 X, Nutzer-Fund): Letzte ungemalte Fläche war der linke Rand der Vorschauspalte – das Griff-Fenster des injizierten Gtk.Paned (previewer.py), im Lightmode ein schwarzer Rahmen, im Darkmode unsichtbar. Der Painter hängt deshalb zusätzlich am Paned (draw-Connect in PanelState, \_on\_hpaned\_draw malt die Ketten-Farbe über die Paned-Fläche, Return False lässt den Griff-Standard-Draw laufen). Seit 0.38.1 (F46 XI, Nutzer-Fund): Im Lightmode blieb der Rand trotzdem sichtbar – zwei Farb-Bugs: Die Notfall-Ableitung in \_paint\_background war INVERTIERT (FG hell → helle statt dunkler Basis, FG dunkel → dunkle statt heller; der Lightmode malte fast schwarz rgb(31,31,31)), und \_apply\_surface\_css fiel bei nicht auflösbarem Panel-Kontext auf hartes rgb(56,56,56); beide Ableitungen sind seither kontrast-richtig FG-basiert (FG hell → Basis 0.12 dunkel, FG dunkel → Basis 0.92 hell), der CSS-Fallback FG-abgeleitet. Seit 0.40.0 (Spaghetti-Audit-Runde 1): F46 ist gelöst – die Diagnose-Maschinerie ist zurückgebaut (\_dbg\_pixels mit Pixelsonden und Panel-Scan, \_dbg\_list\_margins, der GdkWindow-Flag in der Ordner-Logzeile); die funktionalen Painter, die CSS-Regel und die Ordner-Icons-Diagnosezeile bleiben.
+- **Module:** previewer\_panel.py
+- **Location:** \_paint\_background / \_on\_panel\_draw; draw connect on the scroll window in \_render\_folder
+- **Reason:** User finding (0.31.5, both modes): the 0.31.4 background via the toplevel style context stayed ineffective – first, WhiteSur apparently resolves no background color there, second, GtkScrolledWindow carries its own GdkWindow, so the panel painting never reaches the scrollbar region (Nemo's own list shows dark grey there, the panel showed black as soon as the folder list scrolled). The painter therefore runs as a chain: panel context (style class background), toplevel, context of the rendered content (Gtk.ListBox/Gtk.TextView – their plate is visibly painted after all), otherwise a base area derived from the foreground color (light in light mode, dark in dark mode). It additionally attaches to the folder list's scroll window – without its own GdkWindow the double painting would stay invisible. dbg “Panel bg:” logs the source and all candidate colors, but only on change (marker \_bg\_dbg\_key against a dbg flood in the draw signal); the folder diagnosis additionally reports scroll.get\_has\_window(). Since 0.31.6 (F46 IV, user finding): the black scrollbar layer stayed even under the chain – the painter therefore additionally attaches to the viewport and, after their realization (\_on\_scroll\_realized), to both scrollbars; dbg “Panel bg (widget):” names the widget painting each time, and \_dbg\_list\_margins reads back the ListBox margins after realization (CSS override suspicion against the vanished list padding). Since 0.31.7 (F46 V, user finding): dbg proved working painters (all four widgets, source=panel) and set margins (10/10/8/8) – the stripe stayed anyway; suspected causes: the draw painter runs before the widget's standard draw, theme areas (trough, viewport) cover it, and the margin stripes show the viewport background instead of the plate. The new method therefore additionally sets a CSS rule (class pvw-surface, application priority above the theme) on viewport and scrollbars (re-attached on realization), and the painter dbg names each widget's own context color in addition (“own=…”) – showing what the theme itself paints there. Since 0.31.8 (F46 VI, user finding): the user remembered correctly – before the edge-to-edge request from 0.31.4 there was no black background; only zeroing the outer margin let the scroll window's transparent GdkWindow reach the plate edge. The folder branch no longer zeroes the margin (the 8 px from \_render\_inner stay), the CSS rule additionally covers the scroll window itself and the junction, the dbg marker is per widget now (a single one made the lines pend endlessly – log flood), and the CSS dbg line only prints on color change. Since 0.31.9 (F46 VII, user finding): even under 0.31.8 the stripe stayed although all areas paint grey – \_dbg\_pixels (GLib.timeout\_add after the folder render) therefore reads real pixels at nine points (edge, scrollbar column at two depths, plate edge, column top/bottom, panel margin, plate center, in front of the panel) via Gdk.pixbuf\_get\_from\_window and dbg logs them as a “Panel pixels:” line – it reveals WHERE black actually sits. Since 0.31.10 (F46 VIII, pixel probe finding): the probes caught the black exclusively at column-2 (pw-12) – in the stripe between plate edge and scrollbar column, and only while the bar is visible (with short lists the spot is grey; the lower probe point shows rgb(48,48,48) – the undershoot fade ABOVE our grey – so the area is painted). Cause: overlay scrolling lets the bar float in its own Gdk window above the viewport, whose unpainted parts stay black. The folder list therefore switches to the classic inline bar via set\_overlay\_scrolling(False) – painter and CSS now bite reliably; the probes stay in as verification. The STAND line of previewer\_panel also carried \_-escapes in the module docstring (Python SyntaxWarning at every start) – removed. Since 0.31.11 (F46 IX, user description): the 0.31.10 test confirmed the inline bar (no probe point rgb(0,0,0) anymore; trough rgb(41,41,41), slider rgb(121,121,121) – the look of Nemo's own list), but the user kept seeing black and described the situation: the black layer is the CARRIER of the folder list (parent layer), visible only with an overlong list; the scrollbar itself is fine. Fix: the 10/10/8/8 padding now sits IN the plate – hbox margins (10 px sideways, 8 px on top of the first, below the last row content) instead of ListBox margins; the plate fills the viewport edge to edge and covers the carrier completely. Additionally \_dbg\_pixels reads a complete horizontal color profile at panel height as a panel scan (color runs compressed, black pixel counter) – it also shows stripes between the fixed probes. Since 0.34.1 (F46 X, user finding): the last unpainted area was the left margin of the preview column – the handle window of the injected Gtk.Paned (previewer.py), a black frame in light mode, invisible in dark mode. The painter therefore additionally attaches to the Paned (draw connect in PanelState, \_on\_hpaned\_draw paints the chain color over the Paned area, return False lets the handle's standard draw run). Since 0.38.1 (F46 XI, user finding): in light mode the margin stayed visible anyway – two color bugs: the fallback derivation in \_paint\_background was INVERTED (light FG → light instead of dark base, dark FG → dark instead of light; light mode painted almost black rgb(31,31,31)), and \_apply\_surface\_css fell back to hard rgb(56,56,56) when the panel context could not resolve; both derivations are contrast-correct FG-based since then (light FG → base 0.12 dark, dark FG → base 0.92 light), the CSS fallback FG-derived. Since 0.40.0 (spaghetti audit round 1): F46 is solved – the diagnosis machinery is removed (\_dbg\_pixels with pixel probes and panel scan, \_dbg\_list\_margins, the GdkWindow flag in the folder log line); the functional painters, the CSS rule and the folder icons diagnosis line stay.
 
 ```text
-        # 0.31.5 (F46 III, Nutzer-Fund): GtkBox ruft gtk_render_
-        # background nie selbst auf – deshalb malt dieser Haken den
-        # Hintergrund VOR allen Kindern. Er hängt zusätzlich am
-        # Scroll-Fenster der Ordner-Liste: Das trägt ein eigenes
-        # GdkWindow, das die Panel-Malerei sonst nie erreicht
-        # (→ REF PAN-BG-2).
+        # 0.31.5 (F46 III, user finding): GtkBox never calls
+        # gtk_render_background itself – therefore this hook paints
+        # the background BEFORE all children. It additionally sits
+        # on the folder list's scroll window: that one carries its
+        # own GdkWindow which the panel painting would otherwise
+        # never reach (→ REF PAN-BG-2).
         self._paint_background(widget, cr)
         return False
 ```
 
 ---
 
-## Auswahl (SEL)
+## Selection (SEL)
 
-### SEL-VTABLE-1 – Klassen-VTable peek\_selection
+### SEL-VTABLE-1 – Class vtable peek\_selection
 
-- **Modul:** previewer\_select.py
-- **Ort:** Modul-Ebene, unter dem Abschnittstitel „Native Auswahl über den Klassen-VTable von NemoView (peek\_selection)“
-- **Anlass:** libnemo-private ist auf Mint 22 statisch – peek\_selection wird als Funktionszeiger aus dem NemoView-Klassen-VTable gelesen, Indizes aus nemo-view.h verifiziert. Seit 0.39.0 (Straffungs-Runde) sind der dlopen-Fallback (libnemo-private.so, auf Nemo 6 grundsätzlich erfolglos) und die GI-Kaskade (Route 2) entfernt – der Klassen-VTable ist die einzige Nemo-Quelle, GTK/ATK-Fallbacks folgen.
+- **Module:** previewer\_select.py
+- **Location:** module level, below the section title “Native selection via the class vtable of NemoView (peek\_selection)”
+- **Reason:** libnemo-private is static on Mint 22 – peek\_selection is read as a function pointer from the NemoView class vtable, indices verified against nemo-view.h. Since 0.39.0 (slimming round) the dlopen fallback (libnemo-private.so, fundamentally unsuccessful on Nemo 6) and the GI cascade (route 2) are removed – the class vtable is the only Nemo source, GTK/ATK fallbacks follow.
 
 ```text
 #
-# Auf Linux Mint 22 ist libnemo-private eine STATISCHE Bibliothek – es gibt
-# keine .so, deren Symbole man laden könnte (der dlopen-Versuch oben bleibt
-# als Fallback für ältere Systeme). Nemos Auswahl ist trotzdem erreichbar:
-# NemoView hält 'peek_selection' als Funktionszeiger im Klassen-VTable
-# (nemo-view.h, NemoViewClass: Index 12 nach GtkScrolledWindowClass), und
-# NemoFile implementiert das Interface NemoFileInfo, dessen VTable laut
-# nemo-file-info.h 'get_name' (Index 1) und 'get_uri' (Index 2) enthält.
-# Die Größe der Eltern-Klasse wird zur LAUFZEIT über GObject.type_query()
-# vom tatsächlich gelinkten GTK erfragt – nichts wird geraten. Die Indizes
-# sind aus den Mint-22- und Master-Zweigen von nemo-view.h verifiziert.
+# On Linux Mint 22 libnemo-private is a STATIC library – there is
+# no .so whose symbols one could load (the dlopen attempt above
+# stays as a fallback for older systems). Nemo's selection is
+# still reachable: NemoView holds 'peek_selection' as a function
+# pointer in the class vtable (nemo-view.h, NemoViewClass: index
+# 12 after GtkScrolledWindowClass), and NemoFile implements the
+# NemoFileInfo interface, whose vtable contains 'get_name'
+# (index 1) and 'get_uri' (index 2) per nemo-file-info.h. The
+# size of the parent class is queried AT RUNTIME via
+# GObject.type_query() from the actually linked GTK – nothing is
+# guessed. The indices are verified against the Mint 22 and
+# master branches of nemo-view.h.
 # ----------------------------------------------------------------------------
 ```
 
-### SEL-GTYPE-1 – GType-IDs über libgobject
+### SEL-GTYPE-1 – GType IDs via libgobject
 
-- **Modul:** previewer\_select.py
-- **Ort:** `_native_vtable_api`, über den CDLL-Zugriff
-- **Anlass:** PyGObject liefert bei type\_from\_name() ein GType-OBJEKT, das ctypes nicht akzeptiert – deshalb g\_type\_from\_name aus libgobject.
+- **Module:** previewer\_select.py
+- **Location:** `_native_vtable_api`, above the CDLL access
+- **Reason:** PyGObject returns a GType OBJECT from type\_from\_name() that ctypes does not accept – hence g\_type\_from\_name from libgobject.
 
 ```text
-        # GType-IDs DIREKT über libgobject holen: PyGObject liefert bei
-        # type_from_name() neuerdings ein GType-OBJEKT, das ctypes nicht
-        # als Argument akzeptiert ('cannot be interpreted as an integer'
-        # – ArgumentError, der die ganze Route lautlos tötete). Der Weg
-        # über g_type_from_name aus libgobject liefert garantiert die
-        # rohe numerische ID aus derselben GLib-Laufzeit.
+        # Get GType IDs DIRECTLY via libgobject: PyGObject lately
+        # returns a GType OBJECT from type_from_name() which ctypes
+        # does not accept as an argument ('cannot be interpreted
+        # as an integer' – an ArgumentError that silently killed
+        # the whole route). The way over g_type_from_name from
+        # libgobject guarantees the raw numeric ID from the same
+        # GLib runtime.
 ```
 
-### SEL-WILDCALL-1 – Wildcall-Schutz (0.9.2)
+### SEL-WILDCALL-1 – Wildcall guard (0.9.2)
 
-- **Modul:** previewer\_select.py
-- **Ort:** Modul-Ebene, unter dem Abschnittstitel „Wildcall-Schutz (0.9.2, Audit „Pufferüberlauf/OOM“)“, über `_NEMO_TEXT_RANGES`
-- **Anlass:** VTable-Funktionszeiger dürfen nur innerhalb einer Nemo-Bibliothek liegen, bevor sie gerufen werden; sonst wird die Route fail-closed abgeschaltet.
+- **Module:** previewer\_select.py
+- **Location:** module level, below the section title “Wildcall guard (0.9.2, audit “buffer overflow/OOM”)”, above `_NEMO_TEXT_RANGES`
+- **Reason:** vtable function pointers may only be called when they lie inside a Nemo library; otherwise the route is switched off fail-closed.
 
 ```text
-# Die ctypes-Routen lesen Funktionszeiger aus berechneten VTable-Offsets
-# (peek_selection, get_name, get_uri) und rufen sie auf. Verschiebt ein
-# Nemo-Update das Klassen-/Interface-Layout, könnte ein Slot auf einen
-# falschen, aber nicht-NULL Zeiger zeigen – sein Aufruf wäre ein
-# Wildcall und würde Nemo schlagartig beenden (try/except wirkt bei
-# Speicherzugriffsverletzungen nicht). Jedes Call-Ziel muss deshalb
-# innerhalb einer Nemo-Bibliothek liegen, bevor es gerufen wird;
-# andernfalls wird die Route abgeschaltet (fail-closed – die anderen
-# Auswahl-Strategien übernehmen).
+# The ctypes routes read function pointers from calculated vtable
+# offsets (peek_selection, get_name, get_uri) and call them. If a
+# Nemo update shifts the class/interface layout, a slot could
+# point to a wrong but non-NULL pointer – calling it would be a
+# wildcall and would kill Nemo instantly (try/except does not
+# help against segfaults). Every call target must therefore lie
+# inside a Nemo library before it is called; otherwise the route
+# is switched off (fail-closed – the other selection strategies
+# take over).
 ```
 
 ---
 
-## Helfer (UT)
+## Helpers (UT)
 
-### UT-TRACE-1 – Schritt-Trace über sys.settrace (F45)
+### UT-TRACE-1 – Step trace via sys.settrace (F45)
 
-- **Modul:** previewer\_util.py
-- **Ort:** `install\_step\_trace`, gesetzt im Einstieg gleich nach dem util-Import
-- **Anlass:** Nutzer-Wunsch: Jede Funktion der acht Module soll im Debug-Log identifizierbar sein. Statt jede Funktion einzeln zu instrumentieren setzt ein zentraler Hook via sys.settrace auf – verfolgt nur Dateien mit Präfix previewer\_ (Nemo, GTK und fremde Extensions bleiben unberührt); dbg/diag sind ausgenommen, damit der Logger sich nicht selbst protokolliert. Niveau über NEMO\_PREVIEWER\_TRACE: 1/call protokolliert jeden Aufruf samt auf 60 Zeichen gekürzten Argumenten, jedes Return und jede Ausnahme; line zusätzlich jede ausgeführte Zeile. Ein Fehler im Hook schaltet still ab, statt Nemo zu gefährden.
+- **Module:** previewer\_util.py
+- **Location:** `install\_step\_trace`, started in the entry point right after the util import
+- **Reason:** User request: every function of the eight modules shall be identifiable in the debug log. Instead of instrumenting every function individually, a central hook is set via sys.settrace – it only tracks files with the previewer\_ prefix (Nemo, GTK and foreign extensions stay untouched); dbg/diag are excluded so the logger does not log itself. Level via NEMO\_PREVIEWER\_TRACE: 1/call logs every call with arguments cut to 60 characters, every return and every exception; line additionally logs every executed line. An error in the hook switches off silently instead of endangering Nemo.
 
 ```text
-# Aufrufe, Returns, Ausnahmen protokollieren:
+# Log calls, returns, exceptions:
 #   NEMO_PREVIEWER_TRACE=1 nemo --no-desktop
-# zusätzlich jede ausgeführte Zeile:
+# additionally every executed line:
 #   NEMO_PREVIEWER_TRACE=line nemo --no-desktop
-# ohne die Variable läuft KEIN Hook – null Overhead im Alltag.
+# without the variable NO hook runs – zero overhead in daily use.
 ```
 
-### UT-WIDGET-1 – Widget-Helfer für alle Module (S6, 0.42.0)
+### UT-WIDGET-1 – Widget helpers for all modules (S6, 0.42.0)
 
-- **Modul:** previewer\_util.py
-- **Ort:** Widget-helpers-Abschnitt, nach den Byte-/Pixbuf-Helfern vor PREVIEWER\_VERSION
-- **Anlass:** Spaghetti-Audit-Runde 2 (S6, Nutzer-Entscheid „in util sammeln"): Die Cross-Mixin-Helfer sind aus dem Panel-Mixin nach util gezogen: pack\_hint (Dim-Label-Hinweis, früher Mixin-Methode \_hint) und pack\_meta\_grid (Schlüssel-Wert-Tabelle mit F35-Doppelpunkt-Logik, früher \_meta\_grid – der Ziel-Container ist seitdem Pflicht-Parameter statt self.\_content-Default), cover\_round\_path (F34-Eckenpfad, früher staticmethod \_cover\_round\_path im Media-Modul), build\_scaled\_image (Bild im Scroll-Fenster, R3-Dict am Bild-Eintrag) und build\_text\_view (TextView-Konfiguration und Pufferfüllung, 10/10/8/8-Padding). Panel, Media, Docs und Text importieren sie; das Panel behält dünne Wrapper – \_scaled\_image registriert in \_scale\_items und skaliert, \_text\_view rät GtkSourceView, setzt Zeilennummern und packt. Verhalten unverändert.
+- **Module:** previewer\_util.py
+- **Location:** widget-helpers section, after the byte/pixbuf helpers before PREVIEWER\_VERSION
+- **Reason:** Spaghetti audit round 2 (S6, user decision “collect in util”): the cross-mixin helpers moved from the panel mixin into util: pack\_hint (dim label hint, formerly mixin method \_hint) and pack\_meta\_grid (key-value table with F35 colon logic, formerly \_meta\_grid – the target container has been a mandatory parameter since then instead of a self.\_content default), cover\_round\_path (F34 corner path, formerly staticmethod \_cover\_round\_path in the media module), build\_scaled\_image (image in a scroll window, R3 dict on the image entry) and build\_text\_view (TextView configuration and buffer fill, 10/10/8/8 padding). Panel, media, docs and text import them; the panel keeps thin wrappers – \_scaled\_image registers in \_scale\_items and scales, \_text\_view guesses GtkSourceView, sets line numbers and packs. Behaviour unchanged.
+
+### UT-DOC-1 – Docstring: dbg
+
+- **Module:** previewer\_util.py
+- **Location:** `dbg` (module level)
+- **Reason:** Basic debug output for the terminal; every module logs through it with the [previewer] prefix.
+
+```text
+Debug output – visible when Nemo is started in a terminal.
+```
+
+### UT-DOC-2 – Docstring: diag
+
+- **Module:** previewer\_util.py
+- **Location:** `diag` (module level)
+- **Reason:** Verbose diagnostics (dumps, signals) behind the VERBOSE\_DIAG switch, silent in daily use.
+
+```text
+Diagnostics output – only visible when VERBOSE_DIAG=True.
+```
+
+### UT-DOC-3 – Docstring: install\_step\_trace
+
+- **Module:** previewer\_util.py
+- **Location:** `install\_step\_trace` (module level, started by the entry point)
+- **Reason:** F45 (user request) – central sys.settrace hook, activated only via NEMO\_PREVIEWER\_TRACE.
+
+```text
+F45 (user request): install a sys.settrace hook when
+NEMO_PREVIEWER_TRACE is set (1/call or line). Returns True
+while the trace is running. Only files with the previewer_
+prefix are tracked – Nemo, GTK and foreign extensions stay
+untouched; dbg/diag are excluded so the logger does not log
+itself; errors in the hook switch it off silently.
+```
+
+### UT-DOC-4 – Docstring: pick\_icon
+
+- **Module:** previewer\_util.py
+- **Location:** `pick\_icon` (module level)
+- **Reason:** F40 – the first icon name that exists in the active theme, so no button is left without an image.
+
+```text
+F40: return the first symbol from names that EXISTS in the
+active icon theme – Mint/Nemo themes do not provide every
+name –, otherwise fallback. That way no button is left
+without an image.
+```
+
+### UT-DOC-5 – Docstring: walk
+
+- **Module:** previewer\_util.py
+- **Location:** `walk` (module level)
+- **Reason:** Iterates the whole widget subtree, the start widget included.
+
+```text
+Yield all widgets in the subtree, including the widget itself.
+```
+
+### UT-DOC-6 – Docstring: query\_file\_info
+
+- **Module:** previewer\_util.py
+- **Location:** `query\_file\_info` (module level)
+- **Reason:** Mime type, size and mtime of a path, each with a fallback ("unknown", −1).
+
+```text
+(mime_type, size, mtime) – all with fallbacks.
+```
+
+### UT-DOC-7 – Docstring: \_pixbuf\_from\_bytes
+
+- **Module:** previewer\_util.py
+- **Location:** `\_pixbuf\_from\_bytes` (module level)
+- **Reason:** Pixbuf decoding with a decode cap (PNG bomb protection) and reporting of the original dimensions (R9).
+
+```text
+Decode bytes into a pixbuf – GdkPixbuf sniffs the format –
+with a decode cap (0.9.2): the size-prepared signal fires
+BEFORE the pixel data is allocated; set_size() shrinks the
+decoding there. An image that only declares giant dimensions
+in its header (PNG bomb) thus costs only the capped area
+instead of gigabytes. Decoding errors are raised as before
+(the respective caller catches them).
+orig: optional dict – filled with the ORIGINAL dimensions
+reported before capping (R9): size-prepared reports them
+before set_size shrinks, so the image preview can show the
+real dimensions although decoding is capped.
+```
+
+### UT-DOC-8 – Docstring: \_zf\_read\_capped
+
+- **Module:** previewer\_util.py
+- **Location:** `\_zf\_read\_capped` (module level)
+- **Reason:** R4 – ZIP member reading with a read cap against decompression bombs.
+
+```text
+R4: read a ZIP member with a read cap – protection against
+decompression bombs: zipped XHTML chapters can occupy a
+multiple of their packed size once unpacked, blocking the
+panel for seconds. Everything beyond the cap is deliberately
+cut off – for the preview the beginning of the chapter or
+image is enough.
+```
+
+### UT-DOC-9 – Docstring: \_xml\_dtd\_rejected
+
+- **Module:** previewer\_util.py
+- **Location:** `\_xml\_dtd\_rejected` (module level)
+- **Reason:** R10 – entity guard for all xml.etree parse sites (Billion Laughs protection).
+
+```text
+R10: entity guard for all xml.etree parse sites (EPUB OPF,
+FB2, .contact, Office XML). xml.etree does not follow external
+entities, but it expands DOCTYPE declarations with internal
+entities without restraint – a "Billion Laughs" document
+occupies a multiple of the file size in memory before the
+preview can react. The formats shown here practically come
+without a DTD: if the file head (first 64 KB) contains a
+DOCTYPE declaration or an ENTITY definition, parsing is
+rejected; the caller shows its open hint instead of the
+content.
+```
+
+### UT-DOC-10 – Docstring: pack\_hint
+
+- **Module:** previewer\_util.py
+- **Location:** `pack\_hint` (module level)
+- **Reason:** S6 – dim-label hint with line wrap, packed into any container.
+
+```text
+S6 (0.42.0): dim label with line wrap, left-aligned, packed
+into the container – the former _hint part of the panel mixin,
+now in util for panel, media, docs and text.
+```
+
+### UT-DOC-11 – Docstring: pack\_meta\_grid
+
+- **Module:** previewer\_util.py
+- **Location:** `pack\_meta\_grid` (module level)
+- **Reason:** S6 – central key-value table with F35 colon logic and F60 wrap mode.
+
+```text
+Key-value table (dim label on the left, value on the right
+with END ellipsize and tooltip) – central helper for e-book,
+EML, audio and video info. 0.9.1: previously also built
+identically inline several times; the inline copies are gone.
+F35: every label automatically gets a colon at the end (if not
+already present).
+F38: packs into any position handed over – image previews give
+their 40% info area along.
+S6 (0.42.0): born as the panel mixin method _meta_grid, now
+usable across util.
+F60 (0.45.0): wrap=True packs the values multi-line instead of
+with END ellipsize – package info (description, dependencies)
+is longer than one line and flows into the scrollable info
+area of the package preview.
+```
+
+### UT-DOC-12 – Docstring: cover\_round\_path
+
+- **Module:** previewer\_util.py
+- **Location:** `cover\_round\_path` (module level)
+- **Reason:** F34 – rounded-rectangle Cairo path for covers.
+
+```text
+F34: rectangle with rounded corners as the current Cairo path.
+S6 (0.42.0): moved to util from previewer_render_media
+(staticmethod _cover_round_path) – text covers use it too.
+```
+
+### UT-DOC-13 – Docstring: build\_scaled\_image
+
+- **Module:** previewer\_util.py
+- **Location:** `build\_scaled\_image` (module level)
+- **Reason:** S6 – image widget in a scroll window; returns the R3 resize dict item.
+
+```text
+S6 (0.42.0): image in a scroll window – the widget part of the
+panel method _scaled_image (the R3 documentation stays there);
+registration and initial scaling stay with the panel.
+```
+
+### UT-DOC-14 – Docstring: build\_text\_view
+
+- **Module:** previewer\_util.py
+- **Location:** `build\_text\_view` (module level)
+- **Reason:** S6 – TextView configuration and buffer fill with 10/10/8/8 padding.
+
+```text
+S6 (0.42.0): TextView configuration and buffer fill – the
+widget part of the panel method _text_view; line numbers,
+GtkSourceView guessing and packing stay with the panel.
+```
 
 ---
 
 ## Toolbar (TB)
 
-### TB-F19-1 – Statische ActionBar (F19)
+### TB-F19-1 – Static ActionBar (F19)
 
-- **Modul:** previewer\_toolbar.py
-- **Ort:** `_build_toolbar`, unter dem Titel „F19: Toolbar am unteren Rand der Vorschauspalte (0.11.0)“
-- **Anlass:** Statisch laut Nutzer-Entscheid – immer sichtbar, kein Ein-/Ausblenden je Renderer; Renderer-Aktionen melden sich später per pack\_start an.
+- **Module:** previewer\_toolbar.py
+- **Location:** `_build_toolbar`, below the title “F19: Toolbar at the bottom of the preview column (0.11.0)”
+- **Reason:** Static per user decision – always visible, no show/hide per renderer; renderer actions register later via pack\_start.
 
 ```text
-        # Statisch laut Nutzer-Entscheid: Sie ist IMMER zu sehen, solange
-        # das Panel aktiv ist – kein Ein-/Ausblenden je Renderer. Die
-        # Renderer-Aktionen (F13, F20, F21, F24–F27) melden sich später
-        # per pack_start hier an; rechts außen sitzt bereits fest der
-        # Einstellungs-Knopf (Zahnrad aus den Systemicons), an dem die
-        # Konfiguration (F12) andocken wird.
+        # Static per user decision: it is ALWAYS visible while
+        # the panel is active – no show/hide per renderer. The
+        # renderer actions (F13, F20, F21, F24–F27) register here
+        # later via pack_start; the settings button (gear from
+        # the system icons) already sits fixed at the far right,
+        # where the configuration (F12) will dock.
 ```
 
-### TB-CSS-1 – Innenabstand der Leiste
+### TB-CSS-1 – Toolbar padding
 
-- **Modul:** previewer\_toolbar.py
-- **Ort:** `_build_toolbar`, über dem CSS-try-Block
-- **Anlass:** Nutzer-Wunsch (0.12.0): Leiste etwa 5 px schmaler; kann ein Theme die Regel nicht, bleibt es beim Standard.
+- **Module:** previewer\_toolbar.py
+- **Location:** `_build_toolbar`, above the CSS try block
+- **Reason:** User request (0.12.0): the bar about 5 px slimmer; if a theme cannot handle the rule, the standard stays.
 
 ```text
-        # Nutzer-Wunsch (0.12.0): Leiste etwa 5 px schmaler – der
-        # Innenabstand oben/unten liegt unter dem Themen-Standard
-        # (Adwaita-Standard ist 6+6 px, hier 3+4 px). Kann ein Theme
-        # die Regel nicht, bleibt es einfach beim Standard – kein
-        # Fehler, kein Absturz.
+        # User request (0.12.0): the bar about 5 px slimmer – the
+        # padding top/bottom lies below the theme standard
+        # (Adwaita standard is 6+6 px, here 3+4 px). If a theme
+        # cannot handle the rule, it simply stays with the
+        # standard – no error, no crash.
 ```
 
-### TB-F12-1 – SpinButton vorab befüllen (F12 Teil 2)
+### TB-F12-1 – Pre-fill the SpinButton (F12 part 2)
 
-- **Modul:** previewer\_toolbar.py
-- **Ort:** `_open_settings_window`, über der wrow-Box
-- **Anlass:** Der SpinButton trägt den aktuellen Wert vorab; der Default wird daneben genannt, der Ist-Wert als „aktuell“ gekennzeichnet (Nutzer-Wunsch). Seit 0.41.0: Ziehen am Trenner ändert die Startbreite nicht mehr – der SpinButton-Wert (Default 350 px) ist die einzige Quelle; die „Standard/aktuell“-Hinweiszeile ist entfallen.
-
-```text
-        # Standardbreite beim Start: Der SpinButton trägt den in
-        # der conf gespeicherten Wert vorab – seit 0.41.0 ist er
-        # die EINZIGE Quelle (Ziehen am Trenner überschreibt ihn
-        # nicht mehr); die Default/aktuell-Hinweiszeile entfiel.
-```
-
----
-
-## Medien (MED)
-
-### MED-B7-1 – Eigenes show\_all im Bild-Idle-Callback (B7)
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_image_probe_done`, über `self._content.show_all()`
-- **Anlass:** R1-Muster aus \_media\_probe\_done (0.10.4) – das fehlende show\_all war die eigentliche Feld-Ursache der B7-Regression.
+- **Module:** previewer\_toolbar.py
+- **Location:** `_open_settings_window`, above the wrow box
+- **Reason:** The SpinButton carries the current value up front; the default is named next to it, the actual value marked as “current” (user request). Since 0.41.0: dragging the divider no longer changes the start width – the SpinButton value (default 350 px) is the only source; the “default/current” hint line is gone.
 
 ```text
-        # R1-Muster aus _media_probe_done (0.10.4): Erst hier gepackte
-        # Widgets liegen NACH dem show_all() des Render-Durchlaufs –
-        # sie brauchen ihr eigenes show_all, sonst bleibt die Vorschau
-        # unsichtbar. Genau dieses fehlende show_all war die eigent-
-        # liche Feld-Ursache der B7-Regression.
-```
-
-### MED-SEEK-1 – Slider-Bereich nachziehen
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_tick_player`, über `self._ensure_seek_range(dur)`
-- **Anlass:** Der Slider muss die gesamte Abspiel-Dauer umfassen; bei anfangs unbekannter Dauer war der Bereich 0–1 und der Timer bewegte nichts.
-
-```text
-                    # Slider-Bereich muss die GESAMTE Länge umfassen. War
-                    # die Dauer beim Anlegen noch unbekannt (z.B. wenn der
-                    # Discoverer versagte), wurde der Slider mit dem
-                    # Bereich 0–1 angelegt – der Timer konnte ihn dann
-                    # nie sichtbar bewegen. Der Bereich wird deshalb hier
-                    # aus der echten Abspiel-Dauer einmalig nachgezogen.
-```
-
-### MED-AUDTAG-1 – Titel-/CD-Nummern in UINT und String „n/m“ (F33)
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_tag_number_pair`, aufgerufen aus `_media_probe_async`
-- **Anlass:** Je Codec laufen Nummern-Tags unterschiedlich auf: ID3 (MP3) und MP4 zerlegen TRCK/TPOS bzw. trkn/disk in getrennte UINTs (track-number/track-count, album-volume-number/-count); Vorbis-Kommentare (FLAC, Ogg) tragen „3/12“ gern als EINEN String, teils ganz ohne eigenen Gesamtzahl-Tag.
-
-```text
-        # F33: Zahlen-Paar aus der Tag-Liste – UINTs sind der Normalfall
-        # (GStreamers ID3-/MP4-Mapper liefern Nummer und Gesamtzahl
-        # getrennt), aber Vorbis-Fassungen melden die Zahl als String
-        # „n/m“, teils ohne eigenen Gesamtzahl-Tag: partition("/") holt
-        # dann beides aus einem Wert. Jede Lesart einzeln gekapselt –
-        # ein Ausreißer-Tag versteckt nur seine Zeile, nie das Cover.
-```
-
-### MED-AUDTAG-2 – Veröffentlichungs-Jahr über drei Datums-Formen (F33)
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_tag_year`, aufgerufen aus `_media_probe_async`
-- **Anlass:** Originalveröffentlichung vor Datums-Jahr (Nutzer-Wunsch): original-date hat Vorrang, sonst datetime bzw. date als Jahr. Der Wert-Typ hängt am Codec – Gst.DateTime, GDate oder String –, deshalb je Kandidat drei Lesarten in eigener Kapselung.
-
-```text
-        # F33: Jahr – Kandidaten sind original-date (Originalver-
-        # öffentlichung), dann datetime (z. B. ID3v2.4 TDRC, Gst.DateTime)
-        # und date (älterer GDate-Tag, z. B. ID3v2.3 TYER). Jeder Codec
-        # meldet einen anderen Typ, je Kandidat werden deshalb alle drei
-        # Lesarten probiert: DateTime.get_year(), GDate.get_year() und
-        # der String-Anfang („2020-…“). Das erste echte Jahr gewinnt.
-```
-
-### MED-COVER-1 – Cover-Rundung und Schatten ohne Blur (F34, F35)
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_cover_shadowed` (Helfer `_cover_round_path`), aufgerufen aus `_finish_audio`
-- **Anlass:** Cairo hat keinen Blur-Filter. Der Schatten entsteht deshalb aus sechs gestapelten, nach außen wachsenden Kacheln à 4 % Deckkraft (F35: nach rechts und unten versetzt, dort 3 px mehr Raum – Kern ≈ 22 %, weicher Saum). Der Radius folgt der Platzhalter-Kachel (0.25.1, Nutzer-Wunsch: 56/960 der Kantenlänge – um ein Drittel dezenter als F34s 56/640), damit eingebettete Cover und Platzhalter deckungsgleich aussehen und beides mit der Live-Skalierung mitwächst.
-
-```text
-        # F34/F35: Gleiche Rundung wie die Platzhalter-Kachel: 56/960
-        # der Kantenlänge (min(w, h), damit Hochformat nicht über-
-        # dreht), skaliert mit, weil das gepaddete Pixbuf durch
-        # dieselbe Live-Skalierung geht. Cairo kennt keinen Blur – der
-        # Schatten entsteht aus sechs gestapelten, wachsenden Kacheln
-        # (F35: nach rechts und unten versetzt, dort 3 px mehr Fläche,
-        # insgesamt transparenter). Ohne PangoCairo bleibt das Cover
-        # ungerahmt, die Vorschau läuft.
-```
-
-### MED-EXIF-1 – TIFF-IFD-Laufwerk mit Bomben-Deckel (F36)
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_exif_read_ifd`, aufgerufen aus `_exif_parse`
-- **Anlass:** EXIF ist ein TIFF-IFD-Geflecht: Werte stehen inline (bis 4 Bytes) oder hinter einem Offset, und die Spezial-Zeiger ExifIFD (0x8769) und GPSIFD (0x8825) hängen weitere IFDs an. Präparierte Dateien könnten mit Riesen-Eintragszahlen oder Zeigern ins Leere den Parser schikanieren – deshalb Eintrags-Deckel (512), Offset-Validierung gegen die Dateilänge und Rekursions-Tiefe 2 (B7, gleiche Disziplin wie der Dekodier-Deckel 0.9.2).
-
-```text
-        # Jeder IFD-Eintrag ist 12 Bytes: Tag, Typ, Anzahl, Wert oder
-        # Offset. Alles defensiv: Eintragszahl gedeckelt, Offsets
-        # gegen die Dateilänge geprüft, Zeiger-IFDs (ExifIFD/GPSIFD)
-        # nur zwei Ebenen tief – ein kaputtes Tag darf nie den Parser
-        # in die Knie zwingen, das Bild wird ja trotzdem gezeigt.
-```
-
-### MED-EXIF-2 – EXIF mit Bordmitteln und Hersteller-Fallbacks (F36)
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_exif_parse`, aufgerufen im Worker von `_render_image`
-- **Anlass:** Die gewünschten Felder sind Standard-EXIF, aber Hersteller füllen sie unterschiedlich: Belichtungszeit/Blende teils nur als APEX-Wert (ShutterSpeedValue/ApertureValue), das echte Datum teils nur als DateTimeDigitized statt DateTimeOriginal, das Kameramodell mit Hersteller-Dopplung („Canon Canon EOS …“), der Aufnahmeort als GPS-Gradminuten, teils auch Padding zwischen Exif-Marker und TIFF-Kopf (Samsung/Olympus). Der Parser liest JPEG-APP1- und TIFF-Köpfe mit Python-Bordmitteln (keine neue Pflicht-Abhängigkeit, passend zum Optional-Modul-Muster des Projekts) und formatiert jeden Wert erst nach seinen Fallbacks – fehlt alles, bleibt die Zeile weg („sofern vorhanden“).
-
-```text
-        # Reihenfolge bewusst: Der Direktwert gewinnt, der APEX-Wert
-        # ist der herstellerspezifische Zweitweg (t = 2^-av,
-        # N = 2^(av/2)), das Datum läuft als Kaskade Original →
-        # Digitalisiert → Datei-Datum. GPS wird aus Grad/Minuten/
-        # Sekunden in Dezimalgrade umgerechnet, die Referenz-Buch-
-        # staben (N/S, E/W) liefert das jeweilige GPS-Tag. Ohne EXIF
-        # (SVG, PNG ohne eXIf) bleibt die Tabelle bei Höhe/Breite.
-```
-
-### MED-EXIF-3 – EXIF-Kandidaten-Schleife für HEIC/HEIF und RAW (F41/F42)
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_exif_bases` (mit `_exif_valid`), Kandidaten-Schleife in `_exif_parse` → `_exif_parse_at`, RAW-Fallback in `_image_probe_done` mit `_exif_rows`
-- **Anlass:** Nutzer-Meldung: HEIC-Bilder zeigten keine Foto-Informationen – auch nach der ersten Korrektur (F41) nicht. F41s Ursachen-Analyse war unvollständig: Die alte Einzelsuche ließ den frühesten „Exif“-Treffer allein entscheiden, ob und wo gesucht wurde – und in der HEIC-Meta-Box steht der Item-Typ „Exif“ wörtlich, ein falscher Treffer brach die Suche vorzeitig ab. Dazu waren die Suchfenster (256 KB für den Marker, 4 MB für den TIFF-Kopf) zu klein: HEIC-Exif-Items liegen teils mitten oder am Ende der Datei. F42 löst das strukturell: \_exif\_bases sammelt Kandidaten im GANZEN Puffer (64-MB-Lesedeckel) aus drei Quellen – „Exif“-Marker (APP1-artige Vorspanne, auch in RAWs mit eingebettetem JPEG wie RAF/RW2), direkte TIFF-Köpfe II*/MM\* (Plain-TIFF und TIFF-basierte RAWs wie NEF, CR2, ARW, DNG, PEF tragen ihn ab Byte 0) und Olympus-ORF-Köpfe IIRO/IIRS (TIFF-artig, aber ohne die 42-Magie – der IFD0-Pointer liegt trotzdem bei Offset 4). Jeder Kandidat wird von \_exif\_valid strukturell geprüft (Magie optional, IFD0-Offset ≥ 8, Eintragszahl 1–4096, erster IFD komplett im Puffer), Duplikate aussortiert; \_exif\_parse probiert die Kandidaten der Reihe nach, bis einer EXIF hergibt (JPEG bevorzugt über den Marker-Treffer, der vorn steht). Falsche Treffer fallen also nicht mehr auf die ganze Suche durch. Der RAW-Fallback zeigt die Foto-Tabelle (Maße aus A002/A003) unter der Icon-Ansicht, wenn Gdk-Pixbuf nicht dekodieren kann; die Bild-Ansicht teilt sich die Zeilen-Logik mit \_exif\_rows.
-
-```text
-        # Die Struktur-Validierung ist der Rettungsanker gegen Zu-
-        # fallstreffer in Bild- oder Box-Daten: Ein II*/MM*-Muster
-        # allein ist in komprimierten Bytes kein Wunder – aber zu-
-        # sätzlich einen plausiblen IFD0-Offset UND eine Eintrags-
-        # zahl zwischen 1 und 4096 UND einen kompletten ersten IFD
-        # im Puffer zu fälschen, ist praktisch ausgeschlossen. Und
-        # selbst ein struktur-gültiger Fehltreffer bleibt harmlos:
-        # Er liefert kein EXIF, der nächste Kandidat gewinnt.
-        # Quellcode-Note: bytes([0]) statt Null-Byte-Literale –
-        # Escape-Fallen beim Übertragen in Canvases/Edits.
-```
-
-### MED-XMP-1 – XMP: Location und benutzerdefinierte Felder (F38)
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_xmp_parse`/`_xmp_clean` mit Namensraum-Filter `_XMP_STD`, aufgerufen im Worker von `_render_image`
-- **Anlass:** Die textliche „Location“ steht nicht im EXIF-, sondern im XMP-Teil des JPEG (IPTC Core, `Iptc4xmpCore:Location` – digikam/Lightroom füllen sie im Ort-Dialog), und vom Benutzer definierte Felder leben in eigenen XMP-Namensräumen. Adobe-Tools schreiben einfache Werte gern als Attribut der rdf:Description statt als eigenes Element, deshalb prüft der Parser beide Formen. Alles außerhalb der Standard-Namensräume (\_XMP\_STD) gilt als benutzerdefiniert und wird als „Präfix:Name“-Zeile übernommen – Werte werden von XML-Resten befreit, Entities dekodiert, auf 120 Zeichen gekürzt; maximal zehn Zusatzzeilen, damit Experimentier-Metadaten die Tabelle nicht fluten.
-
-```text
-        # XMP lebt im JPEG-APP1-Segment hinter der Adobe-URI; der
-        # RDF-Block reicht von <x:xmpmeta> bis </x:xmpmeta>. Regex
-        # statt XML-Parser: Bordmittel wie beim EXIF-Pfad, keine
-        # neue Pflicht-Abhängigkeit. Element-Form UND Attribut-Form
-        # prüfen – Adobe-Tools schreiben einfache Werte als Attribut
-        # der rdf:Description, eigene Elemente nur bei verschachtel-
-        # ten Werten (rdf:Bag/Seq). Falle bei der Element-Form: Ein
-        # verschachtelter Gesamt-Match (Öffnung bis passendes
-        # Schluss-Tag) lässt <x:xmpmeta> als ERSTEN Treffer bis zum
-        # letzten </x:xmpmeta> aufzehren – die eigentlichen Felder
-        # kämen nie dran. Deshalb werden nur Öffnungs-Tags gescannt
-        # und je Feld das passende Schluss-Tag gezielt gesucht;
-        # Standard-Wrapper (x, rdf) überspringt der Namensraum-
-        # Filter, gescannt wird trotzdem weiter.
-```
-
-### MED-SPLIT-1 – Spalten-Aufteilung 60/40 mit Live-Nachzug (F38)
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_pack_image_capped` mit Helfer `_image_split_sync`, genutzt von `_render_image`, `_render_svg` und seit F59 (0.44.0) `_render_ebook` (E-Books: Cover oben, Buch-Infos unten)
-- **Anlass:** Gtk.Box kennt keine Prozent-Aufteilung – expand ist ein Schalter, kein Verhältnis. Der Bildbereich trägt deshalb 60 % der Spaltenhöhe als Größenanforderung; ein size-allocate-Nachzug hält die Aufteilung beim Fenster-Resize aktuell. Mittig-Position macht halign/valign CENTER am Gtk.Image (NICHT am ScrolledWindow – der Streifen-Bug im 0.22.0-Test), der Info-Bereich expandiert und füllt den Rest (≈ 40 %).
-
-```text
-        # Gtk.Box teilt extra Raum nur gleichmäßig unter expandierenden
-        # Kindern – 60/40 gibt es nicht als Schalter. Der Bildbereich
-        # trägt deshalb 60 % der Spaltenhöhe als Request und zieht den
-        # in size-allocate nach (nur bei relevanter Änderung, sonst
-        # reißt der Anforderungs-Loop das Layout in Endlos-Schleifen).
-        # Mittig-Zentrierung macht DAS BILD, nicht der ScrolledWindow:
-        # Ein scrollbares Widget darf seine natürliche Breite auf ~0
-        # senken – align=CENTER nimmt genau diese natürliche Größe,
-        # der auf Spaltenbreite skalierte Scroll wäre also nur ein
-        # schmaler Streifen, in dem das Bild geclippt wird. Das
-        # Gtk.Image sitzt via Viewport im Scroll; sein halign/valign
-        # CENTER zentriert es in beiden Richtungen im 60-%-Bereich.
-        # Der Bereich selbst braucht expand=False gegen die Höhe –
-        # expand/fill wirken in der vertikalen Box nur auf die HÖHE,
-        # die Breite quer gibt die Box Kindern ohnehin voll.
-```
-
-### MED-SVG-DPI-1 – SVG DPI-Rendern über die Cairo-Route (K3)
-
-- **Modul:** previewer\_render\_media.py
-- **Ort:** `_rsvg_cairo_pb`, genutzt von `_render_svg` (Fallback: `get_pixbuf`)
-- **Anlass:** get\_pixbuf() rendert strikt in der intrinsischen Größe – ein 24×24-Icon-SVG bleibt ein Mini-Punkt in der Spalte, und seit librsvg 2.52 gilt der Aufruf ohnehin als deprecated. render\_document nimmt dagegen ein Rsvg.Rectangle als Zielfläche: dieselbe Vektor-Geometrie, beliebiger DPI-Maßstab. Scheitert die Route (kein pycairo, altes librsvg ohne render\_document, keine intrinsische Größe), greift der bisherige Pfad – die Vorschau ist also nie schlechter als vorher; das Maße-Label zeigt in beiden Fällen die intrinsische Größe.
-
-```text
-        # Die intrinsische Größe (get_intrinsic_size_in_pixels) ist die
-        # Rechengrundlage: Die Panelbreite ist das Render-Ziel, kleine
-        # SVGs wachsen scharf mit (Vektor statt Raster-Upcast, kein
-        # Blur), die Deckelhöhe begrenzt die Zielfläche nach oben. Die
-        # gerenderte Pixbuf wandert wie bisher durch _scaled_image in
-        # die 60/40-Aufteilung – die Live-Skalierung bei Fenster-Resize
-        # greift dann allerdings auf die Raster-Pixbuf zurück.
+        # Start width at launch: the SpinButton carries the value
+        # stored in the conf up front – since 0.41.0 it is the
+        # ONLY source (dragging the divider no longer overrides
+        # it); the default/current hint line was dropped.
 ```
 
 ---
 
-## Dokumente (DOC)
+## Media (MED)
 
-### DOC-BUDGET-1 – PDF-Pixel-Budget (0.9.2)
+### MED-B7-1 – Own show\_all in the image idle callback (B7)
 
-- **Modul:** previewer\_render\_docs.py
-- **Ort:** `_pdf_page_pixbuf`, über der Budget-Abfrage `if w * h > _PDF_PIXEL_BUDGET:`
-- **Anlass:** Riesige PDF-Seiten würden sonst ≈ 1,6 GB je Seite erzwingen; das Ergebnis wird flächentreu zurückgerechnet, normale Seiten bleiben unberührt.
+- **Module:** previewer\_render\_media.py
+- **Location:** `_image_probe_done`, above `self._content.show_all()`
+- **Reason:** R1 pattern from \_media\_probe\_done (0.10.4) – the missing show\_all was the actual field cause of the B7 regression.
 
 ```text
-        # 0.9.2: Pixel-Budget – die untere Scale-Klammer (0.2) erzwingt
-        # bei pathologisch riesigen PDF-Seiten (z.B. 100000 pt) sonst
-        # 20000×20000 px ≈ 1,6 GB je Seite. Übersteigt das Ergebnis das
-        # Budget, wird es flächentreu zurückgerechnet; normale Seiten
-        # (auch doppelt so breite Panel) bleiben unberührt.
+        # R1 pattern from _media_probe_done (0.10.4): widgets
+        # packed HERE lie AFTER the show_all() of the render
+        # pass – they need their own show_all, otherwise the
+        # preview stays invisible. Exactly this missing show_all
+        # was the actual field cause of the B7 regression.
 ```
 
-### DOC-F14-1 – Seiten-Label statt Scroll-Hinweis (F14)
+### MED-SEEK-1 – Slider range follow-up
 
-- **Modul:** previewer\_render\_docs.py
-- **Ort:** `_render_pdf`, über `self._content.show_all()`
-- **Anlass:** Das Seiten-Label zeigt die Seitenzahl inzwischen selbst; der Office-Rückruf ruft \_render\_pdf direkt und braucht deshalb eigenes show\_all. 0.27.0 (Nutzer-Wunsch): Das Label steht jetzt über JEDEM Dokument – auch einseitige zeigen „Seite 1 von 1“ – und zählt einheitlich im Format „Seite X von Y“; der Deckel selbst ist einstellbar (F12 Teil 3).
+- **Module:** previewer\_render\_media.py
+- **Location:** `_tick_player`, above `self._ensure_seek_range(dur)`
+- **Reason:** The slider must cover the whole playback duration; with an initially unknown duration the range was 0–1 and the timer moved nothing.
 
 ```text
-        # F14: Das Seiten-Label zeigt die Seitenzahl inzwischen selbst –
-        # der frühere Hinweis „N Seiten – Vorschau nach unten
-        # scrollen.“ ist damit entfallen.
-        # Der Office-Rückruf ruft _render_pdf DIREKT (ohne den show_all-
-        # Nachlauf von _render) – deshalb hier selbst sorgen.
+                    # The slider range must cover the ENTIRE length.
+                    # If the duration was still unknown when it was
+                    # created (e.g. when the Discoverer failed), the
+                    # slider was built with range 0–1 – the timer
+                    # could then never move it visibly. The range is
+                    # therefore pulled up here once from the real
+                    # playback duration.
 ```
 
-### DOC-UPSCALE-1 – Miniatur mit Panelbreite skalieren
+### MED-AUDTAG-1 – Title/disc numbers in UINT and “n/m” string (F33)
 
-- **Modul:** previewer\_render\_docs.py
-- **Ort:** `_render_office_thumb`, über `self._scaled_image(...)`
-- **Anlass:** Office-Miniaturen (oft nur 256 px) wachsen mit der Panelbreite mit, statt klein in der Ecke zu kleben.
+- **Module:** previewer\_render\_media.py
+- **Location:** `_tag_number_pair`, called from `_media_probe_async`
+- **Reason:** Number tags run differently per codec: ID3 (MP3) and MP4 split TRCK/TPOS resp. trkn/disk into separate UINTs (track-number/track-count, album-volume-number/-count); Vorbis comments (FLAC, Ogg) often carry “3/12” as ONE string, sometimes entirely without their own total tag.
 
 ```text
-                    # Upscale: Office-Miniaturansichten sind oft nur
-                    # 256 px breit – sie wachsen mit der Panelbreite mit,
-                    # statt klein in der Ecke zu kleben.
-                    # Office-Miniaturansichten NATIV und scharf zeigen:
-                    # Die eingebettete Miniatur hat nur ~256 px – jede
-                    # Vergrößerung macht sie unleserlich schwammig.
+        # F33: number pair from the tag list – UINTs are the normal
+        # case (GStreamer's ID3/MP4 mappers deliver number and
+        # total separately), but Vorbis variants report the number
+        # as a string “n/m”, sometimes without a separate total
+        # tag: partition("/") then gets both from one value. Every
+        # reading encapsulated individually – one outlier tag only
+        # hides its own row, never the cover.
 ```
 
-### DOC-B4-1 – Gescheiterte Konvertierung cachen (B4)
+### MED-AUDTAG-2 – Release year over three date shapes (F33)
 
-- **Modul:** previewer\_render\_docs.py
-- **Ort:** `_office_job_done`, über `self._office_failed.add(path)`
-- **Anlass:** Ohne Cache würde jede Auswahl erneut konvertieren (Endlosschleife); die fertige PDF wird direkt aus dem Temp-Ordner gerendert.
+- **Module:** previewer\_render\_media.py
+- **Location:** `_tag_year`, called from `_media_probe_async`
+- **Reason:** Original release before the date year (user request): original-date takes precedence, else datetime resp. date as the year. The value type depends on the codec – Gst.DateTime, GDate or string –, therefore three readings per candidate, each in its own capsule.
 
 ```text
-                    # B4: Ohne Cache würde JEDE Auswahl erneut konvertieren
-                    # (Endlosschleife, gleiche Symptomatik wie der alte
-                    # EXDEV-Bug). Deshalb: als gescheitert vermerken, aber
-                    # die fertige PDF nicht wegwerfen – die scharfe Ansicht
-                    # wird direkt aus dem Temp-Ordner gerendert (Poppler
-                    # liest die Seiten sofort, danach ist die Datei egal).
+        # F33: year – candidates are original-date (original
+        # release), then datetime (e.g. ID3v2.4 TDRC, Gst.DateTime)
+        # and date (older GDate tag, e.g. ID3v2.3 TYER). Every
+        # codec reports a different type, therefore all three
+        # readings are tried per candidate: DateTime.get_year(),
+        # GDate.get_year() and the string head (“2020-…”). The
+        # first real year wins.
 ```
 
-### DOC-LEGACY-1 – Office-Formate ohne ZIP-Anteil (F39)
+### MED-COVER-1 – Cover rounding and shadow without blur (F34, F35)
 
-- **Modul:** previewer\_render\_docs.py
-- **Ort:** `_render_office_thumb`, Absicherung über `_OFFICE_NOZIP_EXTS`
-- **Anlass:** Die Übergangs-Ansicht liest aus Office-Dateien die eingebettete Miniaturansicht und den Textauszug – beides steckt nur in ZIP-Archiven (ODF/OOXML). Die alten binären Formate (.doc/.xls/.ppt) und RTF sind keine ZIP-Archive: zipfile scheitert, und ohne den eigenen Zweig stünde die irreführende Fehlermeldung „Office-Dokument konnte nicht geöffnet werden“ in der Vorschau. Der Zweig unterscheidet drei Fälle: Konvertierung läuft (Hinweis wartet auf das scharfe PDF), Konvertierung gescheitert (kaputte Datei, per \_office\_failed nicht endlos erneut) und LibreOffice/Poppler fehlen (Installations-Hinweis).
+- **Module:** previewer\_render\_media.py
+- **Location:** `_cover_shadowed` (helper `_cover_round_path`), called from `_finish_audio`
+- **Reason:** Cairo has no blur filter. The shadow therefore grows from six stacked, outward-growing tiles à 4 % opacity (F35: offset to the right and bottom, 3 px more room there – core ≈ 22 %, soft rim). The radius follows the placeholder tile (0.25.1, user request: 56/960 of the edge length – a third more subtle than F34's 56/640), so embedded covers and placeholders look identical and both grow with the live scaling.
 
 ```text
-        # Die scharfe Route ist für alle Office-Formate gleich (LibreOffice
-        # --convert-to pdf frisst auch die binären Formate und RTF), nur der
-        # Übergang bis dahin ist bei ihnen LEER: kein ZIP, keine Miniatur-
-        # ansicht, kein Textauszug. Deshalb endet der No-ZIP-Zweig im
-        # Hinweis statt im Fehler – und ohne LibreOffice/Poppler im
-        # Installations-Tipp statt in der Diagnose einer kaputten Datei.
+        # F34/F35: same rounding as the placeholder tile: 56/960
+        # of the edge length (min(w, h), so portrait does not
+        # over-round), scales along because the padded pixbuf
+        # goes through the same live scaling. Cairo knows no
+        # blur – the shadow grows from six stacked, growing
+        # tiles (F35: offset to the right and bottom, 3 px more
+        # area there, more transparent overall). Without
+        # PangoCairo the cover stays unframed, the preview runs.
+```
+
+### MED-EXIF-1 – TIFF IFD traversal with bomb cap (F36)
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `_exif_read_ifd`, called from `_exif_parse`
+- **Reason:** EXIF is a TIFF-IFD mesh: values sit inline (up to 4 bytes) or behind an offset, and the special pointers ExifIFD (0x8769) and GPSIFD (0x8825) attach further IFDs. Doctored files could harass the parser with giant entry counts or pointers into the void – hence the entry cap (512), offset validation against the file length and recursion depth 2 (B7, the same discipline as the 0.9.2 decode cap).
+
+```text
+        # Every IFD entry is 12 bytes: tag, type, count, value or
+        # offset. Everything defensive: entry count capped,
+        # offsets checked against the file length, pointer IFDs
+        # (ExifIFD/GPSIFD) only two levels deep – a broken tag
+        # must never bring the parser to its knees, the image is
+        # shown anyway.
+```
+
+### MED-EXIF-2 – EXIF with built-ins and vendor fallbacks (F36)
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `_exif_parse`, called in the worker of `_render_image`
+- **Reason:** The wanted fields are standard EXIF, but vendors fill them differently: exposure time/aperture sometimes only as an APEX value (ShutterSpeedValue/ApertureValue), the real date sometimes only as DateTimeDigitized instead of DateTimeOriginal, the camera model with vendor duplication (“Canon Canon EOS …”), the shooting location as GPS degree minutes, sometimes also padding between the Exif marker and the TIFF header (Samsung/Olympus). The parser reads JPEG-APP1 and TIFF headers with Python built-ins (no new mandatory dependency, fitting the project's optional-module pattern) and formats every value only after its fallbacks – if everything is missing, the row stays away (“if present”).
+
+```text
+        # Order on purpose: the direct value wins, the APEX value
+        # is the vendor-specific second path (t = 2^-av,
+        # N = 2^(av/2)), the date runs as a cascade Original →
+        # Digitized → file date. GPS is converted from degrees/
+        # minutes/seconds into decimal degrees, the reference
+        # letters (N/S, E/W) come from the respective GPS tag.
+        # Without EXIF (SVG, PNG without eXIf) the table stays at
+        # height/width.
+```
+
+### MED-EXIF-3 – EXIF candidate loop for HEIC/HEIF and RAW (F41/F42)
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `_exif_bases` (with `_exif_valid`), candidate loop in `_exif_parse` → `_exif_parse_at`, RAW fallback in `_image_probe_done` with `_exif_rows`
+- **Reason:** User report: HEIC images showed no photo information – even after the first correction (F41). F41's cause analysis was incomplete: the old single search let the earliest “Exif” hit alone decide whether and where to search – and in the HEIC meta box the item type “Exif” stands literally, a false hit broke the search off early. On top of that the search windows (256 KB for the marker, 4 MB for the TIFF header) were too small: HEIC Exif items sometimes sit in the middle or at the end of the file. F42 solves this structurally: \_exif\_bases collects candidates in the WHOLE buffer (64 MB read cap) from three sources – “Exif” markers (APP1-like prefixes, also in RAWs with an embedded JPEG like RAF/RW2), direct TIFF headers II\*/MM\* (plain TIFF and TIFF-based RAWs like NEF, CR2, ARW, DNG, PEF carry it from byte 0) and Olympus ORF headers IIRO/IIRS (TIFF-like, but without the 42 magic – the IFD0 pointer still sits at offset 4). Every candidate is checked structurally by \_exif\_valid (magic optional, IFD0 offset ≥ 8, entry count 1–4096, first IFD completely in the buffer), duplicates sorted out; \_exif\_parse tries the candidates in order until one yields EXIF (JPEG preferred via the marker hit standing first). False hits therefore no longer doom the whole search. The RAW fallback shows the photo table (dimensions from A002/A003) below the icon view when Gdk-Pixbuf cannot decode; the image view shares the row logic with \_exif\_rows.
+
+```text
+        # The structural validation is the lifeline against chance
+        # hits in image or box data: an II*/MM* pattern alone is no
+        # miracle in compressed bytes – but faking ADDITIONALLY a
+        # plausible IFD0 offset AND an entry count between 1 and
+        # 4096 AND a complete first IFD in the buffer is practically
+        # impossible. And even a structurally valid false hit stays
+        # harmless: it yields no EXIF, the next candidate wins.
+        # Source note: bytes([0]) instead of null byte literals –
+        # escape traps when transferring into canvases/edits.
+```
+
+### MED-XMP-1 – XMP: location and user-defined fields (F38)
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `_xmp_parse`/`_xmp_clean` with namespace filter `_XMP_STD`, called in the worker of `_render_image`
+- **Reason:** The textual “location” does not sit in the EXIF part but in the XMP part of the JPEG (IPTC Core, `Iptc4xmpCore:Location` – digikam/Lightroom fill it in the location dialog), and user-defined fields live in their own XMP namespaces. Adobe tools like to write simple values as an attribute of rdf:Description instead of as their own element, therefore the parser checks both shapes. Everything outside the standard namespaces (\_XMP\_STD) counts as user-defined and is taken over as a “prefix:name” row – values are freed from XML remains, entities decoded, cut to 120 characters; at most ten extra rows, so experimental metadata does not flood the table.
+
+```text
+        # XMP lives in the JPEG-APP1 segment behind the Adobe URI;
+        # the RDF block reaches from <x:xmpmeta> to </x:xmpmeta>.
+        # Regex instead of XML parser: built-ins like on the EXIF
+        # path, no new mandatory dependency. Check element shape
+        # AND attribute shape – Adobe tools write simple values as
+        # an attribute of rdf:Description, own elements only for
+        # nested values (rdf:Bag/Seq). Trap in the element shape:
+        # a nested overall match (opening up to the matching
+        # closing tag) lets <x:xmpmeta> as the FIRST hit consume
+        # everything up to the last </x:xmpmeta> – the actual
+        # fields would never be reached. Therefore only opening
+        # tags are scanned and the matching closing tag is searched
+        # per field; the namespace filter skips the standard
+        # wrappers (x, rdf), the scan still continues.
+```
+
+### MED-SPLIT-1 – Column split 60/40 with live follow-up (F38)
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `_pack_image_capped` with helper `_image_split_sync`, used by `_render_image`, `_render_svg` and since F59 (0.44.0) `_render_ebook` (e-books: cover on top, book info below)
+- **Reason:** Gtk.Box knows no percentage split – expand is a switch, not a ratio. The image area therefore carries 60 % of the column height as its size request; a size-allocate follow-up keeps the split current on window resizes. Centering is done by halign/valign CENTER on the Gtk.Image (NOT on the ScrolledWindow – the stripe bug in the 0.22.0 test), the info area expands and fills the rest (≈ 40 %).
+
+```text
+        # Gtk.Box divides extra space only evenly among expanding
+        # children – 60/40 does not exist as a switch. The image
+        # area therefore carries 60 % of the column height as its
+        # request and pulls it up in size-allocate (only on
+        # relevant change, otherwise the request loop tears the
+        # layout into endless loops). Centering is done BY THE
+        # IMAGE, not the ScrolledWindow: a scrollable widget may
+        # drop its natural width to ~0 – align=CENTER takes exactly
+        # that natural size, so the scroll window scaled to column
+        # width would only be a narrow stripe clipping the image.
+        # The Gtk.Image sits in the scroll via a viewport; its
+        # halign/valign CENTER centers it in both directions
+        # inside the 60 % area. The area itself needs expand=False
+        # against the height – expand/fill only affect the HEIGHT
+        # in the vertical box, the width across is given to the
+        # children by the box anyway.
+```
+
+### MED-SVG-DPI-1 – SVG DPI rendering over the Cairo route (K3)
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `_rsvg_cairo_pb`, used by `_render_svg` (fallback: `get_pixbuf`)
+- **Reason:** get\_pixbuf() renders strictly at the intrinsic size – a 24×24 icon SVG stays a mini dot in the column, and since librsvg 2.52 the call is deprecated anyway. render\_document on the other hand takes an Rsvg.Rectangle as the target area: the same vector geometry, an arbitrary DPI scale. If the route fails (no pycairo, old librsvg without render\_document, no intrinsic size), the previous path applies – the preview is therefore never worse than before; the dimensions label shows the intrinsic size in both cases.
+
+```text
+        # The intrinsic size (get_intrinsic_size_in_pixels) is the
+        # calculation base: the panel width is the render target,
+        # small SVGs grow sharp (vector instead of raster upcast,
+        # no blur), the cap height limits the target area upward.
+        # The rendered pixbuf goes through _scaled_image into the
+        # 60/40 split as before – the live scaling on window
+        # resize then however falls back to the raster pixbuf.
+```
+
+---
+
+## Documents (DOC)
+
+### DOC-BUDGET-1 – PDF pixel budget (0.9.2)
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `_pdf_page_pixbuf`, above the budget query `if w * h > _PDF_PIXEL_BUDGET:`
+- **Reason:** Giant PDF pages would otherwise force ≈ 1.6 GB per page; the result is scaled back area-true, normal pages stay untouched.
+
+```text
+        # 0.9.2: pixel budget – the lower scale clamp (0.2) would
+        # otherwise force 20000×20000 px ≈ 1.6 GB per page on
+        # pathologically giant PDF pages (e.g. 100000 pt). If the
+        # result exceeds the budget, it is scaled back area-true;
+        # normal pages (even twice as wide panels) stay untouched.
+```
+
+### DOC-F14-1 – Page label instead of scroll hint (F14)
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `_render_pdf`, above `self._content.show_all()`
+- **Reason:** The page label shows the page count by itself now; the office callback calls \_render\_pdf directly and therefore needs its own show\_all. 0.27.0 (user request): the label now sits above EVERY document – single-page ones show “Page 1 of 1” too – and counts uniformly in the format “Page X of Y”; the cap itself is configurable (F12 part 3).
+
+```text
+        # F14: the page label shows the page count by itself now –
+        # the former hint “N pages – scroll down for the preview.”
+        # is gone with that.
+        # The office callback calls _render_pdf DIRECTLY (without
+        # the show_all follow-up of _render) – hence provide here.
+```
+
+### DOC-UPSCALE-1 – Scale thumbnails to panel width
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `_render_office_thumb`, above `self._scaled_image(...)`
+- **Reason:** Office thumbnails (often only 256 px) grow with the panel width instead of clinging small in the corner.
+
+```text
+                    # Upscale: office thumbnails are often only
+                    # 256 px wide – they grow with the panel width
+                    # instead of clinging small in the corner.
+                    # Show office thumbnails NATIVE and sharp: the
+                    # embedded thumbnail has only ~256 px – any
+                    # enlargement makes it unreadably blurry.
+```
+
+### DOC-B4-1 – Cache the failed conversion (B4)
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `_office_job_done`, above `self._office_failed.add(path)`
+- **Reason:** Without a cache, EVERY selection would convert again (infinite loop); the finished PDF is rendered directly from the temp folder.
+
+```text
+                    # B4: without a cache, EVERY selection would
+                    # convert again (infinite loop, the same
+                    # symptom as the old EXDEV bug). Therefore:
+                    # note it as failed, but do not throw away the
+                    # finished PDF – the sharp view is rendered
+                    # directly from the temp folder (Poppler reads
+                    # the pages immediately, after that the file
+                    # does not matter).
+```
+
+### DOC-LEGACY-1 – Office formats without a ZIP share (F39)
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `_render_office_thumb`, safeguard via `_OFFICE_NOZIP_EXTS`
+- **Reason:** The transition view reads the embedded thumbnail and the text extract from office files – both sit only in ZIP archives (ODF/OOXML). The old binary formats (.doc/.xls/.ppt) and RTF are no ZIP archives: zipfile fails, and without their own branch the misleading error message “Office document could not be opened” would stand in the preview. The branch distinguishes three cases: conversion running (hint waits for the sharp PDF), conversion failed (broken file, via \_office\_failed not endlessly retried) and LibreOffice/Poppler missing (installation hint).
+
+```text
+        # The sharp route is the same for all office formats
+        # (LibreOffice --convert-to pdf also eats the binary
+        # formats and RTF), only the transition until then is
+        # EMPTY for them: no ZIP, no thumbnail, no text extract.
+        # Therefore the no-ZIP branch ends in a hint instead of an
+        # error – and without LibreOffice/Poppler in an
+        # installation tip instead of diagnosing a broken file.
 ```
 
 ---
 
 ## Text (TXT)
 
-### TXT-HR-1 – „+“-Verkettung in \_md\_hr
+### TXT-HR-1 – “+”-concatenation in \_md\_hr
 
-- **Modul:** previewer\_render\_text.py
-- **Ort:** `_md_hr`, über dem return
-- **Anlass:** Implizite String-Verkettung mit \* ist eine Rangfolge-Falle; YAML-Front-Matter blieb sonst ohne Vorschau.
-
-```text
-    # Wichtig: "+" statt impliziter String-Verkettung –
-    # "a" "b" * 12 ergibt sonst ("ab") * 12 (Rangfolge-Falle):
-    # 12 ungeöffnete <span>-Tags machten das Markup komplett
-    # ungültig, und jede Datei mit einer ----Linie (YAML-
-    # Front-Matter!) blieb ohne Vorschau.
-```
-
-### TXT-EPUB-1 – container.xml unter R4-Deckel
-
-- **Modul:** previewer\_render\_text.py
-- **Ort:** `_epub_data`, über `opf_path`
-- **Anlass:** Auch kleine OPF-Einträge über den Lese-Deckel – ein präpariertes EPUB könnte sie als Dekompressionsbombe packen (0.9.2).
+- **Module:** previewer\_render\_text.py
+- **Location:** `_md_hr`, above the return
+- **Reason:** Implicit string concatenation with \* is a precedence trap; YAML front matter otherwise stayed without a preview.
 
 ```text
-        # OPF-Inhaltsdatei: steht in META-INF/container.xml.
-        # 0.9.2: auch diese kleinen Einträge über den R4-Lese-Deckel –
-        # ein präpariertes EPUB könnte sie als Dekompressionsbombe
-        # packen (Kapitel und Cover waren längst gedeckelt, diese
-        # beiden Lesevorgänge nicht).
+    # Important: "+" instead of implicit string concatenation –
+    # "a" "b" * 12 would otherwise give ("ab") * 12 (precedence
+    # trap): 12 unclosed <span> tags made the markup completely
+    # invalid, and every file with a ---- line (YAML front
+    # matter!) stayed without a preview.
 ```
 
-### TXT-MOBI-1 – MOBI-Randbereinigung (R7, mit F59 entfallen)
+### TXT-EPUB-1 – container.xml under the R4 cap
 
-- **Modul:** previewer\_render\_text.py
-- **Ort:** ehemals `_mobi_text` über `_mobi_edge` (mit F59 entfernt)
-- **Anlass:** MOBI-Datensätze tragen Schmutzbytes am Rand; eine vollständige Trailer-Dekodierung wäre ohne Referenzmaterial riskant. Mit F59 (0.44.0) ist die E-Book-Textvorschau abgeschafft – \_mobi\_text, \_mobi\_edge und die PalmDoc-Entpackung sind entfernt; MOBI zeigt nur noch Buchtitel, Autor (EXTH) und Ebookformat, und ohne Text-Extraktion blockiert HUFF/CDIC nicht mehr. Der historische R7-Kommentar:
+- **Module:** previewer\_render\_text.py
+- **Location:** `_epub_data`, above `opf_path`
+- **Reason:** Even small OPF entries over the read cap – a doctored EPUB could pack them as a decompression bomb (0.9.2).
 
 ```text
-    # R7: MOBI-Datensätze können am Rand Schmutzbytes tragen – halb
-    # zerrissene Mehrbyte-Sequenzen und Reste von Trailing Entries
-    # (Index-/Steuerdaten am Datensatz-Ende), die der Dekompressor als
-    # Zeichensalat interpretiert. Eine vollständige Rückwärts-Dekodierung
-    # der Trailer-Größe wäre ohne Referenzmaterial riskant (ein Fehler
-    # würde ALLE Bücher beschädigen); die sichere Randbereinigung je
-    # Datensatz entfernt den sichtbaren Großteil des Mülls.
+        # OPF content file: sits in META-INF/container.xml.
+        # 0.9.2: these small entries also over the R4 read cap –
+        # a doctored EPUB could pack them as a decompression bomb
+        # (chapters and cover were long capped, these two reads
+        # were not).
 ```
 
-### TXT-CSV-1 – CSV als echte Tabelle (F8)
+### TXT-MOBI-1 – MOBI edge cleanup (R7, dropped with F59)
 
-- **Modul:** previewer\_render\_text.py (\_render\_csv, \_pack\_table), previewer\_panel.py (Dispatch)
-- **Ort:** `\_csv\_data` snifft Trennzeichen und Kopfzeile selbst
-- **Anlass:** Nutzer-Wunsch: CSV als Gtk.TreeView statt Textbrei – und die Spalten-/Zellenbegrenzung ermittelt das Modul selbst (Nutzer-Anforderung, nie aus dem Dateinamen geraten): `csv.Sniffer` probiert Komma, Semikolon, TAB und Pipe gegen die ersten 64 KB und entscheidet auch über die Kopfzeile; Bordmittel csv, 4-MB-Lese-Deckel, 1000-Zeilen-Vorschau mit Hinweis. `\_pack\_table` baut die TreeView (resizable, klick-sortierbar, horizontal scrollbar) – F56 (Tabellenkalkulationen) kann denselben Renderer später wiederverwenden.
+- **Module:** previewer\_render\_text.py
+- **Location:** formerly `_mobi_text` above `_mobi_edge` (removed with F59)
+- **Reason:** MOBI records carry dirt bytes at the edge; a complete trailer decode would be risky without reference material. With F59 (0.44.0) the e-book text preview is abolished – \_mobi\_text, \_mobi\_edge and the PalmDoc decompression are removed; MOBI now shows only book title, author (EXTH) and e-book format, and without text extraction HUFF/CDIC no longer blocks. The historical R7 comment:
+
+```text
+    # R7: MOBI records can carry dirt bytes at the edge – half
+    # torn multi-byte sequences and remains of trailing entries
+    # (index/control data at the record end) which the
+    # decompressor interprets as character salad. A complete
+    # backwards decode of the trailer size would be risky without
+    # reference material (one error would damage ALL books); the
+    # safe per-record edge cleanup removes the visible bulk of the
+    # garbage.
+```
+
+### TXT-CSV-1 – CSV as a real table (F8)
+
+- **Module:** previewer\_render\_text.py (\_render\_csv, \_pack\_table), previewer\_panel.py (dispatch)
+- **Location:** `\_csv\_data` sniffs delimiter and header row by itself
+- **Reason:** User request: CSV as a Gtk.TreeView instead of text mush – and the module determines the column/cell delimiter itself (user requirement, never guessed from the file name): `csv.Sniffer` tries comma, semicolon, TAB and pipe against the first 64 KB and also decides on the header row; built-in csv, 4 MB read cap, 1000-row preview with hint. `\_pack\_table` builds the TreeView (resizable, click-sortable, horizontally scrollable) – F56 (spreadsheets) can reuse the same renderer later.
 
 ```text
         sniffer = csv.Sniffer()
@@ -748,11 +1191,11 @@ except Exception:
         col.set_sort_column_id(i)
 ```
 
-### TXT-SQL-1 – SQLite-Tabellenübersicht (F6)
+### TXT-SQL-1 – SQLite table overview (F6)
 
-- **Modul:** previewer\_render\_text.py (\_render\_sqlite), previewer\_panel.py (Dispatch)
-- **Ort:** `\_sqlite\_data` – Magie-Check, Schema, read-only
-- **Anlass:** Nutzer-Wunsch: Tabellenliste + Zeilenanzahl (.db/.sqlite). Die Struktur kommt aus dem Schema selbst: Der 16-Byte-Magie-Check („SQLite format 3“) schickt Fremd-Dateien in den Öffnen-Hinweis, `PRAGMA query_only` öffnet garantiert read-only, `sqlite_master` liefert die Tabellen, `PRAGMA table_info` die Spaltennamen, `SELECT COUNT(*)` die Zeilen. Ein Progress-Deckel (2 Mio Opcodes) stoppt endlose Full-Scans über Riesen-Tabellen (F60-Lektion: die Vorschau muss sofort da sein) – solche Zähler zeigen „…“.
+- **Module:** previewer\_render\_text.py (\_render\_sqlite), previewer\_panel.py (dispatch)
+- **Location:** `\_sqlite\_data` – magic check, schema, read-only
+- **Reason:** User request: table list + row count (.db/.sqlite). The structure comes from the schema itself: the 16-byte magic check (“SQLite format 3”) sends foreign files into the open hint, `PRAGMA query_only` opens guaranteed read-only, `sqlite_master` delivers the tables, `PRAGMA table_info` the column names, `SELECT COUNT(*)` the rows. A progress cap (2 million opcodes) stops endless full scans over giant tables (F60 lesson: the preview must be there immediately) – such counters show “…”.
 
 ```text
         con.execute("PRAGMA query_only = 1")
@@ -762,11 +1205,11 @@ except Exception:
             'PRAGMA table_info(%s)' % q))
 ```
 
-### TXT-PKG-1 – Paket-Split 40/60 mit scrollbarer Info-Fläche (F60)
+### TXT-PKG-1 – Package split 40/60 with a scrollable info area (F60)
 
-- **Modul:** previewer\_render\_text.py (Split + Renderer), previewer\_panel.py (Dispatch), previewer\_util.py (wrap)
-- **Ort:** `\_pack\_package\_capped` mit `\_package\_split\_sync`, genutzt von `\_render\_package` (DEB, RPM, Arch)
-- **Anlass:** Nutzer-Wunsch (2026-11-02): Paket-Infos sind umfangreicher als Bild-Infos – deshalb die UMGEKEHRTE Aufteilung zu MED-SPLIT-1: 40 % Icon oben, 60 % Info-Tabelle unten, und die liegt im ScrolledWindow (v-Scroll automatisch, Overlay-Scrolling aus), weil Beschreibung und Abhängigkeiten den Bereich gern übersteigen. Der Icon-Bereich trägt 40 % der Spaltenhöhe als Request, ein size-allocate-Nachzug hält das beim Fenster-Resize aktuell (Muster \_image\_split\_sync). Das Icon kommt best effort aus dem Payload (\_WindowReader mit 8-MB-Dekomprimier-Budget gegen Riesen-Pakete – 0.45.1 von 48 MB gesenkt, damit die Info-Tabelle sofort steht; Score bevorzugt 48x48/apps), sonst zeichnet \_package\_placeholder den Karton mit Format-Signet (DEB/RPM/PKG). 0.45.1: Die Member-Kompression erkennt \_tar\_sniff\_mode an den Magie-Bytes statt am ar-Namen – IEEE-Slashes und zst-Namen entgingen der alten Weiche. pack\_meta\_grid packt die Werte mit wrap=True mehrzeilig statt ellipisiert – nur gesetzte Felder zeigen eine Zeile.
+- **Module:** previewer\_render\_text.py (split + renderer), previewer\_panel.py (dispatch), previewer\_util.py (wrap)
+- **Location:** `\_pack\_package\_capped` with `\_package\_split\_sync`, used by `\_render\_package` (DEB, RPM, Arch)
+- **Reason:** User request (2026-11-02): package info is more extensive than image info – hence the REVERSED split compared to MED-SPLIT-1: 40 % icon on top, 60 % info table below, and that one sits in a ScrolledWindow (v-scroll automatic, overlay scrolling off), because description and dependencies like to outgrow the area. The icon area carries 40 % of the column height as its request, a size-allocate follow-up keeps it current on window resizes (pattern \_image\_split\_sync). The icon comes best effort from the payload (\_WindowReader with an 8 MB decompression budget against giant packages – lowered from 48 MB in 0.45.1 so the info table stands immediately; the score prefers 48x48/apps), else \_package\_placeholder draws the box with the format signet (DEB/RPM/PKG). 0.45.1: the member compression is recognized by \_tar\_sniff\_mode from the magic bytes instead of the ar name – IEEE slashes and zst names escaped the old switch. pack\_meta\_grid packs the values with wrap=True multi-line instead of ellipsized – only set fields show a row.
 
 ```text
         top.set_size_request(-1,
@@ -779,25 +1222,26 @@ except Exception:
         info_scroll.add(bottom)
 ```
 
-### TXT-FONT-1 – Font-Kopie-Register (R5)
+### TXT-FONT-1 – Font copy register (R5)
 
-- **Modul:** previewer\_render\_text.py
-- **Ort:** `_fc_add_font_file`, über `state["copies"].append(dest)`
-- **Anlass:** Fontconfig hat die Schriften im Speicher – das Register hält nur den Temp-Ordner klein.
+- **Module:** previewer\_render\_text.py
+- **Location:** `_fc_add_font_file`, above `state["copies"].append(dest)`
+- **Reason:** Fontconfig has the fonts in memory – the register only keeps the temp folder small.
 
 ```text
-            # R5: Kopie registrieren und älteste entfernen, wenn der
-            # Deckel erreicht ist. Fontconfig hat die Schriften beim
-            # FcConfigAppFontAddDir bereits in den Speicher geladen –
-            # bereits gesehene Wasserfälle bleiben also korrekt
-            # dargestellt, nur die Festplatte/der Temp-Ordner atmet auf.
+            # R5: register the copy and remove the oldest when
+            # the cap is reached. Fontconfig has already loaded
+            # the fonts into memory at FcConfigAppFontAddDir –
+            # waterfalls already seen therefore stay correctly
+            # rendered, only the disk/the temp folder gets
+            # relief.
 ```
 
-### TXT-FONT-2 – Wasserfall: Theme-Farbe und Probetext (F12)
+### TXT-FONT-2 – Waterfall: theme color and sample text (F12)
 
-- **Modul:** previewer\_render\_text.py (Farbe + Probetext), previewer\_panel.py (Konfiguration), previewer\_toolbar.py (Einstellungsfeld)
-- **Ort:** `_render_font` (Textfarbe und Wasserfall-Label); Defaults in `\_\_init\_\_`, Laden/Speichern in \_config\_load/\_config\_save (Schlüssel font\_sample\_text); Einstellungsfenster, Rubrik „Schriftarten“
-- **Anlass:** Nutzer-Fund (2026-10-31): Der Wasserfall-Text der Schrift-Vorschau war schwarz – auch im Darkmode, wo schwarzer Text auf dunkelgrauem Grund kaum lesbar ist. Ursache: StyleContext.get\_color() verlangt in GTK3 das State-Argument; der alte Aufruf ohne Argument warf IMMER eine TypeError, die der umgebende except-Block schluckte, sodass der Fallback (0.13, 0.13, 0.13 = fast schwarz) in jedem Theme stehen blieb. Jetzt liest der Aufruf get\_color(Gtk.StateFlags.NORMAL) dieselbe Theme-Farbe wie die Ordner-Icons; der Fallback bleibt als letzte Rückfallebene. Nutzer-Wunsch zusätzlich: Der Probetext ist nicht mehr fest im Quellcode verdrahtet (\_FONT\_SAMPLE\_TEXT bleibt nur als Default) – die neue Rubrik „Schriftarten“ im Einstellungsfenster bietet ein Entry (Key font\_sample\_text), speichert sofort und baut eine gerade angezeigte Schrift live neu auf (\_on\_font\_sample\_changed, Endungsprüfung .ttf/.otf/.ttc); leerer Text bleibt ungespeichert.
+- **Module:** previewer\_render\_text.py (color + sample text), previewer\_panel.py (configuration), previewer\_toolbar.py (settings field)
+- **Location:** `_render_font` (text color and waterfall label); defaults in `\_\_init\_\_`, load/save in \_config\_load/\_config\_save (key font\_sample\_text); settings window, section “Fonts”
+- **Reason:** User finding (2026-10-31): the waterfall text of the font preview was black – also in dark mode, where black text on dark grey is barely readable. Cause: StyleContext.get\_color() in GTK3 demands the state argument; the old call without the argument ALWAYS threw a TypeError that the surrounding except block swallowed, so the fallback (0.13, 0.13, 0.13 = almost black) stayed in every theme. Now the call get\_color(Gtk.StateFlags.NORMAL) reads the same theme color as the folder icons; the fallback stays as the last resort. Additional user request: the sample text is no longer hard-wired in the source (\_FONT\_SAMPLE\_TEXT stays only as the default) – the new section “Fonts” in the settings window offers an entry (key font\_sample\_text), saves immediately and rebuilds a currently displayed font live (\_on\_font\_sample\_changed, extension check .ttf/.otf/.ttc); empty text stays unsaved.
 
 ```text
         fg = (0.13, 0.13, 0.13)
@@ -809,36 +1253,37 @@ except Exception:
             pass
 ```
 
-### TXT-B6-1 – System-Schriftgröße für Markdown (B6)
+### TXT-B6-1 – System font size for Markdown (B6)
 
-- **Modul:** previewer\_render\_text.py
-- **Ort:** `_render_markdown`, über dem `_text_view`-Aufruf
-- **Anlass:** Ohne Font-Override nutzt der TextView die System-Schrift; Markup nur nach Validierung, sonst Rohtext.
+- **Module:** previewer\_render\_text.py
+- **Location:** `_render_markdown`, above the `_text_view` call
+- **Reason:** Without a font override the TextView uses the system font; markup only after validation, else raw text.
 
 ```text
-        # B6 (0.10.1): OHNE Font-Override – der TextView nutzt die
-        # System-Schrift des GTK-Themes und damit die Schriftgröße des
-        # Systems. Die bisher hartcodierte "9" (Standardschrift in
-        # 9 pt) war auf dem System sichtbar kleiner als die Text-
-        # Vorschau (Monospace), die der Nutzer als Maßstab kennt.
-        # Überschriften skalieren mit: ihre size='large'/'x-large'-
-        # Angaben sind relativ zur Basis-Schrift.
-        # Markup nur übernehmen, wenn es validiert wurde – sonst Rohtext.
+        # B6 (0.10.1): WITHOUT font override – the TextView uses
+        # the GTK theme's system font and with it the system's
+        # font size. The previously hard-coded "9" (default font
+        # in 9 pt) was visibly smaller on the system than the
+        # text preview (monospace) that the user knows as the
+        # yardstick. Headings scale along: their
+        # size='large'/'x-large' specs are relative to the base
+        # font. Take over markup only if it was validated –
+        # else raw text.
 ```
 
-### TXT-VCARD-1 – Visitenkarten-Renderer (F7)
+### TXT-VCARD-1 – Contact card renderer (F7)
 
-- **Modul:** previewer\_render\_text.py
-- **Ort:** `_render_vcard`, \_vcard\_card\_widget und \_vcard\_card\_draw samt Parse-Helfern (\_vcard\_unfold bis \_vcard\_placeholder, \_vcard\_circle, \_ldif\_parse, \_contact\_parse)
-- **Anlass:** Nutzer-Wunsch: ALLE bekannten Visitenkartenformate als Karte rendern – Kontakt-Foto kreisförmig, sonst ein kreisförmiger Platzhalter. Drei Parser liefern dieselbe Karten-Tupel-Struktur: vCard (RFC-6350-Folding, 2.1-Quoted-Printable, Nackt-Parameter, Gruppenpräfix), LDIF (RFC 2849, Base64-Werte, jpegPhoto bleibt rohes Base64 für die Foto-Dekodierung) und Windows-Contact (.contact-XML, namensraum-agnostisch über lokale Element-Namen). 0.26.0 (Nutzer-Hinweis): KEIN Karten-Deckel – alle Kontakte der Datei erscheinen untereinander scrollbar, bei einem einzelnen Kontakt zeigt sich kein Scrollbalken. Feinschliff 0.25.0: Jede Karte trägt einen rechteckigen Rahmen mit dem Eckenradius der Musikcover samt gleichem Schlagschatten (F34/F35) – gezeichnet im draw-Signal HINTER die Widgets (Rundungspfad via \_cover\_round\_path aus dem Media-Modul). Dezenz 0.25.1: KEINE Füllung – die Karte bleibt transparent (weißer Grund schmerzt im Darkmode), Schatten und Haarlinien-Rand bleiben; Eckenradius um ein Drittel dezenter (56/960 statt 56/640 der kleineren Kante). Fotos nur inline Base64 oder lokale URI – Netz-URIs bleiben unbefragt, es greift der Platzhalter. Ohne pycairo bleibt das Foto eckig und der Platzhalter ein Theme-Icon; der Karten-Rahmen läuft ohne, der draw-Callback bekommt seinen Cairo-Kontext von GTK.
+- **Module:** previewer\_render\_text.py
+- **Location:** `_render_vcard`, \_vcard\_card\_widget and \_vcard\_card\_draw with the parse helpers (\_vcard\_unfold up to \_vcard\_placeholder, \_vcard\_circle, \_ldif\_parse, \_contact\_parse)
+- **Reason:** User request: render ALL known contact card formats as a card – contact photo circular, else a circular placeholder. Three parsers deliver the same card tuple structure: vCard (RFC 6350 folding, 2.1 quoted-printable, bare parameters, group prefixes), LDIF (RFC 2849, base64 values, jpegPhoto stays raw base64 for the photo decode) and Windows-Contact (.contact XML, namespace-agnostic over local element names). 0.26.0 (user note): NO card cap – all contacts of the file appear below each other scrollable, with a single contact no scrollbar shows. Finishing 0.25.0: every card carries a rectangular frame with the corner radius of the music covers plus the same drop shadow (F34/F35) – drawn in the draw signal BEHIND the widgets (rounding path via \_cover\_round\_path from the media module). Subtlety 0.25.1: NO fill – the card stays transparent (a white base hurts in dark mode), shadow and hairline frame stay; corner radius a third more subtle (56/960 instead of 56/640 of the smaller edge). Photos only inline base64 or a local URI – network URIs stay unqueried, the placeholder applies. Without pycairo the photo stays square and the placeholder a theme icon; the card frame runs without it, the draw callback gets its Cairo context from GTK.
 
 ```text
-        # Lese-Deckel: Kontakt-Fotos liegen als Base64 IN der
-        # Datei – ein paar MB sind üblich, ein paar Dutzend
-        # wären eine Bombe für Nemo.
+        # Read cap: contact photos sit as base64 IN the
+        # file – a few MB are common, a few dozen would be
+        # a bomb for Nemo.
 ```
 
 ```text
-        # Rahmen und Schatten brauchen KEIN pycairo – der draw-
-        # Callback bekommt seinen Cairo-Kontext von GTK geliefert.
+        # Frame and shadow need NO pycairo – the draw
+        # callback gets its Cairo context delivered by GTK.
 ```
