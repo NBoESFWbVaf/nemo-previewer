@@ -41,15 +41,8 @@ _NativeGList._fields_ = [
 ]
 
 
+# → REF SEL-DOC-1
 def _gobject_pointer(widget):
-    """
-    Den GObject-Zeiger eines PyGObject-Wrappers ermitteln. PyGObject legt
-    ihn normalerweise als PyCapsule in __gpointer__ ab; manche Builds
-    liefern direkt eine Ganzzahl. Beide Varianten werden unterstützt,
-    inklusive namenloser Kapseln (PyCapsule_GetPointer verlangt eine
-    exakte Namens-Übereinstimmung – bei Namens-Mismatch liefert der alte
-    Weg still None zurück).
-    """
     capsule = None
     try:
         capsule = getattr(widget, "__gpointer__", None)
@@ -81,8 +74,8 @@ def _gobject_pointer(widget):
         return None
 
 
+# → REF SEL-DOC-2
 def _read_cptr(addr, offset=0):
-    """Zeiger aus dem Prozessspeicher lesen (Adresse addr + offset)."""
     if not addr:
         return None
     try:
@@ -103,8 +96,8 @@ _VTABLE_GUARD_WARNED = False
 _VTABLE_CRASH_WARNED = False
 
 
+# → REF SEL-DOC-3
 def _native_vtable_api():
-    """VTable-Zugriff auf NemoView.peek_selection vorbereiten (einmalig)."""
     global _NATIVE_VTABLE_API, _NATIVE_VTABLE_TRIED
     global _NATIVE_VTABLE_BROKEN
     if _NATIVE_VTABLE_TRIED:
@@ -168,13 +161,8 @@ def _native_vtable_api():
 _NEMO_TEXT_RANGES = None
 
 
+# → REF SEL-DOC-4
 def _nemo_addr_ranges():
-    """
-    Adressbereiche aller ausführbaren Mappings von Nemo-Bibliotheken
-    (einmalig aus /proc/self/maps gelesen). Gibt None zurück, wenn die
-    Maps nicht lesbar sind – Aufrufer behandeln das als fail-closed:
-    lieber eine Route zu viel abgeschaltet als ein möglicher Wildcall.
-    """
     global _NEMO_TEXT_RANGES
     if _NEMO_TEXT_RANGES is not None:
         return _NEMO_TEXT_RANGES
@@ -197,16 +185,16 @@ def _nemo_addr_ranges():
     return ranges
 
 
+# → REF SEL-DOC-5
 def _ptr_in_nemo(ranges, ptr):
-    """True, wenn ptr in einem der Nemo-Adressbereiche liegt."""
     return bool(ranges) and any(lo <= ptr < hi for lo, hi in ranges)
 
 
 # --- shared helpers (audit 0.9.1: this logic was previously
 # duplicated identically in three places) ----------------------------------
 
+# → REF SEL-DOC-6
 def _name_from_uri(uri):
-    """Dateiname (Basename) aus einer Nemo-URI – ein Ort, eine Wahrheit."""
     try:
         return Gio.File.new_for_uri(uri).get_basename() or ""
     except Exception:
@@ -216,18 +204,8 @@ def _name_from_uri(uri):
             return ""
 
 
+# → REF SEL-DOC-7
 def _iface_file_name(api, file_ptr):
-    """
-    Dateiname eines rohen NemoFile-Zeigers über das NemoFileInfo-
-    Interface: get_name, falls der Zeiger vorhanden; sonst get_uri mit
-    Basename-Fallback. Gibt "" zurück, wenn nichts zu holen ist.
-    Der Aufrufer muss file_ptr vorher gegen den NemoFile-GTyp
-    validiert haben (api["is_a"]).
-    0.9.2: Die Funktionszeiger werden vor dem Call gegen die
-    Nemo-Adressbereiche geprüft (Wildcall-Schutz) – verschiebt ein
-    Nemo-Update das Interface-Layout, wird der falsche Zeiger nicht
-    gerufen, sondern still "" geliefert.
-    """
     try:
         file_class = _read_cptr(file_ptr)             # GTypeInstance.g_class
         if not file_class:
@@ -262,12 +240,8 @@ def _iface_file_name(api, file_ptr):
     return ""
 
 
+# → REF SEL-DOC-8
 def _vtable_selection_names(view):
-    """
-    Auswahl über NemoView.peek_selection lesen. Gibt (names, supported)
-    zurück; supported=False bedeutet, die Strategie ist nicht einsetzbar.
-    names=[] ist eine gültige, leere Auswahl.
-    """
     global _NATIVE_VTABLE_BROKEN, _VTABLE_GUARD_WARNED
     api = _native_vtable_api()
     if api is None:
@@ -355,15 +329,8 @@ def _vtable_selection_names(view):
     return names, True
 
 
+# → REF SEL-DOC-9
 def _nemo_file_name_from_ptr(file_ptr):
-    """
-    Dateinamen zu einem rohen NemoFile-Zeiger ermitteln (ctypes über das
-    NemoFileInfo-Interface). Gibt "" zurück, wenn der Zeiger ungültig ist
-    oder die VTable-API nicht bereitsteht. Validiert die Instanz vorher
-    gegen den NemoFile-GTyp – ein falscher Zeiger wird nie verfolgt.
-    0.9.1: Die Interface-Lese-Logik steckt im gemeinsamen Helfer
-    _iface_file_name (zuvor identisch in _vtable_selection_names).
-    """
     api = _native_vtable_api()
     if not api or not file_ptr:
         return ""
@@ -375,8 +342,8 @@ def _nemo_file_name_from_ptr(file_ptr):
     return _iface_file_name(api, file_ptr)
 
 
+# → REF SEL-DOC-10
 def _dump_widget_tree(view, max_widgets=100):
-    """Diagnose actual GTK descendants and their selection-related methods."""
     diag("Widget tree dump starts")
     count = 0
     for w in walk(view):
@@ -414,8 +381,8 @@ _CLIPBOARD_SIGNALS = {
 }
 
 
+# → REF SEL-DOC-11
 def _signals_of_gtype(gtype):
-    """void-Signale dieses GTyps mit 'select' im Namen (ohne geerbte)."""
     out = []
     try:
         ids = GObject.signal_list_ids(gtype)
@@ -434,16 +401,8 @@ def _signals_of_gtype(gtype):
     return out
 
 
+# → REF SEL-DOC-12
 def selection_signals(widget):
-    """
-    Alle 'Auswahl'-Signale eines GObjects – inklusive geerbter, indem
-    die GTyp-Hierarchie nach oben durchlaufen wird; zusätzlich auch
-    die Signale implementierter Interfaces (ATK meldet Auswahl-
-    Änderungen z.B. über ein Interface-Signal von AtkSelection).
-    Nemo benennt seine Signale nicht garantiert einheitlich (Striche
-    vs. Unterstriche); hier wird deshalb nichts geraten, sondern der
-    tatsächliche Name zur Laufzeit gelesen. Sortierte Liste, evtl. leer.
-    """
     names = []
     try:
         t = widget.__gtype__
@@ -473,14 +432,8 @@ def selection_signals(widget):
     return sorted(names)
 
 
+# → REF SEL-DOC-13
 def _atk_children(acc, max_children=200):
-    """
-    Kinder eines ATK-Objekts defensiv ermitteln. get_n_children() schlägt
-    auf manchen Systemen fehl (bei Nemo-Views wurde -1 gemeldet, der a11y-
-    Baum schien leer); deshalb wird bei Ausnahme/Unsinn blind ref_child()
-    für die ersten Indizes probiert, bis ref_child selbst scheitert.
-    Gibt eine (evtl. leere) Liste zurück – nie None.
-    """
     children = []
     n = -1
     try:
@@ -504,10 +457,8 @@ def _atk_children(acc, max_children=200):
     return children
 
 
+# → REF SEL-DOC-14
 def _a11y_root(view):
-    """Mapped a11y root of the view (None if the view is unusable).
-
-    Never call ATK on a view that is hidden or being torn down."""
     try:
         if not isinstance(view, Gtk.Widget) or not view.get_mapped():
             return None
@@ -516,8 +467,8 @@ def _a11y_root(view):
         return None
 
 
+# → REF SEL-DOC-15
 def _atk_selection_objects(view, max_depth=12):
-    """Alle AtkSelection-Implementoren im a11y-Baum der Ansicht sammeln."""
     implementors = []
     root = _a11y_root(view)
     if root is None:
@@ -538,16 +489,8 @@ def _atk_selection_objects(view, max_depth=12):
     return implementors
 
 
+# → REF SEL-DOC-16
 def is_nemo_view(w):
-    """
-    Ist dieses Widget eine echte Nemo-DATEI-Ansicht?
-    WICHTIG: KEINE Bäume der Seitenleisten! 'NemoPlacesTreeView' (Orte-
-    Seitenleiste) beginnt mit 'Nemo' und endet auf 'View', ist aber ein
-    GtkTreeView der Seitenleiste – genau dieser Fall hat die Auswahl-
-    Erkennung lange unsichtbar sabotiert. Die Erkennung läuft deshalb
-    nur positiv: über den Basistyp NemoView oder die bekannten
-    Ansichtsnamen, nie über 'beginnt mit Nemo + endet auf View'.
-    """
     name = type_name(w)
     # NemoDesktopIconView belongs to the desktop background, not to a
     # normal file browser window – never inject a panel there.
@@ -567,13 +510,8 @@ def is_nemo_view(w):
     return False
 
 
+# → REF SEL-DOC-17
 def find_view(window):
-    """Nur eine aktuell gemappte Nemo-Dateiansicht zurückgeben.
-
-    Beim Ordnerwechsel kann die alte Ansicht noch im Widget-Baum stehen,
-    obwohl ihre GObject-Instanz bereits abgebaut wird. Deshalb wird keine
-    ungemappte Ansicht mehr als Fallback zurückgegeben.
-    """
     try:
         for w in walk(window):
             if not is_nemo_view(w):
@@ -591,22 +529,12 @@ def find_view(window):
 
 # ============================ Selection readers =============================
 
+# → REF SEL-DOC-18
 class SelectionReader:
-    """Liest die aktuelle Auswahl der Nemo-Ansicht – mehrstufig."""
 
     @staticmethod
+    # → REF SEL-DOC-19
     def read(view, dir_path):
-        """
-        Liefert (Liste_von_Namen, Strategie) oder (None, None), wenn die
-        Auswahl nicht lesbar war. Es werden ALLE Strategien befragt und
-        das erste NICHT-LEERE Ergebnis gewinnt:
-        1. NemoView.peek_selection über den Klassen-VTable (primäre API)
-        2. Gtk.IconView-/Gtk.TreeView-Auswahl
-        3. ATK Selection, SELECTED-State und Fokus als Fallback
-        Meldet eine Strategie [] (lesbar, aber nichts selektiert), wird
-        trotzdem weitergefragt – eine 'blinde' Strategie blockiert so
-        nie die anderen.
-        """
         empty_source = None
         for source, fetch in (
                 # NemoView.peek_selection via the vtable is the
@@ -651,15 +579,8 @@ class SelectionReader:
         return [n.strip() for n in names if (n or "").strip()]
 
     @staticmethod
+    # → REF SEL-DOC-20
     def _read_nemo_vtable(view, dir_path):
-        """Auswahl über NemoView.peek_selection (VTable) – siehe Modulkopf.
-
-        Gibt None zurück, wenn die Strategie nicht verfügbar ist, sonst
-        die (evtl. leere) Namensliste. Eine leere Liste ist eine gültige
-        Auswahl, keine Fehlermeldung. Unerwartete Ausnahmen (die read()
-        sonst lautlos schlucken würde) werden einmalig mit Ursache
-        gemeldet, damit stille Ausfälle sichtbar werden.
-        """
         try:
             names, supported = _vtable_selection_names(view)
         except Exception as exc:
@@ -675,8 +596,8 @@ class SelectionReader:
         return names
 
     @staticmethod
+    # → REF SEL-DOC-21
     def _read_icon_view(view, dir_path):
-        """Direkte GTK-Auswahl für Gtk.IconView-basierte Nemo-Ansichten."""
         for w in walk(view):
             # Nemo may use its own widget class that is not typed as
             # Gtk.IconView but offers the same selection methods.
@@ -718,14 +639,8 @@ class SelectionReader:
         return None
 
     @staticmethod
+    # → REF SEL-DOC-22
     def _read_atk(view):
-        """
-        Über die Barrierefreiheits-Schnittstelle (Symbolansicht).
-        Es werden ALLE AtkSelection-Implementierungen im a11y-Baum der
-        Ansicht befragt; die erste mit echter Auswahl gewinnt. So kann
-        ein falsches AtkSelection-Objekt (das stets 0 meldet) die echte
-        Auswahl nicht mehr verschlucken.
-        """
         implementors = _atk_selection_objects(view)
         for acc in implementors:
             try:
@@ -746,12 +661,8 @@ class SelectionReader:
         return None
 
     @staticmethod
+    # → REF SEL-DOC-23
     def _read_atk_states(view):
-        """
-        Fallback für die Symbolansicht: über den a11y-Baum der Ansicht
-        alle Objekte mit ATK-State SELECTED sammeln und deren Namen
-        übernehmen. Liefert die Namen oder None (Baum nicht auswertbar).
-        """
         root = _a11y_root(view)
         if root is None:
             return None
@@ -780,13 +691,8 @@ class SelectionReader:
         return selected or None
 
     @staticmethod
+    # → REF SEL-DOC-24
     def _read_atk_focused(view, dir_path):
-        """
-        Ein-Klick-Fallback: das einzige fokussierte Objekt im a11y-Baum
-        benennen. Nach einem einfachen Klick ist das angeklickte Symbol
-        fokussiert, auch wenn AtkSelection versagt. Der Name zählt nur,
-        wenn er zu einer echten Datei im angezeigten Ordner auflöst.
-        """
         if not dir_path:
             return None
         root = _a11y_root(view)
@@ -817,26 +723,8 @@ class SelectionReader:
         return None
 
     @staticmethod
+    # → REF SEL-DOC-25
     def _tree_row_name(model, it, dir_path):
-        """
-        Dateinamen einer markierten Listenzeile ermitteln.
-
-        Nemos Listenmodell (nemo-list-model.h) speichert in Spalte 0 KEINEN
-        String, sondern das NemoFile-Objekt; die Pixbufs folgen in den
-        Spalten 1–7, der sichtbare Dateiname steckt erst in einer der
-        dynamischen Attribut-Spalten (12+, je nach Sortierung/Spaltenwahl).
-        Deshalb zweistufig:
-        1. Spalte 0 auslesen: ein PyGObject-Wrapper wird über seine
-           NemoFileInfo-Interface-Methoden (get_name/get_uri) befragt –
-           genau so lesen alle Nemo-Python-Extensions ihre Dateien.
-           Liefert PyGObject nur den rohen Zeiger (int), übernimmt die
-           ctypes-Route (_nemo_file_name_from_ptr). Das Ergebnis dient
-           als Fallback.
-        2. Zusätzlich ALLE Stringspalten scannen und den String
-           bevorzugen, der im angezeigten Ordner auf eine echte Datei
-           auflöst; sonst den ersten String, ganz am Ende den Namen aus
-           Stufe 1 übernehmen.
-        """
         # --- Stage 1: column 0 (NemoFile wrapper or raw pointer) ---
         fallback_name = ""
         try:
@@ -894,8 +782,8 @@ class SelectionReader:
         return fallback_name or None
 
     @staticmethod
+    # → REF SEL-DOC-26
     def _read_tree(view, dir_path):
-        """GtkTreeView-basierte Ansichten (Liste, Kompakt)."""
         for w in walk(view):
             if isinstance(w, Gtk.TreeView):
                 try:
