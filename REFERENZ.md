@@ -528,6 +528,473 @@ except Exception:
         return False
 ```
 
+### PAN-DOC-1 – Docstring: \_sniff\_is\_text
+
+- **Module:** previewer\_panel.py
+- **Location:** `\_sniff\_is\_text` (module level)
+- **Reason:** Text sniffer as the last instance (F23/B10) – decides by content, not by name.
+
+```text
+F23/B10: Is a file readable text? Gio only guesses the MIME
+type from the file name – B10 calls the sniffer as the LAST
+instance, before the preview gives up: extension-less files
+(notes, dotfiles) and extensions whose guessed type is
+mapped nowhere (.pub, .crt, .csr, .pref …) get the text
+preview by CONTENT instead of by name. Quick look at the
+first bytes: NULL bytes and an excessive share of control
+characters (everything except tab/LF/CR) hint at binary
+data; B10 adds the UTF-8 decoding probe as a second
+criterion – a head made up of at least 30 % of 8-bit bytes
+that do NOT yield valid UTF-8 is packed/encrypted and fails
+(Latin-1 text stays allowed, umlauts mix in under plenty of
+ASCII). Encoding-agnostic – UTF-8 as well as Latin-1 text
+pass, random binary data reliably fails. The actual text
+preview still caps as always at 256 KB / 2000 lines.
+```
+
+### PAN-DOC-2 – Docstring: \_silhouette
+
+- **Module:** previewer\_panel.py
+- **Location:** `\_silhouette` (module level)
+- **Reason:** Symbol icons as monochrome silhouettes in the fg color (0.31.2).
+
+```text
+0.31.2 (user finding): load the chosen symbol and redraw it
+as a monochrome silhouette in the foreground color. The
+0.31.1 diagnosis showed that the loading course kept picking
+-symbolic names – but under those names the WhiteSur theme
+delivers colored icons of its own, which appear in dark
+mode as dark slabs with a hard edge. The redraw keeps the
+alpha channel of the original (shape) and sets RGB
+uniformly to the passed color – so the icon is light in
+dark mode and dark in light mode, whatever the theme
+smuggles in. Returns: Pixbuf or None (then the caller
+loads the symbol unchanged).
+```
+
+### PAN-DOC-3 – Docstring: PreviewPanel (class)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel` (class)
+- **Reason:** Class marker – the docked preview panel (right half of the Gtk.Paned).
+
+```text
+The docked preview panel (right half of the Gtk.Paned).
+```
+
+### PAN-DOC-4 – Docstring: \_bg\_content\_ctx
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_bg\_content\_ctx` (method)
+- **Reason:** Style context of the rendered content – genuine colors for the background chain (F46).
+
+```text
+Style context of the rendered content (list/text view).
+
+Its area is visibly painted – a background color resolved
+there is guaranteed genuine and matches the plate.
+```
+
+### PAN-DOC-5 – Docstring: \_derived\_base
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_derived\_base` (method)
+- **Reason:** Contrast-correct base color from the panel fg color (F46 XI).
+
+```text
+Contrast-correct base from the panel fg color (0.38.1, F46
+XI): bright fg → dark base and vice versa.
+```
+
+### PAN-DOC-6 – Docstring: \_paint\_background
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_paint\_background` (method)
+- **Reason:** Paint the background beneath all children as a chain (F46 III).
+
+```text
+Paint the background beneath all children – as a chain (F46
+III).
+
+The first source with a resolved color wins; dbg names all
+candidates so the log shows what the theme delivers
+(→ REF PAN-BG-2).
+```
+
+### PAN-DOC-7 – Docstring: \_on\_scroll\_realized
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_on\_scroll\_realized` (method)
+- **Reason:** Hook the scrollbars to the painter on realization (F46 IV/V).
+
+```text
+Hook the scrollbars to the painter (F46 IV) – they only
+appear on realization (→ REF PAN-BG-2).
+0.31.7 (F46 V): also re-apply the surface CSS rule.
+```
+
+### PAN-DOC-8 – Docstring: \_apply\_surface\_css
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_apply\_surface\_css` (method)
+- **Reason:** Surface CSS rule for the scroll areas above theme priority (F46 V).
+
+```text
+F46 V: set the background of the scroll surfaces via CSS.
+
+The draw painter runs BEFORE the widget's standard draw –
+if the theme paints its own surface there (trough,
+viewport), it covers the painter. A CSS rule on the other
+hand colors in the regular paint pass, with application
+priority above the theme. The rule only applies below the
+class pvw-surface, so it never touches Nemo itself (→ REF
+PAN-BG-2).
+```
+
+### PAN-DOC-9 – Docstring: \_surface\_css\_contexts
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_surface\_css\_contexts` (method)
+- **Reason:** Style contexts that also carry the surface provider directly (F46 V).
+
+```text
+Style contexts that additionally need the surface rule
+(F46 V) – providers do reach through the parent chain, but
+for safety they also sit directly on every child (→ REF
+PAN-BG-2).
+```
+
+### PAN-DOC-10 – Docstring: set\_selection
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.set\_selection` (method)
+- **Reason:** Set the selection and re-render the preview.
+
+```text
+Set the selection and re-render the preview (names = file names).
+```
+
+### PAN-DOC-11 – Docstring: \_render
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_render` (method)
+- **Reason:** Build the preview for the current path – never throw, always fall back.
+
+```text
+Build the preview for self._path. Never throw – always fall back.
+```
+
+### PAN-DOC-12 – Docstring: \_on\_content\_size\_allocate
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_on\_content\_size\_allocate` (method)
+- **Reason:** Fit the scaled preview to width changes without re-rendering (0.41.0).
+
+```text
+Watch width changes of the preview area (the user drags the
+Gtk.Paned divider). It does NOT re-render – instead only
+the displayed pixbuf of the scalable preview is fitted to
+the new width immediately (cheap, no re-decoding).
+0.41.0: A dragged width only applies to the running session
+and no longer changes the START WIDTH – that lives solely in
+the settings window.
+```
+
+### PAN-DOC-13 – Docstring: \_scaled\_image
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_scaled\_image` (method)
+- **Reason:** Registration and initial scaling of a live-scaling image (S6/R3/0.17.0).
+
+```text
+Gtk.Image that lives with the panel width. The source (src)
+stays in memory at full resolution; the displayed pixbuf
+is re-scaled live on width changes. The image sits in a
+ScrolledWindow so its minimum width does not block the
+Gtk.Paned when shrinking (that was the stutter cause).
+upscale=True lets small sources (e.g. office thumbnails)
+grow with the panel width – capped by max_upscale so tiny
+thumbnails are not blown up into unreadable mush.
+keep_height=True only with non-expanded packing (office,
+cover, video frame): holds the container at image height so
+the image is not cut off at the bottom under space
+pressure. With expanded packing (PDF) NO minimum height may
+be set – portrait images would otherwise force their height
+onto the window.
+0.17.0: frac_h (e.g. 0.6) caps the display height at this
+fraction of the COLUMN HEIGHT – live, because _apply_scale
+pulls anew on every window resize. Used by the image
+preview (user wish: max. 60 % of the column, a separator
+and later additional information below it); embedded
+images (cover, office thumbnail, video frame) stay without
+frac.
+R3: the scaling parameters sit as a Python data dict EACH
+on the image entry in self._scale_items instead of single
+panel attributes – several live-scaled images per preview
+(cover + chapter images …) no longer overwrite each other.
+(Deliberately NOT Gtk set_data/get_data: PyGObject blocks
+the GObject data methods with 'Data access methods are
+unsupported' – the panel would otherwise crash on the
+first image.)
+Returns the finished container (Gtk.ScrolledWindow).
+S6 (0.42.0): the widget construction lives as
+build_scaled_image() in previewer_util; registration and
+initial scaling stay here.
+```
+
+### PAN-DOC-14 – Docstring: \_apply\_scale
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_apply\_scale` (method)
+- **Reason:** Fit all registered preview images to the panel width (R3).
+
+```text
+Fit the displayed pixbufs of ALL registered preview images
+to the current panel width (R3: list instead of a single
+slot; entries are data dicts, see _scaled_image).
+```
+
+### PAN-DOC-15 – Docstring: \_scale\_item
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_scale\_item` (method)
+- **Reason:** Fit one registered preview image (R3/0.17.0).
+
+```text
+Fit ONE preview image to the panel width (R3/0.17.0) –
+height cap fresh, upscale limited, skip changes below 4 px
+(early return instead of nesting).
+```
+
+### PAN-DOC-16 – Docstring: \_preview\_width
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_preview\_width` (method)
+- **Reason:** Live preview width from the content allocation.
+
+```text
+Width available to the preview objects. Live from the
+current area of the content region (get_allocated_width),
+so the preview can scale with the panel width; the start
+width only serves as a fallback as long as no size
+allocation has happened yet.
+```
+
+### PAN-DOC-17 – Docstring: \_preview\_height
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_preview\_height` (method)
+- **Reason:** Live content height – basis of the image height cap (0.17.0).
+
+```text
+0.17.0: height of the content region – basis for the height
+cap of the image preview (max. 60 % of the column height,
+user wish: room below the image for a separator and
+additional information). Live from the current area,
+fallback as long as no size allocation has happened yet.
+```
+
+### PAN-DOC-18 – Docstring: \_source\_language
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_source\_language` (method)
+- **Reason:** GtkSource language guess from the file name (F44).
+
+```text
+F44 (0.28.0): guess the file's language via the GtkSource
+LanguageManager (from the name). None means: no language
+recognized – the normal text preview stays in place.
+```
+
+### PAN-DOC-19 – Docstring: \_source\_scheme
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_source\_scheme` (method)
+- **Reason:** Match the GtkSource color scheme to the system theme (F44).
+
+```text
+F44 (0.28.0): match the color scheme to the system theme –
+a dark theme (gtk-theme-name contains “dark” or prefer-dark
+set) gets a dark scheme (oblivion, solarized-dark as a
+fallback), otherwise the light “classic”. If a candidate is
+missing, the widget default applies.
+```
+
+### PAN-DOC-20 – Docstring: \_text\_view
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_text\_view` (method)
+- **Reason:** Configured TextView; the construction lives in previewer_util (S6).
+
+```text
+Fully configured TextView in a ScrolledWindow, packed into
+self._content. font: Pango description; None keeps the GTK
+theme's system font (i.e. the system font size) and does
+not call override_font at all. markup: optional Pango
+markup string (must be validated beforehand); without
+markup the raw text is set. linenumbers (F24): line numbers
+on the left margin – only set by _render_text (text files
+and extension-less text files), rendered previews
+(Markdown, e-mail, e-book, font waterfall) stay without.
+source_path (F44, 0.28.0): file whose language
+GtkSourceView shall guess – if a language is recognized,
+syntax highlighting shows up; without a binding or language
+it stays a normal TextView.
+S6 (0.42.0): configuration and buffer filling live as
+build_text_view() in previewer_util.
+```
+
+### PAN-DOC-21 – Docstring: \_install\_line\_numbers
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_install\_line\_numbers` (method)
+- **Reason:** Line numbers in the TextView margin – excluded from every copy (F24).
+
+```text
+F24 (0.16.0): draw line numbers into the left margin of the
+TextView – not into the text buffer. That excludes them
+from the selection, and they NEVER end up in the copied
+text (user wish: numbers not copyable, text yes), while the
+text itself stays normally selectable and copyable. The
+draw handler fires on every redraw (also while scrolling)
+and draws only the visible lines; wrapped lines get their
+number on the first visual line.
+```
+
+### PAN-DOC-22 – Docstring: \_folder\_symbol
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_folder\_symbol` (method)
+- **Reason:** Symbol icon of a folder row, redrawn as a silhouette (S2/0.31.2).
+
+```text
+S2 (0.42.0): symbol icon of a folder row – check candidates
+from the content type with -symbolic suffix against the
+theme (0.30.1), keep missing variants generic, never the
+colored full icon; every chosen symbol shape is redrawn as
+a silhouette in the foreground color (0.31.2, → REF
+PAN-FOLDER-1).
+```
+
+### PAN-DOC-23 – Docstring: \_folder\_row
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_folder\_row` (method)
+- **Reason:** One row of the folder list: icon, name, size (S2).
+
+```text
+S2 (0.42.0): one row of the folder list – icon, name
+(folders bold, hidden entries dimmed), size on the right.
+The plate padding (10 px sideways, 8 px on top of the first
+row) sits on the row content, not on the ListBox (0.31.11,
+→ REF PAN-FOLDER-1).
+```
+
+### PAN-DOC-24 – Docstring: \_folder\_scroll
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_folder\_scroll` (method)
+- **Reason:** Scroll window of the folder list with the F46 safeguarding (S2).
+
+```text
+S2 (0.42.0): scroll window of the folder list with the full
+F46 background safeguarding – inline bar instead of overlay
+(0.31.10), painter on scroll window and viewport
+(0.31.5/0.31.6), CSS rule on top (0.31.7) (→ REF
+PAN-BG-2).
+```
+
+### PAN-DOC-25 – Docstring: \_render\_folder
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_render\_folder` (method)
+- **Reason:** Folder preview as a content list (F43/S2).
+
+```text
+F43 (user wish): the folder preview shows the content as a
+list instead of just a folder icon – folders first (bold),
+then files, each alphabetical; per row icon, name plus
+“Folder” or size. Since 0.29.0 (user wish): the type icon
+from the icon theme in front of every name, the list
+carries the inner padding of the text previews (10/10/8/8
+px). Since 0.30.0 (user wish): the icons are symbolic and
+follow the system theme (light in dark mode, dark in light
+mode); hidden entries only appear in the list when Nemo
+shows them (Ctrl+H, org.nemo.preferences
+show-hidden-files), otherwise the head hint reports them by
+count (K1). Huge folders: the first 300 rows in the scroll
+window, the rest as a footer – otherwise a folder with ten
+thousand entries built just as many label widgets.
+S2 (0.42.0): decomposed – _folder_symbol, _folder_row and
+_folder_scroll build icon, row and scroll window; only the
+flow remains here.
+```
+
+### PAN-DOC-26 – Docstring: \_on\_panel\_destroy
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_on\_panel\_destroy` (method)
+- **Reason:** Stop playback and timers when the panel is torn down (B3).
+
+```text
+Panel is torn down: stop playback and timers (B3).
+```
+
+### PAN-DOC-27 – Docstring: \_config\_load
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_config\_load` (method)
+- **Reason:** Read the settings; defaults on any failure (F12).
+
+```text
+F12 (0.12.0): read the settings from CONF_FILE. Without a
+file or on ANY failure the defaults apply – a broken or
+half-written configuration must never stop Nemo from
+starting. New settings dock here as get_boolean/get_string
+with try/except.
+```
+
+### PAN-DOC-28 – Docstring: \_config\_save
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_config\_save` (method)
+- **Reason:** Write the settings immediately after every change (F12).
+
+```text
+F12 (0.12.0): write the settings to CONF_FILE immediately
+(creating the directory if needed). Called after every
+change in the settings window – a separate save button is
+therefore unnecessary.
+```
+
+### PAN-DOC-29 – Docstring: apply\_start\_settings
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.apply\_start\_settings` (method)
+- **Reason:** Apply the loaded configuration after show_all (F12).
+
+```text
+F12 (0.12.0): apply the loaded configuration to the panel.
+Called by the entry point AFTER the show_all of the
+injection – otherwise a requested invisibility would be
+overridden immediately at startup. New start settings dock
+here.
+```
+
+### PAN-DOC-30 – Docstring: \_apply\_panel\_width\_live
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_apply\_panel\_width\_live` (method)
+- **Reason:** Apply a new start width live from the settings window (F12).
+
+```text
+F12 (0.13.0): apply a new start width immediately while the
+settings window is open – the user sees the effect directly.
+The Paned position is set so that the preview column is
+self._panel_width wide; if that fails (window too small),
+everything stays unchanged.
+```
+
 ---
 
 ## Selection (SEL)
