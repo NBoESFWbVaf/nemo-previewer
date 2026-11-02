@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.44.0
+previewer_render_text.py – Version 0.45.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -16,8 +16,10 @@ import ctypes
 import ctypes.util
 import hashlib
 import html
+import io
 import shutil
 import struct
+import tarfile
 import tempfile
 import zipfile
 import email
@@ -42,7 +44,7 @@ if _HERE not in sys.path:
 from previewer_util import (
     dbg,
     MAX_TEXT_BYTES, MAX_TEXT_LINES, MAX_IMAGE_HEIGHT,
-    pick_icon,
+    pick_icon, human_size,
     _zf_read_capped, _pixbuf_from_bytes,
     _xml_dtd_rejected,
     pack_hint,
@@ -499,11 +501,13 @@ _EBOOK_CHUNK_CAP = 2 * 1024 * 1024     # R4: max bytes für OPF-Container-Dokume
 _EBOOK_COVER_CAP = 16 * 1024 * 1024    # R4: max bytes for cover images
 
 
-def _ebook_rows(pairs):
+def _meta_rows(pairs):
     """
     S3 (0.42.0): Metadaten-Zeilen der E-Book-Formate – leere Werte
     fallen weg. F59 (0.44.0): Buchtitel, Autor, Reihe, Seiten,
     Ebookformat, Sprache – nur gesetzte Tags zeigen eine Zeile.
+    F60 (0.45.0): Umbenannt – auch die Paket-Formate (DEB, RPM,
+    Pacman) nutzen den Helfer.
     """
     return [(k, v) for k, v in pairs if v]
 
@@ -512,7 +516,7 @@ def _series_text(series, index):
     """
     F59 (0.44.0): Reihen-Angabe aus Name und Bandnummer – „Name –
     Band 2.5“; ohne Nummer nur der Name, ohne Name gar nichts
-    (dann fällt die Zeile über _ebook_rows weg).
+    (dann fällt die Zeile über _meta_rows weg).
     """
     if not series:
         return None
@@ -683,7 +687,7 @@ def _epub_data(path):
         (title, author, lang, manifest, cover_id,
          series, series_index, pages) = _epub_metadata(root)
         cover = _epub_cover(zf, names, base, manifest, cover_id)
-    return (_ebook_rows((("Buchtitel", title), ("Autor", author),
+    return (_meta_rows((("Buchtitel", title), ("Autor", author),
                          ("Teil einer Reihe", _series_text(series,
                                                            series_index)),
                          ("Anzahl Seiten", pages),
@@ -767,7 +771,7 @@ def _fb2_data(path):
     root = ElementTree.fromstring(raw).getroot()
     title, author, lang, cover_ref, series, seq_index = _fb2_metadata(root)
     cover = _fb2_cover(root, cover_ref)
-    return (_ebook_rows((("Buchtitel", title), ("Autor", author),
+    return (_meta_rows((("Buchtitel", title), ("Autor", author),
                          ("Teil einer Reihe", _series_text(series,
                                                            seq_index)),
                          ("Ebookformat", "FB2"), ("Sprache", lang))),
@@ -855,8 +859,409 @@ def _mobi_data(path):
     title = data[0:32].split(b"\x00")[0].decode("utf-8", "replace").strip()
     recs = _mobi_records(data)
     author = _mobi_header(recs)[3]
-    return (_ebook_rows((("Buchtitel", title), ("Autor", author),
+    return (_meta_rows((("Buchtitel", title), ("Autor", author),
                          ("Ebookformat", "MOBI"))), None)
+
+
+# --- Packages: DEB, RPM, Arch/Pacman (stdlib only) --------------------------
+
+_PKG_CONTROL_CAP = 2 * 1024 * 1024      # F60: max bytes from control member
+_PKG_HEADER_CAP = 4 * 1024 * 1024       # F60: max bytes from an rpm head zone
+_PKG_ICON_SCAN_CAP = 48 * 1024 * 1024   # F60: decompression budget icon hunt
+_PKG_ICON_BYTES = 2 * 1024 * 1024       # F60: max bytes of one icon member
+
+
+class _WindowReader:
+    """
+    F60 (0.45.0): read()-Fenster über eine Datei mit Budget –
+    tarfile im Stream-Modus (r|gz, r|xz) braucht nur read(), und das
+    Budget stoppt die Icon-Suche in Riesen-Paketen mit EOFError
+    (Deckel-Muster wie R11/B5 statt Speicher-Druck).
+    """
+
+    def __init__(self, fh, offset, budget):
+        self._fh = fh
+        self._left = budget
+        fh.seek(offset)
+
+    def read(self, size=-1):
+        if self._left <= 0:
+            raise EOFError("F60: Icon-Budget erschöpft")
+        if size < 0 or size > self._left:
+            size = self._left
+        data = self._fh.read(size)
+        self._left -= len(data)
+        return data
+
+    def readable(self):
+        return True
+
+
+def _tar_mode(name, stream=False):
+    """
+    F60 (0.45.0): tarfile-Modus zur Member-Endung – gz und xz sind
+    Bordmittel, zst nicht (None → Aufrufer zeigt Hinweis bzw. lässt
+    das Icon weg).
+    """
+    ext = name.rsplit(".", 1)[-1].lower()
+    if ext == "zst":
+        return None
+    if ext == "gz":
+        return "r|gz" if stream else "r:gz"
+    if ext == "xz":
+        return "r|xz" if stream else "r:xz"
+    return "r|" if stream else "r:"
+
+
+def _pkg_icon_score(name, size):
+    """
+    F60: Icon-Kandidat? PNG/JPG unter icons/ oder pixmaps/, klein
+    genug; 48x48 und apps zählen am besten (bester Score -3).
+    """
+    low = name.lower()
+    if size > _PKG_ICON_BYTES or not low.endswith(
+            (".png", ".jpg", ".jpeg")):
+        return None
+    if "/icons/" not in low and "/pixmaps/" not in low:
+        return None
+    score = 0
+    if "48x48" in low:
+        score -= 2
+    if "/apps/" in low:
+        score -= 1
+    return score
+
+
+def _deb_control_fields(raw):
+    """
+    F60 (0.45.0): deb-control-Datei – 'Feld: Wert', Fortsetzungs-
+    zeilen (führende Leerzeichen) hängen am Wert; ' .' ist der
+    Absatz-Umbruch in der Langbeschreibung. Erstes Feld gewinnt.
+    """
+    fields = {}
+    cur = None
+    for line in raw.decode("utf-8", "replace").splitlines():
+        if line[:1] in (" ", "\t"):
+            if cur is not None:
+                txt = line.strip()
+                fields[cur] += "\n" + ("\n" if txt == "." else txt)
+        elif ":" in line:
+            key, _, val = line.partition(":")
+            cur = key.strip()
+            if cur:
+                fields.setdefault(cur, val.strip())
+    return fields
+
+
+def _kb_size(kb):
+    """F60: deb Installed-Size steht in KB – lesbar formatieren."""
+    try:
+        return human_size(int(kb) * 1024)
+    except (TypeError, ValueError):
+        return None
+
+
+def _deb_rows(fields):
+    """
+    F60 (0.45.0): Info-Zeilen aus der control-Datei – nur gesetzte
+    Felder; die Description zerfällt in Kurz- und Langbeschreibung.
+    """
+    short, _, long = (fields.get("Description") or "").partition("\n")
+    rows = [("Paketname", fields.get("Package")),
+            ("Version", fields.get("Version")),
+            ("Architektur", fields.get("Architecture")),
+            ("Paketformat", "DEB"),
+            ("Sektion", fields.get("Section")),
+            ("Kurzbeschreibung", short.strip()),
+            ("Beschreibung", long.strip("\n").strip()),
+            ("Installierte Größe", _kb_size(fields.get("Installed-Size"))),
+            ("Abhängigkeiten", fields.get("Depends")),
+            ("Empfehlungen", fields.get("Recommends")),
+            ("Paketverwalter", fields.get("Maintainer")),
+            ("Homepage", fields.get("Homepage"))]
+    return _meta_rows(rows)
+
+
+def _deb_icon(path, member):
+    """F60: App-Icon aus data.tar – best effort mit Budget."""
+    offset, size, name = member
+    mode = _tar_mode(name, stream=True)
+    if mode is None:
+        return None
+    with open(path, "rb") as fh:
+        tf = tarfile.open(fileobj=_WindowReader(fh, offset,
+                                                _PKG_ICON_SCAN_CAP),
+                          mode=mode)
+        best = None
+        for m in tf:
+            score = _pkg_icon_score((m.name or "").lstrip("./"), m.size)
+            if score is None or (best is not None and score >= best[0]):
+                continue
+            best = (score, tf.extractfile(m).read())
+            if best[0] <= -3:
+                break
+        return best[1] if best else None
+
+
+def _deb_data(path):
+    """
+    F60 (0.45.0): Debian-Paket (.deb) – ar-Archiv: control.tar.<gz|xz>
+    trägt die control-Datei (Bordmittel), data.tar.<gz|xz> den
+    Payload, daraus wird best effort das erste App-Icon gefischt
+    (Budget, sonst gezeichneter Platzhalter). Rückgabe (rows, icon).
+    """
+    control = None
+    data_member = None
+    with open(path, "rb") as fh:
+        if fh.read(8) != b"!<arch>\n":
+            raise ValueError("kein Debian-Paket (ar-Magie fehlt)")
+        while True:
+            head = fh.read(60)
+            if len(head) < 60:
+                break
+            name = head[0:16].decode("ascii", "replace").rstrip()
+            try:
+                size = int(head[48:58].decode("ascii", "replace").strip())
+            except ValueError:
+                raise ValueError("ar-Member-Kopf unlesbar")
+            body = fh.tell()
+            if name.startswith("control.tar"):
+                mode = _tar_mode(name)
+                if mode is None:
+                    raise ValueError("control.tar.zst – zstd ist kein "
+                                     "Bordmittel")
+                raw = fh.read(min(size, _PKG_CONTROL_CAP))
+                tf = tarfile.open(fileobj=io.BytesIO(raw), mode=mode)
+                for m in tf:
+                    if (m.name or "").lstrip("./") == "control":
+                        control = tf.extractfile(m).read()
+                        break
+                tf.close()
+            elif name.startswith("data.tar"):
+                data_member = (body, size, name)
+            fh.seek(body + size + size % 2)
+    if control is None:
+        raise ValueError("keine control-Datei im Paket")
+    rows = _deb_rows(_deb_control_fields(control))
+    icon = None
+    if data_member is not None:
+        try:
+            icon = _deb_icon(path, data_member)
+        except Exception as e:
+            dbg("F60 deb icon: suppressed: %s" % e)
+    return rows, icon
+
+
+def _rpm_section(data, pos):
+    """
+    F60 (0.45.0): RPM-Header-Abschnitt ab pos – Magie 8E AD E8,
+    16-Byte-Kopf (Index-Anzahl + Speichergröße), je 16-Byte-Index-
+    einträge (Tag, Typ, Offset, Anzahl) und der Datenspeicher.
+    Rückgabe (index, store, end).
+    """
+    if data[pos:pos + 3] != b"\x8e\xad\xe8":
+        raise ValueError("RPM-Header-Magie fehlt bei Offset %d" % pos)
+    n, size = struct.unpack(">II", data[pos + 8:pos + 16])
+    i0 = pos + 16
+    if i0 + 16 * n + size > len(data):
+        raise ValueError("RPM-Header größer als der Lesepuffer")
+    index = [struct.unpack(">IIII", data[i0 + 16 * i:i0 + 16 * i + 16])
+             for i in range(n)]
+    store = data[i0 + 16 * n:i0 + 16 * n + size]
+    return index, store, i0 + 16 * n + size
+
+
+def _rpm_value(index, store, tag):
+    """
+    F60: Erster Wert eines RPM-Tags – STRING (7) und I18NSTRING (9)
+    als str, STRING_ARRAY (6) als Liste, INT32 (4) als int; sonst None.
+    """
+    for (t, typ, off, cnt) in index:
+        if t != tag or off >= len(store):
+            continue
+        chunk = store[off:]
+        if typ in (7, 9):
+            return chunk.split(b"\x00", 1)[0].decode("utf-8", "replace")
+        if typ == 6:
+            parts = chunk.split(b"\x00")
+            if cnt and 0 < cnt <= len(parts):
+                parts = parts[:cnt]
+            out = [p.decode("utf-8", "replace") for p in parts if p]
+            return out or None
+        if typ == 4 and off + 4 <= len(store):
+            return struct.unpack(">i", store[off:off + 4])[0]
+    return None
+
+
+def _rpm_rows(index, store):
+    """F60: Info-Zeilen aus dem RPM-Header – nur gesetzte Tags."""
+    def s(tag):
+        val = _rpm_value(index, store, tag)
+        return val.strip() if isinstance(val, str) and val.strip() else None
+    ver, rel = s(1001), s(1002)
+    version = "%s-%s" % (ver, rel) if ver and rel else (ver or rel)
+    size = _rpm_value(index, store, 1009)
+    size = human_size(size) if isinstance(size, int) else None
+    reqs = _rpm_value(index, store, 1049)
+    if isinstance(reqs, list):
+        reqs = ", ".join(r for r in reqs if not r.startswith(
+            ("rpmlib(", "config(", "rtld(")))
+    else:
+        reqs = None
+    rows = [("Paketname", s(1000)),
+            ("Version", version),
+            ("Architektur", s(1022)),
+            ("Paketformat", "RPM"),
+            ("Zusammenfassung", s(1004)),
+            ("Beschreibung", s(1005)),
+            ("Gruppe", s(1016)),
+            ("Lizenz", s(1014)),
+            ("Installierte Größe", size),
+            ("Abhängigkeiten", reqs),
+            ("Paketverwalter", s(1015)),
+            ("Homepage", s(1020))]
+    return _meta_rows(rows)
+
+
+def _rpm_data(path):
+    """
+    F60 (0.45.0): RPM – Lead (96 B), Signatur-Header und Haupt-Header
+    liegen am Dateianfang (Bordmittel: struct); der cpio-Payload
+    bleibt außen vor (meist zstd) – die Vorschau zeigt den gezeich-
+    neten Platzhalter. Rückgabe (rows, None).
+    """
+    with open(path, "rb") as fh:
+        data = fh.read(_PKG_HEADER_CAP)
+    if len(data) < 96 or data[0:4] != b"\xed\xab\xee\xdb":
+        raise ValueError("kein RPM (Lead-Magie fehlt)")
+    _, _, end = _rpm_section(data, 96)
+    pos = end + (-end) % 8
+    try:
+        index, store, _ = _rpm_section(data, pos)
+    except ValueError:
+        index, store, _ = _rpm_section(data, end + (-end) % 16)
+    return _rpm_rows(index, store), None
+
+
+def _pkginfo_fields(raw):
+    """
+    F60 (0.45.0): .PKGINFO ('key = value' je Zeile) – Mehrfach-Zeilen
+    (depend, optdepend, makedepend, license, group) sammeln, bei
+    Einzelfeldern gewinnt der erste Wert. Rückgabe (single, multi).
+    """
+    single = {}
+    multi = {"depend": [], "optdepend": [], "makedepend": [],
+             "license": [], "group": []}
+    for line in raw.decode("utf-8", "replace").splitlines():
+        if "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key, val = key.strip(), val.strip()
+        if not key or not val:
+            continue
+        if key in multi:
+            multi[key].append(val)
+        else:
+            single.setdefault(key, val)
+    return single, multi
+
+
+def _pkg_rows(single, multi):
+    """F60: Info-Zeilen aus .PKGINFO – nur gesetzte Felder."""
+    ver, rel = single.get("pkgver"), single.get("pkgrel")
+    version = "%s-%s" % (ver, rel) if ver and rel else (ver or rel)
+    try:
+        size = human_size(int(single.get("size")))
+    except (TypeError, ValueError):
+        size = None
+    rows = [("Paketname", single.get("pkgname")),
+            ("Version", version),
+            ("Architektur", single.get("arch")),
+            ("Paketformat", "Pacman"),
+            ("Kurzbeschreibung", single.get("pkgdesc")),
+            ("Installierte Größe", size),
+            ("Abhängigkeiten", ", ".join(multi["depend"])),
+            ("Optionale Abhängigkeiten", ", ".join(multi["optdepend"])),
+            ("Lizenz", ", ".join(multi["license"])),
+            ("Paketverwalter", single.get("packager")),
+            ("Homepage", single.get("url"))]
+    return _meta_rows(rows)
+
+
+def _pkg_data(path):
+    """
+    F60 (0.45.0): Arch-/Pacman-Paket (.pkg.tar.xz, AUR-Bauten u. a.)
+    – .PKGINFO gibt die Metadaten, im selben Stream-Durchlauf wird
+    das App-Icon gefischt (Budget, sonst Platzhalter). .pkg.tar.zst
+    bräuchte zstd – kein Bordmittel, dann Öffnen-Hinweis.
+    Rückgabe (rows, icon).
+    """
+    if path.lower().endswith(".pkg.tar.zst"):
+        raise ValueError("pkg.tar.zst – zstd ist kein Bordmittel")
+    single = None
+    multi = {}
+    best = None
+    with open(path, "rb") as fh:
+        tf = tarfile.open(fileobj=_WindowReader(fh, 0,
+                                                _PKG_ICON_SCAN_CAP),
+                          mode="r|xz")
+        try:
+            for m in tf:
+                name = (m.name or "").lstrip("./")
+                if name == ".PKGINFO" and single is None:
+                    single, multi = _pkginfo_fields(
+                        tf.extractfile(m).read())
+                else:
+                    score = _pkg_icon_score(name, m.size)
+                    if (score is None or (best is not None
+                                         and score >= best[0])):
+                        continue
+                    best = (score, tf.extractfile(m).read())
+                    if best[0] <= -3 and single is not None:
+                        break
+        except Exception as e:
+            dbg("F60 pkg stream: suppressed: %s" % e)
+    if single is None:
+        raise ValueError("keine .PKGINFO im Paket")
+    return _pkg_rows(single, multi), (best[1] if best else None)
+
+
+def _package_placeholder(fmt, w=240, h=200):
+    """
+    F60 (0.45.0): Gezeichnetes Paket-Icon (Karton mit Deckel und
+    Format-Signet) für Pakete ohne auslesbares App-Icon – z. B. RPM
+    (cpio-Payload) oder tar.zst. Ohne Cairo: None, der Aufrufer
+    zeigt dann den Öffnen-Hinweis.
+    """
+    if not HAVE_PANGOCAIRO:
+        return None
+    try:
+        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
+        cr = cairo.Context(surf)
+        pat = cairo.LinearGradient(0.0, 0.0, 0.0, h)
+        pat.add_color_stop_rgba(0.0, 0.90, 0.90, 0.92, 1.0)
+        pat.add_color_stop_rgba(1.0, 0.76, 0.76, 0.80, 1.0)
+        cr.set_source(pat)
+        cr.paint()
+        cr.set_source_rgba(0.62, 0.62, 0.66, 1.0)
+        cr.rectangle(w * 0.18, h * 0.22, w * 0.64, h * 0.10)
+        cr.fill()
+        cr.rectangle(w * 0.22, h * 0.32, w * 0.56, h * 0.46)
+        cr.fill()
+        pl = PangoCairo.create_layout(cr)
+        pl.set_text(fmt, -1)
+        pl.set_font_description(
+            Pango.FontDescription.from_string("Sans Bold 28"))
+        pw, ph = pl.get_size()
+        cr.set_source_rgba(0.35, 0.35, 0.40, 1.0)
+        cr.move_to((w - pw / 1024.0) / 2.0,
+                   h * 0.55 - ph / 1024.0 / 2.0)
+        PangoCairo.show_layout(cr, pl)
+        return Gdk.pixbuf_get_from_surface(surf, 0, 0, w, h)
+    except Exception as e:
+        dbg("Package placeholder failed (%s)" % e)
+        return None
+
 
 # --- Fonts: waterfall for TrueType/OpenType (stdlib) -------------------------
 
@@ -1868,6 +2273,103 @@ class TextRendererMixin:
         """MOBI/PRC/AZW-Vorschau (F59: Platzhalter-Deckel, Buch-Infos)."""
         self._render_ebook(path, _mobi_data, "MOBI")
 
+    def _pack_package_capped(self, scroll):
+        """
+        F60 (0.45.0): Umgekehrter Bild-Split (F38): 40 % Icon oben,
+        60 % Info-Bereich unten – der liegt im ScrolledWindow, weil
+        Paket-Infos (Beschreibung, Abhängigkeiten) gern länger sind
+        als der Bereich. Die Aufteilung lebt mit dem Fenster-Resize
+        (Muster _image_split_sync).
+        """
+        # → REF TXT-PKG-1
+        top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        try:
+            vp = scroll.get_child()
+            img = vp.get_child() if vp is not None else None
+            if img is not None:
+                img.set_halign(Gtk.Align.CENTER)
+                img.set_valign(Gtk.Align.CENTER)
+        except Exception as e:
+            dbg("text/_pack_package_capped: suppressed: %s" % e)
+        top.pack_start(scroll, True, True, 0)
+        bottom = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        info_scroll = Gtk.ScrolledWindow()
+        info_scroll.set_policy(Gtk.PolicyType.NEVER,
+                               Gtk.PolicyType.AUTOMATIC)
+        info_scroll.set_overlay_scrolling(False)
+        info_scroll.add(bottom)
+        self._package_info_box = bottom
+        top.set_size_request(-1,
+                             max(80, int(self._preview_height() * 0.4)))
+        top.connect("size-allocate", self._package_split_sync)
+        self._content.pack_start(top, False, True, 0)
+        sep = Gtk.Separator.new(Gtk.Orientation.HORIZONTAL)
+        sep.set_margin_top(8)
+        sep.set_margin_bottom(8)
+        self._content.pack_start(sep, False, True, 0)
+        self._content.pack_start(info_scroll, True, True, 0)
+
+    def _package_split_sync(self, widget, allocation):
+        """F60: Icon-Bereich auf 40 % der Spaltenhöhe nachziehen."""
+        # → REF TXT-PKG-1
+        try:
+            ch = self._content.get_allocated_height()
+            if ch > 100:
+                want = max(80, int(ch * 0.4))
+                cur = widget.get_size_request()[1] or 0
+                if abs(cur - want) > 2:
+                    widget.set_size_request(-1, want)
+        except Exception as e:
+            dbg("text/_package_split_sync: suppressed: %s" % e)
+
+    def _render_package(self, path, loader, fmt):
+        """
+        F60 (0.45.0): Paket-Vorschau (DEB, RPM, Arch/Pacman) – 40 %
+        Icon oben (eingebettetes App-Icon aus dem Payload, sonst der
+        gezeichnete Paket-Platzhalter), 60 % Info-Tabelle unten im
+        scrollbaren Bereich. Lässt sich das Paket nicht lesen, gibt
+        es einen Hinweis plus generische Vorschau.
+        """
+        try:
+            rows, icon = loader(path)
+        except Exception as e:
+            dbg("Package unreadable (%s): %s" % (path, e))
+            pack_hint(self._content, "Paket konnte nicht gelesen werden: %s" % e)
+            self._render_generic()
+            return
+        if not rows:
+            rows = [("Paketformat", fmt)]
+        pb = None
+        if icon:
+            try:
+                pb = _pixbuf_from_bytes(icon)
+            except Exception as exc:
+                dbg("Package icon not displayable: %s" % exc)
+        if pb is None:
+            pb = _package_placeholder(fmt)
+        if pb is None:
+            pack_hint(self._content, "Kein Icon vorhanden – Datei über den "
+                       "Öffnen-Knopf betrachten.")
+            pack_meta_grid(rows, self._content)
+            return
+        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=True,
+                                    keep_height=True, max_upscale=2.0,
+                                    frac_h=0.4)
+        self._pack_package_capped(scroll)
+        pack_meta_grid(rows, self._package_info_box, wrap=True)
+
+    def _render_deb(self, path):
+        """Debian-Paket-Vorschau (F60: Icon oben, Infos scrollbar)."""
+        self._render_package(path, _deb_data, "DEB")
+
+    def _render_rpm(self, path):
+        """RPM-Vorschau (F60: Platzhalter-Icon, Infos scrollbar)."""
+        self._render_package(path, _rpm_data, "RPM")
+
+    def _render_pkg(self, path):
+        """Arch-Paket-Vorschau (F60: Icon oben, Infos scrollbar)."""
+        self._render_package(path, _pkg_data, "PKG")
+
     def _render_font(self, path):
         """
         Schriftarten-Wasserfall (TrueType, OpenType, Collections): die
@@ -1966,7 +2468,7 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-PREVIEWER_VERSION = "0.44.0"
+PREVIEWER_VERSION = "0.45.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "K4 markdown and read caps stay)"
