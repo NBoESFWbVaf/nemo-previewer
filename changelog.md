@@ -6,6 +6,28 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.44.0\] – 2026-11-02
+
+### Changed (Geändert)
+
+- F59 – E-Book-Vorschau neu (Nutzer-Wunsch): Die Vorschauspalte  
+  teilt sich wie bei Bildern in 60 % oben / 40 % unten. Oben  
+  zeigt nur das eingebettete Cover (EPUB aus dem Manifest, FB2  
+  aus der base64-binary); ohne Cover zeichnet  
+  \_ebook\_placeholder ein Hochformat-Bild (Buchdeckel-Gerüst,  
+  themeneutral wie der vCard-Platzhalter). Unten steht die  
+  Info-Tabelle wie bei Bilddateien – nur Zeilen mit gesetzten  
+  Tags: Buchtitel, Autor, Teil einer Reihe (EPUB: calibre:series  
+  oder EPUB3 belongs-to-collection mit group-position; FB2:  
+  sequence mit Nummer), Anzahl Seiten (nur wenn das OPF einen  
+  page-count-Meta trägt – kein Standard-Tag), Ebookformat,  
+  Sprache. Die Textvorschau ist abgeschafft: Sie renderte  
+  unschön, die Buch-Infos reichen vollkommen aus.  
+  Nebeneffekt: Ohne Text-Extraktion blockiert HUFF/CDIC nicht  
+  mehr – Titel und Autor zeigen sich jetzt auch bei AZW-Dateien  
+  (Vorschau zeigt den Platzhalter-Deckel, MOBI-Cover stecken  
+  als REC-Eintrag und sind anders adressiert).
+
 ## \[0.43.0\] – 2026-11-02
 
 ### Fixed (Behoben)
@@ -88,7 +110,19 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Changed (Geändert)
 
-- Spaghetti-Audit-Runde 1 (Nutzer-Auftrag „gesamten Code auf  \n  Spaghetti-Code untersuchen"): God-Functions zerlegt – das  \n  Einstellungsfenster baut sich aus vier Rubrik-Helfern (Allgemein,  \n  Textdateien, Dokumente, Schriftarten) statt aus einer 171-Zeilen-  \n  Funktion, \_render\_office\_thumb liest Paketdaten und No-ZIP-Hinweis  \n  über zwei Helfer mit Early-Returns statt 13 Verschachtelungsebenen,  \n  und \_apply_scale skaliert über den neuen Per-Bild-Helfer  \n  \_scale\_item (Tiefe 12 → 5). Die F46-Diagnose-Maschinerie ist  \n  zurückgebaut (\_dbg\_pixels mit Pixelsonden und Panel-Scan,  \n  \_dbg\_list\_margins, GdkWindow-Flag in der Ordner-Logzeile) – F46 ist  \n  seit 0.31.11 gelöst; die funktionalen Hintergrund-Painter, die  \n  CSS-Regel und die Ordner-Icons-Diagnosezeile bleiben. Verhalten  \n  unverändert.
+- Spaghetti-Audit-Runde 1 (Nutzer-Auftrag „gesamten Code auf  
+  Spaghetti-Code untersuchen"): God-Functions zerlegt – das  
+  Einstellungsfenster baut sich aus vier Rubrik-Helfern (Allgemein,  
+  Textdateien, Dokumente, Schriftarten) statt aus einer 171-Zeilen-  
+  Funktion, \_render\_office\_thumb liest Paketdaten und No-ZIP-Hinweis  
+  über zwei Helfer mit Early-Returns statt 13 Verschachtelungsebenen,  
+  und \_apply_scale skaliert über den neuen Per-Bild-Helfer  
+  \_scale\_item (Tiefe 12 → 5). Die F46-Diagnose-Maschinerie ist  
+  zurückgebaut (\_dbg\_pixels mit Pixelsonden und Panel-Scan,  
+  \_dbg\_list\_margins, GdkWindow-Flag in der Ordner-Logzeile) – F46 ist  
+  seit 0.31.11 gelöst; die funktionalen Hintergrund-Painter, die  
+  CSS-Regel und die Ordner-Icons-Diagnosezeile bleiben. Verhalten  
+  unverändert.
 
 ## \[0.39.0\] – 2026-11-01
 
