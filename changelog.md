@@ -6,6 +6,23 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.46.0\] – 2026-11-02
+
+### Added (Hinzugefügt)
+
+- F8 – CSV als echte Tabelle (Gtk.TreeView): Trennzeichen UND  
+  Kopfzeile ermittelt das Modul selbst (Nutzer-Anforderung –  
+  die Spalten-/Zellenbegrenzung wird nie aus dem Dateinamen  
+  geraten); csv.Sniffer probiert Komma, Semikolon, TAB und  
+  Pipe gegen die ersten Zeilen; 4-MB-Lese-Deckel, 1000-Zeilen-  
+  Vorschau, Spalten klick-sortierbar und resizebar.
+- F6 – SQLite-Datenbanken (.db/.sqlite): Tabellenliste mit  
+  Spalten und Zeilenanzahl; die Struktur kommt aus dem Schema  
+  (sqlite_master, PRAGMA table\_info), geöffnet garantiert  
+  read-only (PRAGMA query\_only); Magie-Check schickt Fremd-.db  
+  in den Öffnen-Hinweis; ein Progress-Deckel stoppt endlose  
+  COUNT-Scans (F60-Lektion) – solche Zähler zeigen „…".
+
 ## \[0.45.1\] – 2026-11-02
 
 ### Fixed (Behoben)
