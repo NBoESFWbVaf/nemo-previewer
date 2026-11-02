@@ -145,7 +145,7 @@ if os.path.isdir(_MODDIR) and _MODDIR not in sys.path:
 
 - **Modul:** previewer\_panel.py
 - **Ort:** `_render_inner`, über `self._render_text(path)`
-- **Anlass:** Endungslose Dateien sind meist Text; der Gio-MIME-Rater kennt nur bekannte Namen – der Schnüffler entscheidet über den Inhalt.
+- **Anlass:** Endungslose Dateien sind meist Text; der Gio-MIME-Rater kennt nur bekannte Namen – der Schnüffler entscheidet über den Inhalt. 0.42.2 (B10): Der endungslose Sonderweg ist im vereinheitlichten B10-Zweig aufgegangen (→ PAN-B10-1).
 
 ```text
             # F23: endungslose Dateien sind in der Regel Text (Notizen,
@@ -158,11 +158,28 @@ if os.path.isdir(_MODDIR) and _MODDIR not in sys.path:
 ### PAN-F47-1 – Schnüffel-Fallback für opake Typen (F47)
 
 - **Modul:** previewer\_panel.py
-- **Ort:** `_render_inner`, neuer Zweig vor `self._render_generic()`; zusätzlich .theme/.old/.bak/.orig in \_TEXT\_EXTRAS und das neue \_OPAQUE\_TYPES am Modulkopf
+- **Ort:** `_render_inner`, neuer Zweig vor `self._render_generic()`; zusätzlich .theme/.old/.bak/.orig in \_TEXT\_EXTRAS und das neue \_OPAQUE\_TYPES am Modulkopf (0.42.2/B10: \_OPAQUE\_TYPES entfallen, → PAN-B10-1)
 - **Anlass:** Nutzer-Fund (2026-10-31): Reine Textdateien bekamen keine Text-Vorschau, weil der Typ-Rater der MIME-Datenbank nur den NAMEN liest – index.theme galt als application/x-theme, .xsession-errors.old als application/x-trash („Sicherheitskopie"); .xsession-errors dagegen hat als Dotfile KEINE Endung (splitext zählt den führenden Punkt zum Namen) und lief dem F23-Schnüffler in die Arme. Fix: (1) .theme/.old/.bak/.orig in die Endungs-Whitelist \_TEXT\_EXTRAS (.swp bleibt draußen – Vim-Swap ist binär); (2) bei „opaken" Typen (application/x-trash, application/x-theme, application/octet-stream) lässt der Dispatch den Schnüffler über den INHALT entscheiden, bevor die Vorschau aufgibt – lesbarer Text bekommt die Text-Vorschau, Binärdateien fallen an der Schwelle (NULL-Bytes, ≥ 5 % Steuerzeichen in den ersten 4 KB). Damit sehen künftig auch unbekannte Endungen mit Textinhalt eine Vorschau.
 
 ```text
         elif mime in _OPAQUE_TYPES and _sniff_is_text(path):
+            self._render_text(path)
+```
+
+0.42.2 (B10): Der opake Sonderweg ist im B10-Zweig aufgegangen
+(→ PAN-B10-1); die Binär-Blacklist \_SNIFF\_BINARY\_MIMES tritt an
+die Stelle von \_OPAQUE\_TYPES.
+
+### PAN-B10-1 – Schnüffler als letzte Instanz (B10)
+
+- **Modul:** previewer\_panel.py
+- **Ort:** `_render_inner`, letzter elif-Zweig vor `self._render_generic()`; zusätzlich \_SNIFF\_BINARY\_MIMES am Modulkopf und die UTF-8-Decodier-Probe in \_sniff\_is\_text
+- **Anlass:** Nutzer-Fund (2026-11-02): Lesbare Textdateien mit Endungen, deren geratener MIME-Typ weder text/* noch „opaque“ war (.pub, .crt, .csr, .pref …), fielen trotz lesbarem Inhalt auf die Generic-Vorschau – der Schnüffler griff nur bei endungslosen Dateien (F23) und opaken Typen (F47). Fix: Der Dispatch befragt \_sniff\_is\_text IMMER als letzte Instanz vor dem Generic-Fallback, unabhängig von Endung und MIME; Bilder/Töne/Videos/PDF/Fonts/Office bleiben durch die früheren Dispatch-Zweige draußen, bekannte Binär-Typen (zip, gzip, x-tar, x-bzip2, x-xz, x-7z-compressed, x-rar, x-executable, x-sharedlib, x-ms-dos-executable) über die Blacklist. \_sniff\_is\_text prüft zweistufig: NULL-Bytes und ≥ 5 % Steuerzeichen in den ersten 4 KB, danach die UTF-8-Decodier-Probe – ein Kopf mit ≥ 30 % 8-Bit-Bytes ohne gültiges UTF-8 gilt als gepackt/verschlüsselt (Latin-1-Text bleibt erlaubt); je Snüffel-Treffer loggt eine dbg-Zeile den geratenen MIME.
+
+```text
+        elif mime not in _SNIFF_BINARY_MIMES and _sniff_is_text(path):
+            dbg("panel/_render_inner: B10 sniff: %s -> text (mime %s)"
+                % (os.path.basename(path), mime))
             self._render_text(path)
 ```
 
