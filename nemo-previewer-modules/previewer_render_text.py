@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.45.1
+previewer_render_text.py – Version 0.46.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -12,12 +12,14 @@ import os
 import sys
 import re
 import base64
+import csv
 import ctypes
 import ctypes.util
 import hashlib
 import html
 import io
 import shutil
+import sqlite3
 import struct
 import tarfile
 import tempfile
@@ -1906,6 +1908,96 @@ def _contact_parse(text):
     return cards
 
 
+# --- F8: CSV als echte Tabelle (Nutzer-Auftrag 2026-11-02) ---
+# 0.46.0: Die Spalten- und Zellenbegrenzung ermittelt das Modul
+# selbst (Nutzer-Anforderung) – csv.Sniffer ratet Trennzeichen
+# UND Kopfzeile aus dem Inhalt, nie aus dem Dateinamen.
+
+_CSV_FILE_CAP = 4 * 1024 * 1024     # F8: max bytes of a CSV file
+_CSV_ROW_CAP = 1000                 # F8: max preview rows
+_CSV_SNIFF_CAP = 64 * 1024          # F8: bytes for csv.Sniffer
+
+
+def _csv_data(path):
+    """F8: liefert (headers, rows, delim, truncated)."""
+    with open(path, "rb") as fh:
+        raw = fh.read(_CSV_FILE_CAP)
+    truncated = len(raw) == _CSV_FILE_CAP
+    text = raw.decode("utf-8-sig", "replace")
+    sample = text[:_CSV_SNIFF_CAP]
+    delim = ","
+    header = False
+    try:
+        sniffer = csv.Sniffer()
+        delim = sniffer.sniff(sample, delimiters=",;\t|").delimiter
+        header = sniffer.has_header(sample)
+    except Exception as e:
+        dbg("text/_csv_data: sniffer fallback (comma): %s" % e)
+    rows = []
+    for row in csv.reader(io.StringIO(text), delimiter=delim):
+        if len(rows) >= _CSV_ROW_CAP:
+            truncated = True
+            break
+        rows.append(row)
+    width = max(len(r) for r in rows) if rows else 0
+    rows = [r + [""] * (width - len(r)) for r in rows]
+    if header and rows:
+        headers = rows.pop(0)
+    else:
+        headers = ["Spalte %d" % (i + 1) for i in range(width)]
+    return headers, rows, delim, truncated
+
+
+# --- F6: SQLite-Datenbanken (Nutzer-Auftrag 2026-11-02) ---
+# 0.46.0: Struktur aus dem Schema, read-only geöffnet – Spalten
+# und Zellenbegrenzung ermittelt die Vorschau selbst.
+
+_SQLITE_MAGIC = b"SQLite format 3\x00"   # 16-Byte-Header
+_SQLITE_TABLE_CAP = 200                  # F6: max listed tables
+_SQLITE_COUNT_STEPS = 2000000            # F6: COUNT(*) opcode budget
+
+
+def _sqlite_data(path):
+    """
+    F6: Tabellenliste (Name, Spalten, Zeilenanzahl) aus dem
+    Schema. Der Magie-Check schickt Fremd-Dateien (.db ist
+    nicht immer SQLite) in den Öffnen-Hinweis. Der Progress-
+    Deckel stoppt endlose COUNT-Scans über Riesen-Tabellen
+    (F60-Lektion: die Vorschau muss sofort da sein).
+    """
+    with open(path, "rb") as fh:
+        if fh.read(16) != _SQLITE_MAGIC:
+            raise ValueError("keine SQLite-Datenbank (Magie fehlt)")
+    rows = []
+    truncated = False
+    con = sqlite3.connect(path)
+    try:
+        con.execute("PRAGMA query_only = 1")
+        con.set_progress_handler(lambda: 1, _SQLITE_COUNT_STEPS)
+        tables = [r[0] for r in con.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' "
+            "AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+        if len(tables) > _SQLITE_TABLE_CAP:
+            truncated = True
+            tables = tables[:_SQLITE_TABLE_CAP]
+        for name in tables:
+            q = '"%s"' % name.replace('"', '""')
+            cols = ", ".join(
+                r[1] for r in con.execute(
+                    'PRAGMA table_info(%s)' % q))
+            try:
+                count = con.execute(
+                    "SELECT COUNT(*) FROM %s" % q).fetchone()[0]
+            except sqlite3.OperationalError as e:
+                dbg("text/_sqlite_data: count aborted (%s): %s"
+                    % (name, e))
+                count = "…"
+            rows.append((name, cols, str(count)))
+    finally:
+        con.close()
+    return rows, truncated
+
+
 class TextRendererMixin:
     """Mixin: Renderer für Text, Markdown, EML, E-Book, Schrift, vCard."""
 
@@ -2384,6 +2476,96 @@ class TextRendererMixin:
         """Arch-Paket-Vorschau (F60: Icon oben, Infos scrollbar)."""
         self._render_package(path, _pkg_data, "PKG")
 
+    def _pack_table(self, headers, rows):
+        """
+        F8/F6 (0.46.0): Echte Tabellen als Gtk.TreeView – beide
+        Richtungen scrollbar, Spalten per Klick sortier- und in
+        der Breite ziehbar. F56 (Tabellenkalkulationen) kann
+        denselben Renderer später wiederverwenden.
+        """
+        # → REF TXT-CSV-1
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                          Gtk.PolicyType.AUTOMATIC)
+        scroll.set_overlay_scrolling(False)
+        view = Gtk.TreeView()
+        view.set_hexpand(True)
+        view.set_vexpand(True)
+        view.set_headers_clickable(True)
+        view.set_grid_lines(Gtk.TreeViewGridLines.HORIZONTAL)
+        store = Gtk.ListStore(*([str] * len(headers)))
+        for row in rows:
+            store.append([str(c) for c in row])
+        view.set_model(store)
+        for i, title in enumerate(headers):
+            col = Gtk.TreeViewColumn()
+            col.set_title(title)
+            col.set_resizable(True)
+            col.set_clickable(True)
+            col.set_sort_column_id(i)
+            cell = Gtk.CellRendererText()
+            cell.set_property("ellipsize", Pango.EllipsizeMode.END)
+            col.pack_start(cell, True)
+            col.add_attribute(cell, "text", i)
+            view.append_column(col)
+        scroll.add(view)
+        self._content.pack_start(scroll, True, True, 0)
+
+    def _render_csv(self, path):
+        """
+        F8 (0.46.0): CSV als echte Tabelle. Das Modul ermittelt
+        Trennzeichen UND Kopfzeile selbst aus dem Inhalt
+        (Nutzer-Anforderung: die Spalten-/Zellenbegrenzung wird
+        nie aus dem Dateinamen geraten) – csv.Sniffer probiert
+        Komma, Semikolon, TAB und Pipe gegen die ersten Zeilen.
+        """
+        # → REF TXT-CSV-1
+        try:
+            headers, rows, delim, truncated = _csv_data(path)
+        except Exception as e:
+            dbg("CSV unreadable (%s): %s" % (path, e))
+            pack_hint(self._content, "Tabelle konnte nicht gelesen "
+                       "werden: %s" % e)
+            self._render_generic()
+            return
+        if not rows:
+            pack_hint(self._content, "Die Datei enthält keine "
+                      "Tabellenzeilen.")
+            return
+        self._pack_table(headers, rows)
+        dbg("text/_render_csv: Trenner %r erkannt, %d Zeilen"
+            % (delim, len(rows)))
+        if truncated:
+            pack_hint(self._content,
+                      "Vorschau gekürzt (max. %d Zeilen)."
+                      % _CSV_ROW_CAP)
+
+    def _render_sqlite(self, path):
+        """
+        F6 (0.46.0): SQLite-Datenbanken – Tabellenliste mit
+        Spalten und Zeilenanzahl. Die Struktur kommt komplett aus
+        dem Schema (sqlite_master, PRAGMA table_info), geöffnet
+        wird read-only (PRAGMA query_only).
+        """
+        # → REF TXT-SQL-1
+        try:
+            rows, truncated = _sqlite_data(path)
+        except Exception as e:
+            dbg("SQLite unreadable (%s): %s" % (path, e))
+            pack_hint(self._content, "Datenbank konnte nicht gelesen "
+                       "werden: %s" % e)
+            self._render_generic()
+            return
+        if not rows:
+            pack_hint(self._content, "Die Datenbank enthält keine "
+                      "Tabellen.")
+            return
+        self._pack_table(["Tabelle", "Spalten", "Zeilen"], rows)
+        if truncated:
+            pack_hint(self._content,
+                      "Vorschau gekürzt (max. %d Tabellen)."
+                      % _SQLITE_TABLE_CAP)
+
     def _render_font(self, path):
         """
         Schriftarten-Wasserfall (TrueType, OpenType, Collections): die
@@ -2482,8 +2664,9 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-PREVIEWER_VERSION = "0.45.1"
+PREVIEWER_VERSION = "0.46.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
+    "F8: CSV table; F6: SQLite overview; "
     "K4 markdown and read caps stay)"
     % PREVIEWER_VERSION)
