@@ -6,6 +6,14 @@ versioning: [Semantic Versioning](https://semver.org/).
 
 ## \[Unreleased\]
 
+## \[0.48.3\] – 2026-11-02
+
+### Changed
+
+- F50 – EXIF details window: 10px inner padding via the  
+  TextView left/right/top/bottom margins – the scrollbar  
+  stays flush at the window edge (padding, not margins).  
+
 ## \[0.48.2\] – 2026-11-02
 
 ### Fixed
