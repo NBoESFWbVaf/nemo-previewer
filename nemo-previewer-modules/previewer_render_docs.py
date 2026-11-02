@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.42.2
+previewer_render_docs.py – Version 0.43.0
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -33,6 +33,7 @@ from previewer_util import (
     dbg,
     MAX_IMAGE_HEIGHT,
     _zf_read_capped, _pixbuf_from_bytes,
+    _xml_dtd_rejected,
     pack_hint,
 )
 
@@ -110,8 +111,12 @@ def _extract_office_text(zf, names):
     try:
         # 0.9.2: read caps against decompression bombs – the text
         # excerpt only needs the document start anyway.
-        root = ElementTree.fromstring(
-            _zf_read_capped(zf, entry, _OFFICE_XML_CAP))
+        raw = _zf_read_capped(zf, entry, _OFFICE_XML_CAP)
+        # R10: Office-XML kommt ohne DTD aus – Entity-Guard vor
+        # dem Parsen; bei Ablehnung bleibt der Textauszug leer.
+        if _xml_dtd_rejected(raw, "Office-XML " + entry):
+            return ""
+        root = ElementTree.fromstring(raw)
     except Exception:
         return ""
     parts = []
@@ -560,7 +565,7 @@ class DocsRendererMixin:
             dbg("docs/_office_job_done: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.42.2"
+PREVIEWER_VERSION = "0.43.0"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)
