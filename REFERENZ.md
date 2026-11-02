@@ -2626,6 +2626,10 @@ monospace read-only TextView, output capped at 2000 lines;
 without exiftool the button never appears – the info area
 shows an install hint with the Debian package name
 libimage-exiftool-perl instead.
+0.48.1 fixes (user deploy feedback): the "more" button
+keeps NORMAL relief (it must look like a button); the spawn
+result is indexed (res[0]..res[3]) – PyGObject tuples vary
+in size, a 4-value unpack raises ValueError.
 ```
 
 ---
