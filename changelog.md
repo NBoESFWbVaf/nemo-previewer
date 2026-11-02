@@ -6,6 +6,32 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## \[Unreleased\]
 
+## \[0.45.0\] – 2026-11-02
+
+### Added (Hinzugefügt)
+
+- F60 – Paket-Vorschau (DEB, RPM, Arch): Paketdateien bekommen  
+  eine eigene Vorschau – 40 % Icon oben, 60 % Info-Tabelle unten,  
+  scrollbar, weil Paket-Infos (Beschreibung, Abhängigkeiten) gern  
+  länger sind als der Bereich. Alles mit Bordmitteln: .deb wird  
+  als ar-Archiv gelesen (control-Datei aus control.tar.gz/xz),  
+  .rpm per struct (Lead, Signatur- und Haupt-Header am Datei-  
+  anfang), Arch-Paket (.pkg.tar.xz, AUR-Bauten) über .PKGINFO  
+  im Tarball. Dargestellt werden nur gesetzte Felder: Paketname,  
+  Version, Architektur, Sektion/Gruppe, Kurz- und Langbeschreibung  
+  bzw. Zusammenfassung, Installierte Größe, Abhängigkeiten  
+  (RPM ohne rpmlib/config/rtld-Interna), Empfehlungen bzw.  
+  optionale Abhängigkeiten, Lizenz, Paketverwalter, Homepage.  
+  Das Icon oben kommt best effort aus dem Payload (erstes  
+  passendes App-Icon, Budget 48 MB Dekomprimierung), sonst zeigt  
+  ein gezeichneter Paket-Platzhalter das Format-Signet (DEB/RPM/  
+  PKG). pack\_meta\_grid packt Werte seit F60 optional mehrzeilig  
+  (wrap=True) statt mit Ellipsize. Grenzen (Bordmittel): zstd ist  
+  tabu – control.tar.zst und .pkg.tar.zst sowie der cpio-Payload  
+  von RPM bleiben außen vor; die Vorschau zeigt dann den Öffnen-  
+  Hinweis bzw. den Platzhalter. PKGBUILD/.SRCINFO sind Textdateien  
+  und laufen über die Text-Vorschau. 
+
 ## \[0.44.0\] – 2026-11-02
 
 ### Changed (Geändert)
