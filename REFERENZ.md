@@ -1321,6 +1321,245 @@ dragging the divider does not change it.
         # installation tip instead of diagnosing a broken file.
 ```
 
+### DOC-DOC-1 – Docstring: office\_cache\_dir
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `office\_cache\_dir` (module level)
+- **Reason:** Cache folder for LibreOffice conversion PDFs.
+
+```text
+Cache folder ~/.cache/previewer (created on demand).
+```
+
+### DOC-DOC-2 – Docstring: office\_cache\_path
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `office\_cache\_path` (module level)
+- **Reason:** Cache key of a converted PDF.
+
+```text
+Cache path of the converted PDF (key = hash of the absolute path).
+```
+
+### DOC-DOC-3 – Docstring: \_extract\_office\_text
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `\_extract\_office\_text` (module level)
+- **Reason:** Text excerpt from the Office ZIP with the R10 entity guard.
+
+```text
+Pull a text excerpt from an Office ZIP. ODF carries the
+content in content.xml (text:p/text:h/text:span), OOXML in
+word/document.xml (w:p/w:t) – in both cases collecting the
+text nodes is enough, paragraphs are carried over as line
+breaks.
+```
+
+### DOC-DOC-4 – Docstring: DocsRendererMixin (class)
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin` (class)
+- **Reason:** Class marker – document renderer mixin.
+
+```text
+Mixin: renderers for PDF and office documents.
+```
+
+### DOC-DOC-5 – Docstring: \_pdf\_page\_pixbuf
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._pdf\_page\_pixbuf` (method)
+- **Reason:** Renders one PDF page with white backing and pixel budget.
+
+```text
+Render one PDF page at target_w pixels width (white backing).
+```
+
+### DOC-DOC-6 – Docstring: \_pdf\_page\_cap
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._pdf\_page\_cap` (method)
+- **Reason:** F12 part 3 – effective page-limit value with fallback.
+
+```text
+F12 part 3 (0.27.0): effective cap for the document preview
+– 0 means unlimited, otherwise the number of pages shown.
+Configurable in the settings window (performance); if the
+config values are missing (old conf, foreign binding), the
+previous state applies: limit with MAX_PDF_PAGES.
+```
+
+### DOC-DOC-7 – Docstring: \_render\_pdf
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._render\_pdf` (method)
+- **Reason:** Scrollable PDF preview with F14 page indicator and R2 idle feed.
+
+```text
+PDF preview scrollable: all pages (up to the configured cap,
+otherwise all) are stacked vertically in a scrollable area.
+Each page is rendered at double panel width and – as with
+the image preview – only re-scaled on width changes, not
+re-rendered.
+F14: a subtle label "Page X of Y" above the area follows the
+page at the top edge of the viewport while scrolling – since
+0.27.0 ALWAYS, one-page documents also show "Page 1 of 1"
+(user request).
+R2: page 1 is rendered synchronously right away, the
+remaining pages are fed piecewise in a GLib idle – the panel
+appears instantly even for large/scanned PDFs, the UI does
+not freeze.
+```
+
+### DOC-DOC-8 – Docstring: \_pdf\_idle\_step
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._pdf\_idle\_step` (method)
+- **Reason:** R2 – one more PDF page per idle cycle, generation-guarded.
+
+```text
+R2: render one more PDF page in the idle (UI stays
+responsive). The index is carried in the call, not derived
+from len(self._pdf_src) – otherwise a render error could
+become an endless loop. Returns False: do not repeat
+automatically, the follow-up is scheduled explicitly each
+time.
+```
+
+### DOC-DOC-9 – Docstring: \_on\_pdf\_scrolled
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._on\_pdf\_scrolled` (method)
+- **Reason:** F14 – page indicator follows the viewport while scrolling.
+
+```text
+F14: update the page indicator while scrolling. Current is
+the page whose bottom edge crosses the top edge of the
+viewport – the page you are on. The coordinates of the page
+images are box coordinates and thus directly comparable with
+the scrollbar value.
+```
+
+### DOC-DOC-10 – Docstring: \_pdf\_scale\_one
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._pdf\_scale\_one` (method)
+- **Reason:** Live scaling of a single PDF page (never upscaled).
+
+```text
+Scale one PDF page to the target width and assign it.
+```
+
+### DOC-DOC-11 – Docstring: \_apply\_pdf\_scale
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._apply\_pdf\_scale` (method)
+- **Reason:** Re-scales all PDF pages on width changes.
+
+```text
+Fit all PDF pages to the current panel width.
+```
+
+### DOC-DOC-12 – Docstring: \_render\_office
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._render\_office` (method)
+- **Reason:** Sharp route via cached LibreOffice PDF with background fallback.
+
+```text
+Office documents (ODT/ODS/ODP, DOCX/XLSX/PPTX; F39: also
+DOC/XLS/PPT and RTF) – sharp route: if a fresh LibreOffice
+conversion PDF is in the cache, its pages are rendered sharp
+and at full panel width via Poppler (identical to the PDF
+preview, scrollable). Otherwise the embedded thumbnail
+appears first with a hint, and the conversion starts in the
+background – the sharp result shows up automatically as
+soon as it is ready. Without LibreOffice/Poppler it stays
+with the thumbnail.
+```
+
+### DOC-DOC-13 – Docstring: \_render\_office\_thumb
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._render\_office\_thumb` (method)
+- **Reason:** Transitional view: embedded thumbnail, text fallback, hint.
+
+```text
+Transitional view for office documents: the thumbnail
+embedded by the document itself (Thumbnails/thumbnail.png
+or docProps/thumbnail.*). Only if NO thumbnail is present, a
+text excerpt is shown instead. With converting=True the
+LibreOffice conversion runs in parallel – then with a hint.
+Since 0.40.0 two helpers read the package data and the
+no-ZIP hint.
+```
+
+### DOC-DOC-14 – Docstring: \_office\_nozip\_hint
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._office\_nozip\_hint` (method)
+- **Reason:** F39 – hint line for office formats without a ZIP part.
+
+```text
+F39: hint line for office formats WITHOUT a ZIP part
+(binary and RTF) – there are no embedded thumbnails there,
+only the LibreOffice conversion helps (→ REF DOC-LEGACY-1).
+```
+
+### DOC-DOC-15 – Docstring: \_office\_package\_data
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._office\_package\_data` (method)
+- **Reason:** Reads thumbnail and text excerpt from the Office ZIP with caps.
+
+```text
+Read the embedded thumbnail and the text excerpt from the
+Office ZIP package (0.9.2: read caps against thumbnail
+bombs) – throws on an unreadable package; returns
+(thumb|None, text).
+```
+
+### DOC-DOC-16 – Docstring: \_office\_cached\_pdf
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._office\_cached\_pdf` (method)
+- **Reason:** Fresh cache hit only if not older than the source file.
+
+```text
+Freshly converted PDF from the cache, or None.
+```
+
+### DOC-DOC-17 – Docstring: \_office\_fail
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._office\_fail` (method)
+- **Reason:** B4 – failed conversion memory, capped at 256 paths.
+
+```text
+Remember a failed conversion (B4: capped at 256 paths, the
+set then resets – retry loop protection).
+```
+
+### DOC-DOC-18 – Docstring: \_office\_start\_job
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._office\_start\_job` (method)
+- **Reason:** One background LibreOffice conversion at a time, safe fallback.
+
+```text
+Start the LibreOffice conversion in the background.
+```
+
+### DOC-DOC-19 – Docstring: \_office\_job\_done
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._office\_job\_done` (method)
+- **Reason:** Cache the result, refresh the preview, chain the next job.
+
+```text
+Conversion finished: cache the result, refresh the preview.
+```
+
 ---
 
 ## Text (TXT)
