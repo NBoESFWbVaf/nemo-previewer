@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.42.1
+previewer_panel.py – Version 0.42.2
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -63,11 +63,14 @@ _TEXT_EXTRAS = {
     '.theme', '.old', '.bak', '.orig',
 }
 
-# F47: "opaque" types – the database does not say text/* although
-# the content often is readable; the sniffer decides (→ REF PAN-F47-1).
-_OPAQUE_TYPES = {
-    "application/x-trash", "application/x-theme",
-    "application/octet-stream",
+# B10: known-binary MIME types – the last-resort sniffer never
+# runs on them; they skip straight to the generic preview.
+_SNIFF_BINARY_MIMES = {
+    "application/zip", "application/x-tar", "application/gzip",
+    "application/x-bzip2", "application/x-xz",
+    "application/x-7z-compressed", "application/x-rar",
+    "application/x-executable", "application/x-sharedlib",
+    "application/x-ms-dos-executable",
 }
 
 # F12: configuration of the preview column – GLib-native INI
@@ -87,16 +90,21 @@ except AttributeError:
 
 def _sniff_is_text(path, probe=4096):
     """
-    F23: Ist eine endungslose Datei lesbarer Text? Gio rät den
-    MIME-Typ nur aus dem Dateinamen – frei benannte Dateien (notes,
-    todo, Dotfiles wie .bashrc) landen sonst auf application/
-    octet-stream und damit ohne Text-Vorschau. Kurzer Blick in die
-    ersten Bytes statt Vertrauen auf den Namen: NULL-Bytes und ein
-    überhöhter Anteil an Steuerzeichen (alles außer Tab/LF/CR)
-    deuten auf Binärdaten. Encoding-agnostisch – UTF-8 wie Latin-1-
-    Text bestehen, Zufalls-Binärdaten fallen sicher durch. Die
-    eigentliche Text-Vorschau kappelt wie immer bei 256 KB /
-    2000 Zeilen.
+    F23/B10: Ist eine Datei lesbarer Text? Gio rät den MIME-Typ nur
+    aus dem Dateinamen – B10 ruft den Schnüffler als LETZTE Instanz
+    auf, bevor die Vorschau aufgibt: endungslose Dateien (notes,
+    Dotfiles) und Endungen, deren geratener Typ nirgends getippt
+    ist (.pub, .crt, .csr, .pref …), bekommen die Text-Vorschau
+    nach INHALT statt nach Namen. Kurzer Blick in die ersten
+    Bytes: NULL-Bytes und ein überhöhter Anteil an Steuerzeichen
+    (alles außer Tab/LF/CR) deuten auf Binärdaten; B10 ergänzt die
+    UTF-8-Decodier-Probe als zweites Kriterium – ein Kopf, der zu
+    mindestens 30 % aus 8-Bit-Bytes besteht, die KEIN gültiges
+    UTF-8 ergeben, ist gepackt/verschlüsselt und fällt durch
+    (Latin-1-Text bleibt erlaubt, Umlaute mischen sich unter viel
+    ASCII). Encoding-agnostisch – UTF-8 wie Latin-1-Text bestehen,
+    Zufalls-Binärdaten fallen sicher durch. Die eigentliche
+    Text-Vorschau kappelt wie immer bei 256 KB / 2000 Zeilen.
     """
     try:
         with open(path, "rb") as fh:
@@ -106,7 +114,16 @@ def _sniff_is_text(path, probe=4096):
     if not head or b"\x00" in head:
         return False
     ctrl = sum(1 for b in head if b < 9 or 14 <= b <= 31 or b == 127)
-    return ctrl / len(head) < 0.05
+    if ctrl / len(head) >= 0.05:
+        return False
+    high = sum(1 for b in head if b >= 0x80)
+    if high:
+        try:
+            head.decode("utf-8")
+        except UnicodeDecodeError:
+            if high / len(head) >= 0.30:
+                return False
+    return True
 
 
 def _silhouette(theme, sname, fg, size=16):
@@ -656,13 +673,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._render_text(path)
         elif os.path.splitext(lower)[1] in _OFFICE_EXTS:
             self._render_office(path)
-        elif not os.path.splitext(lower)[1] and _sniff_is_text(path):
-            # → REF PAN-F23-1
-            self._render_text(path)
-        elif mime in _OPAQUE_TYPES and _sniff_is_text(path):
-            # F47: the type rater reads only the NAME – for these
-            # "opaque" types the sniffer decides by CONTENT before
-            # the preview gives up (→ REF PAN-F47-1).
+        elif mime not in _SNIFF_BINARY_MIMES and _sniff_is_text(path):
+            # F23/F47/B10: the type rater reads only the NAME – for
+            # unclassified files (no extension, opaque types, unknown
+            # endings like .pub/.crt/.csr/.pref) the sniffer decides
+            # by CONTENT as last resort; binary mimes stay out via
+            # _SNIFF_BINARY_MIMES (→ REF PAN-B10-1).
+            dbg("panel/_render_inner: B10 sniff: %s -> text (mime %s)"
+                % (os.path.basename(path), mime))
             self._render_text(path)
         else:
             self._render_generic()
@@ -1369,7 +1387,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_apply_panel_width_live: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.42.1"
+PREVIEWER_VERSION = "0.42.2"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
