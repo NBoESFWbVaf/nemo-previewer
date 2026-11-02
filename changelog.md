@@ -6,6 +6,21 @@ versioning: [Semantic Versioning](https://semver.org/).
 
 ## \[Unreleased\]
 
+## \[0.48.2\] – 2026-11-02
+
+### Fixed
+
+- F50 – exiftool window: replace the GLib spawn with a worker  
+  thread and subprocess.Popen (ARGV list, no shell; stderr merged  
+  in; buffer fed via GLib.idle_add) – PyGObject's  
+  spawn_async_with_pipes return tuple varies by version (first a  
+  ValueError on unpack, then EBADF from indexed fd fields).  
+
+### Changed
+
+- F50 – The "more" button sits 10px down and 10px right of the  
+  table edge (margins).
+
 ## \[0.48.1\] – 2026-11-02
 
 ### Fixed
