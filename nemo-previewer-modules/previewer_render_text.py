@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.45.0
+previewer_render_text.py – Version 0.45.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -867,7 +867,11 @@ def _mobi_data(path):
 
 _PKG_CONTROL_CAP = 2 * 1024 * 1024      # F60: max bytes from control member
 _PKG_HEADER_CAP = 4 * 1024 * 1024       # F60: max bytes from an rpm head zone
-_PKG_ICON_SCAN_CAP = 48 * 1024 * 1024   # F60: decompression budget icon hunt
+_PKG_ICON_SCAN_CAP = 8 * 1024 * 1024    # F60: decompression budget icon hunt
+                                        # 0.45.1: 48 MB bremsten große Pakete
+                                        # aus – die Info-Tabelle wartet nicht
+                                        # auf den Payload; 8 MB reichen für
+                                        # das best-effort-Icon
 _PKG_ICON_BYTES = 2 * 1024 * 1024       # F60: max bytes of one icon member
 
 
@@ -897,19 +901,20 @@ class _WindowReader:
         return True
 
 
-def _tar_mode(name, stream=False):
+def _tar_sniff_mode(data, stream=False):
     """
-    F60 (0.45.0): tarfile-Modus zur Member-Endung – gz und xz sind
-    Bordmittel, zst nicht (None → Aufrufer zeigt Hinweis bzw. lässt
-    das Icon weg).
+    F60.1 (0.45.1): tarfile-Modus an den MAGIE-BYTES des Members –
+    gz und xz sind Bordmittel, zst nicht (None → Aufrufer zeigt
+    Hinweis bzw. lässt das Icon weg). Raten nach dem ar-Member-
+    Namen geriet zum invalid-header-Fund: Je nach Werkzeug tragen
+    die Namen IEEE-Slashes ('control.tar.gz/').
     """
-    ext = name.rsplit(".", 1)[-1].lower()
-    if ext == "zst":
-        return None
-    if ext == "gz":
+    if data[:2] == b"\x1f\x8b":
         return "r|gz" if stream else "r:gz"
-    if ext == "xz":
+    if data[:6] == b"\xfd7zXZ\x00":
         return "r|xz" if stream else "r:xz"
+    if data[:4] == b"\x28\xb5\x2f\xfd":
+        return None
     return "r|" if stream else "r:"
 
 
@@ -983,12 +988,17 @@ def _deb_rows(fields):
 
 
 def _deb_icon(path, member):
-    """F60: App-Icon aus data.tar – best effort mit Budget."""
+    """
+    F60: App-Icon aus data.tar – best effort mit Budget. 0.45.1:
+    Kompression an Magie-Bytes (Probe-Read von 6 Bytes, siehe
+    _tar_sniff_mode), nicht am Member-Namen.
+    """
     offset, size, name = member
-    mode = _tar_mode(name, stream=True)
-    if mode is None:
-        return None
     with open(path, "rb") as fh:
+        fh.seek(offset)
+        mode = _tar_sniff_mode(fh.read(6), stream=True)
+        if mode is None:
+            return None
         tf = tarfile.open(fileobj=_WindowReader(fh, offset,
                                                 _PKG_ICON_SCAN_CAP),
                           mode=mode)
@@ -1019,18 +1029,22 @@ def _deb_data(path):
             head = fh.read(60)
             if len(head) < 60:
                 break
-            name = head[0:16].decode("ascii", "replace").rstrip()
+            # 0.45.1: IEEE-ar-Namen tragen oft einen Slash am Ende
+            # ('control.tar.gz/') – rstrip("/"), sonst greift keine
+            # Member-Weiche (Kompression: Sniffing, nicht Name).
+            name = head[0:16].decode("ascii", "replace").strip()
+            name = name.rstrip("/")
             try:
                 size = int(head[48:58].decode("ascii", "replace").strip())
             except ValueError:
                 raise ValueError("ar-Member-Kopf unlesbar")
             body = fh.tell()
             if name.startswith("control.tar"):
-                mode = _tar_mode(name)
+                raw = fh.read(min(size, _PKG_CONTROL_CAP))
+                mode = _tar_sniff_mode(raw)
                 if mode is None:
                     raise ValueError("control.tar.zst – zstd ist kein "
                                      "Bordmittel")
-                raw = fh.read(min(size, _PKG_CONTROL_CAP))
                 tf = tarfile.open(fileobj=io.BytesIO(raw), mode=mode)
                 for m in tf:
                     if (m.name or "").lstrip("./") == "control":
@@ -2468,7 +2482,7 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-PREVIEWER_VERSION = "0.45.0"
+PREVIEWER_VERSION = "0.45.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "K4 markdown and read caps stay)"
