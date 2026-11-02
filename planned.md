@@ -774,6 +774,7 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   (KEIN Shell-Interpret), Ausgabe mit Zeilen-Deckel in einen  
   scrollbaren TextView.
   ✅ F50 (2026-11-02, 0.48.0) – umgesetzt: „more"-Button im 40-%-Infobereich (nur Bild-Ansicht) öffnet Fenster mit ALLEN EXIF-Details via exiftool (Rohdaten, formatiert; ARGV-Spawn absolut/kein Shell, io-Watch im GTK-Loop, 2000-Zeilen-Deckel, Monospace-TextView; ohne exiftool Install-Hinweis libimage-exiftool-perl); Foto-Tabelle endet bei ISO (XMP-Felder raus, Location bleibt).
+  ✅ F50-Fixes (2026-11-02, 0.48.1, Nutzer-Deploy-Feedback): „more"-Button mit normalem Relief (jetzt als Button sichtbar); Exiftool-Spawn per Index (res[0]..res[3]) statt 4er-Unpack – PyGObject-Tupel variieren in der Größe, unpack warf „too many values to unpack (expected 4)".
 
 - [ ] **F55 – Office-Renderer frei wählbar (LibreOffice/OnlyOffice)** (Nutzer-Wunsch 2026-11-01)
 
