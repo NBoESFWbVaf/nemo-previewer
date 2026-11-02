@@ -817,7 +817,13 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   README.md komplett; künftig keine neuen deutschen Inhalte mehr.  
   **L** – *Skizze:* je Datei eine Übersetzungs-Runde mit Sichttest;  
   UI-Texte zentral als Konstanten sammeln (Vorarbeit für echte  
-  i18n via gettext).
+  i18n via gettext).  
+  ✅ changelog.md (2026-11-02) – komplett englisch übersetzt.  
+  ✅ REFERENZ.md (2026-11-02) – komplett englisch übersetzt (alle 50 Einträge, neue Soll-Größe 65260 B).  
+  ✅ INSTALL.md (2026-11-02) – geprüft: bereits komplett englisch, unverändert (Soll bleibt 8230 B).  
+  planned.md bleibt auf Deutsch (Nutzer-Entscheid 2026-11-02) und wird nicht übersetzt.  
+  ✅ previewer.py (2026-11-02) – UI-Strings übersetzt + ALLE 20 Docstrings als ENT-DOC-1…20 nach REFERENZ.md migriert (neue Konvention: JEDER Docstring wandert mit eigenem Marker, auch einzeilige; Modul-Kopf-Docstring bleibt im Code). Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende (Nutzer-Entscheid).
+  ✅ previewer_util.py (2026-11-02) – Rest-Strings übersetzt (mime-Fallback „unbekannt“ → „unknown“, Trace-Repr-Fallback „<keine Repräsentation>“ → „<no repr>“, R10-dbg „DTD abgelehnt“ → „DTD rejected“) + ALLE 14 Docstrings als UT-DOC-1…14 nach REFERENZ.md migriert. Version bleibt 0.46.0 – Sammel-Bump auf 0.47.0 am F49-Ende.
 
 - [ ] **F51 – Vorbereitung auf das erste Release (1.0.0)** (Nutzer-Wunsch 2026-11-01)
 
@@ -1324,7 +1330,9 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
   Struktur aus dem Schema (query\_only read-only, Magie-Check  
   gegen Fremd-.db, COUNT-Progress-Deckel nach F60-Lektion).  
   Neuer generischer Tabellen-Renderer \_pack\_table – F56 kann
-  ihn später mitnutzen.
+  ihn später mitnutzen.  
+  Deploy bestätigt (2026-11-02): CSV-Tabelle und SQLite-
+  Übersicht wirken, keine Auffälligkeiten.
 
 ---
 
@@ -1362,26 +1370,26 @@ Aufwand **S** = klein, **M** = mittel, **L** = groß
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                                                  | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-02, 0.46.0 gebaut)
+## Aktuelle Reihenfolge (Stand 2026-11-02, 0.46.0 deployt)
 
-1. **0.46.0 testen und deployen** – steht aus (F6 + F8: SQLite-  
-   Vorschau, CSV-Tabelle mit Trenner-Sniffing).
-2. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden,  
+1. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden,  
    damit neue Inhalte (B9, F50, F52–F54) gleich englisch entstehen;  
-   je Datei eine Runde.
-3. **B9 + F50 – Bild-Runde**: B9 mit der Nutzer-Meldung der  
+   je Datei eine Runde.  
+   (Dabei Erfolg-dbg für \_render\_sqlite nachrüsten – der
+   0.46.0-Test blieb im Log sonst unsichtbar.)
+2. **B9 + F50 – Bild-Runde**: B9 mit der Nutzer-Meldung der  
    fehlerhaften Felder, darauf aufbauend der Exiftool-Dialog.
-4. **F52 + F54 – Text-Runde**: ICS-Termintabelle und EML-Anhänge  
+3. **F52 + F54 – Text-Runde**: ICS-Termintabelle und EML-Anhänge  
    zusammen (beide previewer\_render\_text.py).
-5. **F13 + F53 – Knopf-Runde**: „Im Dateimanager zeigen“ und  
+4. **F13 + F53 – Knopf-Runde**: „Im Dateimanager zeigen“ und  
    „Pfad kopieren“ (je **S**).
-6. **Kleinzeug nach Bedarf**: F15, F17, F25, K5, K6, K7.
-7. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits  
+5. **Kleinzeug nach Bedarf**: F15, F17, F25, K5, K6, K7.
+6. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits  
    (GTK4/F57, Performance, Speicher/Leaks, Reentrancy, a11y, i18n-  
    Strings, Umgebungs-Matrix) – Befunde einplanen.
-8. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien,  
+7. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien,  
    git-Tag v1.0.0, GitHub-Release.
-9. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane),  
+8. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane),  
    F32, F37 – wie vereinbart im Branch erproben.
 
 Nicht eingeplant (Pool nach Bedarf): F1, F2, F9, F11, F20, F21,  
