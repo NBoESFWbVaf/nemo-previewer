@@ -1190,7 +1190,7 @@ S6 (0.42.0): TextView configuration and buffer fill – the widget part of the p
 - **Reason:** User rule (2026-11-03): all opening windows appear centered on the screen with ~60 % of the screen height.
 
 ```text
-User rule (2026-11-03): all opening windows of the extension – settings window, info windows, every future one – appear centered on the screen and carry ~60 % of the screen height as their height. Central helper for it: sets the default size to (caller width, int(0.6 x screen height)) via Gdk.Screen and positions the window with Gtk.WindowPosition.CENTER; defensive try/except, on failure the window keeps its caller size. Used by the toolbar settings window (420 wide) and the EXIF "more" window (560 wide).
+User rule (2026-11-03): all opening windows of the extension – settings window, info windows, every future one – appear centered on the screen and carry ~60 % of the screen height as their height. Central helper for it: sets the default size to (caller width, int(0.6 x screen height)) via Gdk.Screen and positions the window with Gtk.WindowPosition.CENTER; defensive try/except, on failure the window keeps its caller size. Used by the toolbar settings window (420 wide) and the EXIF "more" window (560 wide). 0.49.1 fix (user finding: windows came out full-height – set_default_size was overridden by the content's natural size): the height now comes from the primary monitor's geometry via Gdk.Display (current resolution, minus 40 %; fallback: monitor 0), and after mapping GLib.idle_add enforces the size once via resize; the detected monitor resolution is dbg-logged.
 ```
 
 ---
