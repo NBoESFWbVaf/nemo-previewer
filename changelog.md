@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.50.2\] – 2026-11-03
+
+### Fixed
+
+- F61/F50 – Media "more" windows crashed on open: the PyGObject build on the deploy system does not map Gtk.TreeView.set\_enable\_grid\_lines (AttributeError). The grid lines go through set\_property("enable-grid-lines") now; if the property is missing too, set\_rules\_hint(True) adds subtle alternating row banding instead – every step dbg-logged.
+
 ## \[0.50.1\] – 2026-11-03
 
 ### Changed
