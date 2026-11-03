@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.50.0\] – 2026-11-03
+
+### Added
+
+- F61 – Audio preview: "more" button below the info table opens a window with ALL tags of the music file in tabular form (two-column Gtk.TreeView: tag/value; value cells wrap, columns resizable). exiftool delivers the raw tag set per format – ID3 (MP3), Vorbis comments (FLAC/OGG), QuickTime atoms (M4A), RIFF INFO (WAV) – so the tags differ between file formats by design. Without exiftool the preview shows an install hint (Debian package libimage-exiftool-perl) instead of the button.
+
 ## \[0.49.1\] – 2026-11-03
 
 ### Fixed
