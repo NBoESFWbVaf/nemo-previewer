@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.50.1
+previewer_render_media.py – Version 0.50.2
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -517,9 +517,19 @@ def _tags_table_window(title):
     store = Gtk.ListStore(str, str)
     view = Gtk.TreeView(model=store)
     view.get_selection().set_mode(Gtk.SelectionMode.NONE)
-    # Subtle table lines; 10px inner padding (F46 IX lesson:
-    # padding, not margins, keeps the scrollbar at the edge).
-    view.set_enable_grid_lines(Gtk.TreeViewGridLines.HORIZONTAL)
+    # Subtle table lines: set_enable_grid_lines is not mapped in
+    # every PyGObject build – the property is the portable path.
+    try:
+        view.set_property("enable-grid-lines",
+                          Gtk.TreeViewGridLines.HORIZONTAL)
+    except Exception as e:
+        # Fallback for builds without the grid-lines property:
+        # subtle alternating row banding instead of lines.
+        dbg("media/_tags_table_window: grid lines off: %s" % e)
+        try:
+            view.set_rules_hint(True)
+        except Exception as e2:
+            dbg("media/_tags_table_window: rules off: %s" % e2)
     view.set_margin_top(10)
     view.set_margin_bottom(10)
     view.set_margin_start(10)
@@ -1468,7 +1478,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "0.50.1"
+PREVIEWER_VERSION = "0.50.2"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
