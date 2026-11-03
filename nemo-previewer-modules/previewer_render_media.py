@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.49.1
+previewer_render_media.py – Version 0.50.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -1127,6 +1127,23 @@ class MediaRendererMixin:
         # inline). F35: colons are set centrally in _meta_grid.
         pack_meta_grid(rows, self._content)
 
+        # F61 (user wish): "more" button below the info table –
+        # same pattern as the photo EXIF window (F50).
+        if EXIFTOOL:
+            btn = Gtk.Button(label="more")
+            btn.set_halign(Gtk.Align.START)
+            btn.set_margin_top(10)
+            btn.set_margin_start(10)
+            btn.connect("clicked", self._on_id3_more)
+            self._content.pack_start(btn, False, False, 0)
+        else:
+            hint = Gtk.Label(
+                label="more via exiftool – "
+                "install package libimage-exiftool-perl")
+            hint.get_style_context().add_class("dim-label")
+            hint.set_halign(Gtk.Align.START)
+            self._content.pack_start(hint, False, False, 0)
+
     # → REF MED-DOC-31
     def _playbin_set_uri(self, uri):
         if self._playbin is None:
@@ -1391,8 +1408,70 @@ class MediaRendererMixin:
 
         threading.Thread(target=worker, daemon=True).start()
 
+    # → REF MED-DOC-42
+    def _on_id3_more(self, *a):
+        path = self._path
+        win = Gtk.Window()
+        win.set_title("Audio tags – %s" % os.path.basename(path))
+        center_window(win, 560)
+        store = Gtk.ListStore(str, str)
+        view = Gtk.TreeView(model=store)
+        view.get_selection().set_mode(Gtk.SelectionMode.NONE)
+        tag_rend = Gtk.CellRendererText()
+        tag_col = Gtk.TreeViewColumn("Tag", tag_rend, text=0)
+        tag_col.set_resizable(True)
+        tag_col.set_min_width(140)
+        val_rend = Gtk.CellRendererText()
+        val_rend.set_property("wrap-width", 460)
+        val_col = Gtk.TreeViewColumn("Value", val_rend, text=1)
+        val_col.set_expand(True)
+        val_col.set_resizable(True)
+        view.append_column(tag_col)
+        view.append_column(val_col)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                          Gtk.PolicyType.AUTOMATIC)
+        scroll.add(view)
+        win.add(scroll)
+        win.show_all()
 
-PREVIEWER_VERSION = "0.49.1"
+        def worker():
+            # R9: pure text work here – the store is fed via
+            # idle_add in the GTK main loop.
+            rows = []
+            try:
+                proc = subprocess.Popen(
+                    [EXIFTOOL, path], stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT)
+                out = proc.communicate()[0]
+                text = out.decode("utf-8", "replace")
+            except Exception as exc:
+                dbg("media/_on_id3_more: suppressed: %s" % exc)
+                text = "exiftool failed: %s" % exc
+            for line in text.splitlines():
+                # exiftool prints "Tag name : value" – split at
+                # the FIRST colon (values may contain more).
+                name, sep, val = line.partition(":")
+                if sep:
+                    rows.append((name.strip(), val.strip()))
+            if len(rows) > 500:
+                extra = len(rows) - 500
+                rows = rows[:500]
+                rows.append(("…", "(%d more tags – capped)" % extra))
+
+            def apply():
+                if rows:
+                    for name, val in rows:
+                        store.append([name, val])
+                else:
+                    store.append(["Info", "no tags found"])
+                return False
+            GLib.idle_add(apply)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+
+PREVIEWER_VERSION = "0.50.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
