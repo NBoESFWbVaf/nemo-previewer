@@ -1907,6 +1907,16 @@ Move the slider to the current position (ns).
 F50 (user wish 2026-11-02): the "more" button in the photo info area opens a window with ALL EXIF details of the image, raw but formatted – fetched via exiftool. Spawn as an ARGV list with the absolute path (no shell, no PATH search); the io watch runs in the GTK main loop (no Gdk in a worker); monospace read-only TextView, output capped at 2000 lines; without exiftool the button never appears – the info area shows an install hint with the Debian package name libimage-exiftool-perl instead. 0.48.1 (user deploy feedback): the "more" button keeps NORMAL relief (it must look like a button). 0.48.2: button margins move it 10px down and right of the table; PyGObject's spawn_async_with_pipes return tuple varies by version (ValueError, then EBADF) – the data now comes from a worker thread: subprocess.Popen with an ARGV list (no shell), stderr merged in, buffer fed via GLib.idle_add (R9: no Gdk in the worker). 0.48.3 (user wish): 10px inner padding via the TextView left/right/top/bottom margins – the scrollbar stays flush at the window edge (F46 IX lesson: padding, no margin). 0.49.0: the window opens centered on the screen with ~60 % of the screen height (user rule for all opening windows, → REF UT-DOC-15).
 ```
 
+### MED-DOC-42 – Docstring: \_on\_id3\_more
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_on\_id3\_more` (method)
+- **Reason:** F61 audio "more" window – all tags of the file as a table.
+
+```text
+F61 (user wish 2026-11-03): the "more" button below the audio info table opens a window with ALL tags of the music file in tabular form. exiftool delivers the raw tag set per format – ID3v1/v2 (MP3), Vorbis comments (FLAC/OGG), QuickTime atoms (M4A), RIFF INFO (WAV) – so the tags differ between file formats by design; the table shows whatever the format carries. Same window and worker rules as the EXIF window (F50): center_window (→ REF UT-DOC-15; 560 wide, title "Audio tags – <name>"), worker thread with subprocess.Popen ARGV list (no shell, stderr merged, R9: no Gdk in the worker), rows fed via GLib.idle_add. exiftool prints "Tag name : value" per line – partition at the FIRST colon (values may contain colons), both sides stripped; rows capped at 500, a "…" row reports the rest; zero rows fall back to an "Info" row. Two-column Gtk.TreeView (Tag/Value; value cells wrap at 460 px, both columns resizable, selection off); without exiftool the button never appears – a dim-label install hint with the Debian package name libimage-exiftool-perl shows instead.
+```
+
 ---
 
 ## Documents (DOC)
