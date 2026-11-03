@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.48.3
+previewer_util.py – Version 0.49.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -294,6 +294,15 @@ def build_text_view(view, text, font, markup):
     scroll.add(view)
     return scroll
 
+# → REF UT-DOC-15
+def center_window(win, width):
+    try:
+        height = int(Gdk.Screen.get_default().get_height() * 0.6)
+        win.set_default_size(width, height)
+        win.set_position(Gtk.WindowPosition.CENTER)
+    except Exception as e:
+        dbg("util/center_window: suppressed: %s" % e)
+
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.48.3"
+PREVIEWER_VERSION = "0.49.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
