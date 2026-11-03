@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.48.3
+previewer_toolbar.py – Version 0.49.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -23,6 +23,7 @@ if _HERE not in sys.path:
 
 from previewer_util import (
     dbg,
+    center_window,
     PANEL_MIN_WIDTH,
     TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
 )
@@ -85,7 +86,7 @@ class PreviewToolbarMixin:
             win.set_transient_for(self._window)
         except Exception as e:
             dbg("toolbar/_open_settings_window: suppressed: %s" % e)
-        win.set_default_size(420, -1)
+        center_window(win, 420)
         win.set_border_width(12)
         win.connect("destroy", self._on_settings_win_destroyed)
 
@@ -321,7 +322,7 @@ class PreviewToolbarMixin:
         return True
 
 
-PREVIEWER_VERSION = "0.48.3"
+PREVIEWER_VERSION = "0.49.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
