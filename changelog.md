@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.50.1\] – 2026-11-03
+
+### Changed
+
+- F61/F50 – Media "more" windows: both windows share one two-column tag table now (helpers \_tags\_table\_window and \_exiftool\_tag\_rows). The EXIF window of the photo preview renders tabular too – the monospace TextView variant is gone; unified 500-row cap (was 2000 lines). Design (user wishes): subtle horizontal grid lines, 10px inner padding, colons after the tag names; a "collecting" placeholder row shows until the worker delivers.
+
 ## \[0.50.0\] – 2026-11-03
 
 ### Added
