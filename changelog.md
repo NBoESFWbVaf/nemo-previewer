@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.49.1\] – 2026-11-03
+
+### Fixed
+
+- Window rule: the windows came out full-height – set\_default\_size was overridden by the content's natural size. center\_window now reads the height from the primary monitor's geometry (current resolution, minus 40 %; fallback: monitor 0) and enforces it after mapping via GLib.idle\_add + resize (one-shot); the detected monitor resolution is dbg-logged.
+
 ## \[0.49.0\] – 2026-11-03
 
 ### Added
