@@ -1183,6 +1183,16 @@ S6 (0.42.0): image in a scroll window – the widget part of the panel method _s
 S6 (0.42.0): TextView configuration and buffer fill – the widget part of the panel method _text_view; line numbers, GtkSourceView guessing and packing stay with the panel.
 ```
 
+### UT-DOC-15 – Docstring: center\_window
+
+- **Module:** previewer\_util.py
+- **Location:** `center\_window` (module level, at the module end behind `build\_text\_view`)
+- **Reason:** User rule (2026-11-03): all opening windows appear centered on the screen with ~60 % of the screen height.
+
+```text
+User rule (2026-11-03): all opening windows of the extension – settings window, info windows, every future one – appear centered on the screen and carry ~60 % of the screen height as their height. Central helper for it: sets the default size to (caller width, int(0.6 x screen height)) via Gdk.Screen and positions the window with Gtk.WindowPosition.CENTER; defensive try/except, on failure the window keeps its caller size. Used by the toolbar settings window (420 wide) and the EXIF "more" window (560 wide).
+```
+
 ---
 
 ## Toolbar (TB)
@@ -1244,7 +1254,7 @@ F19/F12 (0.12.0): the settings button in the toolbar opens the configuration win
 - **Reason:** Single-instance configuration window; since 0.40.0 four section helpers build the frames.
 
 ```text
-F12 (0.12.0): configuration window of the preview column. The frame is in place; all settings will gather here over time (F12 catalogue: panel width, document page limit, waterfall sample text …) – each with instant saving via _config_save. Only ONE instance: another click on the gear brings the existing window to the front. Since 0.40.0 four section helpers build the individual frames.
+F12 (0.12.0): configuration window of the preview column. The frame is in place; all settings will gather here over time (F12 catalogue: panel width, document page limit, waterfall sample text …) – each with instant saving via _config_save. Only ONE instance: another click on the gear brings the existing window to the front. Since 0.40.0 four section helpers build the individual frames. 0.49.0: the window opens centered on the screen with ~60 % of the screen height (user rule for all opening windows, → REF UT-DOC-15).
 ```
 
 ### TB-DOC-4 – Docstring: \_settings\_frame\_general
@@ -1894,7 +1904,7 @@ Move the slider to the current position (ns).
 - **Reason:** F50 "more" window – ALL EXIF details via exiftool.
 
 ```text
-F50 (user wish 2026-11-02): the "more" button in the photo info area opens a window with ALL EXIF details of the image, raw but formatted – fetched via exiftool. Spawn as an ARGV list with the absolute path (no shell, no PATH search); the io watch runs in the GTK main loop (no Gdk in a worker); monospace read-only TextView, output capped at 2000 lines; without exiftool the button never appears – the info area shows an install hint with the Debian package name libimage-exiftool-perl instead. 0.48.1 (user deploy feedback): the "more" button keeps NORMAL relief (it must look like a button). 0.48.2: button margins move it 10px down and right of the table; PyGObject's spawn_async_with_pipes return tuple varies by version (ValueError, then EBADF) – the data now comes from a worker thread: subprocess.Popen with an ARGV list (no shell), stderr merged in, buffer fed via GLib.idle_add (R9: no Gdk in the worker). 0.48.3 (user wish): 10px inner padding via the TextView left/right/top/bottom margins – the scrollbar stays flush at the window edge (F46 IX lesson: padding, no margin).
+F50 (user wish 2026-11-02): the "more" button in the photo info area opens a window with ALL EXIF details of the image, raw but formatted – fetched via exiftool. Spawn as an ARGV list with the absolute path (no shell, no PATH search); the io watch runs in the GTK main loop (no Gdk in a worker); monospace read-only TextView, output capped at 2000 lines; without exiftool the button never appears – the info area shows an install hint with the Debian package name libimage-exiftool-perl instead. 0.48.1 (user deploy feedback): the "more" button keeps NORMAL relief (it must look like a button). 0.48.2: button margins move it 10px down and right of the table; PyGObject's spawn_async_with_pipes return tuple varies by version (ValueError, then EBADF) – the data now comes from a worker thread: subprocess.Popen with an ARGV list (no shell), stderr merged in, buffer fed via GLib.idle_add (R9: no Gdk in the worker). 0.48.3 (user wish): 10px inner padding via the TextView left/right/top/bottom margins – the scrollbar stays flush at the window edge (F46 IX lesson: padding, no margin). 0.49.0: the window opens centered on the screen with ~60 % of the screen height (user rule for all opening windows, → REF UT-DOC-15).
 ```
 
 ---
