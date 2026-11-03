@@ -4,6 +4,16 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.49.0\] – 2026-11-03
+
+### Added
+
+- Window rule (user request 2026-11-03): all opening windows of the extension appear centered on the screen and carry ~60 % of the screen height as their height – central helper center\_window(win, width) in previewer\_util.py (height = int(0.6 × Gdk.Screen height), Gtk.WindowPosition.CENTER, defensive try/except); REFERENCE.md gains the UT-DOC-15 entry.
+
+### Changed
+
+- Settings window and EXIF "more" window use the helper (420 / 560 wide) instead of their fixed default sizes.
+
 ## \[0.48.3\] – 2026-11-02
 
 ### Changed
