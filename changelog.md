@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.52.3\] – 2026-11-04
+
+### Fixed
+
+- F63 – the reset-width button jumped back to the hardcoded default width (350 px) instead of the width configured in the settings. \_panel\_width holds exactly that configured value (set by the settings spin button and the config load; dragging never updates it), so the handler now restores the live width to \_panel\_width without overwriting it – no config write, and the tooltip now reads "Reset preview column to configured width".
+
 ## \[0.52.2\] – 2026-11-04
 
 ### Changed
