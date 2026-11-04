@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.51.2
+previewer_render_media.py – Version 0.51.3
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -717,6 +717,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-21
     def _render_image(self, path):
+        self._tags_win_follow("EXIF details")
         pack_hint(self._content, "Loading image – one moment …")
         try:
             target_w = max(1024, self._preview_width() * 2)
@@ -856,6 +857,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-23
     def _render_audio(self, path, uri):
+        self._tags_win_follow("Audio tags")
         self._media_probe_async(path, uri, self._finish_audio)
 
     # → REF MED-DOC-24
@@ -1314,6 +1316,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-36
     def _render_video(self, path, uri):
+        self._tags_win_follow("Video tags")
         self._media_probe_async(path, uri, self._finish_video, video=True)
 
     # → REF MED-DOC-37
@@ -1473,8 +1476,15 @@ class MediaRendererMixin:
         # F62 video window – delegates to the shared tag table.
         self._on_tags_more("Video tags")
 
+    # → REF MED-DOC-46
+    def _tags_win_follow(self, title):
+        # While the "more" window is open, a media selection change
+        # refreshes it automatically (user wish) – no new click.
+        if self._tags_win is not None:
+            self._on_tags_more(title, present=False)
+
     # → REF MED-DOC-44
-    def _on_tags_more(self, title):
+    def _on_tags_more(self, title, present=True):
         path = self._path
         title = "%s – %s" % (title, os.path.basename(path))
         # One window only (user wish): while it is open, a "more"
@@ -1484,9 +1494,18 @@ class MediaRendererMixin:
             self._tags_store.clear()
             self._tags_store.append(
                 ["Info:", "collecting – one moment …"])
-            self._tags_win.present()
+            # Manual clicks focus the window; the automatic
+            # follow-up never steals the focus of the file window.
+            if present:
+                self._tags_win.present()
         else:
             win, store = _tags_table_window(title)
+            # Keep the window above the file window (user wish) –
+            # transient windows never sink behind their parent.
+            try:
+                win.set_transient_for(self._content.get_toplevel())
+            except Exception as e:
+                dbg("media/_on_tags_more: transient: %s" % e)
             self._tags_win = win
             self._tags_store = store
             win.connect("destroy", self._on_tags_win_destroyed)
@@ -1522,7 +1541,7 @@ class MediaRendererMixin:
         self._tags_store = None
 
 
-PREVIEWER_VERSION = "0.51.2"
+PREVIEWER_VERSION = "0.51.3"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
