@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.52.3
+previewer_panel.py – Version 0.52.4
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -16,11 +16,10 @@ import traceback
 import gi
 
 gi.require_version('Gtk', '3.0')
-gi.require_version('Gdk', '3.0')
 gi.require_version('Pango', '1.0')
 gi.require_version('GdkPixbuf', '2.0')
 
-from gi.repository import Gtk, Gdk, GdkPixbuf, Gio, GLib, Pango
+from gi.repository import Gtk, GdkPixbuf, Gio, GLib, Pango
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -1236,7 +1235,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_on_reset_width_clicked: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.52.3"
+PREVIEWER_VERSION = "0.52.4"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
