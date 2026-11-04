@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.51.3\] – 2026-11-04
+
+### Changed
+
+- F50/F61/F62 – "more" window follows the selection (user wishes): the window is kept above the file window (set\_transient\_for – it can no longer sink behind Nemo); while it is open, selecting another media file refreshes it automatically, without clicking "more" again. Manual clicks still focus the window, the automatic refresh never steals focus. Non-media selections leave the window as it is.
+
 ## \[0.51.2\] – 2026-11-04
 
 ### Changed
