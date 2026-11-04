@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.51.0
+previewer_render_media.py – Version 0.51.1
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -521,7 +521,7 @@ def _tags_table_window(title):
     # every PyGObject build – the property is the portable path.
     try:
         view.set_property("enable-grid-lines",
-                          Gtk.TreeViewGridLines.HORIZONTAL)
+                          Gtk.TreeViewGridLines.BOTH)
     except Exception as e:
         # Fallback for builds without the grid-lines property:
         # subtle alternating row banding instead of lines.
@@ -535,11 +535,16 @@ def _tags_table_window(title):
     view.set_margin_start(10)
     view.set_margin_end(10)
     tag_rend = Gtk.CellRendererText()
+    # User wishes: bold tag names (700 = PANGO_WEIGHT_BOLD – the
+    # numeric value avoids an extra Pango import).
+    tag_rend.set_property("weight", 700)
     tag_col = Gtk.TreeViewColumn("Tag", tag_rend, text=0)
     tag_col.set_resizable(True)
     tag_col.set_min_width(140)
     val_rend = Gtk.CellRendererText()
     val_rend.set_property("wrap-width", 460)
+    # User wishes: italic values (2 = PANGO_STYLE_ITALIC).
+    val_rend.set_property("style", 2)
     val_col = Gtk.TreeViewColumn("Value", val_rend, text=1)
     val_col.set_expand(True)
     val_col.set_resizable(True)
@@ -1487,7 +1492,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "0.51.0"
+PREVIEWER_VERSION = "0.51.1"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
