@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.52.0\] – 2026-11-04
+
+### Added
+
+- F63 – Header: new button right next to "Open with the default application" that resets the preview column to the default width (350 px) with a single click – saved to the config (persists across restarts) and applied live. Symbolic system icon via pick\_icon: zoom-fit-best-symbolic, fallback view-restore-symbolic, then edit-undo-symbolic; tooltip "Reset preview column to default width".
+
 ## \[0.51.3\] – 2026-11-04
 
 ### Changed
