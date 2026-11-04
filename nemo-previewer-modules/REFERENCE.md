@@ -1924,7 +1924,17 @@ F62 (user wish 2026-11-04): the "more" button below the video info table opens t
 - **Reason:** Shared "more" window logic for photo, audio and video tags.
 
 ```text
-0.51.0 (with F62): the window-and-worker logic that _on_exif_more (MED-DOC-41) and _on_id3_more (MED-DOC-42) carried as identical twins since 0.50.1 became ONE generic handler for all three media kinds: it builds the shared _tags_table_window with the given title, a worker thread fetches _exiftool_tag_rows(path) (R9: no Gdk in the worker), apply clears the "collecting" placeholder row and fills the store, an empty result falls back to an "Info:"/"no tags found" row. The three callers are one-line delegates that only pass their title: "EXIF details", "Audio tags", "Video tags". Window design, grid lines, padding, colons and the 500-row cap stay as documented in MED-DOC-41/42. 0.51.1 (user wishes): the design adds a vertical separator between the columns (grid lines BOTH), bold tag names and italic values (→ MED-DOC-41 carries the design note).
+0.51.0 (with F62): the window-and-worker logic that _on_exif_more (MED-DOC-41) and _on_id3_more (MED-DOC-42) carried as identical twins since 0.50.1 became ONE generic handler for all three media kinds: it builds the shared _tags_table_window with the given title, a worker thread fetches _exiftool_tag_rows(path) (R9: no Gdk in the worker), apply clears the "collecting" placeholder row and fills the store, an empty result falls back to an "Info:"/"no tags found" row. The three callers are one-line delegates that only pass their title: "EXIF details", "Audio tags", "Video tags". Window design, grid lines, padding, colons and the 500-row cap stay as documented in MED-DOC-41/42. 0.51.1 (user wishes): the design adds a vertical separator between the columns (grid lines BOTH), bold tag names and italic values (→ MED-DOC-41 carries the design note). 0.51.2 (user wish): ONE window only – class attributes _tags_win/_tags_store/_tags_gen hold the per-panel state; while the window is open, a "more" click on another file updates title, clears the store, shows the "collecting" placeholder and presents the SAME window (no second window); a generation counter (_tags_gen) drops results of outdated workers, so fast clicking never mixes rows of two files; after "destroy" the next click builds a fresh window (→ REF MED-DOC-45).
+```
+
+### MED-DOC-45 – Docstring: \_on\_tags\_win\_destroyed
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_on\_tags\_win\_destroyed` (method)
+- **Reason:** Cleanup for the one "more" window per panel.
+
+```text
+0.51.2: connected to the tag window's "destroy" signal when it is built; when the user closes the window, the singleton state resets (\_tags\_win and \_tags\_store back to None), so the next "more" click builds a fresh window. The generation counter \_tags\_gen deliberately survives – it only ever grows, so stale workers of the closed window stay discarded even if their idle callback still fires.
 ```
 
 ### MED-DOC-42 – Docstring: \_on\_id3\_more
