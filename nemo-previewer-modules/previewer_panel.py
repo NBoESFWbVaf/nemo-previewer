@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.52.0
+previewer_panel.py – Version 0.52.2
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -240,9 +240,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Reset-width button (F63, user wish): jumps the preview
         # column back to the default width with a single click.
         btn_width = Gtk.Button.new_from_icon_name(
-            pick_icon(("zoom-fit-best-symbolic",
-                       "view-restore-symbolic"),
-                      "edit-undo-symbolic"),
+            pick_icon(("sidebar-collapse-right-symbolic",
+                       "arrow-right-symbolic"),
+                      "arrow-right"),
             Gtk.IconSize.BUTTON)
         btn_width.set_tooltip_text(
             "Reset preview column to default width")
@@ -1221,8 +1221,16 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F63: back to PANEL_WIDTH with one click – saved in the
         # config, applied live (same course as the spin button).
         try:
-            if self._panel_width == PANEL_WIDTH:
+            parent = self.get_parent()
+            if parent is None:
                 return
+            # 0.52.1: compare the LIVE column width, not
+            # _panel_width – dragging never updates it (0.41.0).
+            cur = parent.get_allocated_width() - parent.get_position()
+            if cur == PANEL_WIDTH:
+                return
+            dbg("panel/reset_width: %d px -> %d px"
+                % (cur, PANEL_WIDTH))
             self._panel_width = PANEL_WIDTH
             self._config_save()
             self._apply_panel_width_live()
@@ -1230,7 +1238,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_on_reset_width_clicked: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.52.0"
+PREVIEWER_VERSION = "0.52.2"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
