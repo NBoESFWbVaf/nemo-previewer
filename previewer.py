@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer.py – Version 0.52.3
+previewer.py – Version 0.52.4
 
 Entry point and Nemo integration: injects the preview panel into
 every Nemo window, loads the seven modules from the
@@ -35,7 +35,7 @@ if os.path.isdir(_MODDIR) and _MODDIR not in sys.path:
 from previewer_util import (
     dbg, diag, VERBOSE_DIAG,
     walk, type_name,
-    PANEL_WIDTH, PANEL_MIN_WIDTH, POLL_MS,
+    PANEL_WIDTH, POLL_MS,
     pick_icon,
     install_step_trace,
 )
@@ -54,7 +54,7 @@ from previewer_panel import PreviewPanel
 
 # PREVIEWER_VERSION must be identical in all eight modules; the entry
 # point checks loaded modules and warns about outdated copies.
-PREVIEWER_VERSION = "0.52.3"
+PREVIEWER_VERSION = "0.52.4"
 import previewer_util
 import previewer_select
 import previewer_panel
