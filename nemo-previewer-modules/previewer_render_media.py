@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.51.1
+previewer_render_media.py – Version 0.51.2
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -589,6 +589,11 @@ def _exiftool_tag_rows(path):
 
 # → REF MED-DOC-16
 class MediaRendererMixin:
+    # F50/F61/F62 "more" window state: ONE window per panel
+    # (user wish) – class defaults, instance values on first use.
+    _tags_win = None
+    _tags_store = None
+    _tags_gen = 0
 
     # → REF MED-DOC-17
     def _pack_image_capped(self, scroll):
@@ -1471,8 +1476,22 @@ class MediaRendererMixin:
     # → REF MED-DOC-44
     def _on_tags_more(self, title):
         path = self._path
-        win, store = _tags_table_window(
-            "%s – %s" % (title, os.path.basename(path)))
+        title = "%s – %s" % (title, os.path.basename(path))
+        # One window only (user wish): while it is open, a "more"
+        # click on another file updates it instead of adding one.
+        if self._tags_win is not None:
+            self._tags_win.set_title(title)
+            self._tags_store.clear()
+            self._tags_store.append(
+                ["Info:", "collecting – one moment …"])
+            self._tags_win.present()
+        else:
+            win, store = _tags_table_window(title)
+            self._tags_win = win
+            self._tags_store = store
+            win.connect("destroy", self._on_tags_win_destroyed)
+        self._tags_gen += 1
+        gen = self._tags_gen
 
         def worker():
             # R9: pure text work here – the store is fed via
@@ -1480,19 +1499,30 @@ class MediaRendererMixin:
             rows = _exiftool_tag_rows(path)
 
             def apply():
-                store.clear()
+                # A newer "more" request took over – drop this one.
+                if gen != self._tags_gen:
+                    return False
+                self._tags_store.clear()
                 if rows:
                     for name, val in rows:
-                        store.append([name, val])
+                        self._tags_store.append([name, val])
                 else:
-                    store.append(["Info:", "no tags found"])
+                    self._tags_store.append(
+                        ["Info:", "no tags found"])
                 return False
             GLib.idle_add(apply)
 
         threading.Thread(target=worker, daemon=True).start()
 
+    # → REF MED-DOC-45
+    def _on_tags_win_destroyed(self, *a):
+        # User closed the window – the next "more" click builds
+        # a fresh one.
+        self._tags_win = None
+        self._tags_store = None
 
-PREVIEWER_VERSION = "0.51.1"
+
+PREVIEWER_VERSION = "0.51.2"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
