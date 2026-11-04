@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.52.3
+previewer_util.py – Version 0.52.4
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -31,7 +31,6 @@ POLL_MS = 500              # selection polling timer (safety net)
 MAX_TEXT_BYTES = 256 * 1024
 MAX_TEXT_LINES = 2000
 MAX_IMAGE_HEIGHT = 1600
-MAX_EBOOK_CHARS = 30000    # book text shown in the e-book preview
 TOGGLE_ACCEL_KEY = Gdk.KEY_p
 TOGGLE_ACCEL_MODS = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.MOD1_MASK
 
@@ -318,5 +317,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.52.3"
+PREVIEWER_VERSION = "0.52.4"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
