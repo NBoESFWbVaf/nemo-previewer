@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.51.2\] – 2026-11-04
+
+### Changed
+
+- F50/F61/F62 – One "more" window only (user wish): while the tag window is open, a "more" click on another file updates it (new title, cleared store, "collecting" placeholder, brought to the front) instead of opening a second window. A generation counter discards results of outdated workers, so fast clicking never mixes rows of two files; after closing the window, the next click builds a fresh one.
+
 ## \[0.51.1\] – 2026-11-04
 
 ### Changed
