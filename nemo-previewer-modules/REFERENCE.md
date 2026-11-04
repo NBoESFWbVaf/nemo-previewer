@@ -714,6 +714,16 @@ F12 (0.12.0): apply the loaded configuration to the panel. Called by the entry p
 F12 (0.13.0): apply a new start width immediately while the settings window is open – the user sees the effect directly. The Paned position is set so that the preview column is self._panel_width wide; if that fails (window too small), everything stays unchanged.
 ```
 
+### PAN-DOC-31 – Docstring: \_on\_reset\_width\_clicked
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_on\_reset\_width\_clicked` (method)
+- **Reason:** F63 reset button – one click back to the default column width.
+
+```text
+F63 (user wish 2026-11-04): the new header button right next to "Open with the default application" resets the preview column to the default width (PANEL_WIDTH, 350 px) with a single click – the exact same course as the settings spin button: no-op if the width already matches, then self._panel_width = PANEL_WIDTH, _config_save() (persists across restarts) and _apply_panel_width_live() (the Paned divider jumps immediately). Button: symbolic system icon via pick_icon – first hit zoom-fit-best-symbolic, then view-restore-symbolic, edit-undo-symbolic as the last resort; tooltip "Reset preview column to default width", relief off like the open button. pack_end packs the width button BEFORE the open button, so it ends up to its RIGHT (first pack_end = rightmost).
+```
+
 ---
 
 ## Selection (SEL)
