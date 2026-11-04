@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.51.1\] – 2026-11-04
+
+### Changed
+
+- F50/F61/F62 – Tag table design (user wishes): subtle vertical separator between the tag and value columns as well (grid lines BOTH); tag names bold (weight 700 = PANGO\_WEIGHT\_BOLD), values italic (style 2 = PANGO\_STYLE\_ITALIC) – both via renderer properties, no extra Pango import. Applies to all three media "more" windows.
+
 ## \[0.51.0\] – 2026-11-04
 
 ### Added
