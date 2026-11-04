@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.52.2
+previewer_panel.py – Version 0.52.3
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -238,14 +238,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         header.set_border_width(6)
 
         # Reset-width button (F63, user wish): jumps the preview
-        # column back to the default width with a single click.
+        # column back to the CONFIGURED width with a single click.
         btn_width = Gtk.Button.new_from_icon_name(
             pick_icon(("sidebar-collapse-right-symbolic",
                        "arrow-right-symbolic"),
                       "arrow-right"),
             Gtk.IconSize.BUTTON)
         btn_width.set_tooltip_text(
-            "Reset preview column to default width")
+            "Reset preview column to configured width")
         btn_width.set_relief(Gtk.ReliefStyle.NONE)
         btn_width.connect("clicked", self._on_reset_width_clicked)
         header.pack_end(btn_width, False, False, 0)
@@ -1218,8 +1218,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     # → REF PAN-DOC-31
     def _on_reset_width_clicked(self, *a):
-        # F63: back to PANEL_WIDTH with one click – saved in the
-        # config, applied live (same course as the spin button).
+        # F63: back to the CONFIGURED width (spin button/config)
+        # – applied live; _panel_width itself stays as is.
         try:
             parent = self.get_parent()
             if parent is None:
@@ -1227,18 +1227,16 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # 0.52.1: compare the LIVE column width, not
             # _panel_width – dragging never updates it (0.41.0).
             cur = parent.get_allocated_width() - parent.get_position()
-            if cur == PANEL_WIDTH:
+            if cur == self._panel_width:
                 return
             dbg("panel/reset_width: %d px -> %d px"
-                % (cur, PANEL_WIDTH))
-            self._panel_width = PANEL_WIDTH
-            self._config_save()
+                % (cur, self._panel_width))
             self._apply_panel_width_live()
         except Exception as e:
             dbg("panel/_on_reset_width_clicked: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.52.2"
+PREVIEWER_VERSION = "0.52.3"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
