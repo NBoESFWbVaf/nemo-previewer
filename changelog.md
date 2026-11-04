@@ -4,6 +4,22 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.52.2\] – 2026-11-04
+
+### Changed
+
+- F63 – icon fallback chain (user hint): sidebar-collapse-right is not part of the standard icon themes. The chain now runs sidebar-collapse-right-symbolic → arrow-right-symbolic (nearest equivalent, keeps the symbolic icon discipline) → arrow-right as the absolute last resort.
+
+## \[0.52.1\] – 2026-11-04
+
+### Fixed
+
+- F63 – the reset-width button did nothing: the no-op guard compared \_panel\_width, which dragging the divider has not updated since 0.41.0 – so the guard always saw the default and returned. It now measures the live column width (window width minus divider position) and logs the jump via dbg.
+
+### Changed
+
+- F63 – icon (user wish): sidebar-collapse-right-symbolic instead of zoom-fit-best-symbolic; fallback sidebar-collapse-right, then zoom-fit-best-symbolic.
+
 ## \[0.52.0\] – 2026-11-04
 
 ### Added
