@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.52.4\] – 2026-11-04
+
+### Removed
+
+- Dead code (cleanup round, behavior unchanged): the unused constant MAX\_EBOOK\_CHARS in previewer\_util.py (leftover from the e-book cap rework – the e-book renderers cap via MAX\_TEXT\_LINES/MAX\_TEXT\_BYTES); the unused import PANEL\_MIN\_WIDTH in the entry module previewer.py (the constant itself stays – panel and toolbar use it); the unused Gdk import in previewer\_panel.py including its gi.require\_version line.
+
 ## \[0.52.3\] – 2026-11-04
 
 ### Fixed
