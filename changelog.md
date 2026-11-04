@@ -4,6 +4,16 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.51.0\] – 2026-11-04
+
+### Added
+
+- F62 – Video preview: "more" button below the info table opens the shared tag table window with ALL tags of the video file. exiftool delivers the raw tag set per container – QuickTime/MP4 atoms, Matroska, AVI RIFF, WebM – so the tags differ between formats by design, like with photos (F50) and music (F61).
+
+### Changed
+
+- F50/F61/F62 – The window-and-worker twins \_on\_exif\_more/\_on\_id3\_more became one-line delegates; the shared logic lives in the generic \_on\_tags\_more handler now (photo, audio and video differ only in their window title).
+
 ## \[0.50.2\] – 2026-11-03
 
 ### Fixed
