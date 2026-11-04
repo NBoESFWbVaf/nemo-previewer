@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.50.2
+previewer_render_media.py – Version 0.51.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -1328,6 +1328,23 @@ class MediaRendererMixin:
         # inline, now uniform like EML/e-book/audio).
         pack_meta_grid(rows, self._content)
 
+        # F62 (user wish): "more" button below the info table –
+        # same pattern as photo and audio (F50/F61).
+        if EXIFTOOL:
+            btn = Gtk.Button(label="more")
+            btn.set_halign(Gtk.Align.START)
+            btn.set_margin_top(10)
+            btn.set_margin_start(10)
+            btn.connect("clicked", self._on_video_more)
+            self._content.pack_start(btn, False, False, 0)
+        else:
+            hint = Gtk.Label(
+                label="more via exiftool – "
+                "install package libimage-exiftool-perl")
+            hint.get_style_context().add_class("dim-label")
+            hint.set_halign(Gtk.Align.START)
+            self._content.pack_start(hint, False, False, 0)
+
     # --- Audio player logic ---------------------------------------------------
 
     def _on_play_pause(self, *a):
@@ -1433,32 +1450,24 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-41
     def _on_exif_more(self, *a):
-        path = self._path
-        win, store = _tags_table_window(
-            "EXIF details – %s" % os.path.basename(path))
-
-        def worker():
-            # R9: pure text work here – the store is fed via
-            # idle_add in the GTK main loop.
-            rows = _exiftool_tag_rows(path)
-
-            def apply():
-                store.clear()
-                if rows:
-                    for name, val in rows:
-                        store.append([name, val])
-                else:
-                    store.append(["Info:", "no tags found"])
-                return False
-            GLib.idle_add(apply)
-
-        threading.Thread(target=worker, daemon=True).start()
+        # F50 photo window – delegates to the shared tag table.
+        self._on_tags_more("EXIF details")
 
     # → REF MED-DOC-42
     def _on_id3_more(self, *a):
+        # F61 audio window – delegates to the shared tag table.
+        self._on_tags_more("Audio tags")
+
+    # → REF MED-DOC-43
+    def _on_video_more(self, *a):
+        # F62 video window – delegates to the shared tag table.
+        self._on_tags_more("Video tags")
+
+    # → REF MED-DOC-44
+    def _on_tags_more(self, title):
         path = self._path
         win, store = _tags_table_window(
-            "Audio tags – %s" % os.path.basename(path))
+            "%s – %s" % (title, os.path.basename(path)))
 
         def worker():
             # R9: pure text work here – the store is fed via
@@ -1478,7 +1487,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "0.50.2"
+PREVIEWER_VERSION = "0.51.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
