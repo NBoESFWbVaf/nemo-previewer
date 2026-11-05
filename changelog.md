@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.56.1\] – 2026-11-05
+
+### Fixed
+
+- F2 – deploy fix: \_is\_heavy crashed with "TypeError: can only concatenate tuple (not set) to tuple" on EVERY selection, leaving the preview dead – \_OFFICE\_EXTS is a set (built for the "in" lookups of the render switch) and cannot be concatenated with a tuple. The set is now wrapped with tuple() before the endswith concatenation. Lesson recorded: check the type of imported constants before concatenating them.
+
 ## \[0.56.0\] – 2026-11-05
 
 ### Added
