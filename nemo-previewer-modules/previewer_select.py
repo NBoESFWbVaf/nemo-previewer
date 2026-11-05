@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_select.py – Version 0.58.3
+previewer_select.py – Version 0.59.0
 
 Selection detection: reads the currently selected file from the
 Nemo view via selection signals, vtable access and GTK/ATK
@@ -831,5 +831,5 @@ class SelectionReader:
 
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.58.3"
+PREVIEWER_VERSION = "0.59.0"
 dbg("previewer_select %s loaded" % PREVIEWER_VERSION)
