@@ -528,10 +528,10 @@ Build the preview for self._path. Never throw – always fall back.
 
 - **Module:** previewer\_panel.py
 - **Location:** `PreviewPanel.\_on\_content\_size\_allocate` (method)
-- **Reason:** Fit the scaled preview to width changes without re-rendering (0.41.0).
+- **Reason:** Fit the scaled preview to width changes without re-rendering (0.41.0); F68: exception font waterfall.
 
 ```text
-Watch width changes of the preview area (the user drags the Gtk.Paned divider). It does NOT re-render – instead only the displayed pixbuf of the scalable preview is fitted to the new width immediately (cheap, no re-decoding). 0.41.0: A dragged width only applies to the running session and no longer changes the START WIDTH – that lives solely in the settings window.
+Watch width changes of the preview area (the user drags the Gtk.Paned divider). It does NOT re-render – instead only the displayed pixbuf of the scalable preview is fitted to the new width immediately (cheap, no re-decoding). 0.41.0: A dragged width only applies to the running session and no longer changes the START WIDTH – that lives solely in the settings window. F68 (0.58.3): one exception re-renders after all – the font waterfall \_apply\_font\_scale rebuilds its surface at the new width so the sample text re-wraps live (user bug report: the faces grew while the wrap stuck to the old width).
 ```
 
 ### PAN-DOC-13 – Docstring: \_scaled\_image
@@ -3281,10 +3281,10 @@ F6 (0.46.0): SQLite databases – table list with columns and row count. The str
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `TextRendererMixin.\_render\_font` (method)
-- **Reason:** Font waterfall with a fresh Pango font map.
+- **Reason:** Font waterfall with a fresh Pango font map; F68: live re-render on resize.
 
 ```text
-Font waterfall (TrueType, OpenType, collections): the file is registered with Fontconfig for this process only (nothing is installed). The waterfall is pre-rendered into a pixbuf with a FRESH Pango font map – GTK's default font map is built at startup and overlooks fonts added at runtime (labels would silently show the fallback font). The finished image uses the usual live scaling with the panel width.
+Font waterfall (TrueType, OpenType, collections): the file is registered with Fontconfig for this process only (nothing is installed). The waterfall is pre-rendered into a pixbuf with a FRESH Pango font map – GTK's default font map is built at startup and overlooks fonts added at runtime (labels would silently show the fallback font). F68 (0.58.3, user bug report): the surface comes from _font_waterfall_pixbuf at the CURRENT column width and _apply_font_scale rebuilds it live while the divider is dragged – the sample text re-wraps immediately, the point sizes on screen stay constant (before, the one-time surface only got scaled: dragging wider grew the faces while the wrap kept the old width until the font was re-selected).
 ```
 
 ### TXT-DOC-87 – Docstring: \_ics\_unfold
@@ -3385,4 +3385,24 @@ ICS files (text/calendar): every VEVENT becomes its own card, stacked scrollable
 
 ```text
 One event as a card after the EML header pattern: bold summary, then Start/End/Location/Description rows via pack_meta_grid with wrapping values (descriptions cap at 240 characters with an ellipsis). Missing properties are skipped instead of shown empty.
+```
+
+### TXT-DOC-97 – Docstring: \_font\_waterfall\_pixbuf
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_font\_waterfall\_pixbuf` (module level)
+- **Reason:** F68 – waterfall surface builder, extracted for live re-rendering.
+
+```text
+Builds the waterfall surface at DOUBLE the current preview width (sharp while scaling down): a "%d pt" tag line (9 pt, dimmed via 55 % alpha) and the sample text in the new family for every size of _FONT_SIZES, both Pango layouts on the fresh font context; the text wraps at the surface width (WORD_CHAR). Drawn into one cairo surface and returned as a pixbuf. F68 (0.58.3): takes the target width as a parameter – _apply_font_scale rebuilds the waterfall on column resize, so the wrap follows the dragged divider live.
+```
+
+### TXT-DOC-98 – Docstring: \_apply\_font\_scale
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_apply\_font\_scale` (method)
+- **Reason:** F68 – live waterfall re-render on column resize (user bug report).
+
+```text
+Called from the panel's size-allocate handler (like _apply_pdf_scale): if the preview width moved at least 8 px, the waterfall pixbuf is REBUILT at the new width (re-wrapping the sample text) and fitted into the existing image – downscaled to fit, never upscaled, height capped at MAX_IMAGE_HEIGHT. Before 0.58.3 the surface was rendered once at the width the preview had when the font was selected and only scaled afterwards: dragging the column wider GREW the font faces while the wrap kept the old width (user bug report – only re-selecting the font helped). The state dict \_font\_wf (family, font context, theme color, sample text, image, last width) lives on the panel; it is dropped in \_clear\_content.
 ```
