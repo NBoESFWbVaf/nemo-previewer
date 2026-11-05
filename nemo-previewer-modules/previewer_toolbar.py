@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.54.0
+previewer_toolbar.py – Version 0.55.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -191,6 +191,23 @@ class PreviewToolbarMixin:
         syn.set_active(self._conf_text_syntax)
         syn.connect("toggled", self._on_syntax_toggled)
         fbox.pack_start(syn, False, False, 0)
+        # F25: extra line spacing as a spin – 0 is the normal line
+        # height, applies immediately to the text preview.
+        srow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                       spacing=8)
+        srow.pack_start(Gtk.Label(label="Line spacing (px)"),
+                        False, False, 0)
+        adj = Gtk.Adjustment(value=self._conf_text_line_spacing,
+                             lower=0, upper=12, step_increment=1,
+                             page_increment=2)
+        self._settings_spacing_spin = Gtk.SpinButton.new(adj, 1.0, 0)
+        self._settings_spacing_spin.set_tooltip_text(
+            "Extra space between the lines of a text preview – 0 is "
+            "the normal line height, applies immediately.")
+        self._settings_spacing_spin.connect(
+            "value-changed", self._on_line_spacing_changed)
+        srow.pack_start(self._settings_spacing_spin, False, False, 0)
+        fbox.pack_start(srow, False, False, 0)
         return frame
 
     # → REF TB-DOC-6
@@ -254,6 +271,7 @@ class PreviewToolbarMixin:
         self._settings_win = None
         self._settings_spin = None
         self._settings_pages_spin = None
+        self._settings_spacing_spin = None
 
     def _on_show_at_start_toggled(self, chk):
         # Save immediately – no separate save button needed.
@@ -290,6 +308,15 @@ class PreviewToolbarMixin:
     # → REF TB-DOC-10
     def _on_linenumbers_toggled(self, chk):
         self._conf_text_linenumbers = chk.get_active()
+        self._config_save()
+        if self._last_textish and self._path:
+            self._render()
+
+    # → REF TB-DOC-17
+    def _on_line_spacing_changed(self, spin):
+        # F25: save immediately and re-render the text preview so
+        # the new spacing is visible right away.
+        self._conf_text_line_spacing = int(spin.get_value())
         self._config_save()
         if self._last_textish and self._path:
             self._render()
@@ -346,7 +373,7 @@ class PreviewToolbarMixin:
         return True
 
 
-PREVIEWER_VERSION = "0.54.0"
+PREVIEWER_VERSION = "0.55.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
