@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.55.0
+previewer_panel.py – Version 0.55.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -862,7 +862,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         scroll = build_text_view(view, text, font, markup,
                                   self._conf_text_line_spacing)
         if linenumbers:
-            self._install_line_numbers(view, font)
+            self._install_line_numbers(view, font,
+                                       self._conf_text_line_spacing)
         self._content.pack_start(scroll, True, True, 0)
         # 0.16.2: always set the marker True ("current preview is
         # TextView-based"); previously the line-number switch sat
@@ -871,7 +872,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         return view
 
     # → REF PAN-DOC-21
-    def _install_line_numbers(self, view, font=None):
+    def _install_line_numbers(self, view, font=None, spacing=0):
+        # spacing (F25): the extra pixels above every line – the
+        # numbers must center on the text, not on the whole box.
         ctx = view.get_style_context()
         probe = view.create_pango_layout("00000")
         # 0.16.3: the numbers draw a bit SMALLER than the text –
@@ -911,15 +914,19 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                                    color.alpha * 0.75)
                 margin = view.get_left_margin()
                 while True:
-                    y, _h = view.get_line_yrange(it)
+                    y, h = view.get_line_yrange(it)
                     if y > vis.y + vis.height:
                         break
                     probe.set_text(str(it.get_line() + 1))
-                    pw, _ph = probe.get_pixel_size()
+                    pw, ph = probe.get_pixel_size()
                     _x, wy = view.buffer_to_window_coords(
                         Gtk.TextWindowType.WIDGET, 0, y)
+                    # The number font is smaller – center it vertically
+                    # on the text area, below the extra line spacing.
                     Gtk.render_layout(ctx, cr, margin - pw - 8,
-                                      wy + 1, probe)
+                                      wy + spacing + max(
+                                          (h - spacing - ph) // 2, 0),
+                                      probe)
                     if not it.forward_line():
                         break
             except Exception as exc:
@@ -1305,7 +1312,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.55.0"
+PREVIEWER_VERSION = "0.55.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
