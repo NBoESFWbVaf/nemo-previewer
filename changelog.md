@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.57.0\] – 2026-11-05
+
+### Changed
+
+- K5 – lazy GStreamer initialization: Gst.init and the GStreamer import no longer run when the extension loads at Nemo start – they run on the FIRST audio/video preview and are cached afterwards. Nemo starts measurably faster on systems with GStreamer installed, and sessions that never preview media never touch GStreamer at all. The audio/video preview branches behave exactly as before, including the install hint when gir1.2-gst-plugins-base-1.0 is missing.
+
 ## \[0.56.1\] – 2026-11-05
 
 ### Fixed
