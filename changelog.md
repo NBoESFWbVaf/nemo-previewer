@@ -4,6 +4,14 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.58.2\] – 2026-11-05
+
+### Changed
+
+- F54 – e-mail headers restyled (user request): the labels are bold, the values italic, and the subject row sits BELOW the date row (order: from, to, Cc, date, subject). The central table helper pack_meta_grid grew the optional bold_keys/italic_values parameters for that – the other info tables keep their dim look.
+- F54 – mails WITHOUT a readable text body now render like a mail with text: the body area is always built (empty if need be), the "No readable text body found" hint is gone.
+- F54 – the attachment list is a two-column table now (user request): column 1 the file name (ellipsized in the middle, tooltip with the full name), column 2 the human-readable size (dim, END-aligned; "unknown" if undecodable) – icon and content type are deliberately not shown anymore.
+
 ## \[0.58.1\] – 2026-11-05
 
 ### Fixed
