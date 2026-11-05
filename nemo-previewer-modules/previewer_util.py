@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.54.0
+previewer_util.py – Version 0.55.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -108,10 +108,11 @@ def debug_log_cleanup():
 
 # → REF UT-DOC-1
 def dbg(msg):
-    # F65: with debug logging on, every line is mirrored into the
-    # log file under XDG_STATE_HOME; stdout stays as it is.
-    if DEBUG_LOG:
-        _debug_log_file(msg)
+    # Deploy feedback: debug output is fully GATED – with the
+    # toggle and the env var off, dbg writes NOTHING at all.
+    if not DEBUG_LOG:
+        return
+    _debug_log_file(msg)
     print("[previewer] %s" % msg)
 
 
@@ -344,7 +345,7 @@ def build_scaled_image(src, max_h, upscale=False, keep_height=False,
 
 
 # → REF UT-DOC-14
-def build_text_view(view, text, font, markup):
+def build_text_view(view, text, font, markup, spacing=0):
     view.set_editable(False)
     view.set_cursor_visible(False)
     view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
@@ -360,6 +361,12 @@ def build_text_view(view, text, font, markup):
         buf.insert_markup(buf.get_end_iter(), markup, -1)
     else:
         buf.set_text(text)
+    # F25: extra line spacing – ONE TextTag over the whole buffer,
+    # reapplied on every rebuild; the clipboard stays untouched.
+    if spacing:
+        tag = buf.create_tag("previewer-line-spacing",
+                             pixels_above_lines=int(spacing))
+        buf.apply_tag(tag, buf.get_start_iter(), buf.get_end_iter())
     scroll = Gtk.ScrolledWindow()
     scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
     scroll.set_shadow_type(Gtk.ShadowType.IN)
@@ -390,5 +397,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.54.0"
+PREVIEWER_VERSION = "0.55.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
