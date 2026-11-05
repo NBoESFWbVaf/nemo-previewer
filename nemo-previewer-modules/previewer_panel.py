@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.57.0
+previewer_panel.py – Version 0.58.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -690,6 +690,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # contact (renderers in the text module).
             # → REF PAN-VCARD-1
             self._render_vcard(path)
+        elif lower.endswith(".ics") or mime == "text/calendar":
+            # F52: iCalendar files – event cards in the text module.
+            self._render_ics(path)
         elif mime == "application/epub+zip" or lower.endswith(".epub"):
             self._render_epub(path)
         elif (mime in ("application/x-fictionbook+xml",
@@ -1353,7 +1356,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.57.0"
+PREVIEWER_VERSION = "0.58.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
