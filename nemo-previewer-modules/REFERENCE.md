@@ -611,7 +611,7 @@ F44 (0.28.0): match the color scheme to the system theme – a dark theme (gtk-t
 - **Reason:** Configured TextView; the construction lives in previewer_util (S6).
 
 ```text
-Fully configured TextView in a ScrolledWindow, packed into self._content. font: Pango description; None keeps the GTK theme's system font (i.e. the system font size) and does not call override_font at all. markup: optional Pango markup string (must be validated beforehand); without markup the raw text is set. linenumbers (F24): line numbers on the left margin – only set by _render_text (text files and extension-less text files), rendered previews (Markdown, e-mail, e-book, font waterfall) stay without. source_path (F44, 0.28.0): file whose language GtkSourceView shall guess – if a language is recognized, syntax highlighting shows up; without a binding or language it stays a normal TextView. S6 (0.42.0): configuration and buffer filling live as build_text_view() in previewer_util.
+Fully configured TextView in a ScrolledWindow, packed into self._content. font: Pango description; None keeps the GTK theme's system font (i.e. the system font size) and does not call override_font at all. markup: optional Pango markup string (must be validated beforehand); without markup the raw text is set. linenumbers (F24): line numbers on the left margin – only set by _render_text (text files and extension-less text files), rendered previews (Markdown, e-mail, e-book, font waterfall) stay without. source_path (F44, 0.28.0): file whose language GtkSourceView shall guess – if a language is recognized, syntax highlighting shows up; without a binding or language it stays a normal TextView. S6 (0.42.0): configuration and buffer filling live as build_text_view() in previewer_util. 0.55.0 (F25): passes the config value _conf_text_line_spacing as the spacing argument – the line spacing therefore flows centrally into ALL TextView previews (plain text, Markdown, e-mail, e-book, font), unlike the line numbers which only the plain text preview has.
 ```
 
 ### PAN-DOC-21 – Docstring: \_install\_line\_numbers
@@ -681,7 +681,7 @@ Panel is torn down: stop playback and timers (B3).
 - **Reason:** Read the settings; defaults on any failure (F12).
 
 ```text
-F12 (0.12.0): read the settings from CONF_FILE. Without a file or on ANY failure the defaults apply – a broken or half-written configuration must never stop Nemo from starting. New settings dock here as get_boolean/get_string with try/except. 0.53.0 (F65): the debug_log boolean docks here like every setting; on True the panel calls set_debug_log(True) right after loading – late enough for the config, early enough for all runtime dbg lines (the module-load lines of the other modules may be missing from the log when only the toggle is on; NEMO_PREVIEWER_DEBUG=1 catches them too).
+F12 (0.12.0): read the settings from CONF_FILE. Without a file or on ANY failure the defaults apply – a broken or half-written configuration must never stop Nemo from starting. New settings dock here as get_boolean/get_string with try/except. 0.53.0 (F65): the debug_log boolean docks here like every setting; on True the panel calls set_debug_log(True) right after loading – late enough for the config, early enough for all runtime dbg lines (the module-load lines of the other modules may be missing from the log when only the toggle is on; NEMO_PREVIEWER_DEBUG=1 catches them too). 0.55.0 (F25): the integer text_line_spacing docks here with a range check (0–12, values outside are ignored).
 ```
 
 ### PAN-DOC-28 – Docstring: \_config\_save
@@ -691,7 +691,7 @@ F12 (0.12.0): read the settings from CONF_FILE. Without a file or on ANY failure
 - **Reason:** Write the settings immediately after every change (F12).
 
 ```text
-F12 (0.12.0): write the settings to CONF_FILE immediately (creating the directory if needed). Called after every change in the settings window – a separate save button is therefore unnecessary. 0.53.0 (F65): persists the debug_log boolean like every other setting.
+F12 (0.12.0): write the settings to CONF_FILE immediately (creating the directory if needed). Called after every change in the settings window – a separate save button is therefore unnecessary. 0.53.0 (F65): persists the debug_log boolean like every other setting. 0.55.0 (F25): persists the integer text_line_spacing.
 ```
 
 ### PAN-DOC-29 – Docstring: apply\_start\_settings
@@ -733,7 +733,7 @@ F63 (user wish 2026-11-04): the new header button right next to "Open with the d
 - **Reason:** F65 – make active debug logging visible in the header, live in both directions.
 
 ```text
-F65 (0.54.0, user wish): a red recording dot at the left of the header signals active debug logging. Construction in __init__: Gtk.Image with the standard icon media-record-symbolic (icon naming spec – the standard themes ship it, keeps the symbolic icon discipline), widget name previewer-rec-dot, recolored red (#e01b24) via a small CssProvider on the widget's own style context (same pattern as TB-CSS-1, no Gdk import), no_show_all so it can hide cleanly. _update_rec_dot mirrors the live state via set_visible(debug_log_active()) – called once after construction (covers config toggle AND NEMO_PREVIEWER_DEBUG=1) and from the settings toggle handler, so switching is live in both directions. Env var rule: with NEMO_PREVIEWER_DEBUG=1 the dot stays visible even when the toggle goes OFF – logging IS still on then. Tooltip "Debug logging is active". The panel also calls debug_log_cleanup() after _config_load (F65b log retention, see UT-LOG-1).
+F65 (0.54.0, user wish): a red recording dot at the left of the header signals active debug logging. Construction in __init__: Gtk.Image with the standard icon media-record-symbolic (icon naming spec – the standard themes ship it, keeps the symbolic icon discipline), widget name previewer-rec-dot, recolored red (#e01b24) via a small CssProvider on the widget's own style context (same pattern as TB-CSS-1, no Gdk import), no_show_all so it can hide cleanly. _update_rec_dot mirrors the live state via set_visible(debug_log_active()) – called once after construction (covers config toggle AND NEMO_PREVIEWER_DEBUG=1) and from the settings toggle handler, so switching is live in both directions. Env var rule: with NEMO_PREVIEWER_DEBUG=1 the dot stays visible even when the toggle goes OFF – logging IS still on then. Tooltip "Debug logging is active". The panel also calls debug_log_cleanup() after _config_load (F65b log retention, see UT-LOG-1). 0.54.1 (deploy feedback): \_update\_rec\_dot uses the battle-tested show()/hide() pair instead of set\_visible, and the icon goes through pick\_icon with the media-record fallback (non-symbolic, also standard) – if media-record-symbolic is missing in a theme, the dot still renders.
 ```
 
 ---
@@ -1072,7 +1072,7 @@ GtkTreeView-based views (list, compact).
 - **Reason:** Basic debug output for the terminal; every module logs through it with the [previewer] prefix.
 
 ```text
-Debug output – visible when Nemo is started in a terminal. 0.53.0 (F65): with DEBUG_LOG on (settings toggle or NEMO_PREVIEWER_DEBUG=1) dbg additionally mirrors every line into the log file (see UT-LOG-1); stdout behavior stays unchanged in every mode, so terminal deploy tests stay identical.
+Debug output – visible when Nemo is started in a terminal. 0.53.0 (F65): with DEBUG_LOG on (settings toggle or NEMO_PREVIEWER_DEBUG=1) dbg additionally mirrors every line into the log file (see UT-LOG-1); stdout behavior stays unchanged in every mode, so terminal deploy tests stay identical. 0.54.1 (deploy feedback): dbg is now FULLY GATED – "debug logging" means ALL debug output: with the toggle and the env var off dbg writes NOTHING, neither into the log file nor to stdout; only the entry point's version-mismatch warning stays visible via a plain print (a stale module must never hide behind silent mode). Consequence: terminal deploy tests now run with NEMO_PREVIEWER_DEBUG=1 nemo.
 ```
 
 ### UT-DOC-2 – Docstring: diag
@@ -1202,7 +1202,7 @@ S6 (0.42.0): image in a scroll window – the widget part of the panel method _s
 - **Reason:** S6 – TextView configuration and buffer fill with 10/10/8/8 padding.
 
 ```text
-S6 (0.42.0): TextView configuration and buffer fill – the widget part of the panel method _text_view; line numbers, GtkSourceView guessing and packing stay with the panel.
+S6 (0.42.0): TextView configuration and buffer fill – the widget part of the panel method _text_view; line numbers, GtkSourceView guessing and packing stay with the panel. 0.55.0 (F25): optional spacing parameter – values above 0 create the TextTag "previewer-line-spacing" (pixels_above_lines) and apply it over the whole buffer; the tag is re-applied on every rebuild, the clipboard stays untouched.
 ```
 
 ### UT-DOC-15 – Docstring: center\_window
@@ -1224,7 +1224,7 @@ User rule (2026-11-03): all opening windows of the extension – settings window
 - **Reason:** F65 debug logging as a setting – dbg mirrored into a persistent log file, toggle or env var.
 
 ```text
-F65 (0.53.0, user wish): debug logging as a SETTING – with the toggle on, every dbg line is mirrored into a persistent log file. Path: XDG_STATE_HOME (default ~/.local/state)/nemo-previewer/previewer.log – the XDG standard place for user logs, survives Nemo restarts and independent of where stdout lands (terminal vs session). Mechanics: DEBUG_LOG starts from the env var NEMO_PREVIEWER_DEBUG=1 (power-user one-shot, always wins over the toggle); the settings toggle feeds set_debug_log(True) from the panel config load and the toolbar handler (OR, never switches the env var off). _debug_log_file appends each line with a "YYYY-MM-DD HH:MM:SS" timestamp, writes a "--- session start, version X ---" header once per session at the first write, and rotates ONCE per session: if the file exceeds DEBUG_LOG_CAP (512 KB) it becomes previewer.log.old (exactly ONE backup, the previous .old is removed first) – bounded disk footprint in the 0.9.2 cap discipline. File errors are suppressed with a plain print (never dbg – no recursion). dbg keeps stdout output unchanged in every mode, so terminal deploy tests stay identical. 0.54.0 (deploy feedback): set\_debug\_log recomputes LIVE – OFF stops file logging during the session (the old OR semantics kept the flag stuck on TRUE); the env var is captured separately in DEBUG\_ENV at import time and still wins over the toggle. New: debug\_log\_active() returns the live state for the header dot; debug\_log\_cleanup() deletes previewer.log and previewer.log.old once their mtime is older than DEBUG\_LOG\_MAX\_AGE (7 days) – called at every panel start, even with logging off, so logs never linger on disk forever.
+F65 (0.53.0, user wish): debug logging as a SETTING – with the toggle on, every dbg line is mirrored into a persistent log file. Path: XDG_STATE_HOME (default ~/.local/state)/nemo-previewer/previewer.log – the XDG standard place for user logs, survives Nemo restarts and independent of where stdout lands (terminal vs session). Mechanics: DEBUG_LOG starts from the env var NEMO_PREVIEWER_DEBUG=1 (power-user one-shot, always wins over the toggle); the settings toggle feeds set_debug_log(True) from the panel config load and the toolbar handler (OR, never switches the env var off). _debug_log_file appends each line with a "YYYY-MM-DD HH:MM:SS" timestamp, writes a "--- session start, version X ---" header once per session at the first write, and rotates ONCE per session: if the file exceeds DEBUG_LOG_CAP (512 KB) it becomes previewer.log.old (exactly ONE backup, the previous .old is removed first) – bounded disk footprint in the 0.9.2 cap discipline. File errors are suppressed with a plain print (never dbg – no recursion). dbg keeps stdout output unchanged in every mode, so terminal deploy tests stay identical. 0.54.0 (deploy feedback): set\_debug\_log recomputes LIVE – OFF stops file logging during the session (the old OR semantics kept the flag stuck on TRUE); the env var is captured separately in DEBUG\_ENV at import time and still wins over the toggle. New: debug\_log\_active() returns the live state for the header dot; debug\_log\_cleanup() deletes previewer.log and previewer.log.old once their mtime is older than DEBUG\_LOG\_MAX\_AGE (7 days) – called at every panel start, even with logging off, so logs never linger on disk forever. 0.54.1 (deploy feedback): dbg is fully gated since this version – the debug toggle and the env var now switch ALL debug output (file AND stdout); nothing is written anywhere while both are off.
 ```
 
 ---
@@ -1308,7 +1308,7 @@ Section "General": start behaviour, folder contents list (F48) and the default w
 - **Reason:** Text files section: line numbers (F24) and syntax highlighting (F44).
 
 ```text
-Section "Text files" (F24, 0.16.0): line numbers and syntax highlighting – applies only to the plain text preview; rendered previews (Markdown, e-mail, e-book, font) have no line numbers.
+Section "Text files" (F24, 0.16.0): line numbers and syntax highlighting – applies only to the plain text preview; rendered previews (Markdown, e-mail, e-book, font) have no line numbers. 0.55.0 (F25): spin "Line spacing (px)" (0–12, step 1) below the syntax switch – handler _on_line_spacing_changed (TB-DOC-17) saves immediately and re-renders live. NOTE: unlike the line numbers the spacing applies to ALL TextView previews, because it flows into build_text_view centrally.
 ```
 
 ### TB-DOC-6 – Docstring: \_settings\_frame\_docs
@@ -1421,6 +1421,16 @@ F12 (0.13.0): new start width from the SpinButton – adopt immediately, apply l
 
 ```text
 F65 (0.53.0): check button "Debug logging (write log file)" in the settings "General" frame, active state from _conf_debug_log (panel config, key debug_log). Handler _on_debug_log_toggled: store the state, _config_save() immediately (no separate save button – same course as the other toggles), then set_debug_log(state) – the env var NEMO_PREVIEWER_DEBUG=1 still wins over an OFF toggle. The dbg confirmation line logs the raw toggle state. Tooltip names the log path (~/.local/state/nemo-previewer/previewer.log), the rotation cap and the env var one-shot. 0.54.0 (deploy feedback): the toggle now switches logging OFF live during the session (set\_debug\_log recomputes) and refreshes the header recording dot via \_update\_rec\_dot right after the flag change.
+```
+
+### TB-DOC-17 – Docstring: \_on\_line\_spacing\_changed (F25)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin.\_on\_line\_spacing\_changed` (method) and the spin in `\_settings\_frame\_text`
+- **Reason:** F25 line spacing – spin handler with live re-render (same pattern as TB-DOC-10/TB-DOC-11).
+
+```text
+F25 (0.55.0): value-changed handler of the "Line spacing (px)" spin (Adjustment 0–12, step 1, page 2). Course: int(spin.get_value()) into \_conf\_text\_line\_spacing, then \_config\_save() immediately, then – like line numbers and syntax – if \_last\_textish and \_path: self.\_render(). The re-render passes the value through build\_text\_view's spacing parameter (TextTag pixels\_above\_lines), so the current text preview widens/narrows right away. Because \_text\_view passes the config value centrally, the spacing applies to ALL TextView previews, not only the plain text.
 ```
 
 ---
