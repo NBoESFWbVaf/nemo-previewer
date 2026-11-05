@@ -197,9 +197,10 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 
   ✅ 0.46.0 – Text-Modul \_csv\_data + \_pack\_table: Trenner und Kopfzeile snifft csv.Sniffer selbst (Nutzer-Anforderung), 1000-Zeilen-Vorschau, klick-sortierbar (→ REF TXT-CSV-1).
 - [x] **F9 – EXIF-Tabelle für Fotos** (Kamera, Datum, Belichtung). **M**
-- [ ] **F11 – WOFF1-Fonts** (zlib-entpackter sfnt → Wasserfall läuft
+- [x] **F11 – WOFF1-Fonts und TTC mit allen Gesichtern** (zlib-entpackter sfnt → Wasserfall läuft mit; Nutzer-Auftrag 2026-11-05 „Ergänze das Rendern von Schriftarten um WOFF1-Fonts und TTC"). **S**
 
-  mit). **S**
+  WOFF1 (.woff) kann Fontconfig nicht lesen: Der Rebuild zu einem sfnt und die Registrierung des Temp-Exemplars passiert in reinem Byte-Code ohne Web-Toolkit; WOFF2 (Brotli) bleibt bewusst offen mit klarer Meldung statt Vorschau. TTC zeigte bislang nur das ERSTE Gesicht — jetzt bekommt JEDES Gesicht der Collection einen eigenen fetten Header (Familie – Stil) und einen eigenen Wasserfall, live beim Spalten-Resize (F68), mit 8-Gesichter-Deckel und Rest-Hinweis.  
+  ✅ 0.59.0 – umgesetzt: NEU \_woff1\_to\_sfnt (zlib-Dekomprimierung je Tabelle, sortiert, auf 4 Byte gepadt, Original-Checksummen behalten) und \_sfnt\_face\_names (Namens-Tabelle EINES Gesichts, aus dem alten \_font\_info extrahiert); \_font\_faces liefert jetzt (Registrier-Pfad, Format, Gesichter-Liste) — das WOFF-Sfnt liegt als stem-hash.ttf im Font-Tempdir (R5-Deckel greift), \_fc\_add\_font\_file kopiert Tempdir-Dateien nicht doppelt; \_render\_font baut pro Gesicht Header + Wasserfall mit je eigenem Live-Item (\_font\_wf ist jetzt Liste), Info-Tabelle bei Collections mit Format + Anzahl statt Familie/Stil; Dispatch kennt .woff und font/woff, Probetext-Handler (.woff) ebenfalls. WOFF2 (wOF2) → klare Meldung „WOFF2 is not supported". (→ REF TXT-FONT-3, TXT-DOC-42/43/86/98/99/100)
 - [x] **F54 – EML: Anhänge anzeigen und extrahieren** (Nutzer-Wunsch 2026-11-01)
 
   Die EML-Vorschau listet Anhänge (Name, Größe, Typ) und extrahiert sie auf Knopf in einen wählbaren Ordner (Gtk.FileChooserDialog, konfliktfreier Dateiname); MIME-Teile aus dem bestehenden Parser, Base64-Dekodierung mit email-Bordmitteln, Größen-Deckel wie bei den Text-Pfaden. **M**  
