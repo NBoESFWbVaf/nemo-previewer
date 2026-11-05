@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.58.2
+previewer_render_text.py – Version 0.58.3
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1218,6 +1218,50 @@ def _font_known(font_map, family):
         return False
     except Exception:
         return True      # check impossible – do not block
+
+
+# → REF TXT-DOC-97
+def _font_waterfall_pixbuf(family, fctx, fg, text, target_w):
+    # Waterfall surface at DOUBLE the current preview width –
+    # scaled down for display; the wrap follows the column (F68).
+    s = 2
+    surf_w = max(200, target_w * s)
+    pad = 8 * s
+    tag_fd = Pango.FontDescription()
+    tag_fd.set_size(9 * Pango.SCALE * s)
+    pairs = []
+    total_h = 2 * pad
+    for size in _FONT_SIZES:
+        tag_l = Pango.Layout.new(fctx)
+        tag_l.set_font_description(tag_fd)
+        tag_l.set_text("%d pt" % size, -1)
+        text_fd = Pango.FontDescription()
+        text_fd.set_family(family)
+        text_fd.set_size(size * Pango.SCALE * s)
+        text_l = Pango.Layout.new(fctx)
+        text_l.set_font_description(text_fd)
+        # F12: the sample text comes from the configuration –
+        # editable in the "Fonts" section (→ REF TXT-FONT-2).
+        text_l.set_text(text, -1)
+        text_l.set_width(surf_w * Pango.SCALE)
+        text_l.set_wrap(Pango.WrapMode.WORD_CHAR)
+        pairs.append((tag_l, text_l))
+        total_h += tag_l.get_pixel_size()[1]
+        total_h += text_l.get_pixel_size()[1]
+        total_h += 6 * s
+    surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, surf_w, total_h)
+    cr = cairo.Context(surf)
+    y = pad
+    for tag_l, text_l in pairs:
+        cr.set_source_rgba(fg[0], fg[1], fg[2], 0.55)
+        cr.move_to(pad, y)
+        PangoCairo.show_layout(cr, tag_l)
+        y += tag_l.get_pixel_size()[1]
+        cr.set_source_rgba(fg[0], fg[1], fg[2], 1.0)
+        cr.move_to(pad, y)
+        PangoCairo.show_layout(cr, text_l)
+        y += text_l.get_pixel_size()[1] + 6 * s
+    return Gdk.pixbuf_get_from_surface(surf, 0, 0, surf_w, total_h)
 
 
 # ============================ Renderer: text ================================
@@ -2565,53 +2609,52 @@ class TextRendererMixin:
         except Exception as e:
             dbg("text/_render_font: suppressed: %s" % e)
 
-        # Pre-render at double size and scale down live: stays
-        # sharp even while dragging the divider.
-        s = 2
-        surf_w = max(200, self._preview_width() * s)
-        pad = 8 * s
-        tag_fd = Pango.FontDescription()
-        tag_fd.set_size(9 * Pango.SCALE * s)
-        pairs = []
-        total_h = 2 * pad
-        for size in _FONT_SIZES:
-            tag_l = Pango.Layout.new(fctx)
-            tag_l.set_font_description(tag_fd)
-            tag_l.set_text("%d pt" % size, -1)
-            text_fd = Pango.FontDescription()
-            text_fd.set_family(family)
-            text_fd.set_size(size * Pango.SCALE * s)
-            text_l = Pango.Layout.new(fctx)
-            text_l.set_font_description(text_fd)
-            # F12: the sample text comes from the configuration –
-            # editable in the "Fonts" section (→ REF TXT-FONT-2).
-            text_l.set_text(self._conf_font_sample_text, -1)
-            text_l.set_width(surf_w * Pango.SCALE)
-            text_l.set_wrap(Pango.WrapMode.WORD_CHAR)
-            pairs.append((tag_l, text_l))
-            total_h += tag_l.get_pixel_size()[1]
-            total_h += text_l.get_pixel_size()[1]
-            total_h += 6 * s
-
-        surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, surf_w, total_h)
-        cr = cairo.Context(surf)
-        y = pad
-        for tag_l, text_l in pairs:
-            cr.set_source_rgba(fg[0], fg[1], fg[2], 0.55)
-            cr.move_to(pad, y)
-            PangoCairo.show_layout(cr, tag_l)
-            y += tag_l.get_pixel_size()[1]
-            cr.set_source_rgba(fg[0], fg[1], fg[2], 1.0)
-            cr.move_to(pad, y)
-            PangoCairo.show_layout(cr, text_l)
-            y += text_l.get_pixel_size()[1] + 6 * s
-
-        pb = Gdk.pixbuf_get_from_surface(surf, 0, 0, surf_w, total_h)
-        scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False)
+        img = Gtk.Image()
+        img.set_halign(Gtk.Align.CENTER)
+        img.set_valign(Gtk.Align.START)
+        scroll = Gtk.ScrolledWindow()
+        # AUTOMATIC in both directions: stops the child minimum
+        # width from propagating – the pane stays draggable.
+        scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                          Gtk.PolicyType.AUTOMATIC)
+        scroll.add(img)
         self._content.pack_start(scroll, True, True, 0)
+        # F68: live re-render on resize (user bug report) – the
+        # waterfall re-wraps at the dragged column width.
+        self._font_wf = {"family": family, "fctx": fctx, "fg": fg,
+                         "text": self._conf_font_sample_text,
+                         "img": img, "last_w": -1}
+        self._apply_font_scale()
+
+    # → REF TXT-DOC-98
+    def _apply_font_scale(self):
+        wf = self._font_wf
+        if wf is None:
+            return
+        try:
+            target = self._preview_width()
+            # Same 8 px threshold as the PDF pages: no re-render
+            # per pixel while dragging the divider.
+            if abs(target - wf["last_w"]) < 8:
+                return
+            wf["last_w"] = target
+            pb = _font_waterfall_pixbuf(
+                wf["family"], wf["fctx"], wf["fg"], wf["text"],
+                target)
+            sw, sh = pb.get_width(), pb.get_height()
+            # Downscale to fit, never upscale; the height cap
+            # keeps the old _scaled_image behavior (R3).
+            f = min(float(target) / sw, 1.0)
+            if f * sh > MAX_IMAGE_HEIGHT:
+                f = float(MAX_IMAGE_HEIGHT) / sh
+            wf["img"].set_from_pixbuf(pb.scale_simple(
+                max(1, int(sw * f)), max(1, int(sh * f)),
+                GdkPixbuf.InterpType.BILINEAR))
+        except Exception as e:
+            dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.58.2"
+PREVIEWER_VERSION = "0.58.3"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
