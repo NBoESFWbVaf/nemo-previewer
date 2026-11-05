@@ -511,7 +511,7 @@ Style contexts that additionally need the surface rule (F46 V) – providers do 
 - **Reason:** Set the selection and re-render the preview.
 
 ```text
-Set the selection and re-render the preview (names = file names).
+Set the selection and re-render the preview (names = file names). 0.56.0 (F2): heavy formats no longer render here directly – a pending debounced render is always cancelled first, then _is_heavy decides: light formats render immediately as before, heavy ones arm the _RENDER_QUIET_MS timeout (mechanism in PAN-DOC-33).
 ```
 
 ### PAN-DOC-11 – Docstring: \_render
@@ -734,6 +734,16 @@ F63 (user wish 2026-11-04): the new header button right next to "Open with the d
 
 ```text
 F65 (0.54.0, user wish): a red recording dot at the left of the header signals active debug logging. Construction in __init__: Gtk.Image with the standard icon media-record-symbolic (icon naming spec – the standard themes ship it, keeps the symbolic icon discipline), widget name previewer-rec-dot, recolored red (#e01b24) via a small CssProvider on the widget's own style context (same pattern as TB-CSS-1, no Gdk import), no_show_all so it can hide cleanly. _update_rec_dot mirrors the live state via set_visible(debug_log_active()) – called once after construction (covers config toggle AND NEMO_PREVIEWER_DEBUG=1) and from the settings toggle handler, so switching is live in both directions. Env var rule: with NEMO_PREVIEWER_DEBUG=1 the dot stays visible even when the toggle goes OFF – logging IS still on then. Tooltip "Debug logging is active". The panel also calls debug_log_cleanup() after _config_load (F65b log retention, see UT-LOG-1). 0.54.1 (deploy feedback): \_update\_rec\_dot uses the battle-tested show()/hide() pair instead of set\_visible, and the icon goes through pick\_icon with the media-record fallback (non-symbolic, also standard) – if media-record-symbolic is missing in a theme, the dot still renders.
+```
+
+### PAN-DOC-33 – Docstring: \_on\_pending\_render (F2)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_on\_pending\_render` (method) with `\_cancel\_pending\_render`, `\_is\_heavy` and the `\_RENDER\_QUIET\_MS` constant; armed in `set\_selection` (PAN-DOC-10)
+- **Reason:** F2 – heavy renders start only after selection quiet (debounce).
+
+```text
+F2 (0.56.0): heavy renderers (PDF, Office, audio, video) start only after _RENDER_QUIET_MS (400 ms) of selection quiet – fast browsing over many files no longer fires renders whose result is dropped immediately. Mechanism: set_selection ALWAYS cancels a pending render first (_cancel_pending_render via GLib.source_remove), then _is_heavy decides: light formats (text, images, folder …) render immediately as before, heavy ones arm GLib.timeout_add(_RENDER_QUIET_MS, _on_pending_render). The handler returns False (self-removing source) and re-checks self._path – a selection cleared in between renders nothing. _is_heavy classifies by extension (.pdf, _OFFICE_EXTS from the render switch, the audio endings) and by mime prefix (audio/, video/) via query_file_info. The timer id lives in _pending_render_id (None default in __init). During the quiet window the previous preview stays visible. Debounce cousins already in the code: the size-allocate re-render and the panel-width config save.
 ```
 
 ---
