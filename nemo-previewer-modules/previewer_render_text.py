@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.57.0
+previewer_render_text.py – Version 0.58.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -51,6 +51,7 @@ from previewer_util import (
     _xml_dtd_rejected,
     pack_hint,
     pack_meta_grid,
+    center_window,
     cover_round_path,
 )
 
@@ -70,6 +71,7 @@ except Exception as e:
 # 0.9.2 (audit "buffer overflow/OOM"): caps against decompression
 # and decoding bombs – crafted files must never blow up Nemo.
 _EML_FILE_CAP = 2 * 1024 * 1024      # .eml: headers + start of the body
+_EML_ATTACH_CAP = 64 * 1024 * 1024   # F54: re-read budget for extraction
 _VCARD_FILE_CAP = 8 * 1024 * 1024    # vCard: properties + base64 photo
 _FB2_FILE_CAP = 8 * 1024 * 1024      # R11: FB2 read cap – the cover sits
                                      # as base64 in the file; oversized
@@ -1659,6 +1661,116 @@ def _contact_parse(text):
     return cards
 
 
+# F52: iCalendar – read cap like the other structured text formats,
+# event cap like the contact cards (the rest shows as a hint).
+_ICS_FILE_CAP = 8 * 1024 * 1024      # .ics: events + descriptions
+_ICS_EVENT_CAP = 50                  # F52: rendered events max
+
+
+# → REF TXT-DOC-87
+def _ics_unfold(text):
+    # RFC 5545: a line break followed by a space or tab continues
+    # the previous line (folding).
+    out = []
+    for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        if line[:1] in (" ", "\t") and out:
+            out[-1] += line[1:]
+        else:
+            out.append(line)
+    return out
+
+
+# → REF TXT-DOC-88
+def _ics_dt(value, params):
+    # DATE or DATE-TIME into a readable string; all-day values
+    # (VALUE=DATE or no "T") show the date only.
+    if "VALUE=DATE" in params or "T" not in value.upper():
+        all_day = True
+    else:
+        all_day = False
+    digits = re.sub(r"[^0-9]", "", value)
+    if len(digits) < 8:
+        return value
+    s = "%s-%s-%s" % (digits[0:4], digits[4:6], digits[6:8])
+    if not all_day and len(digits) >= 13:
+        s += " %s:%s" % (digits[8:10], digits[10:12])
+    return s
+
+
+# → REF TXT-DOC-89
+def _ics_text(value):
+    # Unescapes RFC 5545 text values for display.
+    s = value.replace("\\n", " ").replace("\\N", " ")
+    s = s.replace("\\,", ",").replace("\\;", ";").replace("\\\\", "\\")
+    return re.sub(r"\s+", " ", s).strip()
+
+
+# → REF TXT-DOC-90
+def _ics_data(path):
+    # VEVENT blocks into dicts of (params, value) pairs; the first
+    # occurrence of a property wins (repeats stay unhandled).
+    with open(path, "rb") as fh:
+        raw = fh.read(_ICS_FILE_CAP)
+    text = raw.decode("utf-8-sig", "replace")
+    events, cur = [], None
+    for line in _ics_unfold(text):
+        if ":" not in line:
+            continue
+        name, value = line.split(":", 1)
+        base = name.split(";", 1)[0].strip().upper()
+        if base == "BEGIN" and value.strip().upper() == "VEVENT":
+            cur = {}
+        elif base == "END" and value.strip().upper() == "VEVENT":
+            if cur is not None and (cur.get("SUMMARY")
+                                    or cur.get("DTSTART")):
+                events.append(cur)
+            cur = None
+        elif (cur is not None and base not in cur and base in
+              ("SUMMARY", "DTSTART", "DTEND", "LOCATION", "DESCRIPTION")):
+            cur[base] = (name.upper(), value.strip())
+    return events
+
+
+# → REF TXT-DOC-91
+def _eml_attachment_rows(msg):
+    # F54: every MIME part with a filename becomes a row of
+    # (name, size, type); undecodable sizes stay None.
+    rows = []
+    for part in msg.walk():
+        try:
+            name = part.get_filename()
+        except Exception:
+            name = None
+        if not name:
+            continue
+        name = os.path.basename(name.replace("\\", "/")).strip()
+        if not name:
+            continue
+        try:
+            payload = part.get_payload(decode=True)
+            size = len(payload) if payload else None
+        except Exception:
+            size = None
+        try:
+            ctype = part.get_content_type()
+        except Exception:
+            ctype = "application/octet-stream"
+        rows.append((name, size, ctype))
+    return rows
+
+
+# → REF TXT-DOC-92
+def _unique_target(folder, name):
+    # Conflict-free target: an existing file gets _1, _2 …
+    base, ext = os.path.splitext(name)
+    cand = os.path.join(folder, name)
+    n = 1
+    while os.path.exists(cand):
+        cand = os.path.join(folder, "%s_%d%s" % (base, n, ext))
+        n += 1
+    return cand
+
+
 # --- F8: CSV as a real table (user request 2026-11-02) ---
 # 0.46.0: the module detects the delimiter and header itself
 # (user requirement) – csv.Sniffer guesses the delimiter AND
@@ -1825,11 +1937,21 @@ class TextRendererMixin:
         pack_meta_grid(rows, self._content)
 
         body = self._eml_body(msg)
-        if not body.strip():
+        if body.strip():
+            self._text_view(body)
+        att_rows = _eml_attachment_rows(msg)
+        if att_rows:
+            # F54: attachments with name, size and type plus an
+            # extract button (→ REF TXT-EML-ATT-1).
+            if os.path.getsize(path) > _EML_FILE_CAP:
+                pack_hint(self._content, "File trimmed at %s – the "
+                          "attachment list may be incomplete."
+                          % human_size(_EML_FILE_CAP))
+            self._pack_eml_attachments(path, att_rows)
+        if not body.strip() and not att_rows:
             pack_hint(self._content, "No readable text body found – open the "
                        "file via the open button.")
-            return
-        self._text_view(body)
+        dbg("text/_render_eml: %d attachments listed" % len(att_rows))
 
     # → REF TXT-DOC-69
     def _eml_body(self, msg):
@@ -1868,6 +1990,113 @@ class TextRendererMixin:
             except Exception:
                 text = ""
         return text[:MAX_TEXT_BYTES]
+
+    # → REF TXT-DOC-93
+    def _pack_eml_attachments(self, path, rows):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        head = Gtk.Label()
+        head.set_markup("<b>Attachments (%d)</b>" % len(rows))
+        head.set_halign(Gtk.Align.START)
+        box.pack_start(head, False, False, 2)
+        for name, size, ctype in rows:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                          spacing=8)
+            icon = Gtk.Image.new_from_icon_name(
+                pick_icon(("mail-attachment-symbolic", "mail-attachment",
+                           "text-x-generic-symbolic"), "mail-attachment"),
+                Gtk.IconSize.MENU)
+            row.pack_start(icon, False, False, 0)
+            lbl = Gtk.Label(label=name)
+            lbl.set_halign(Gtk.Align.START)
+            lbl.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+            lbl.set_tooltip_text(name)
+            row.pack_start(lbl, False, False, 0)
+            meta = "%s · %s" % (human_size(size), ctype) \
+                if size is not None else "size unknown · %s" % ctype
+            mlbl = Gtk.Label(label=meta)
+            mlbl.get_style_context().add_class("dim-label")
+            mlbl.set_halign(Gtk.Align.START)
+            mlbl.set_ellipsize(Pango.EllipsizeMode.END)
+            row.pack_start(mlbl, True, False, 0)
+            box.pack_start(row, False, False, 0)
+        btn = Gtk.Button(label="Extract all attachments")
+        btn.set_tooltip_text("Choose a folder – existing files get "
+                            "a numbered suffix")
+        btn.set_halign(Gtk.Align.START)
+        btn.set_margin_top(4)
+        btn.connect("clicked", self._on_eml_extract, path)
+        box.pack_start(btn, False, False, 0)
+        self._content.pack_start(box, False, False, 8)
+
+    # → REF TXT-DOC-94
+    def _on_eml_extract(self, btn, path):
+        try:
+            dlg = Gtk.FileChooserDialog(
+                title="Extract attachments to folder",
+                action=Gtk.FileChooserAction.SELECT_FOLDER)
+            toplevel = self.get_toplevel()
+            if isinstance(toplevel, Gtk.Window):
+                dlg.set_transient_for(toplevel)
+            dlg.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
+                            "Extract", Gtk.ResponseType.OK)
+            center_window(dlg, 560)
+            resp = dlg.run()
+            folder = dlg.get_filename() \
+                if resp == Gtk.ResponseType.OK else None
+            dlg.destroy()
+        except Exception as e:
+            dbg("text/_on_eml_extract: chooser failed: %s" % e)
+            folder = None
+        if not folder:
+            return
+        saved, errors = 0, []
+        trimmed = os.path.getsize(path) > _EML_ATTACH_CAP
+        try:
+            with open(path, "rb") as fh:
+                raw = fh.read(_EML_ATTACH_CAP)
+            msg = email.message_from_bytes(raw, policy=policy.default)
+            for part in msg.walk():
+                try:
+                    name = part.get_filename()
+                except Exception:
+                    name = None
+                if not name:
+                    continue
+                fname = os.path.basename(
+                    name.replace("\\", "/")).strip()
+                if not fname:
+                    continue
+                try:
+                    data = part.get_payload(decode=True)
+                except Exception as e:
+                    errors.append("%s (%s)" % (fname, e))
+                    continue
+                if not data:
+                    errors.append("%s (no data)" % fname)
+                    continue
+                target = _unique_target(folder, fname)
+                try:
+                    with open(target, "wb") as out:
+                        out.write(data)
+                    saved += 1
+                except Exception as e:
+                    errors.append("%s (%s)" % (fname, e))
+        except Exception as e:
+            errors.append(str(e))
+        dbg("text/_on_eml_extract: %d saved, %d failed -> %s"
+            % (saved, len(errors), folder))
+        if errors:
+            pack_hint(self._content, "Extracted %d of %d attachments "
+                      "– %s" % (saved, saved + len(errors),
+                                "; ".join(errors[:3])))
+        elif trimmed:
+            pack_hint(self._content, "Extracted %d attachments – the "
+                      "file is larger than %s, the last attachment may "
+                      "be incomplete." % (saved,
+                                          human_size(_EML_ATTACH_CAP)))
+        else:
+            pack_hint(self._content, "Extracted %d attachments to %s"
+                      % (saved, folder))
 
     # → REF TXT-DOC-70
     def _render_vcard(self, path):
@@ -2036,6 +2265,72 @@ class TextRendererMixin:
         except Exception as e:
             dbg("vCard card background failed (%s)" % e)
         return False
+
+    # → REF TXT-DOC-95
+    def _render_ics(self, path):
+        # → REF TXT-ICS-1
+        try:
+            events = _ics_data(path)
+        except Exception as e:
+            dbg("ICS unreadable (%s): %s" % (path, e))
+            pack_hint(self._content, "Could not open the calendar: %s" % e)
+            self._render_generic()
+            return
+        if not events:
+            pack_hint(self._content, "No event found – open the file via "
+                      "the open button.")
+            self._render_generic()
+            return
+        count = len(events)
+        events = events[:_ICS_EVENT_CAP]
+        stack = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        stack.set_margin_start(6)
+        stack.set_margin_end(6)
+        stack.set_margin_top(6)
+        stack.set_margin_bottom(6)
+        for ev in events:
+            stack.pack_start(self._ics_event_widget(ev), False, False, 0)
+        if count > _ICS_EVENT_CAP:
+            rest = Gtk.Label(label="… and %d more events"
+                             % (count - _ICS_EVENT_CAP))
+            rest.get_style_context().add_class("dim-label")
+            stack.pack_start(rest, False, False, 0)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.add(stack)
+        self._content.pack_start(scroll, True, True, 0)
+        dbg("text/_render_ics: %d events shown of %d"
+            % (len(events), count))
+
+    # → REF TXT-DOC-96
+    def _ics_event_widget(self, ev):
+        # One event as a card: bold summary + key/value rows after
+        # the EML header pattern (values wrap, descriptions get long).
+        summary = _ics_text(ev.get("SUMMARY", ("", ""))[1]) or "(no summary)"
+        rows = []
+        start = ev.get("DTSTART")
+        end = ev.get("DTEND")
+        if start:
+            rows.append(("Start", _ics_dt(start[1], start[0])))
+        if end:
+            rows.append(("End", _ics_dt(end[1], end[0])))
+        location = _ics_text(ev.get("LOCATION", ("", ""))[1])
+        if location:
+            rows.append(("Location", location))
+        desc = _ics_text(ev.get("DESCRIPTION", ("", ""))[1])
+        if desc:
+            if len(desc) > 240:
+                desc = desc[:240] + "…"
+            rows.append(("Description", desc))
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        lbl = Gtk.Label()
+        lbl.set_markup("<span weight='bold' size='large'>%s</span>"
+                       % _pango_escape(summary))
+        lbl.set_halign(Gtk.Align.START)
+        lbl.set_line_wrap(True)
+        box.pack_start(lbl, False, False, 0)
+        pack_meta_grid(rows, box, wrap=True)
+        return box
 
     # → REF TXT-DOC-73
     def _render_ebook(self, path, loader, fmt):
@@ -2330,9 +2625,9 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-PREVIEWER_VERSION = "0.57.0"
+PREVIEWER_VERSION = "0.58.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
-    "F8: CSV table; F6: SQLite overview; "
-    "K4 markdown and read caps stay)"
+    "F8: CSV table; F6: SQLite overview; F52: ICS events; "
+    "F54: EML attachments; K4 markdown and read caps stay)"
     % PREVIEWER_VERSION)
