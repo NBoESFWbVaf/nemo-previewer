@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.58.2
+previewer_panel.py – Version 0.58.3
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -205,6 +205,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F14: page indicator of the PDF preview + total page count
         self._pdf_page_label = None
         self._pdf_count = 0
+        # F68: font waterfall state – re-renders (re-wraps) live on
+        # column resize (see _apply_font_scale in render_text).
+        self._font_wf = None
         # → REF PAN-F12-1
         self._conf_show_at_start = True
         # F48: folder preview with contents list is the mandatory
@@ -568,6 +571,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._pdf_page_label = None
         self._pdf_count = 0
         self._pdf_gen += 1
+        # F68: drop the font waterfall state as well.
+        self._font_wf = None
         # F24: was the just torn-down preview a text preview?
         self._last_textish = False
         # F12 part 3: was it a document page view (PDF/office)?
@@ -760,6 +765,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._render_width = width
             self._apply_scale()
             self._apply_pdf_scale()
+            # F68: the font waterfall re-renders at the new width.
+            self._apply_font_scale()
         except Exception as e:
             dbg("panel/_on_content_size_allocate: suppressed: %s" % e)
 
@@ -1356,7 +1363,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.58.2"
+PREVIEWER_VERSION = "0.58.3"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
