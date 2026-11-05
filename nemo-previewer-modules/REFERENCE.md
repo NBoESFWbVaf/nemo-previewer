@@ -2369,7 +2369,7 @@ Conversion finished: cache the result, refresh the preview.
 
 - **Module:** previewer\_render\_text.py (color + sample text), previewer\_panel.py (configuration), previewer\_toolbar.py (settings field)
 - **Location:** `_render_font` (text color and waterfall label); defaults in `\_\_init\_\_`, load/save in \_config\_load/\_config\_save (key font\_sample\_text); settings window, section “Fonts”
-- **Reason:** User finding (2026-10-31): the waterfall text of the font preview was black – also in dark mode, where black text on dark grey is barely readable. Cause: StyleContext.get\_color() in GTK3 demands the state argument; the old call without the argument ALWAYS threw a TypeError that the surrounding except block swallowed, so the fallback (0.13, 0.13, 0.13 = almost black) stayed in every theme. Now the call get\_color(Gtk.StateFlags.NORMAL) reads the same theme color as the folder icons; the fallback stays as the last resort. Additional user request: the sample text is no longer hard-wired in the source (\_FONT\_SAMPLE\_TEXT stays only as the default) – the new section “Fonts” in the settings window offers an entry (key font\_sample\_text), saves immediately and rebuilds a currently displayed font live (\_on\_font\_sample\_changed, extension check .ttf/.otf/.ttc); empty text stays unsaved.
+- **Reason:** User finding (2026-10-31): the waterfall text of the font preview was black – also in dark mode, where black text on dark grey is barely readable. Cause: StyleContext.get\_color() in GTK3 demands the state argument; the old call without the argument ALWAYS threw a TypeError that the surrounding except block swallowed, so the fallback (0.13, 0.13, 0.13 = almost black) stayed in every theme. Now the call get\_color(Gtk.StateFlags.NORMAL) reads the same theme color as the folder icons; the fallback stays as the last resort. Additional user request: the sample text is no longer hard-wired in the source (\_FONT\_SAMPLE\_TEXT stays only as the default) – the new section “Fonts” in the settings window offers an entry (key font\_sample\_text), saves immediately and rebuilds a currently displayed font live (\_on\_font\_sample\_changed, extension check .ttf/.otf/.ttc/.woff); empty text stays unsaved.
 
 ```text
         fg = (0.13, 0.13, 0.13)
@@ -2379,6 +2379,16 @@ Conversion finished: cache the result, refresh the preview.
             fg = (c.red, c.green, c.blue)
         except Exception:
             pass
+```
+
+### TXT-FONT-3 – WOFF1 and TTC with all faces (F11)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_woff1\_to\_sfnt`, `\_sfnt\_face\_names`, `\_font\_faces`, `\_render\_font`; dispatch in previewer\_panel.py, sample-text check in previewer\_toolbar.py
+- **Reason:** User request (2026-11-05) "Ergänze das Rendern von Schriftarten um WOFF1-Fonts und TTC" – F11 from the plan.
+
+```text
+WOFF1 (.woff): Fontconfig cannot read WOFF – _woff1_to_sfnt unpacks the zlib-compressed tables (compLength < origLength) and rebuilds a plain sfnt (flavor as version, tables sorted by tag, data padded to 4 bytes, original checksums kept); _font_faces parks the sfnt as stem-hash.ttf in the font temp dir (R5 cap) and returns it as the registration path. WOFF2 (wOF2, Brotli) raises "WOFF2 is not supported" – it shows the open hint instead of a preview. TTC (ttcf): every face offset in the header is parsed (name table per face via _sfnt_face_names; one broken face is skipped), and _render_font gives EVERY face its own bold header (family – style) and its own waterfall – capped at \_TTC\_FACE\_CAP (8) with a dim remainder hint; the info table shows Format + font count instead of Family/Style. Every waterfall carries its own live-resize item (F68). The panel dispatch now routes .woff (and font/woff) to the font renderer.
 ```
 
 ### TXT-B6-1 – System font size for Markdown (B6)
@@ -2837,24 +2847,24 @@ F60 (0.45.0): Arch/Pacman package (.pkg.tar.xz, AUR builds among others) – .PK
 F60 (0.45.0): Drawn package icon (box with lid and format signet) for packages without a readable app icon – e.g. RPM (cpio payload) or tar.zst. Without Cairo: None, the caller then shows the open hint.
 ```
 
-### TXT-DOC-42 – Docstring: \_font\_info
+### TXT-DOC-42 – Docstring: \_font\_faces
 
 - **Module:** previewer\_render\_text.py
-- **Location:** `\_font\_info` (module level)
-- **Reason:** Family and style from the sfnt name table (pure bytes).
+- **Location:** `\_font\_faces` (module level)
+- **Reason:** F11 – every readable face of a font file; WOFF1 becomes an sfnt.
 
 ```text
-Read family and style from the name table of a TrueType/OpenType file (sfnt header, name table – pure byte work). Returns (format text, family, style).
+Reads the whole font file and returns (registration path, format text, faces): WOFF1 is rebuilt to a plain sfnt via _woff1_to_sfnt and parked in the font temp dir (Fontconfig cannot read WOFF) – the temp path is the registration path; wOF2 raises "WOFF2 is not supported". ttcf collections list EVERY face: the name table is parsed per face offset via _sfnt_face_names, one broken face is skipped instead of killing the whole preview. Single TrueType/OpenType files return exactly one face. Format texts: TrueType, OpenType (CFF), the WOFF variants "… (WOFF)" and the collection variants TrueType-Collection / OpenType-Collection (CFF).
 ```
 
 ### TXT-DOC-43 – Docstring: \_fc\_add\_font\_file
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `\_fc\_add\_font\_file` (module level)
-- **Reason:** Per-process Fontconfig takeover via ctypes.
+- **Reason:** Per-process Fontconfig takeover via ctypes; F11: temp-dir passthrough.
 
 ```text
-Register a font file with Fontconfig for THIS process – without installing it system-wide: copy into a temporary folder, then FcConfigAppFontAddDir (libfontconfig via ctypes). Pango then reads the family via Fontconfig as usual.
+Register a font file with Fontconfig for THIS process – without installing it system-wide: copy into a temporary folder, then FcConfigAppFontAddDir (libfontconfig via ctypes). Pango then reads the family via Fontconfig as usual. F11 (0.59.0): paths that already live in the temp dir (rebuilt WOFF sfnts) are NOT copied a second time – the directory add picks them up directly.
 ```
 
 ### TXT-DOC-44 – Docstring: \_font\_known
@@ -3281,10 +3291,10 @@ F6 (0.46.0): SQLite databases – table list with columns and row count. The str
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `TextRendererMixin.\_render\_font` (method)
-- **Reason:** Font waterfall with a fresh Pango font map; F68: live re-render on resize.
+- **Reason:** Font waterfall with a fresh Pango font map; F68: live re-render; F11: WOFF1 and all TTC faces.
 
 ```text
-Font waterfall (TrueType, OpenType, collections): the file is registered with Fontconfig for this process only (nothing is installed). The waterfall is pre-rendered into a pixbuf with a FRESH Pango font map – GTK's default font map is built at startup and overlooks fonts added at runtime (labels would silently show the fallback font). F68 (0.58.3, user bug report): the surface comes from _font_waterfall_pixbuf at the CURRENT column width and _apply_font_scale rebuilds it live while the divider is dragged – the sample text re-wraps immediately, the point sizes on screen stay constant (before, the one-time surface only got scaled: dragging wider grew the faces while the wrap kept the old width until the font was re-selected).
+Font waterfall (TrueType, OpenType, WOFF1, collections): the file – for WOFF1 the rebuilt sfnt (F11) – is registered with Fontconfig for this process only (nothing is installed). The waterfall is pre-rendered into a pixbuf with a FRESH Pango font map – GTK's default font map is built at startup and overlooks fonts added at runtime (labels would silently show the fallback font). F11 (0.59.0): _font_faces returns EVERY face of a TTC; each face gets its own bold header (family – style) and its own waterfall, capped at _TTC_FACE_CAP (8) with a dim remainder hint – single fonts keep the info table with Family/Style, collections show Format + font count. F68 (0.58.3, user bug report): the surfaces come from _font_waterfall_pixbuf at the CURRENT column width and _apply_font_scale rebuilds them live while the divider is dragged – the sample text re-wraps immediately, the point sizes on screen stay constant (before, the one-time surface only got scaled: dragging wider grew the faces while the wrap kept the old width until the font was re-selected).
 ```
 
 ### TXT-DOC-87 – Docstring: \_ics\_unfold
@@ -3401,8 +3411,28 @@ Builds the waterfall surface at DOUBLE the current preview width (sharp while sc
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `TextRendererMixin.\_apply\_font\_scale` (method)
-- **Reason:** F68 – live waterfall re-render on column resize (user bug report).
+- **Reason:** F68 – live waterfall re-render on column resize (user bug report); F11: one item per face.
 
 ```text
-Called from the panel's size-allocate handler (like _apply_pdf_scale): if the preview width moved at least 8 px, the waterfall pixbuf is REBUILT at the new width (re-wrapping the sample text) and fitted into the existing image – downscaled to fit, never upscaled, height capped at MAX_IMAGE_HEIGHT. Before 0.58.3 the surface was rendered once at the width the preview had when the font was selected and only scaled afterwards: dragging the column wider GREW the font faces while the wrap kept the old width (user bug report – only re-selecting the font helped). The state dict \_font\_wf (family, font context, theme color, sample text, image, last width) lives on the panel; it is dropped in \_clear\_content.
+Called from the panel's size-allocate handler (like _apply_pdf_scale): every waterfall item of \_font\_wf (F11: one PER FACE of a collection) re-renders on its own if the preview width moved at least 8 px – the waterfall pixbuf is REBUILT at the new width (re-wrapping the sample text) and fitted into the existing image, downscaled to fit, never upscaled, height capped at MAX_IMAGE_HEIGHT. Before 0.58.3 the surface was rendered once at the width the preview had when the font was selected and only scaled afterwards: dragging the column wider GREW the font faces while the wrap kept the old width (user bug report – only re-selecting the font helped). The item dicts (family, font context, theme color, sample text, image, last width) live in a list on the panel; it is dropped in \_clear\_content.
+```
+
+### TXT-DOC-99 – Docstring: \_woff1\_to\_sfnt
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_woff1\_to\_sfnt` (module level)
+- **Reason:** F11 – WOFF1 unpacked to a plain sfnt (pure bytes).
+
+```text
+WOFF1 (wOFF) rebuild: the 20-byte directory entries (tag, offset, compLength, origLength, origChecksum) are walked from offset 44; tables with compLength < origLength are zlib-decompressed. The sfnt is assembled with the WOFF flavor as version (never ttcf – a WOFF1 cannot wrap a collection), searchRange/entrySelector/rangeShift computed like a real font, tables sorted by tag, data padded to 4 bytes, the original checksums kept. WOFF2 (wOF2) is deliberately NOT supported (Brotli).
+```
+
+### TXT-DOC-100 – Docstring: \_sfnt\_face\_names
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_sfnt\_face\_names` (module level)
+- **Reason:** F11 – name table of one face, also inside collections.
+
+```text
+Reads family and style from the name table of ONE sfnt face at the given offset (pure byte work): walks the face's table directory for the name table, decodes the name records (platform 0/3 as UTF-16BE, else roughly Latin-1), prefers name IDs 1/16/4 for the family and 2/17 for the style, and returns (family, style). Extracted from the former \_font\_info so collections can parse EVERY face at its own offset.
 ```
