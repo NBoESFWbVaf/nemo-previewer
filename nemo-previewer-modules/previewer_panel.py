@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.55.1
+previewer_panel.py – Version 0.56.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -79,6 +79,10 @@ _SNIFF_BINARY_MIMES = {
 # format, no extra dependency; created on first save.
 CONF_DIR = os.path.expanduser("~/.config/nemo-previewer")
 CONF_FILE = os.path.join(CONF_DIR, "nemo-previewer.conf")
+
+# F2: heavy renderers wait this many ms of selection quiet before
+# they start – fast browsing never fires a render it drops anyway.
+_RENDER_QUIET_MS = 400
 # → REF PAN-B8-1
 try:
     _KEYFILE_CLS = GLib.KeyFile
@@ -239,6 +243,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._settings_spin = None
         self._settings_pages_spin = None
         self._settings_spacing_spin = None
+        # F2: pending debounced heavy render (selection quiet).
+        self._pending_render_id = None
         self._config_load()
         # F65b: stale debug logs (older than 7 days) vanish at
         # every panel start – even with logging off.
@@ -498,6 +504,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if not names:
             self._path = None
             self._names = []
+            self._cancel_pending_render()
             self._show_placeholder()
             return
 
@@ -507,7 +514,41 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._path = os.path.join(dir_path, first)
         else:
             self._path = first
-        self._render()
+        # F2: a queued debounced render never survives a new
+        # selection – heavy formats re-arm, light ones render now.
+        self._cancel_pending_render()
+        if self._is_heavy(self._path):
+            self._pending_render_id = GLib.timeout_add(
+                _RENDER_QUIET_MS, self._on_pending_render)
+        else:
+            self._render()
+
+    # → REF PAN-DOC-33
+    def _cancel_pending_render(self):
+        # F2: drop a queued debounced render – the selection moved
+        # on, so its result would be thrown away anyway.
+        if self._pending_render_id is not None:
+            GLib.source_remove(self._pending_render_id)
+            self._pending_render_id = None
+
+    def _on_pending_render(self):
+        # F2: fires once after selection quiet; returning False
+        # removes the timeout source by itself.
+        self._pending_render_id = None
+        if self._path:
+            self._render()
+        return False
+
+    def _is_heavy(self, path):
+        # F2: formats whose render costs clearly more than the
+        # light ones – PDF/Office parsing, GStreamer pipelines.
+        lower = path.lower()
+        if lower.endswith((".pdf",) + _OFFICE_EXTS):
+            return True
+        mime, _size, _mtime = query_file_info(path)
+        return (mime.startswith(("audio/", "video/")) or
+                lower.endswith((".mp3", ".flac", ".ogg", ".opus",
+                                ".m4a", ".wav", ".wma")))
 
     # ------------------------------ Rendering ------------------------------
 
@@ -1312,7 +1353,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.55.1"
+PREVIEWER_VERSION = "0.56.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
