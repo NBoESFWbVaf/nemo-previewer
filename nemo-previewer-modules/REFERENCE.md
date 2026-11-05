@@ -2405,6 +2405,28 @@ Conversion finished: cache the result, refresh the preview.
         # Frame and shadow need NO pycairo – the draw callback gets its Cairo context delivered by GTK.
 ```
 
+### TXT-ICS-1 – ICS calendar events (F52)
+
+- **Module:** previewer\_render\_text.py (\_render\_ics), previewer\_panel.py (dispatch)
+- **Location:** `\_ics\_data` parses the VEVENT blocks; `\_render\_ics` stacks the event cards
+- **Reason:** User request: calendar files (.ics) as an event list (decoupled from F7). Every VEVENT becomes its own card after the EML header pattern: bold summary, then Start/End/Location/Description rows via pack\_meta\_grid with wrapping values (descriptions get long). The parser unfolds RFC 5545 continuation lines, keeps the first occurrence of a property and understands DATE and DATE-TIME values (VALUE=DATE and the UTC "Z" suffix show the date, timed values show date and time). Times appear exactly as stored – no timezone conversion, the preview never invents what the file does not say. Multiple events sit scrollable below each other, 50 events max with a "… and N more" hint (cap like the contact cards); the read cap is 8 MB like vCard. Dispatch: .ics extension or text/calendar.
+
+```text
+        elif lower.endswith(".ics") or mime == "text/calendar":
+            self._render_ics(path)
+```
+
+### TXT-EML-ATT-1 – EML attachments list and extraction (F54)
+
+- **Module:** previewer\_render\_text.py (\_render\_eml, \_pack\_eml\_attachments, \_on\_eml\_extract)
+- **Location:** `\_eml\_attachment\_rows` collects the parts, `\_unique\_target` avoids name conflicts
+- **Reason:** User request: the EML preview lists attachments (name, size, type) and extracts them on a button. The listing walks the MIME parts of the already parsed (2 MB capped) message – every part with a filename becomes a row with a mail-attachment icon, human-readable size and content type; undecodable sizes show "size unknown". If the file is larger than the read cap, a hint says the list may be incomplete. The "Extract all attachments" button opens a folder chooser (Gtk.FileChooserDialog, SELECT\_FOLDER, centered via center\_window like every window) and re-reads the file with a 64 MB budget – extraction is a deliberate user action, but oversized files still never freeze Nemo. Every attachment is written with a conflict-free name (existing files get \_1, \_2 …). Feedback lands as a dim hint below the preview plus a dbg line; single failures are named, a trimmed file gets a warning that the last attachment may be incomplete.
+
+```text
+        btn = Gtk.Button(label="Extract all attachments")
+        btn.connect("clicked", self._on_eml_extract, path)
+```
+
 ### TXT-DOC-1 – Docstring: \_pango\_escape
 
 - **Module:** previewer\_render\_text.py
@@ -3263,4 +3285,104 @@ F6 (0.46.0): SQLite databases – table list with columns and row count. The str
 
 ```text
 Font waterfall (TrueType, OpenType, collections): the file is registered with Fontconfig for this process only (nothing is installed). The waterfall is pre-rendered into a pixbuf with a FRESH Pango font map – GTK's default font map is built at startup and overlooks fonts added at runtime (labels would silently show the fallback font). The finished image uses the usual live scaling with the panel width.
+```
+
+### TXT-DOC-87 – Docstring: \_ics\_unfold
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_ics\_unfold` (module level)
+- **Reason:** Unfold RFC 5545 folded lines.
+
+```text
+Unfold RFC 5545 line folding: a line break followed by a space or tab continues the previous line. Returns the unfolded lines of the whole file.
+```
+
+### TXT-DOC-88 – Docstring: \_ics\_dt
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_ics\_dt` (module level)
+- **Reason:** Readable date formatting for ICS values.
+
+```text
+DATE or DATE-TIME into a readable string; all-day values (VALUE=DATE parameter or no "T" in the value) show the date only. Anything the digit check cannot parse returns the raw value.
+```
+
+### TXT-DOC-89 – Docstring: \_ics\_text
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_ics\_text` (module level)
+- **Reason:** Unescape RFC 5545 text values for display.
+
+```text
+Unescapes RFC 5545 text values (\n line breaks, \, \; \\\) and collapses whitespace into single spaces – SUMMARIES and descriptions become one displayable line.
+```
+
+### TXT-DOC-90 – Docstring: \_ics\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_ics\_data` (module level)
+- **Reason:** Parse VEVENT blocks from an iCalendar file.
+
+```text
+VEVENT blocks into dicts of (params, value) pairs; the first occurrence of a property wins (repeating properties stay unhandled). A block counts as an event when SUMMARY or DTSTART is present; the file is read with the 8 MB cap and decoded as UTF-8 with a BOM tolerance.
+```
+
+### TXT-DOC-91 – Docstring: \_eml\_attachment\_rows
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_eml\_attachment\_rows` (module level)
+- **Reason:** Collect EML attachments for the list.
+
+```text
+Every MIME part with a filename becomes a row of (name, size, type); undecodable sizes stay None and display as "size unknown". Path components in filenames are stripped – only the basename survives.
+```
+
+### TXT-DOC-92 – Docstring: \_unique\_target
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_unique\_target` (module level)
+- **Reason:** Conflict-free target path for extraction.
+
+```text
+Conflict-free target: if a file of that name already exists in the folder, a numbered suffix is appended (name_1.ext, name_2.ext …) until the path is free.
+```
+
+### TXT-DOC-93 – Docstring: \_pack\_eml\_attachments
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_pack\_eml\_attachments` (method)
+- **Reason:** Attachment list plus extract button in the preview.
+
+```text
+Builds the "Attachments (N)" section under the e-mail body: one row per attachment with a mail-attachment icon, the file name (ellipsized in the middle, full name in the tooltip) and a dim line of size and content type. Below sits the "Extract all attachments" button which hands the file path to the extraction handler.
+```
+
+### TXT-DOC-94 – Docstring: \_on\_eml\_extract
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_on\_eml\_extract` (method)
+- **Reason:** Extract all attachments into a chosen folder.
+
+```text
+Opens a folder chooser (centered like every window, transient for the Nemo toplevel), re-reads the e-mail with a 64 MB budget and writes every attachment with a conflict-free name. Success and failures land as a dim hint below the preview plus a dbg line; single failures are named, a trimmed file gets a warning that the last attachment may be incomplete.
+```
+
+### TXT-DOC-95 – Docstring: \_render\_ics
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_render\_ics` (method)
+- **Reason:** ICS preview as scrollable event cards.
+
+```text
+ICS files (text/calendar): every VEVENT becomes its own card, stacked scrollable below each other, 50 events max with a dim remainder hint. Unreadable or eventless files fall back to the generic preview with a hint.
+```
+
+### TXT-DOC-96 – Docstring: \_ics\_event\_widget
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `TextRendererMixin.\_ics\_event\_widget` (method)
+- **Reason:** One event as a card.
+
+```text
+One event as a card after the EML header pattern: bold summary, then Start/End/Location/Description rows via pack_meta_grid with wrapping values (descriptions cap at 240 characters with an ellipsis). Missing properties are skipped instead of shown empty.
 ```
