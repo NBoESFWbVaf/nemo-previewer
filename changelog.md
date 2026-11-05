@@ -4,6 +4,13 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.58.0\] – 2026-11-05
+
+### Added
+
+- F52 – ICS calendar files (.ics) as an event list: every VEVENT becomes its own card with a bold summary and Start/End/Location/Description rows, stacked scrollable below each other with a 50-event cap and a remainder hint. The parser unfolds RFC 5545 continuation lines and formats DATE and DATE-TIME values readably (all-day events show the date only; times appear exactly as stored, no timezone conversion).
+- F54 – EML attachments: the e-mail preview lists every attachment with name, size and type and offers an "Extract all attachments" button. It opens a folder chooser and writes the files with conflict-free names (existing files get a numbered suffix); the extraction re-reads the file with a 64 MB budget, and oversized files produce a warning that the last attachment may be incomplete.
+
 ## \[0.57.0\] – 2026-11-05
 
 ### Changed
