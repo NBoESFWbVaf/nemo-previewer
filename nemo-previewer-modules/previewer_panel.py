@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.58.3
+previewer_panel.py – Version 0.59.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -205,8 +205,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F14: page indicator of the PDF preview + total page count
         self._pdf_page_label = None
         self._pdf_count = 0
-        # F68: font waterfall state – re-renders (re-wraps) live on
-        # column resize (see _apply_font_scale in render_text).
+        # F68/F11: live waterfall items (set to a LIST by
+        # _render_font) – re-rendered on column resize.
         self._font_wf = None
         # → REF PAN-F12-1
         self._conf_show_at_start = True
@@ -727,9 +727,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
               or lower.endswith((".db", ".sqlite", ".sqlite3"))):
             self._render_sqlite(path)
         elif (mime in ("font/ttf", "font/otf", "font/collection",
+                       "font/woff",
                        "application/x-font-ttf", "application/x-font-otf",
                        "application/vnd.ms-opentype")
-              or lower.endswith((".ttf", ".otf", ".ttc"))):
+              or lower.endswith((".ttf", ".otf", ".ttc", ".woff"))):
             self._render_font(path)
         elif mime.startswith("text/") or os.path.splitext(lower)[1] in _TEXT_EXTRAS:
             self._render_text(path)
@@ -1363,7 +1364,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.58.3"
+PREVIEWER_VERSION = "0.59.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
