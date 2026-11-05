@@ -95,7 +95,7 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
   xml.etree expandiert interne DTD-Entities ohne Obergrenze – eine fremde Datei von wenigen KB kann die Vorschau beim Anklicken einfrieren oder den Speicher sprengen (die Vorschau parst automatisch bei Auswahl). **M** – *Skizze:* Eingabe vor dem Parsen auf DOCTYPE/ENTITY prüfen und ablehnen (eigener Guard) oder defusedxml einbinden (neue Abhängigkeit, möglichst vermeiden).  
   ✅ 0.43.0: umgesetzt als Guard \_xml\_dtd\_rejected in previewer\_util – prüft die ersten 64 KB auf DOCTYPE-/ENTITY-Deklarationen und lehnt ab (dbg); aufrufend: EPUB-OPF, FB2, .contact (render\_text), Office-XML (render\_docs); defusedxml bewusst nicht eingebunden (Bordmittel).
 
-- [ ] **R11 – FB2 ohne Lese-Deckel** (\_render\_ebook, previewer\_render\_text.py; Sicherheitsaudit 2026-11-01)
+- [x] **R11 – FB2 ohne Lese-Deckel** (\_render\_ebook, previewer\_render\_text.py; Sicherheitsaudit 2026-11-01)
 
   ElementTree.parse(path) liest die gesamte FB2 – alle anderen Formate haben Deckel (EML 2 MB, vCard 8 MB, EPUB-Chunks 2 MB, Office 2 MB); eine riesige FB2 blockiert die Vorschau. **M** –  
   *Skizze:* Kopf mit Deckel lesen (Muster \_EML\_FILE\_CAP), Rest nur bei Bedarf.  
@@ -179,7 +179,7 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 
   Zeilenanzahl (stdlib `sqlite3`). **S**  
   ✅ 0.46.0 – Text-Modul \_sqlite\_data: Magie-Check, query\_only, PRAGMA table\_info, COUNT mit Progress-Deckel – Tabelle/Spalten/Zeilen als TreeView (→ REF TXT-SQL-1).
-- [ ] **F7 – Visitenkarten: vCard/LDIF/Contact**
+- [x] **F7 – Visitenkarten: vCard/LDIF/Contact**
 
   (Nutzer-Wunsch 2026-10-30) Alle gängigen Visitenkartenformate (.vcf/.vcard, vCard 2.1/3.0/4.0; .ldif; .contact) werden als echte Visitenkarte gerendert: Kontaktbild kreisförmig – ist keins enthalten, zeigt die Vorschau ein kreisförmiges Platzhalterbild –, darunter Name, Position/Firma und Kontaktdaten (Telefon, E-Mail, Web, Adresse, Geburtstag) als Tabelle. **M**  
   ✅ Teil 1 in 0.24.0 – vCard-Visitenkarte umgesetzt (→ REF TXT-VCARD-1 und PAN-VCARD-1): Foto inline Base64 oder lokale URI, sonst runder Platzhalter.  
@@ -311,7 +311,7 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 
   Die scharfe Office-Vorschau (Hintergrund-Konvertierung ins Cache-PDF) soll nicht mehr fest an LibreOffice hängen: Der Nutzer wählt den Renderer im Einstellungsfenster (Auto/LibreOffice/OnlyOffice; conf-Schlüssel office\_renderer), Erkennung per shutil.which (soffice bzw. x2t aus onlyoffice-desktopeditors). **M–L** – *Skizze:* LibreOffice sitzt bereits an EINER Stelle (SOFFICE + \_render\_office → Cache-PDF); einen Converter-Schritt dazwischenlegen: OnlyOffice headless via x2t (XML-Parameterdatei mit m\_sFileFrom/m\_sFileTo), Aufruf als ARGV-Liste ohne Shell wie bei LibreOffice; Auto = Kette LibreOffice → OnlyOffice → Miniatur/Text wie heute; Cache-Schlüssel um den Renderer ergänzen (sonst stale PDFs nach dem Wechsel); offen für weitere Renderer (z. B. calligraconverter). F21 (Office→PDF-Knopf) nutzt denselben Backend.
 
-- [ ] **F59 – E-Book-Vorschau neu: Cover oben, Buch-Infos unten** (Nutzer-Wunsch 2026-11-02)
+- [x] **F59 – E-Book-Vorschau neu: Cover oben, Buch-Infos unten** (Nutzer-Wunsch 2026-11-02)
 
   Die Vorschauspalte teilt sich wie bei Bildern (F38) in 60 % oben /40 % unten. Oben zeigt NUR das eingebettete Cover – ohne Cover zeichnet \_ebook\_placeholder ein Hochformat-Bild (Buchdeckel-Gerüst, themeneutral wie der vCard-Platzhalter). Unten die Info-Tabelle wie bei Bilddateien, nur Zeilen mit gesetzten Tags: Buchtitel, Autor, Teil einer Reihe (EPUB: calibre:series oder EPUB3 belongs-to-collection; FB2: sequence), Anzahl Seiten (nur bei page-count-Meta im OPF – kein Standard-Tag), Ebookformat, Sprache. Die Textvorschau ist abgeschafft (unschön gerendert, die Buch-Infos reichen); \_epub\_text, \_fb2\_body\_text, \_mobi\_text und der PalmDoc-Entpacker sind entfernt.  
   ✅ 0.44.0: umgesetzt – \_render\_ebook auf 60/40-Split (\_pack\_image\_capped), Loader-Signatur jetzt (rows, cover).
@@ -508,16 +508,16 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                                                  | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-02, 0.46.0 deployt)
+## Aktuelle Reihenfolge (Stand 2026-11-05, 0.57.0 deployt)
 
-1. **F49 – Alle Dateien ins Englische**: vor den Feature-Runden, damit neue Inhalte (B9, F50, F52–F54) gleich englisch entstehen; je Datei eine Runde. (Dabei Erfolg-dbg für \_render\_sqlite nachrüsten – der 0.46.0-Test blieb im Log sonst unsichtbar.)
-2. **B9 + F50 – Bild-Runde**: B9 mit der Nutzer-Meldung der fehlerhaften Felder, darauf aufbauend der Exiftool-Dialog.
+1. ✅ F49 – Alle Dateien ins Englische (0.47.0): vor den Feature-Runden, damit neue Inhalte gleich englisch entstehen; je Datei eine Runde; Erfolg-dbg für \_render\_sqlite nachgerüstet.
+2. ✅ B9 + F50 – Bild-Runde (0.47.0 / 0.48.0–0.48.3): B9 mit der Nutzer-Meldung der fehlerhaften Felder, darauf aufbauend der Exiftool-Dialog.
 3. **F52 + F54 – Text-Runde**: ICS-Termintabelle und EML-Anhänge zusammen (beide previewer\_render\_text.py).
 4. **F13 + F53 – Knopf-Runde**: „Im Dateimanager zeigen“ und „Pfad kopieren“ (je **S**).
-5. **Kleinzeug nach Bedarf**: F15, F17, F25, K5, K6, K7.
+5. **Kleinzeug nach Bedarf**: F15, F17, K6, K7 (F25 ✅ 0.55.0, F2 ✅ 0.56.0, K5 ✅ 0.57.0 erledigt und raus).
 6. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits (GTK4/F57, Performance, Speicher/Leaks, Reentrancy, a11y, i18n-Strings, Umgebungs-Matrix) – Befunde einplanen.
 7. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien, git-Tag v1.0.0, GitHub-Release.
-8. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane), F32, F37 – wie vereinbart im Branch erproben.
+8. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane), F32 (Rest: Infobereich), F37, F66 (Zweit-Spalte, konzeptoffen), F67 (markdown-it-py) – wie vereinbart im Branch erproben.
 
 Nicht eingeplant (Pool nach Bedarf): F1, F2, F9, F11, F20, F21, F26, F27, F55, F56, F57 – F21 (Office→PDF-Knopf) spätestens bei F51 entscheiden (README-Wunsch umsetzen oder aus dem README nehmen); F55 bündelt sich gut mit F21 – beide nutzen denselben wählbaren Office-Backend.
 
