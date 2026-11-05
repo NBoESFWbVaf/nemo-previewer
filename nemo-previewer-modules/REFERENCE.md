@@ -1179,10 +1179,10 @@ S6 (0.42.0): dim label with line wrap, left-aligned, packed into the container �
 
 - **Module:** previewer\_util.py
 - **Location:** `pack\_meta\_grid` (module level)
-- **Reason:** S6 – central key-value table with F35 colon logic and F60 wrap mode.
+- **Reason:** S6 – central key-value table with F35 colon logic and F60 wrap mode. F54 (0.58.2): bold_keys=True packs bold labels, italic_values=True italic values (EML header, user request).
 
 ```text
-Key-value table (dim label on the left, value on the right with END ellipsize and tooltip) – central helper for e-book, EML, audio and video info. 0.9.1: previously also built identically inline several times; the inline copies are gone. F35: every label automatically gets a colon at the end (if not already present). F38: packs into any position handed over – image previews give their 40% info area along. S6 (0.42.0): born as the panel mixin method _meta_grid, now usable across util. F60 (0.45.0): wrap=True packs the values multi-line instead of with END ellipsize – package info (description, dependencies) is longer than one line and flows into the scrollable info area of the package preview.
+Key-value table (dim label on the left, value on the right with END ellipsize and tooltip) – central helper for e-book, EML, audio and video info. 0.9.1: previously also built identically inline several times; the inline copies are gone. F35: every label automatically gets a colon at the end (if not already present). F38: packs into any position handed over – image previews give their 40% info area along. S6 (0.42.0): born as the panel mixin method _meta_grid, now usable across util. F60 (0.45.0): wrap=True packs the values multi-line instead of with END ellipsize – package info (description, dependencies) is longer than one line and flows into the scrollable info area of the package preview. F54 (0.58.2): bold_keys=True renders the labels as bold markup (escaped via GLib.markup_escape_text, no dim class), italic_values=True the values italic – EML headers use both, the other callers keep the default look.
 ```
 
 ### UT-DOC-12 – Docstring: cover\_round\_path
@@ -2420,7 +2420,7 @@ Conversion finished: cache the result, refresh the preview.
 
 - **Module:** previewer\_render\_text.py (\_render\_eml, \_pack\_eml\_attachments, \_on\_eml\_extract)
 - **Location:** `\_eml\_attachment\_rows` collects the parts, `\_unique\_target` avoids name conflicts
-- **Reason:** User request: the EML preview lists attachments (name, size, type) and extracts them on a button. The listing walks the MIME parts of the parsed message – every part with a filename becomes a row with a mail-attachment icon, human-readable size and content type; undecodable sizes show "size unknown". 0.58.1 (user request: a big mail stays big): the 0.9.2 EML read cap is GONE – the whole file is parsed, the list is complete and the sizes exact; the same applies to the extraction. The "Extract all attachments" button opens a folder chooser (Gtk.FileChooserDialog, SELECT\_FOLDER, centered via center\_window like every window) and re-reads the whole file. Every attachment is written with a conflict-free name (existing files get \_1, \_2 …). Feedback lands as a dim hint plus a dbg line, single failures are named. 0.58.1 position fix: the attachment box is packed from the BOTTOM (pack\_end) – the list always sits directly above the toolbar, for text mails and HTML-only mails alike (deploy finding: HTML mails truncated at the old cap lost their body and pushed the list to the top).
+- **Reason:** User request: the EML preview lists attachments (name, size) and extracts them on a button. The listing walks the MIME parts of the parsed message – every part with a filename becomes a row; 0.58.2 (user request): the list is a two-column table of file name and human-readable size – icon and content type are gone; undecodable sizes show "unknown". 0.58.1 (user request: a big mail stays big): the 0.9.2 EML read cap is GONE – the whole file is parsed, the list is complete and the sizes exact; the same applies to the extraction. The "Extract all attachments" button opens a folder chooser (Gtk.FileChooserDialog, SELECT\_FOLDER, centered via center\_window like every window) and re-reads the whole file. Every attachment is written with a conflict-free name (existing files get \_1, \_2 …). Feedback lands as a dim hint plus a dbg line, single failures are named. 0.58.1 position fix: the attachment box is packed from the BOTTOM (pack\_end) – the list always sits directly above the toolbar, for text mails and HTML-only mails alike (deploy finding: HTML mails truncated at the old cap lost their body and pushed the list to the top).
 
 ```text
         btn = Gtk.Button(label="Extract all attachments")
@@ -3101,10 +3101,10 @@ Markdown with visible formatting: headings, bold/italic, code, lists, quotes and
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `TextRendererMixin.\_render\_eml` (method)
-- **Reason:** EML preview with header table and body.
+- **Reason:** EML preview with header table and body; 0.58.2: bold labels, italic values, subject below date, body always built.
 
 ```text
-EML files (RFC 822): header lines (subject, from, to, Cc, date) as a table, below the text body. Prefers text/plain; if missing, the HTML part is cleaned into readable text. All with Python on-board tools (email module).
+EML files (RFC 822): header lines (from, to, Cc, date, subject) as a table – the subject row sits BELOW the date row, labels bold, values italic (0.58.2, user request). Below the text body, which is ALWAYS built – mails WITHOUT text render like a mail with text (the "No readable text body found" hint is gone). Prefers text/plain; if missing, the HTML part is cleaned into readable text. All with Python on-board tools (email module).
 ```
 
 ### TXT-DOC-69 – Docstring: \_eml\_body
@@ -3334,7 +3334,7 @@ VEVENT blocks into dicts of (params, value) pairs; the first occurrence of a pro
 - **Reason:** Collect EML attachments for the list.
 
 ```text
-Every MIME part with a filename becomes a row of (name, size, type); undecodable sizes stay None and display as "size unknown". Path components in filenames are stripped – only the basename survives.
+Every MIME part with a filename becomes a row of (name, size) – the content type is deliberately not collected anymore (0.58.2, user request); undecodable sizes stay None and display as "unknown". Path components in filenames are stripped – only the basename survives.
 ```
 
 ### TXT-DOC-92 – Docstring: \_unique\_target
@@ -3351,10 +3351,10 @@ Conflict-free target: if a file of that name already exists in the folder, a num
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `TextRendererMixin.\_pack\_eml\_attachments` (method)
-- **Reason:** Attachment list plus extract button in the preview.
+- **Reason:** Attachment list plus extract button in the preview; 0.58.2: two-column table (name, size), no icon, no content type.
 
 ```text
-Builds the "Attachments (N)" section under the e-mail body: one row per attachment with a mail-attachment icon, the file name (ellipsized in the middle, full name in the tooltip) and a dim line of size and content type. Below sits the "Extract all attachments" button which hands the file path to the extraction handler.
+Builds the "Attachments (N)" section at the bottom of the preview (packed from the bottom, directly above the toolbar): a two-column grid (0.58.2, user request) – column 1 the file name (hexpand, ellipsized in the middle, full name in the tooltip), column 2 the human-readable size (dim, END-aligned, "unknown" if undecodable); no icon, no content type. Below sits the "Extract all attachments" button which hands the file path to the extraction handler.
 ```
 
 ### TXT-DOC-94 – Docstring: \_on\_eml\_extract
