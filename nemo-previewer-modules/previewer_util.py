@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.52.4
+previewer_util.py – Version 0.53.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -11,6 +11,7 @@ trace, type helpers, pixbuf and byte-reading helpers.
 import math
 import os
 import sys
+import time
 
 
 import gi
@@ -33,12 +34,63 @@ MAX_TEXT_LINES = 2000
 MAX_IMAGE_HEIGHT = 1600
 TOGGLE_ACCEL_KEY = Gdk.KEY_p
 TOGGLE_ACCEL_MODS = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.MOD1_MASK
+# F65: debug log file – the settings toggle or NEMO_PREVIEWER_DEBUG=1
+# enables it; XDG_STATE_HOME is the standard place for user logs.
+DEBUG_LOG_CAP = 512 * 1024
+LOG_DIR = os.path.join(
+    os.environ.get("XDG_STATE_HOME")
+    or os.path.expanduser("~/.local/state"),
+    "nemo-previewer")
+LOG_FILE = os.path.join(LOG_DIR, "previewer.log")
 
 
 # ------------------------------- Helpers -----------------------------------
 
+# F65: debug logging state – the env var NEMO_PREVIEWER_DEBUG=1
+# wins over the settings toggle (power-user one-shot, no traces).
+DEBUG_LOG = os.environ.get(
+    "NEMO_PREVIEWER_DEBUG", "").strip().lower() not in ("", "0", "false")
+_log_rotated = False
+
+
+# → REF UT-LOG-1
+def set_debug_log(on):
+    # F65: the settings toggle lands here; OR keeps the env var on.
+    global DEBUG_LOG
+    DEBUG_LOG = DEBUG_LOG or bool(on)
+
+
+def _debug_log_file(msg):
+    # F65: timestamped append; rotates ONCE per session at the first
+    # write (cap 512 KB, keeps exactly ONE .old backup).
+    global _log_rotated
+    try:
+        if not _log_rotated:
+            os.makedirs(LOG_DIR, exist_ok=True)
+            if os.path.exists(LOG_FILE) and \
+                    os.path.getsize(LOG_FILE) > DEBUG_LOG_CAP:
+                if os.path.exists(LOG_FILE + ".old"):
+                    os.remove(LOG_FILE + ".old")
+                os.rename(LOG_FILE, LOG_FILE + ".old")
+            _log_rotated = True
+            with open(LOG_FILE, "a") as fh:
+                fh.write("%s [previewer] --- session start, version %s"
+                         " ---\n"
+                         % (time.strftime("%Y-%m-%d %H:%M:%S"),
+                            PREVIEWER_VERSION))
+        with open(LOG_FILE, "a") as fh:
+            fh.write("%s [previewer] %s\n"
+                     % (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
+    except Exception as e:
+        print("[previewer] debug log file: suppressed: %s" % e)
+
+
 # → REF UT-DOC-1
 def dbg(msg):
+    # F65: with debug logging on, every line is mirrored into the
+    # log file under XDG_STATE_HOME; stdout stays as it is.
+    if DEBUG_LOG:
+        _debug_log_file(msg)
     print("[previewer] %s" % msg)
 
 
@@ -317,5 +369,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.52.4"
+PREVIEWER_VERSION = "0.53.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
