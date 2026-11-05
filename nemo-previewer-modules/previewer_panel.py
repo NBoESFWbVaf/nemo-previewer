@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.54.0
+previewer_panel.py – Version 0.55.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -215,6 +215,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F44: syntax highlighting as a SETTING – "Text files"
         # section, default on; applies live via _last_textish.
         self._conf_text_syntax = True
+        # F25: extra line spacing in text previews – default 0 (the
+        # normal look), configurable in the settings, applied live.
+        self._conf_text_line_spacing = 0
         # F12 part 3: document cap configurable – limit PDF/office
         # previews or show all; default matches the old hard cap.
         self._conf_doc_page_limit = True
@@ -235,6 +238,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._settings_win = None
         self._settings_spin = None
         self._settings_pages_spin = None
+        self._settings_spacing_spin = None
         self._config_load()
         # F65b: stale debug logs (older than 7 days) vanish at
         # every panel start – even with logging off.
@@ -248,7 +252,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F65: red recording dot – visible exactly while debug
         # logging is active (live).
         self._rec_dot = Gtk.Image.new_from_icon_name(
-            "media-record-symbolic", Gtk.IconSize.BUTTON)
+            pick_icon(("media-record-symbolic",), "media-record"),
+            Gtk.IconSize.BUTTON)
         self._rec_dot.set_name("previewer-rec-dot")
         self._rec_dot.set_no_show_all(True)
         self._rec_dot.set_tooltip_text("Debug logging is active")
@@ -854,7 +859,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     view = None
         if view is None:
             view = Gtk.TextView()
-        scroll = build_text_view(view, text, font, markup)
+        scroll = build_text_view(view, text, font, markup,
+                                  self._conf_text_line_spacing)
         if linenumbers:
             self._install_line_numbers(view, font)
         self._content.pack_start(scroll, True, True, 0)
@@ -1169,6 +1175,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     "previewer", "text_syntax")
             except Exception as e:
                 dbg("panel/_config_load: suppressed: %s" % e)
+            # F25: extra line spacing in text previews (px, 0–12).
+            try:
+                ls = kf.get_integer("previewer", "text_line_spacing")
+                if 0 <= ls <= 12:
+                    self._conf_text_line_spacing = int(ls)
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             # F12 part 3: document cap (PDF/office) – limit on/off
             # and the maximum page count (1–999).
             try:
@@ -1221,6 +1234,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # F44: persist syntax highlighting.
             kf.set_boolean("previewer", "text_syntax",
                            self._conf_text_syntax)
+            # F25: persist the line spacing.
+            kf.set_integer("previewer", "text_line_spacing",
+                           int(self._conf_text_line_spacing))
             # F12 part 3: persist the document cap.
             kf.set_boolean("previewer", "doc_page_limit",
                            self._conf_doc_page_limit)
@@ -1276,15 +1292,20 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
     # → REF PAN-DOC-32
     def _update_rec_dot(self):
         # F65: mirror the live debug logging state into the header
-        # dot – called from init and the settings toggle.
+        # dot – called from init and the settings toggle. Plain
+        # show()/hide(): the battle-tested GTK3 mapping pair.
         try:
-            if self._rec_dot is not None:
-                self._rec_dot.set_visible(debug_log_active())
+            if self._rec_dot is None:
+                return
+            if debug_log_active():
+                self._rec_dot.show()
+            else:
+                self._rec_dot.hide()
         except Exception as e:
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.54.0"
+PREVIEWER_VERSION = "0.55.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
