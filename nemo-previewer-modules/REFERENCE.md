@@ -681,7 +681,7 @@ Panel is torn down: stop playback and timers (B3).
 - **Reason:** Read the settings; defaults on any failure (F12).
 
 ```text
-F12 (0.12.0): read the settings from CONF_FILE. Without a file or on ANY failure the defaults apply – a broken or half-written configuration must never stop Nemo from starting. New settings dock here as get_boolean/get_string with try/except.
+F12 (0.12.0): read the settings from CONF_FILE. Without a file or on ANY failure the defaults apply – a broken or half-written configuration must never stop Nemo from starting. New settings dock here as get_boolean/get_string with try/except. 0.53.0 (F65): the debug_log boolean docks here like every setting; on True the panel calls set_debug_log(True) right after loading – late enough for the config, early enough for all runtime dbg lines (the module-load lines of the other modules may be missing from the log when only the toggle is on; NEMO_PREVIEWER_DEBUG=1 catches them too).
 ```
 
 ### PAN-DOC-28 – Docstring: \_config\_save
@@ -691,7 +691,7 @@ F12 (0.12.0): read the settings from CONF_FILE. Without a file or on ANY failure
 - **Reason:** Write the settings immediately after every change (F12).
 
 ```text
-F12 (0.12.0): write the settings to CONF_FILE immediately (creating the directory if needed). Called after every change in the settings window – a separate save button is therefore unnecessary.
+F12 (0.12.0): write the settings to CONF_FILE immediately (creating the directory if needed). Called after every change in the settings window – a separate save button is therefore unnecessary. 0.53.0 (F65): persists the debug_log boolean like every other setting.
 ```
 
 ### PAN-DOC-29 – Docstring: apply\_start\_settings
@@ -1060,7 +1060,7 @@ GtkTreeView-based views (list, compact).
 - **Reason:** Basic debug output for the terminal; every module logs through it with the [previewer] prefix.
 
 ```text
-Debug output – visible when Nemo is started in a terminal.
+Debug output – visible when Nemo is started in a terminal. 0.53.0 (F65): with DEBUG_LOG on (settings toggle or NEMO_PREVIEWER_DEBUG=1) dbg additionally mirrors every line into the log file (see UT-LOG-1); stdout behavior stays unchanged in every mode, so terminal deploy tests stay identical.
 ```
 
 ### UT-DOC-2 – Docstring: diag
@@ -1205,6 +1205,18 @@ User rule (2026-11-03): all opening windows of the extension – settings window
 
 ---
 
+### UT-LOG-1 – Debug log file: dbg mirror (F65)
+
+- **Module:** previewer\_util.py
+- **Location:** `DEBUG_LOG`, `set\_debug\_log`, `\_debug\_log\_file`, the `LOG\_DIR`/`LOG\_FILE`/`DEBUG\_LOG\_CAP` constants (module level)
+- **Reason:** F65 debug logging as a setting – dbg mirrored into a persistent log file, toggle or env var.
+
+```text
+F65 (0.53.0, user wish): debug logging as a SETTING – with the toggle on, every dbg line is mirrored into a persistent log file. Path: XDG_STATE_HOME (default ~/.local/state)/nemo-previewer/previewer.log – the XDG standard place for user logs, survives Nemo restarts and independent of where stdout lands (terminal vs session). Mechanics: DEBUG_LOG starts from the env var NEMO_PREVIEWER_DEBUG=1 (power-user one-shot, always wins over the toggle); the settings toggle feeds set_debug_log(True) from the panel config load and the toolbar handler (OR, never switches the env var off). _debug_log_file appends each line with a "YYYY-MM-DD HH:MM:SS" timestamp, writes a "--- session start, version X ---" header once per session at the first write, and rotates ONCE per session: if the file exceeds DEBUG_LOG_CAP (512 KB) it becomes previewer.log.old (exactly ONE backup, the previous .old is removed first) – bounded disk footprint in the 0.9.2 cap discipline. File errors are suppressed with a plain print (never dbg – no recursion). dbg keeps stdout output unchanged in every mode, so terminal deploy tests stay identical.
+```
+
+---
+
 ## Toolbar (TB)
 
 ### TB-F19-1 – Static ActionBar (F19)
@@ -1274,7 +1286,7 @@ F12 (0.12.0): configuration window of the preview column. The frame is in place;
 - **Reason:** General section: start behaviour, folder contents list (F48), default width at launch.
 
 ```text
-Section "General": start behaviour, folder contents list (F48) and the default width at launch (→ REF TB-F12-1).
+Section "General": start behaviour, folder contents list (F48) and the default width at launch (→ REF TB-F12-1). 0.53.0 (F65): fourth element – the debug logging check button (see TB-DOC-16).
 ```
 
 ### TB-DOC-5 – Docstring: \_settings\_frame\_text
@@ -1385,6 +1397,18 @@ F12 part 3 (0.27.0): rebuild the current PDF/Office page view live – the count
 
 ```text
 F12 (0.13.0): new start width from the SpinButton – adopt immediately, apply live and save (no extra button). 0.41.0: the SpinButton is the ONLY source of the start width – dragging the divider does not change it.
+```
+
+---
+
+### TB-DOC-16 – Docstring: \_on\_debug\_log\_toggled (F65)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin.\_on\_debug\_log\_toggled` (method) and the check button in `\_settings\_frame\_general`
+- **Reason:** F65 debug logging as a user setting (see UT-LOG-1 for the mechanics).
+
+```text
+F65 (0.53.0): check button "Debug logging (write log file)" in the settings "General" frame, active state from _conf_debug_log (panel config, key debug_log). Handler _on_debug_log_toggled: store the state, _config_save() immediately (no separate save button – same course as the other toggles), then set_debug_log(state) – the env var NEMO_PREVIEWER_DEBUG=1 still wins over an OFF toggle. The dbg confirmation line logs the raw toggle state. Tooltip names the log path (~/.local/state/nemo-previewer/previewer.log), the rotation cap and the env var one-shot.
 ```
 
 ---
