@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.53.0
+previewer_panel.py – Version 0.54.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -28,6 +28,8 @@ if _HERE not in sys.path:
 from previewer_util import (
     dbg,
     set_debug_log,
+    debug_log_active,
+    debug_log_cleanup,
     PANEL_WIDTH, PANEL_MIN_WIDTH,
     query_file_info,
     pick_icon,
@@ -234,11 +236,32 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._settings_spin = None
         self._settings_pages_spin = None
         self._config_load()
+        # F65b: stale debug logs (older than 7 days) vanish at
+        # every panel start – even with logging off.
+        debug_log_cleanup()
 
         # --- Header (F35: controls only – icon, name, type, size
         # and date already sit in the Nemo list) ---
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         header.set_border_width(6)
+
+        # F65: red recording dot – visible exactly while debug
+        # logging is active (live).
+        self._rec_dot = Gtk.Image.new_from_icon_name(
+            "media-record-symbolic", Gtk.IconSize.BUTTON)
+        self._rec_dot.set_name("previewer-rec-dot")
+        self._rec_dot.set_no_show_all(True)
+        self._rec_dot.set_tooltip_text("Debug logging is active")
+        try:
+            css = Gtk.CssProvider()
+            css.load_from_data(
+                b"#previewer-rec-dot { color: #e01b24; }")
+            self._rec_dot.get_style_context().add_provider(
+                css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        except Exception as e:
+            dbg("panel/rec dot css: suppressed: %s" % e)
+        header.pack_start(self._rec_dot, False, False, 0)
+        self._update_rec_dot()
 
         # Reset-width button (F63, user wish): jumps the preview
         # column back to the CONFIGURED width with a single click.
@@ -1250,8 +1273,18 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         except Exception as e:
             dbg("panel/_on_reset_width_clicked: suppressed: %s" % e)
 
+    # → REF PAN-DOC-32
+    def _update_rec_dot(self):
+        # F65: mirror the live debug logging state into the header
+        # dot – called from init and the settings toggle.
+        try:
+            if self._rec_dot is not None:
+                self._rec_dot.set_visible(debug_log_active())
+        except Exception as e:
+            dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
-PREVIEWER_VERSION = "0.53.0"
+
+PREVIEWER_VERSION = "0.54.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
