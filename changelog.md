@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.58.3\] – 2026-11-05
+
+### Fixed
+
+- F68 – font waterfall re-renders LIVE while the column divider is dragged (user bug report): the sample text re-wraps at the new width immediately and the point sizes on screen stay constant. Before, the surface was rendered once at the width the preview had when the font was selected and only scaled afterwards – dragging the column wider grew the font faces while the line wrap kept the old width until the font was re-selected. The panel's size-allocate handler now calls \_apply\_font\_scale (like the PDF pages), which rebuilds the waterfall via the new helper \_font\_waterfall\_pixbuf.
+
 ## \[0.58.2\] – 2026-11-05
 
 ### Changed
