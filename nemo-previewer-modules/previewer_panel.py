@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.52.4
+previewer_panel.py – Version 0.53.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -27,6 +27,7 @@ if _HERE not in sys.path:
 
 from previewer_util import (
     dbg,
+    set_debug_log,
     PANEL_WIDTH, PANEL_MIN_WIDTH,
     query_file_info,
     pick_icon,
@@ -216,6 +217,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # previews or show all; default matches the old hard cap.
         self._conf_doc_page_limit = True
         self._conf_doc_max_pages = 20
+        # F65: debug logging – default off; mirrors dbg lines into
+        # the log file under XDG_STATE_HOME.
+        self._conf_debug_log = False
         # F12 part 3: marker – is the CURRENT preview a PDF/office
         # page view? Cap changes then apply immediately.
         self._last_docview = False
@@ -1161,6 +1165,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     self._panel_width = int(w)
             except Exception as e:
                 dbg("panel/_config_load: suppressed: %s" % e)
+            # F65: debug logging toggle – mirrors dbg into the log
+            # file; the env var NEMO_PREVIEWER_DEBUG always wins.
+            try:
+                d = kf.get_boolean("previewer", "debug_log")
+                self._conf_debug_log = bool(d)
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
+            if self._conf_debug_log:
+                set_debug_log(True)
         except Exception as e:
             dbg("panel/_config_load: suppressed: %s" % e)
 
@@ -1192,6 +1205,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                            int(self._conf_doc_max_pages))
             kf.set_integer("previewer", "panel_width",
                            int(self._panel_width))
+            # F65: persist the debug logging toggle.
+            kf.set_boolean("previewer", "debug_log",
+                           self._conf_debug_log)
             kf.save_to_file(CONF_FILE)
         except Exception as exc:
             dbg("Config not saved: %s" % exc)
@@ -1235,7 +1251,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_on_reset_width_clicked: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.52.4"
+PREVIEWER_VERSION = "0.53.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
