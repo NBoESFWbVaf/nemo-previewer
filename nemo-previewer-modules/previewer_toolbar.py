@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.52.4
+previewer_toolbar.py – Version 0.53.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -23,6 +23,7 @@ if _HERE not in sys.path:
 
 from previewer_util import (
     dbg,
+    set_debug_log,
     center_window,
     PANEL_MIN_WIDTH,
     TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
@@ -128,6 +129,19 @@ class PreviewToolbarMixin:
             "info instead of the contents list")
         chk.set_active(self._conf_folder_contents)
         chk.connect("toggled", self._on_folder_contents_toggled)
+        fbox.pack_start(chk, False, False, 0)
+
+        # F65: debug logging – mirrors dbg into the log file under
+        # XDG_STATE_HOME (env var NEMO_PREVIEWER_DEBUG always wins).
+        chk = Gtk.CheckButton(
+            label="Debug logging (write log file)")
+        chk.set_tooltip_text(
+            "Mirror the debug output into "
+            "~/.local/state/nemo-previewer/previewer.log – rotates "
+            "at 512 KB, keeps one backup; NEMO_PREVIEWER_DEBUG=1 "
+            "switches it on without any setting")
+        chk.set_active(self._conf_debug_log)
+        chk.connect("toggled", self._on_debug_log_toggled)
         fbox.pack_start(chk, False, False, 0)
 
         # → REF TB-F12-1
@@ -246,6 +260,15 @@ class PreviewToolbarMixin:
         self._conf_show_at_start = chk.get_active()
         self._config_save()
 
+    # → REF TB-DOC-16
+    def _on_debug_log_toggled(self, chk):
+        # F65: save immediately, then switch the util flag; the env
+        # var NEMO_PREVIEWER_DEBUG stays stronger than OFF here.
+        self._conf_debug_log = chk.get_active()
+        self._config_save()
+        set_debug_log(chk.get_active())
+        dbg("settings: debug logging toggle -> %s" % chk.get_active())
+
     # → REF TB-DOC-8
     def _on_folder_contents_toggled(self, chk):
         self._conf_folder_contents = chk.get_active()
@@ -322,7 +345,7 @@ class PreviewToolbarMixin:
         return True
 
 
-PREVIEWER_VERSION = "0.52.4"
+PREVIEWER_VERSION = "0.53.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
