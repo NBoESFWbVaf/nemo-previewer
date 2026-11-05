@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.58.1
+previewer_util.py – Version 0.58.2
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -287,7 +287,8 @@ def pack_hint(box, text):
 
 
 # → REF UT-DOC-11
-def pack_meta_grid(rows, container, wrap=False):
+def pack_meta_grid(rows, container, wrap=False, bold_keys=False,
+                   italic_values=False):
     grid = Gtk.Grid()
     grid.set_row_spacing(2)
     grid.set_column_spacing(10)
@@ -295,10 +296,21 @@ def pack_meta_grid(rows, container, wrap=False):
         # F35: labels end with a colon.
         if not k.endswith(":"):
             k += ":"
-        kl = Gtk.Label(label=k)
+        kl = Gtk.Label()
+        if bold_keys:
+            # F54: bold labels instead of dim (EML header, user
+            # request); markup needs escaped text.
+            kl.set_markup("<b>%s</b>" % GLib.markup_escape_text(k))
+        else:
+            kl.set_label(k)
+            kl.get_style_context().add_class("dim-label")
         kl.set_halign(Gtk.Align.END)
-        kl.get_style_context().add_class("dim-label")
-        vl = Gtk.Label(label=v)
+        vl = Gtk.Label()
+        if italic_values:
+            # F54: italic values (EML header, user request).
+            vl.set_markup("<i>%s</i>" % GLib.markup_escape_text(v))
+        else:
+            vl.set_label(v)
         vl.set_halign(Gtk.Align.START)
         if wrap:
             vl.set_line_wrap(True)
@@ -397,5 +409,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.58.1"
+PREVIEWER_VERSION = "0.58.2"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
