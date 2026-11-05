@@ -621,7 +621,7 @@ Fully configured TextView in a ScrolledWindow, packed into self._content. font: 
 - **Reason:** Line numbers in the TextView margin – excluded from every copy (F24).
 
 ```text
-F24 (0.16.0): draw line numbers into the left margin of the TextView – not into the text buffer. That excludes them from the selection, and they NEVER end up in the copied text (user wish: numbers not copyable, text yes), while the text itself stays normally selectable and copyable. The draw handler fires on every redraw (also while scrolling) and draws only the visible lines; wrapped lines get their number on the first visual line.
+F24 (0.16.0): draw line numbers into the left margin of the TextView – not into the text buffer. That excludes them from the selection, and they NEVER end up in the copied text (user wish: numbers not copyable, text yes), while the text itself stays normally selectable and copyable. The draw handler fires on every redraw (also while scrolling) and draws only the visible lines; wrapped lines get their number on the first visual line. 0.55.1 (deploy feedback "the numbers sit offset vertically"): the number font is 80 % of the text size, but was drawn at the line box top + 1 px – so it sat too high. It now centers vertically on the TEXT area: offset = spacing + (line height - spacing - number height) / 2, floored at 0; spacing is the F25 line spacing passed in from _text_view, because get_line_yrange counts the pixels-above space at the top of the line box – centering on the whole box would leave the number half the spacing too high.
 ```
 
 ### PAN-DOC-22 – Docstring: \_folder\_symbol

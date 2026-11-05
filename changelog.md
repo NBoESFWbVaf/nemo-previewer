@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.55.1\] – 2026-11-05
+
+### Fixed
+
+- F24 – the line numbers sat slightly too high: they are drawn in 80 % of the text font size but were placed at the top edge of the line box, so the smaller glyphs were offset upward against the text. Every number is now centered vertically on the text area of its line. With F25 line spacing active the centering accounts for the extra space (get\_line\_yrange counts the pixels-above space at the top of the line box) – the numbers stay centered on the text, not on the enlarged box, at every spacing value.
+
 ## \[0.55.0\] – 2026-11-05
 
 ### Added
