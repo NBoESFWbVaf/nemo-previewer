@@ -4,6 +4,13 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.58.1\] – 2026-11-05
+
+### Fixed
+
+- F54 – no more "File trimmed" on large e-mails: the whole .eml is parsed (user request: a big mail stays big) – the attachment list is complete, the sizes are exact, and the extraction reads the whole file as well. The 0.9.2 EML read cap is gone.
+- F54 – the attachment list now sits directly above the toolbar in EVERY mail (packed from the bottom of the preview) – HTML-only mails no longer push the list to the top of the preview.
+
 ## \[0.58.0\] – 2026-11-05
 
 ### Added
