@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.56.1
+previewer_panel.py – Version 0.57.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -38,7 +38,7 @@ from previewer_util import (
     build_scaled_image,
     build_text_view,
 )
-from previewer_render_media import MediaRendererMixin, HAVE_GST
+from previewer_render_media import MediaRendererMixin, _ensure_gst
 from previewer_render_docs import (
     DocsRendererMixin, HAVE_POPPLER, _OFFICE_EXTS,
 )
@@ -669,14 +669,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                            "install package gir1.2-poppler-0.18.")
                 self._render_generic()
         elif mime.startswith("audio/") or lower.endswith((".mp3", ".flac", ".ogg", ".opus", ".m4a", ".wav", ".wma")):
-            if HAVE_GST:
+            if _ensure_gst():
                 self._render_audio(path, uri)
             else:
                 pack_hint(self._content, "Audio preview not available – "
                            "install package gir1.2-gst-plugins-base-1.0.")
                 self._render_generic()
         elif mime.startswith("video/"):
-            if HAVE_GST:
+            if _ensure_gst():
                 self._render_video(path, uri)
             else:
                 self._render_generic()
@@ -1353,7 +1353,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.56.1"
+PREVIEWER_VERSION = "0.57.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
