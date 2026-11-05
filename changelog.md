@@ -4,6 +4,19 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.55.0\] – 2026-11-05
+
+### Added
+
+- F25 – line spacing for text previews: the settings "Text files" frame gains a "Line spacing (px)" spin (0–12, step 1). The value is saved immediately and applied live to the current text preview – no restart, no re-open needed. Technically a GtkTextTag (pixels-above-lines) applied over the whole buffer via build\_text\_view's new spacing parameter; the clipboard stays untouched. 0 keeps the normal line height. Unlike the line numbers the spacing applies to ALL TextView previews (plain text, Markdown, e-mail, e-book, font), because \_text\_view passes the config value centrally.
+
+## \[0.54.1\] – 2026-11-05
+
+### Fixed
+
+- F65 – debug output was written to stdout even with the toggle off: "debug logging" now gates ALL debug output. With the toggle and NEMO\_PREVIEWER\_DEBUG off, dbg writes NOTHING – neither the log file nor the terminal; the terminal deploy test therefore runs as NEMO\_PREVIEWER\_DEBUG=1 nemo. The entry point's version-mismatch warning stays visible in every mode (plain print, not dbg).
+- F65 – the recording dot did not appear in the header: \_update\_rec\_dot now uses show()/hide() instead of set\_visible, and the icon is resolved via pick\_icon with the media-record fallback so the dot renders even in themes without media-record-symbolic.
+
 ## \[0.54.0\] – 2026-11-05
 
 ### Fixed
