@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.56.1
+previewer_render_media.py – Version 0.57.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -44,15 +44,31 @@ from previewer_util import (
 # --- Optional modules (missing ones just reduce the previews) ---
 
 # GStreamer for audio/video metadata (Discoverer) and playback.
-HAVE_GST = False
-try:
-    gi.require_version('Gst', '1.0')
-    gi.require_version('GstPbutils', '1.0')
-    from gi.repository import Gst, GstPbutils
-    Gst.init(None)
-    HAVE_GST = True
-except Exception as e:
-    dbg("media/module-level: suppressed: %s" % e)
+# K5: imported and initialized LAZILY on the first media render –
+# the Nemo start no longer pays the Gst.init registry cost.
+HAVE_GST = None
+Gst = None
+GstPbutils = None
+
+
+# → REF MED-DOC-47
+def _ensure_gst():
+    # K5: one-shot lazy GStreamer init; the result is cached in
+    # HAVE_GST (None = undecided, True/False after the first try).
+    global Gst, GstPbutils, HAVE_GST
+    if HAVE_GST is None:
+        HAVE_GST = False
+        try:
+            gi.require_version('Gst', '1.0')
+            gi.require_version('GstPbutils', '1.0')
+            from gi.repository import Gst as _gst, GstPbutils as _pb
+            _gst.init(None)
+            Gst, GstPbutils = _gst, _pb
+            HAVE_GST = True
+            dbg("media: GStreamer initialized lazily")
+        except Exception as e:
+            dbg("media/_ensure_gst: suppressed: %s" % e)
+    return HAVE_GST
 
 # librsvg for the SVG preview: GdkPixbuf has had no built-in SVG
 # loader since gdk-pixbuf 2.42.
@@ -1541,7 +1557,7 @@ class MediaRendererMixin:
         self._tags_store = None
 
 
-PREVIEWER_VERSION = "0.56.1"
+PREVIEWER_VERSION = "0.57.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
