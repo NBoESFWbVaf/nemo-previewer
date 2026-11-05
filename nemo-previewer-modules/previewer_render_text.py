@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.58.3
+previewer_render_text.py – Version 0.59.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -24,6 +24,7 @@ import struct
 import tarfile
 import tempfile
 import zipfile
+import zlib
 import email
 import math
 import quopri
@@ -1104,31 +1105,62 @@ _FONT_STATE = {"tmpdir": None, "added": set(), "copies": []}
 # R5: cap the temp dir at 64 copies – fontconfig keeps deleted
 # fonts in memory until the process ends; the dir must not grow forever.
 _FONT_COPY_LIMIT = 64
+# F11: collection cap – more faces would flood the preview.
+_TTC_FACE_CAP = 8
 
 
-# → REF TXT-DOC-42
-def _font_info(path):
-    with open(path, "rb") as fh:
-        data = fh.read(4 * 1024 * 1024)
-    if len(data) < 12:
-        raise ValueError("file too small")
-    tag = data[0:4]
-    offset = 0
-    fmt = "TrueType"
-    if tag == b"ttcf":
-        if len(data) < 16:
-            raise ValueError("collection without header")
-        offset = int.from_bytes(data[12:16], "big")
-        if offset + 12 > len(data):
-            raise ValueError("collection offset broken")
-        tag = data[offset:offset + 4]
-        fmt = "TrueType-Collection"
-    if tag == b"OTTO":
-        fmt = ("OpenType (CFF)" if offset == 0
-               else "OpenType-Collection (CFF)")
-    elif tag not in (b"true", b"\x00\x01\x00\x00") and offset == 0:
-        raise ValueError("not a TrueType/OpenType file")
+# → REF TXT-DOC-99
+def _woff1_to_sfnt(data):
+    # F11: WOFF1 (wOFF) packs zlib-compressed sfnt tables –
+    # rebuild a plain sfnt (WOFF2/wOF2 is NOT supported).
+    if len(data) < 44 or data[0:4] != b"wOFF":
+        raise ValueError("not a WOFF1 file")
+    if data[4:8] == b"ttcf":
+        raise ValueError("WOFF1 cannot wrap a collection")
+    flavor = data[4:8]
+    num_tables = int.from_bytes(data[12:14], "big")
+    if num_tables == 0 or 44 + 20 * num_tables > len(data):
+        raise ValueError("WOFF directory broken")
+    tables = []
+    for i in range(num_tables):
+        p = 44 + 20 * i
+        tag, toff, clen, olen, cks = struct.unpack(
+            ">4sIIII", data[p:p + 20])
+        if toff + clen > len(data):
+            raise ValueError("WOFF table out of range")
+        raw = data[toff:toff + clen]
+        if clen != olen:
+            raw = zlib.decompress(raw)
+        if len(raw) != olen:
+            raise ValueError("WOFF table broken")
+        tables.append((tag, cks, raw))
+    # Tables sorted by tag, data padded to 4 bytes each.
+    tables.sort(key=lambda t: t[0])
+    n = len(tables)
+    sr = 1
+    while sr * 2 <= n:
+        sr *= 2
+    out = bytearray(flavor)
+    out += struct.pack(">HHHH", n, sr * 16, sr.bit_length() - 1,
+                       n * 16 - sr * 16)
+    pos = 12 + 16 * n
+    entries = bytearray()
+    body = bytearray()
+    for tag, cks, raw in tables:
+        entries += struct.pack(">4sIII", tag, cks, pos, len(raw))
+        body += raw
+        pad = (-len(raw)) % 4
+        body += b"\x00" * pad
+        pos += len(raw) + pad
+    return bytes(out + entries + body)
 
+
+# → REF TXT-DOC-100
+def _sfnt_face_names(data, offset):
+    # Name table of ONE sfnt face (TTC: every face has its own
+    # directory at its own offset).
+    if offset + 12 > len(data):
+        raise ValueError("face offset broken")
     num_tables = int.from_bytes(data[offset + 4:offset + 6], "big")
     name_off = name_len = 0
     for i in range(num_tables):
@@ -1169,7 +1201,78 @@ def _font_info(path):
     style = recs.get(2) or recs.get(17)
     if not family:
         raise ValueError("no family name in the file")
-    return fmt, family, style or "Regular"
+    return family, style or "Regular"
+
+
+# → REF TXT-DOC-42
+def _font_faces(path):
+    # F11: WOFF1 rebuilt to sfnt, collections list EVERY face.
+    with open(path, "rb") as fh:
+        data = fh.read()
+    if len(data) < 12:
+        raise ValueError("file too small")
+    tag = data[0:4]
+    reg = path
+    if tag == b"wOFF":
+        # F11: Fontconfig cannot read WOFF – the rebuilt sfnt is
+        # parked in the font temp dir (→ REF TXT-FONT-3).
+        sfnt = _woff1_to_sfnt(data)
+        state = _FONT_STATE
+        if state["tmpdir"] is None:
+            state["tmpdir"] = tempfile.mkdtemp(
+                prefix="previewer-font-")
+        stem = os.path.splitext(os.path.basename(path))[0]
+        digest = hashlib.sha1(os.path.abspath(path).encode(
+            "utf-8", "replace")).hexdigest()[:8]
+        reg = os.path.join(state["tmpdir"],
+                           "%s-%s.ttf" % (stem, digest))
+        if not os.path.exists(reg):
+            with open(reg, "wb") as fh:
+                fh.write(sfnt)
+            # → REF TXT-FONT-1 (R5 temp dir cap)
+            state["copies"].append(reg)
+            while len(state["copies"]) > _FONT_COPY_LIMIT:
+                old = state["copies"].pop(0)
+                try:
+                    os.unlink(old)
+                except Exception as e:
+                    dbg("text/_font_faces: suppressed: %s" % e)
+        data = sfnt
+        tag = data[0:4]
+        fmt = ("OpenType (CFF)" if tag == b"OTTO" else "TrueType")
+        fmt += " (WOFF)"
+        faces = [_sfnt_face_names(data, 0)]
+    elif tag == b"wOF2":
+        raise ValueError("WOFF2 is not supported")
+    elif tag == b"ttcf":
+        num = int.from_bytes(data[8:12], "big")
+        if num == 0:
+            raise ValueError("collection without fonts")
+        faces = []
+        for i in range(num):
+            p = 12 + 4 * i
+            if p + 4 > len(data):
+                raise ValueError("collection offset broken")
+            off = int.from_bytes(data[p:p + 4], "big")
+            try:
+                faces.append(_sfnt_face_names(data, off))
+            except Exception:
+                pass          # one broken face does not kill all
+        if not faces:
+            raise ValueError("no readable font in the collection")
+        first = int.from_bytes(data[12:16], "big")
+        fmt = ("OpenType-Collection (CFF)"
+               if data[first:first + 4] == b"OTTO"
+               else "TrueType-Collection")
+    elif tag == b"OTTO":
+        fmt = "OpenType (CFF)"
+        faces = [_sfnt_face_names(data, 0)]
+    elif tag in (b"true", b"\x00\x01\x00\x00"):
+        fmt = "TrueType"
+        faces = [_sfnt_face_names(data, 0)]
+    else:
+        raise ValueError("not a TrueType/OpenType file")
+    return reg, fmt, faces
 
 
 # → REF TXT-DOC-43
@@ -1180,22 +1283,26 @@ def _fc_add_font_file(path):
     try:
         if state["tmpdir"] is None:
             state["tmpdir"] = tempfile.mkdtemp(prefix="previewer-font-")
-        # Target name with a hash of the SOURCE path: two fonts with
-        # the same file name must not clash (B1) – first copy would win.
-        stem, ext = os.path.splitext(os.path.basename(path))
-        digest = hashlib.sha1(os.path.abspath(path).encode(
-            "utf-8", "replace")).hexdigest()[:8]
-        dest = os.path.join(state["tmpdir"], "%s-%s%s" % (stem, digest, ext))
-        if not os.path.exists(dest):
-            shutil.copy2(path, dest)
-            # → REF TXT-FONT-1
-            state["copies"].append(dest)
-            while len(state["copies"]) > _FONT_COPY_LIMIT:
-                old = state["copies"].pop(0)
-                try:
-                    os.unlink(old)
-                except Exception as e:
-                    dbg("text/_fc_add_font_file: suppressed: %s" % e)
+        # F11: rebuilt WOFF sfnts already live in the temp dir –
+        # no second copy of them.
+        if os.path.dirname(os.path.abspath(path)) != state["tmpdir"]:
+            # Target name with a hash of the SOURCE path: two fonts
+            # with the same file name must not clash (B1) – first
+            # copy would win.
+            stem, ext = os.path.splitext(os.path.basename(path))
+            digest = hashlib.sha1(os.path.abspath(path).encode(
+                "utf-8", "replace")).hexdigest()[:8]
+            dest = os.path.join(state["tmpdir"], "%s-%s%s" % (stem, digest, ext))
+            if not os.path.exists(dest):
+                shutil.copy2(path, dest)
+                # → REF TXT-FONT-1
+                state["copies"].append(dest)
+                while len(state["copies"]) > _FONT_COPY_LIMIT:
+                    old = state["copies"].pop(0)
+                    try:
+                        os.unlink(old)
+                    except Exception as e:
+                        dbg("text/_fc_add_font_file: suppressed: %s" % e)
         lib = ctypes.CDLL(ctypes.util.find_library("fontconfig")
                           or "libfontconfig.so.1")
         res = lib.FcConfigAppFontAddDir(
@@ -2569,7 +2676,7 @@ class TextRendererMixin:
     # → REF TXT-DOC-86
     def _render_font(self, path):
         try:
-            fmt, family, style = _font_info(path)
+            reg, fmt, faces = _font_faces(path)
         except Exception as e:
             dbg("Font unreadable (%s): %s" % (path, e))
             pack_hint(self._content, "Could not read the font: %s" % e)
@@ -2580,11 +2687,17 @@ class TextRendererMixin:
                        "python3-cairo and gir1.2-pango packages.")
             self._render_generic()
             return
-        pack_meta_grid([("Format", fmt), ("Family", family),
-                        ("Style", style)], self._content)
-        if not _fc_add_font_file(path):
+        # F11: single fonts show Family/Style in the info table,
+        # collections keep the per-face header labels instead.
+        if len(faces) == 1:
+            pack_meta_grid([("Format", fmt), ("Family", faces[0][0]),
+                            ("Style", faces[0][1])], self._content)
+        else:
+            pack_meta_grid([("Format", fmt),
+                            ("Fonts", "%d" % len(faces))], self._content)
+        if not _fc_add_font_file(reg):
             dbg("Font could not be added to Fontconfig: %s"
-                % path)
+                % reg)
 
         # Fresh font map + own context: sees the new family.
         try:
@@ -2594,8 +2707,8 @@ class TextRendererMixin:
             pack_hint(self._content, "Font preview unavailable.")
             self._render_generic()
             return
-        if not _font_known(fctx.get_font_map(), family):
-            dbg("Pango does not know the family: %s" % family)
+        if not _font_known(fctx.get_font_map(), faces[0][0]):
+            dbg("Pango does not know the family: %s" % faces[0][0])
             pack_hint(self._content, "The font could not be registered – the "
                        "waterfall shows the fallback font.")
 
@@ -2609,52 +2722,68 @@ class TextRendererMixin:
         except Exception as e:
             dbg("text/_render_font: suppressed: %s" % e)
 
-        img = Gtk.Image()
-        img.set_halign(Gtk.Align.CENTER)
-        img.set_valign(Gtk.Align.START)
-        scroll = Gtk.ScrolledWindow()
-        # AUTOMATIC in both directions: stops the child minimum
-        # width from propagating – the pane stays draggable.
-        scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
-                          Gtk.PolicyType.AUTOMATIC)
-        scroll.add(img)
-        self._content.pack_start(scroll, True, True, 0)
-        # F68: live re-render on resize (user bug report) – the
-        # waterfall re-wraps at the dragged column width.
-        self._font_wf = {"family": family, "fctx": fctx, "fg": fg,
-                         "text": self._conf_font_sample_text,
-                         "img": img, "last_w": -1}
+        # F11: EVERY face of a collection gets its own waterfall
+        # (capped); one live item per waterfall (F68).
+        shown = faces[:_TTC_FACE_CAP]
+        self._font_wf = []
+        for family, style in shown:
+            if len(faces) > 1:
+                head = Gtk.Label()
+                head.set_markup("<b>%s</b> – %s" % (
+                    GLib.markup_escape_text(family),
+                    GLib.markup_escape_text(style)))
+                head.set_halign(Gtk.Align.START)
+                head.set_margin_top(8)
+                self._content.pack_start(head, False, False, 0)
+            img = Gtk.Image()
+            img.set_halign(Gtk.Align.CENTER)
+            img.set_valign(Gtk.Align.START)
+            scroll = Gtk.ScrolledWindow()
+            # AUTOMATIC in both directions: stops the child minimum
+            # width from propagating – the pane stays draggable.
+            scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                              Gtk.PolicyType.AUTOMATIC)
+            scroll.add(img)
+            self._content.pack_start(scroll, True, True, 0)
+            self._font_wf.append({"family": family, "fctx": fctx,
+                                  "fg": fg,
+                                  "text": self._conf_font_sample_text,
+                                  "img": img, "last_w": -1})
+        if len(faces) > _TTC_FACE_CAP:
+            pack_hint(self._content,
+                      "First %d of %d fonts – the rest is not shown."
+                      % (_TTC_FACE_CAP, len(faces)))
         self._apply_font_scale()
 
     # → REF TXT-DOC-98
     def _apply_font_scale(self):
-        wf = self._font_wf
-        if wf is None:
-            return
-        try:
-            target = self._preview_width()
-            # Same 8 px threshold as the PDF pages: no re-render
-            # per pixel while dragging the divider.
-            if abs(target - wf["last_w"]) < 8:
-                return
-            wf["last_w"] = target
-            pb = _font_waterfall_pixbuf(
-                wf["family"], wf["fctx"], wf["fg"], wf["text"],
-                target)
-            sw, sh = pb.get_width(), pb.get_height()
-            # Downscale to fit, never upscale; the height cap
-            # keeps the old _scaled_image behavior (R3).
-            f = min(float(target) / sw, 1.0)
-            if f * sh > MAX_IMAGE_HEIGHT:
-                f = float(MAX_IMAGE_HEIGHT) / sh
-            wf["img"].set_from_pixbuf(pb.scale_simple(
-                max(1, int(sw * f)), max(1, int(sh * f)),
-                GdkPixbuf.InterpType.BILINEAR))
-        except Exception as e:
-            dbg("text/_apply_font_scale: suppressed: %s" % e)
+        # One live item per face (F11) – every waterfall of the
+        # preview re-wraps on its own (F68).
+        for wf in self._font_wf or ():
+            try:
+                target = self._preview_width()
+                # Same 8 px threshold as the PDF pages: no re-render
+                # per pixel while dragging the divider.
+                if abs(target - wf["last_w"]) < 8:
+                    continue
+                wf["last_w"] = target
+                pb = _font_waterfall_pixbuf(
+                    wf["family"], wf["fctx"], wf["fg"], wf["text"],
+                    target)
+                sw, sh = pb.get_width(), pb.get_height()
+                # Downscale to fit, never upscale; the height cap
+                # keeps the old _scaled_image behavior (R3).
+                f = min(float(target) / sw, 1.0)
+                if f * sh > MAX_IMAGE_HEIGHT:
+                    f = float(MAX_IMAGE_HEIGHT) / sh
+                wf["img"].set_from_pixbuf(pb.scale_simple(
+                    max(1, int(sw * f)), max(1, int(sh * f)),
+                    GdkPixbuf.InterpType.BILINEAR))
+            except Exception as e:
+                dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.58.3"
+PREVIEWER_VERSION = "0.59.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
