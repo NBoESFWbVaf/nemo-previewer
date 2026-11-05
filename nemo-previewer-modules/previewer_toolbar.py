@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.53.0
+previewer_toolbar.py – Version 0.54.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -262,11 +262,12 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-16
     def _on_debug_log_toggled(self, chk):
-        # F65: save immediately, then switch the util flag; the env
-        # var NEMO_PREVIEWER_DEBUG stays stronger than OFF here.
+        # F65: save immediately, then switch the util flag live and
+        # refresh the header dot; the env var stays stronger.
         self._conf_debug_log = chk.get_active()
         self._config_save()
         set_debug_log(chk.get_active())
+        self._update_rec_dot()
         dbg("settings: debug logging toggle -> %s" % chk.get_active())
 
     # → REF TB-DOC-8
@@ -345,7 +346,7 @@ class PreviewToolbarMixin:
         return True
 
 
-PREVIEWER_VERSION = "0.53.0"
+PREVIEWER_VERSION = "0.54.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
