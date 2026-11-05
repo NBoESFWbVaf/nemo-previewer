@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.53.0\] – 2026-11-05
+
+### Added
+
+- F65 – debug logging as a setting: a new "Debug logging (write log file)" toggle in the settings "General" frame (config key debug\_log). When on, every dbg line is mirrored into ~/.local/state/nemo-previewer/previewer.log (XDG\_STATE\_HOME honored) with a timestamp and a per-session version header; the file rotates at 512 KB, keeping exactly one .old backup. The environment variable NEMO\_PREVIEWER\_DEBUG=1 always wins over the toggle – a power-user one-shot without touching the settings. dbg keeps writing to stdout in every mode, so terminal deploy tests stay identical.
+
 ## \[0.52.4\] – 2026-11-04
 
 ### Removed
