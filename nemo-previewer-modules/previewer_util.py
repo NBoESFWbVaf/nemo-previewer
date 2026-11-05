@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.53.0
+previewer_util.py – Version 0.54.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -37,6 +37,7 @@ TOGGLE_ACCEL_MODS = Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.MOD1_MASK
 # F65: debug log file – the settings toggle or NEMO_PREVIEWER_DEBUG=1
 # enables it; XDG_STATE_HOME is the standard place for user logs.
 DEBUG_LOG_CAP = 512 * 1024
+DEBUG_LOG_MAX_AGE = 7 * 86400  # F65b: retention, logs vanish after a week
 LOG_DIR = os.path.join(
     os.environ.get("XDG_STATE_HOME")
     or os.path.expanduser("~/.local/state"),
@@ -48,16 +49,18 @@ LOG_FILE = os.path.join(LOG_DIR, "previewer.log")
 
 # F65: debug logging state – the env var NEMO_PREVIEWER_DEBUG=1
 # wins over the settings toggle (power-user one-shot, no traces).
-DEBUG_LOG = os.environ.get(
+DEBUG_ENV = os.environ.get(
     "NEMO_PREVIEWER_DEBUG", "").strip().lower() not in ("", "0", "false")
+DEBUG_LOG = DEBUG_ENV
 _log_rotated = False
 
 
 # → REF UT-LOG-1
 def set_debug_log(on):
-    # F65: the settings toggle lands here; OR keeps the env var on.
+    # Deploy feedback: live switch – OFF takes effect during the
+    # session; the env var alone still wins.
     global DEBUG_LOG
-    DEBUG_LOG = DEBUG_LOG or bool(on)
+    DEBUG_LOG = DEBUG_ENV or bool(on)
 
 
 def _debug_log_file(msg):
@@ -83,6 +86,24 @@ def _debug_log_file(msg):
                      % (time.strftime("%Y-%m-%d %H:%M:%S"), msg))
     except Exception as e:
         print("[previewer] debug log file: suppressed: %s" % e)
+
+
+def debug_log_active():
+    # F65: live state for the red recording dot in the header.
+    return DEBUG_LOG
+
+
+def debug_log_cleanup():
+    # F65b: delete stale debug logs (mtime older than 7 days) –
+    # runs at every panel start, even with logging off.
+    try:
+        cutoff = time.time() - DEBUG_LOG_MAX_AGE
+        for path in (LOG_FILE, LOG_FILE + ".old"):
+            if os.path.exists(path) and \
+                    os.path.getmtime(path) < cutoff:
+                os.remove(path)
+    except Exception as e:
+        print("[previewer] debug log cleanup: suppressed: %s" % e)
 
 
 # → REF UT-DOC-1
@@ -369,5 +390,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.53.0"
+PREVIEWER_VERSION = "0.54.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
