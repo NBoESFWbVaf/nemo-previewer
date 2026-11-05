@@ -726,6 +726,18 @@ F63 (user wish 2026-11-04): the new header button right next to "Open with the d
 
 ---
 
+### PAN-DOC-32 – Docstring: \_update\_rec\_dot (F65, 0.54.0)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_update\_rec\_dot` (method) and the recording dot construction in `\\_\\_init\\_\\_`
+- **Reason:** F65 – make active debug logging visible in the header, live in both directions.
+
+```text
+F65 (0.54.0, user wish): a red recording dot at the left of the header signals active debug logging. Construction in __init__: Gtk.Image with the standard icon media-record-symbolic (icon naming spec – the standard themes ship it, keeps the symbolic icon discipline), widget name previewer-rec-dot, recolored red (#e01b24) via a small CssProvider on the widget's own style context (same pattern as TB-CSS-1, no Gdk import), no_show_all so it can hide cleanly. _update_rec_dot mirrors the live state via set_visible(debug_log_active()) – called once after construction (covers config toggle AND NEMO_PREVIEWER_DEBUG=1) and from the settings toggle handler, so switching is live in both directions. Env var rule: with NEMO_PREVIEWER_DEBUG=1 the dot stays visible even when the toggle goes OFF – logging IS still on then. Tooltip "Debug logging is active". The panel also calls debug_log_cleanup() after _config_load (F65b log retention, see UT-LOG-1).
+```
+
+---
+
 ## Selection (SEL)
 
 ### SEL-VTABLE-1 – Class vtable peek\_selection
@@ -1208,11 +1220,11 @@ User rule (2026-11-03): all opening windows of the extension – settings window
 ### UT-LOG-1 – Debug log file: dbg mirror (F65)
 
 - **Module:** previewer\_util.py
-- **Location:** `DEBUG_LOG`, `set\_debug\_log`, `\_debug\_log\_file`, the `LOG\_DIR`/`LOG\_FILE`/`DEBUG\_LOG\_CAP` constants (module level)
+- **Location:** `DEBUG\_ENV`, `DEBUG\_LOG`, `set\_debug\_log`, `\_debug\_log\_file`, `debug\_log\_active`, `debug\_log\_cleanup` and the `LOG\_DIR`/`LOG\_FILE`/`DEBUG\_LOG\_CAP`/`DEBUG\_LOG\_MAX\_AGE` constants (module level)
 - **Reason:** F65 debug logging as a setting – dbg mirrored into a persistent log file, toggle or env var.
 
 ```text
-F65 (0.53.0, user wish): debug logging as a SETTING – with the toggle on, every dbg line is mirrored into a persistent log file. Path: XDG_STATE_HOME (default ~/.local/state)/nemo-previewer/previewer.log – the XDG standard place for user logs, survives Nemo restarts and independent of where stdout lands (terminal vs session). Mechanics: DEBUG_LOG starts from the env var NEMO_PREVIEWER_DEBUG=1 (power-user one-shot, always wins over the toggle); the settings toggle feeds set_debug_log(True) from the panel config load and the toolbar handler (OR, never switches the env var off). _debug_log_file appends each line with a "YYYY-MM-DD HH:MM:SS" timestamp, writes a "--- session start, version X ---" header once per session at the first write, and rotates ONCE per session: if the file exceeds DEBUG_LOG_CAP (512 KB) it becomes previewer.log.old (exactly ONE backup, the previous .old is removed first) – bounded disk footprint in the 0.9.2 cap discipline. File errors are suppressed with a plain print (never dbg – no recursion). dbg keeps stdout output unchanged in every mode, so terminal deploy tests stay identical.
+F65 (0.53.0, user wish): debug logging as a SETTING – with the toggle on, every dbg line is mirrored into a persistent log file. Path: XDG_STATE_HOME (default ~/.local/state)/nemo-previewer/previewer.log – the XDG standard place for user logs, survives Nemo restarts and independent of where stdout lands (terminal vs session). Mechanics: DEBUG_LOG starts from the env var NEMO_PREVIEWER_DEBUG=1 (power-user one-shot, always wins over the toggle); the settings toggle feeds set_debug_log(True) from the panel config load and the toolbar handler (OR, never switches the env var off). _debug_log_file appends each line with a "YYYY-MM-DD HH:MM:SS" timestamp, writes a "--- session start, version X ---" header once per session at the first write, and rotates ONCE per session: if the file exceeds DEBUG_LOG_CAP (512 KB) it becomes previewer.log.old (exactly ONE backup, the previous .old is removed first) – bounded disk footprint in the 0.9.2 cap discipline. File errors are suppressed with a plain print (never dbg – no recursion). dbg keeps stdout output unchanged in every mode, so terminal deploy tests stay identical. 0.54.0 (deploy feedback): set\_debug\_log recomputes LIVE – OFF stops file logging during the session (the old OR semantics kept the flag stuck on TRUE); the env var is captured separately in DEBUG\_ENV at import time and still wins over the toggle. New: debug\_log\_active() returns the live state for the header dot; debug\_log\_cleanup() deletes previewer.log and previewer.log.old once their mtime is older than DEBUG\_LOG\_MAX\_AGE (7 days) – called at every panel start, even with logging off, so logs never linger on disk forever.
 ```
 
 ---
@@ -1408,7 +1420,7 @@ F12 (0.13.0): new start width from the SpinButton – adopt immediately, apply l
 - **Reason:** F65 debug logging as a user setting (see UT-LOG-1 for the mechanics).
 
 ```text
-F65 (0.53.0): check button "Debug logging (write log file)" in the settings "General" frame, active state from _conf_debug_log (panel config, key debug_log). Handler _on_debug_log_toggled: store the state, _config_save() immediately (no separate save button – same course as the other toggles), then set_debug_log(state) – the env var NEMO_PREVIEWER_DEBUG=1 still wins over an OFF toggle. The dbg confirmation line logs the raw toggle state. Tooltip names the log path (~/.local/state/nemo-previewer/previewer.log), the rotation cap and the env var one-shot.
+F65 (0.53.0): check button "Debug logging (write log file)" in the settings "General" frame, active state from _conf_debug_log (panel config, key debug_log). Handler _on_debug_log_toggled: store the state, _config_save() immediately (no separate save button – same course as the other toggles), then set_debug_log(state) – the env var NEMO_PREVIEWER_DEBUG=1 still wins over an OFF toggle. The dbg confirmation line logs the raw toggle state. Tooltip names the log path (~/.local/state/nemo-previewer/previewer.log), the rotation cap and the env var one-shot. 0.54.0 (deploy feedback): the toggle now switches logging OFF live during the session (set\_debug\_log recomputes) and refreshes the header recording dot via \_update\_rec\_dot right after the flag change.
 ```
 
 ---
