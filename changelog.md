@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.56.0\] – 2026-11-05
+
+### Added
+
+- F2 – render debounce for heavy previews: PDF, Office, audio and video files no longer start their render on every selection change. The render waits 400 ms of selection quiet, and every new selection restarts that window – fast browsing through the file list therefore never fires renders whose result is thrown away immediately (full PDF parses, LibreOffice conversions, GStreamer pipelines). Light formats (text, images, folders …) keep their immediate preview, and the panel keeps the previous preview visible during the short quiet window.
+
 ## \[0.55.1\] – 2026-11-05
 
 ### Fixed
