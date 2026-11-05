@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.58.0
+previewer_render_text.py – Version 0.58.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -70,8 +70,8 @@ except Exception as e:
 
 # 0.9.2 (audit "buffer overflow/OOM"): caps against decompression
 # and decoding bombs – crafted files must never blow up Nemo.
-_EML_FILE_CAP = 2 * 1024 * 1024      # .eml: headers + start of the body
-_EML_ATTACH_CAP = 64 * 1024 * 1024   # F54: re-read budget for extraction
+# The .eml caps are GONE (user request: a big mail stays big) –
+# the whole file is parsed (→ REF TXT-EML-ATT-1).
 _VCARD_FILE_CAP = 8 * 1024 * 1024    # vCard: properties + base64 photo
 _FB2_FILE_CAP = 8 * 1024 * 1024      # R11: FB2 read cap – the cover sits
                                      # as base64 in the file; oversized
@@ -1914,9 +1914,9 @@ class TextRendererMixin:
     def _render_eml(self, path):
         try:
             with open(path, "rb") as fh:
-                # 0.9.2: read cap – headers sit at the top anyway; a
-                # multi-GB .eml would otherwise freeze Nemo.
-                raw = fh.read(_EML_FILE_CAP)
+                # The WHOLE mail is parsed (user request – a big
+                # mail stays big), no read cap.
+                raw = fh.read()
             msg = email.message_from_bytes(raw, policy=policy.default)
         except Exception as e:
             self._hint("Could not open the e-mail: %s" % e)
@@ -1943,10 +1943,6 @@ class TextRendererMixin:
         if att_rows:
             # F54: attachments with name, size and type plus an
             # extract button (→ REF TXT-EML-ATT-1).
-            if os.path.getsize(path) > _EML_FILE_CAP:
-                pack_hint(self._content, "File trimmed at %s – the "
-                          "attachment list may be incomplete."
-                          % human_size(_EML_FILE_CAP))
             self._pack_eml_attachments(path, att_rows)
         if not body.strip() and not att_rows:
             pack_hint(self._content, "No readable text body found – open the "
@@ -2026,7 +2022,9 @@ class TextRendererMixin:
         btn.set_margin_top(4)
         btn.connect("clicked", self._on_eml_extract, path)
         box.pack_start(btn, False, False, 0)
-        self._content.pack_start(box, False, False, 8)
+        # Packed from the BOTTOM – the list always sits directly
+        # above the toolbar (user request).
+        self._content.pack_end(box, False, False, 8)
 
     # → REF TXT-DOC-94
     def _on_eml_extract(self, btn, path):
@@ -2050,10 +2048,11 @@ class TextRendererMixin:
         if not folder:
             return
         saved, errors = 0, []
-        trimmed = os.path.getsize(path) > _EML_ATTACH_CAP
         try:
             with open(path, "rb") as fh:
-                raw = fh.read(_EML_ATTACH_CAP)
+                # The whole file (user request) – the render path
+                # already parses it uncapped.
+                raw = fh.read()
             msg = email.message_from_bytes(raw, policy=policy.default)
             for part in msg.walk():
                 try:
@@ -2089,11 +2088,6 @@ class TextRendererMixin:
             pack_hint(self._content, "Extracted %d of %d attachments "
                       "– %s" % (saved, saved + len(errors),
                                 "; ".join(errors[:3])))
-        elif trimmed:
-            pack_hint(self._content, "Extracted %d attachments – the "
-                      "file is larger than %s, the last attachment may "
-                      "be incomplete." % (saved,
-                                          human_size(_EML_ATTACH_CAP)))
         else:
             pack_hint(self._content, "Extracted %d attachments to %s"
                       % (saved, folder))
@@ -2625,7 +2619,7 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-PREVIEWER_VERSION = "0.58.0"
+PREVIEWER_VERSION = "0.58.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
