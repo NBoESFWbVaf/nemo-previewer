@@ -4,6 +4,17 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.54.0\] – 2026-11-05
+
+### Fixed
+
+- F65 – the debug logging toggle could not switch logging OFF during the session: the flag OR-ed in its own old state, so once on it stayed on until the next Nemo start. set\_debug\_log now recomputes live from the env var and the toggle – OFF stops the file logging immediately; only NEMO\_PREVIEWER\_DEBUG=1 still overrides the toggle.
+
+### Added
+
+- F65 – red recording dot in the preview header: visible exactly while debug logging is active (standard media-record-symbolic icon, recolored red via CSS), switches live with the toggle in both directions. With the env var set it stays visible even when the toggle goes OFF – logging is still on then.
+- F65 – log retention: previewer.log and previewer.log.old are deleted at every panel start once their mtime is older than 7 days (DEBUG\_LOG\_MAX\_AGE) – logs never linger on disk forever, even with logging off afterwards.
+
 ## \[0.53.0\] – 2026-11-05
 
 ### Added
