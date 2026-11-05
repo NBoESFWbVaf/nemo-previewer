@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.58.1
+previewer_render_text.py – Version 0.58.2
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1734,7 +1734,7 @@ def _ics_data(path):
 # → REF TXT-DOC-91
 def _eml_attachment_rows(msg):
     # F54: every MIME part with a filename becomes a row of
-    # (name, size, type); undecodable sizes stay None.
+    # (name, size); undecodable sizes stay None.
     rows = []
     for part in msg.walk():
         try:
@@ -1751,11 +1751,7 @@ def _eml_attachment_rows(msg):
             size = len(payload) if payload else None
         except Exception:
             size = None
-        try:
-            ctype = part.get_content_type()
-        except Exception:
-            ctype = "application/octet-stream"
-        rows.append((name, size, ctype))
+        rows.append((name, size))
     return rows
 
 
@@ -1923,30 +1919,29 @@ class TextRendererMixin:
             return
 
         rows = []
-        for key, label in (("subject", "Subject"), ("from", "From"),
-                           ("to", "To"), ("cc", "Cc"),
-                           ("date", "Date")):
+        for key, label in (("from", "From"), ("to", "To"),
+                           ("cc", "Cc"), ("date", "Date"),
+                           ("subject", "Subject")):
             try:
                 val = msg.get(key)
             except Exception:
                 val = None
             if val:
                 rows.append((label, str(val)[:160]))
-        # 0.9.1: headers via the central table helper (previously
-        # built identically inline).
-        pack_meta_grid(rows, self._content)
+        # Headers via the central table helper; F54: bold labels +
+        # italic values, subject row BELOW date (user request).
+        pack_meta_grid(rows, self._content, bold_keys=True,
+                       italic_values=True)
 
         body = self._eml_body(msg)
-        if body.strip():
-            self._text_view(body)
+        # F54: mails WITHOUT text render like a mail with text (user
+        # request) – the body area is always built.
+        self._text_view(body)
         att_rows = _eml_attachment_rows(msg)
         if att_rows:
-            # F54: attachments with name, size and type plus an
+            # F54: attachments with name and size plus an
             # extract button (→ REF TXT-EML-ATT-1).
             self._pack_eml_attachments(path, att_rows)
-        if not body.strip() and not att_rows:
-            pack_hint(self._content, "No readable text body found – open the "
-                       "file via the open button.")
         dbg("text/_render_eml: %d attachments listed" % len(att_rows))
 
     # → REF TXT-DOC-69
@@ -1994,27 +1989,24 @@ class TextRendererMixin:
         head.set_markup("<b>Attachments (%d)</b>" % len(rows))
         head.set_halign(Gtk.Align.START)
         box.pack_start(head, False, False, 2)
-        for name, size, ctype in rows:
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
-                          spacing=8)
-            icon = Gtk.Image.new_from_icon_name(
-                pick_icon(("mail-attachment-symbolic", "mail-attachment",
-                           "text-x-generic-symbolic"), "mail-attachment"),
-                Gtk.IconSize.MENU)
-            row.pack_start(icon, False, False, 0)
-            lbl = Gtk.Label(label=name)
-            lbl.set_halign(Gtk.Align.START)
-            lbl.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
-            lbl.set_tooltip_text(name)
-            row.pack_start(lbl, False, False, 0)
-            meta = "%s · %s" % (human_size(size), ctype) \
-                if size is not None else "size unknown · %s" % ctype
-            mlbl = Gtk.Label(label=meta)
-            mlbl.get_style_context().add_class("dim-label")
-            mlbl.set_halign(Gtk.Align.START)
-            mlbl.set_ellipsize(Pango.EllipsizeMode.END)
-            row.pack_start(mlbl, True, False, 0)
-            box.pack_start(row, False, False, 0)
+        # F54: two-column table (user request) – file name and
+        # size; the content type is deliberately not shown.
+        grid = Gtk.Grid()
+        grid.set_row_spacing(2)
+        grid.set_column_spacing(10)
+        for i, (name, size) in enumerate(rows):
+            nl = Gtk.Label(label=name)
+            nl.set_halign(Gtk.Align.START)
+            nl.set_hexpand(True)
+            nl.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+            nl.set_tooltip_text(name)
+            grid.attach(nl, 0, i, 1, 1)
+            sl = Gtk.Label(label=(human_size(size)
+                                  if size is not None else "unknown"))
+            sl.get_style_context().add_class("dim-label")
+            sl.set_halign(Gtk.Align.END)
+            grid.attach(sl, 1, i, 1, 1)
+        box.pack_start(grid, False, False, 0)
         btn = Gtk.Button(label="Extract all attachments")
         btn.set_tooltip_text("Choose a folder – existing files get "
                             "a numbered suffix")
@@ -2619,7 +2611,7 @@ class TextRendererMixin:
         self._content.pack_start(scroll, True, True, 0)
 
 
-PREVIEWER_VERSION = "0.58.1"
+PREVIEWER_VERSION = "0.58.2"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
