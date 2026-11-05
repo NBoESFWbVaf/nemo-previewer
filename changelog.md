@@ -4,6 +4,13 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.59.0\] – 2026-11-05
+
+### Added
+
+- F11 – WOFF1 fonts (.woff) in the font preview: the zlib-compressed tables are unpacked and rebuilt into a plain sfnt (pure byte work, no web toolkit), parked in the font temp dir and registered with Fontconfig for this process – the waterfall shows the real family. WOFF2 (.woff2, Brotli-compressed) is deliberately not supported; it gets a clear hint instead of a preview.
+- F11 – TTC collections show EVERY font: each face of the collection gets its own bold header (family – style) and its own waterfall, re-wrapping live on column resize like the single fonts (F68); capped at 8 faces with a remainder hint. Before, a .ttc only showed the first face. The panel dispatch routes .woff to the font renderer, and the sample-text setting applies to it as well.
+
 ## \[0.58.3\] – 2026-11-05
 
 ### Fixed
