@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.59.2
+previewer_render_text.py – Version 0.60.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -2441,8 +2441,8 @@ class TextRendererMixin:
 
     # → REF TXT-DOC-96
     def _ics_event_widget(self, ev):
-        # One event as a card: bold summary + key/value rows after
-        # the EML header pattern (values wrap, descriptions get long).
+        # One event as a vCard-style card: frame and shadow via
+        # _vcard_card_draw, title column fixed at 75 px.
         summary = _ics_text(ev.get("SUMMARY", ("", ""))[1]) or "(no summary)"
         rows = []
         start = ev.get("DTSTART")
@@ -2459,15 +2459,23 @@ class TextRendererMixin:
             if len(desc) > 240:
                 desc = desc[:240] + "…"
             rows.append(("Description", desc))
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        # Same air as on the vCards: shadow pad plus card margin.
+        inner.set_margin_start(18)
+        inner.set_margin_end(18)
+        inner.set_margin_top(16)
+        inner.set_margin_bottom(19)
         lbl = Gtk.Label()
         lbl.set_markup("<span weight='bold' size='large'>%s</span>"
                        % _pango_escape(summary))
         lbl.set_halign(Gtk.Align.START)
         lbl.set_line_wrap(True)
-        box.pack_start(lbl, False, False, 0)
-        pack_meta_grid(rows, box, wrap=True)
-        return box
+        inner.pack_start(lbl, False, False, 0)
+        pack_meta_grid(rows, inner, wrap=True, title_width=75)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        outer.connect("draw", self._vcard_card_draw)
+        outer.pack_start(inner, True, True, 0)
+        return outer
 
     # → REF TXT-DOC-73
     def _render_ebook(self, path, loader, fmt):
@@ -2783,7 +2791,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.59.2"
+PREVIEWER_VERSION = "0.60.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
