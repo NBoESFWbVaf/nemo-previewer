@@ -1189,10 +1189,10 @@ S6 (0.42.0): dim label with line wrap, left-aligned, packed into the container �
 
 - **Module:** previewer\_util.py
 - **Location:** `pack\_meta\_grid` (module level)
-- **Reason:** S6 – central key-value table with F35 colon logic and F60 wrap mode. F54 (0.58.2): bold_keys=True packs bold labels, italic_values=True italic values (EML header, user request).
+- **Reason:** S6 – central key-value table with F35 colon logic and F60 wrap mode. F54 (0.58.2): bold_keys=True packs bold labels, italic_values=True italic values (EML header, user request). F52 (0.60.0): title_width pins the label column to a fixed pixel width (ICS event table, user request).
 
 ```text
-Key-value table (dim label on the left, value on the right with END ellipsize and tooltip) – central helper for e-book, EML, audio and video info. 0.9.1: previously also built identically inline several times; the inline copies are gone. F35: every label automatically gets a colon at the end (if not already present). F38: packs into any position handed over – image previews give their 40% info area along. S6 (0.42.0): born as the panel mixin method _meta_grid, now usable across util. F60 (0.45.0): wrap=True packs the values multi-line instead of with END ellipsize – package info (description, dependencies) is longer than one line and flows into the scrollable info area of the package preview. F54 (0.58.2): bold_keys=True renders the labels as bold markup (escaped via GLib.markup_escape_text, no dim class), italic_values=True the values italic – EML headers use both, the other callers keep the default look.
+Key-value table (dim label on the left, value on the right with END ellipsize and tooltip) – central helper for e-book, EML, audio and video info. 0.9.1: previously also built identically inline several times; the inline copies are gone. F35: every label automatically gets a colon at the end (if not already present). F38: packs into any position handed over – image previews give their 40% info area along. S6 (0.42.0): born as the panel mixin method _meta_grid, now usable across util. F60 (0.45.0): wrap=True packs the values multi-line instead of with END ellipsize – package info (description, dependencies) is longer than one line and flows into the scrollable info area of the package preview. F54 (0.58.2): bold_keys=True renders the labels as bold markup (escaped via GLib.markup_escape_text, no dim class), italic_values=True the values italic – EML headers use both, the other callers keep the default look. F52 (0.60.0): title_width pins the title column to a fixed pixel width – labels get a size request plus END ellipsize with tooltip, so the column stays exactly at the requested width even when a label like Description: is longer (ICS event tables use 75).
 ```
 
 ### UT-DOC-12 – Docstring: cover\_round\_path
@@ -3161,7 +3161,7 @@ F7: ONE business card as a widget. The frame – a rounded rectangle with the co
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `TextRendererMixin.\_vcard\_card\_draw` (method)
-- **Reason:** F7 – card background: frame, shadow, NO fill.
+- **Reason:** F7 – card background: frame, shadow, NO fill. Also frames the ICS event cards (F52, 0.60.0).
 
 ```text
 F7: Background of the business card – rounded rectangle with the corner radius of the embedded music covers (0.25.1 a third more subtle: 56/960 of the smaller edge), the same drop shadow (F34/F35: six stacked, growing tiles) and NO fill – the card stays transparent, in dark mode a white tile base hurts the eyes. Returns False: GTK draws the widgets on top afterwards.
@@ -3394,17 +3394,17 @@ Opens a folder chooser (centered like every window, transient for the Nemo tople
 - **Reason:** ICS preview as scrollable event cards.
 
 ```text
-ICS files (text/calendar): every VEVENT becomes its own card, stacked scrollable below each other, 50 events max with a dim remainder hint. Unreadable or eventless files fall back to the generic preview with a hint.
+ICS files (text/calendar): every VEVENT becomes its own card in the vCard look – frame and drop shadow via the _vcard_card_draw draw callback (0.60.0), stacked scrollable below each other, 50 events max with a dim remainder hint. Unreadable or eventless files fall back to the generic preview with a hint.
 ```
 
 ### TXT-DOC-96 – Docstring: \_ics\_event\_widget
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `TextRendererMixin.\_ics\_event\_widget` (method)
-- **Reason:** One event as a card.
+- **Reason:** One event as a vCard-style card (F52, 0.60.0).
 
 ```text
-One event as a card after the EML header pattern: bold summary, then Start/End/Location/Description rows via pack_meta_grid with wrapping values (descriptions cap at 240 characters with an ellipsis). Missing properties are skipped instead of shown empty.
+One event as a vCard-style card: frame and drop shadow come from _vcard_card_draw (same look and inner margins as the contact cards, 0.60.0), bold summary on top, then Start/End/Location/Description rows via pack_meta_grid with wrapping values and the title column fixed at 75 px – longer labels ellipsize with a tooltip, the value column takes the rest (descriptions cap at 240 characters with an ellipsis). Missing properties are skipped instead of shown empty.
 ```
 
 ### TXT-DOC-97 – Docstring: \_font\_waterfall\_pixbuf
