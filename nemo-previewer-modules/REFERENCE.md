@@ -766,6 +766,16 @@ F2 (0.56.0): heavy renderers (PDF, Office, audio, video) start only after _RENDE
 F1 (0.61.0): four synthetic fixtures are built in a tempfile dir and checked against the pure parsers: a Markdown file (bold/italic/strike/inline code, h1 heading, two bullet items, one link) against _markdown_to_pango, a minimal EPUB (one content.opf with dc:title/dc:creator/dc:language, manifest and spine; found via the .opf fallback) against _epub_data, a 94-byte MOBI (PalmDB header BOOKMOBI, one 4-byte record offset entry, record 0 with MOBI magic, header length 232, encoding 65001 and an EXTH author entry of type 100) against _mobi_data, and a minimal sfnt (one name table, family and subfamily records in UTF-16BE) against _font_faces. Each check prints PASS or FAIL (with the detail on FAIL), the summary line counts, the exit code is 0 or 1; the fixture dir is removed afterwards. Building the first MOBI fixture exposed a real bug in _mobi_records (TXT-DOC-23) – the Palm record offsets were read as three bytes although the PDB entry stores four, so on real files record 0 started at offset>>8 and the EXTH author was never parsed (unnoticed because the title comes from the PalmDB name field).
 ```
 
+### PAN-F69-1 – Font size keys in the config (F69)
+
+- **Module:** previewer\_panel.py
+- **Location:** `__init__` (defaults), `\_config\_load`, `\_config\_save` (both behind the F25 block), the apply call after `self.\_config\_load()`
+- **Reason:** F69 – the two font size keys follow the F12 config pattern (defaults first, then load, then save).
+
+```text
+F69 (0.62.0): two new conf keys, both integers with a 0–28 guard on load: text_font_size and meta_font_size (default 0 = theme font). Defaults sit next to the F25 spacing default; load next to the F25 block; _config_save persists both and then calls apply_font_size_css(self._conf_text_font_size, self._conf_meta_font_size) after save_to_file – so every settings save (also from other spins) reloads the CSS rules live. The same call runs once at panel startup behind _config_load.
+```
+
 ---
 
 ## Selection (SEL)
@@ -1199,10 +1209,10 @@ S6 (0.42.0): dim label with line wrap, left-aligned, packed into the container �
 
 - **Module:** previewer\_util.py
 - **Location:** `pack\_meta\_grid` (module level)
-- **Reason:** S6 – central key-value table with F35 colon logic and F60 wrap mode. F54 (0.58.2): bold_keys=True packs bold labels, italic_values=True italic values (EML header, user request). F52 (0.60.0): title_width pins the label column to a fixed pixel width (ICS event table, user request).
+- **Reason:** S6 – central key-value table with F35 colon logic and F60 wrap mode. F54 (0.58.2): bold_keys=True packs bold labels, italic_values=True italic values (EML header, user request). F52 (0.60.0): title_width pins the label column to a fixed pixel width (ICS event table, user request). F69 (0.62.0): CSS class for the configurable info table font size.
 
 ```text
-Key-value table (dim label on the left, value on the right with END ellipsize and tooltip) – central helper for e-book, EML, audio and video info. 0.9.1: previously also built identically inline several times; the inline copies are gone. F35: every label automatically gets a colon at the end (if not already present). F38: packs into any position handed over – image previews give their 40% info area along. S6 (0.42.0): born as the panel mixin method _meta_grid, now usable across util. F60 (0.45.0): wrap=True packs the values multi-line instead of with END ellipsize – package info (description, dependencies) is longer than one line and flows into the scrollable info area of the package preview. F54 (0.58.2): bold_keys=True renders the labels as bold markup (escaped via GLib.markup_escape_text, no dim class), italic_values=True the values italic – EML headers use both, the other callers keep the default look. F52 (0.60.0): title_width pins the title column to a fixed pixel width – labels get a size request plus END ellipsize with tooltip, so the column stays exactly at the requested width even when a label like Description: is longer (ICS event tables use 75).
+Key-value table (dim label on the left, value on the right with END ellipsize and tooltip) – central helper for e-book, EML, audio and video info. 0.9.1: previously also built identically inline several times; the inline copies are gone. F35: every label automatically gets a colon at the end (if not already present). F38: packs into any position handed over – image previews give their 40% info area along. S6 (0.42.0): born as the panel mixin method _meta_grid, now usable across util. F60 (0.45.0): wrap=True packs the values multi-line instead of with END ellipsize – package info (description, dependencies) is longer than one line and flows into the scrollable info area of the package preview. F54 (0.58.2): bold_keys=True renders the labels as bold markup (escaped via GLib.markup_escape_text, no dim class), italic_values=True the values italic – EML headers use both, the other callers keep the default look. F52 (0.60.0): title_width pins the title column to a fixed pixel width – labels get a size request plus END ellipsize with tooltip, so the column stays exactly at the requested width even when a label like Description: is longer (ICS event tables use 75). F69 (0.62.0): the grid gets the CSS class pvw-meta-size – the configurable info table font size rides on it (rule from apply_font_size_css, UT-DOC-16); the labels inherit the size from the grid.
 ```
 
 ### UT-DOC-12 – Docstring: cover\_round\_path
@@ -1229,10 +1239,10 @@ S6 (0.42.0): image in a scroll window – the widget part of the panel method _s
 
 - **Module:** previewer\_util.py
 - **Location:** `build\_text\_view` (module level)
-- **Reason:** S6 – TextView configuration and buffer fill with 10/10/8/8 padding.
+- **Reason:** S6 – TextView configuration and buffer fill with 10/10/8/8 padding. F69 (0.62.0): CSS class for the configurable text preview font size.
 
 ```text
-S6 (0.42.0): TextView configuration and buffer fill – the widget part of the panel method _text_view; line numbers, GtkSourceView guessing and packing stay with the panel. 0.55.0 (F25): optional spacing parameter – values above 0 create the TextTag "previewer-line-spacing" (pixels_above_lines) and apply it over the whole buffer; the tag is re-applied on every rebuild, the clipboard stays untouched.
+S6 (0.42.0): TextView configuration and buffer fill – the widget part of the panel method _text_view; line numbers, GtkSourceView guessing and packing stay with the panel. 0.55.0 (F25): optional spacing parameter – values above 0 create the TextTag "previewer-line-spacing" (pixels_above_lines) and apply it over the whole buffer; the tag is re-applied on every rebuild, the clipboard stays untouched. 0.62.0 (F69): the view gets the CSS class pvw-text-size – the configurable text preview font size rides on it (rule from apply_font_size_css, UT-DOC-16); where build_text_view runs with an explicit font (override_font wins), the font itself rules.
 ```
 
 ### UT-DOC-15 – Docstring: center\_window
@@ -1255,6 +1265,16 @@ User rule (2026-11-03): all opening windows of the extension – settings window
 
 ```text
 F65 (0.53.0, user wish): debug logging as a SETTING – with the toggle on, every dbg line is mirrored into a persistent log file. Path: XDG_STATE_HOME (default ~/.local/state)/nemo-previewer/previewer.log – the XDG standard place for user logs, survives Nemo restarts and independent of where stdout lands (terminal vs session). Mechanics: DEBUG_LOG starts from the env var NEMO_PREVIEWER_DEBUG=1 (power-user one-shot, always wins over the toggle); the settings toggle feeds set_debug_log(True) from the panel config load and the toolbar handler (OR, never switches the env var off). _debug_log_file appends each line with a "YYYY-MM-DD HH:MM:SS" timestamp, writes a "--- session start, version X ---" header once per session at the first write, and rotates ONCE per session: if the file exceeds DEBUG_LOG_CAP (512 KB) it becomes previewer.log.old (exactly ONE backup, the previous .old is removed first) – bounded disk footprint in the 0.9.2 cap discipline. File errors are suppressed with a plain print (never dbg – no recursion). dbg keeps stdout output unchanged in every mode, so terminal deploy tests stay identical. 0.54.0 (deploy feedback): set\_debug\_log recomputes LIVE – OFF stops file logging during the session (the old OR semantics kept the flag stuck on TRUE); the env var is captured separately in DEBUG\_ENV at import time and still wins over the toggle. New: debug\_log\_active() returns the live state for the header dot; debug\_log\_cleanup() deletes previewer.log and previewer.log.old once their mtime is older than DEBUG\_LOG\_MAX\_AGE (7 days) – called at every panel start, even with logging off, so logs never linger on disk forever. 0.54.1 (deploy feedback): dbg is fully gated since this version – the debug toggle and the env var now switch ALL debug output (file AND stdout); nothing is written anywhere while both are off.
+```
+
+### UT-DOC-16 – Docstring: apply\_font\_size\_css (F69)
+
+- **Module:** previewer\_util.py
+- **Location:** `TEXT\_SIZE\_CSS\_CLASS`, `META\_SIZE\_CSS\_CLASS`, `\_SIZE\_CSS\_PROVIDER`, `apply\_font\_size\_css` (module level, widget helpers section)
+- **Reason:** F69 – font sizes of text previews and info tables as CSS classes, rebuilt on every settings save.
+
+```text
+F69 (0.62.0, user wish): two font size settings ride on CSS classes instead of per-widget font plumbing: build_text_view adds pvw-text-size to every preview TextView, pack_meta_grid adds pvw-meta-size to every info grid, the tag window (media) and package table (text) TreeViews carry pvw-meta-size as well. apply_font_size_css(text_px, meta_px) holds ONE provider on the default screen (K11 pattern, port note in AUDIT-GTK4-3) and rebuilds the rules on every call: a rule only exists while the size is > 0, 0 means the theme font (no rule at all). Called at panel startup after _config_load and at the end of _config_save – the provider reload makes GTK re-resolve the styles, so open previews and windows restyle LIVE without a re-render. Keys: text_font_size and meta_font_size (0–28 px, 0 default).
 ```
 
 ---
@@ -1461,6 +1481,16 @@ F65 (0.53.0): check button "Debug logging (write log file)" in the settings "Gen
 
 ```text
 F25 (0.55.0): value-changed handler of the "Line spacing (px)" spin (Adjustment 0–12, step 1, page 2). Course: int(spin.get_value()) into \_conf\_text\_line\_spacing, then \_config\_save() immediately, then – like line numbers and syntax – if \_last\_textish and \_path: self.\_render(). The re-render passes the value through build\_text\_view's spacing parameter (TextTag pixels\_above\_lines), so the current text preview widens/narrows right away. Because \_text\_view passes the config value centrally, the spacing applies to ALL TextView previews, not only the plain text.
+```
+
+### TB-DOC-18 – Docstring: \_on\_text\_size\_changed / \_on\_meta\_size\_changed (F69)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin.\_on\_text\_size\_changed` and `.\_on\_meta\_size\_changed` (methods); spins in \_settings\_frame\_text ("Preview font size (px)") and \_settings\_frame\_general ("Info table font size (px)")
+- **Reason:** F69 – two font size spins; saving reloads the CSS rules, so no re-render is needed (unlike the F25 spacing handler).
+
+```text
+F69 (0.62.0): "Preview font size (px)" (Text files frame) scales the text previews – plain text, Markdown, source code, everywhere the preview sets the text itself; rendered pages (PDF, images) stay untouched. "Info table font size (px)" (General frame) scales the metadata tables in the preview and in the "more" windows. Both spins: Adjustment 0–28, step 1, page 2, 0 = the theme's normal size. The value-changed handlers store the value and call _config_save() only – the CSS provider reload inside it restyles open widgets live (UT-DOC-16), so unlike the F25 line spacing there is no re-render.
 ```
 
 ---
