@@ -312,6 +312,11 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
   Die Vorschauspalte teilt sich wie bei Bildern (F38) in 60 % oben /40 % unten. Oben zeigt NUR das eingebettete Cover – ohne Cover zeichnet \_ebook\_placeholder ein Hochformat-Bild (Buchdeckel-Gerüst, themeneutral wie der vCard-Platzhalter). Unten die Info-Tabelle wie bei Bilddateien, nur Zeilen mit gesetzten Tags: Buchtitel, Autor, Teil einer Reihe (EPUB: calibre:series oder EPUB3 belongs-to-collection; FB2: sequence), Anzahl Seiten (nur bei page-count-Meta im OPF – kein Standard-Tag), Ebookformat, Sprache. Die Textvorschau ist abgeschafft (unschön gerendert, die Buch-Infos reichen); \_epub\_text, \_fb2\_body\_text, \_mobi\_text und der PalmDoc-Entpacker sind entfernt.  
   ✅ 0.44.0: umgesetzt – \_render\_ebook auf 60/40-Split (\_pack\_image\_capped), Loader-Signatur jetzt (rows, cover).
 
+- [x] **F69 – Schriftgrößen punktuell einstellbar** (Nutzer-Wunsch 2026-11-06 „Ich möchte in den Einstellungen die Schriftgröße bei Dateien wo es möglich ist, punktuell ändern können. Gleiches auch für Informationstabellen in Fenstern oder der Vorschau.")
+
+  Zwei Spins in den Einstellungen (je 0–28 px, 0 = Theme-Standard, sofort angewendet): „Preview font size" im Text-Frame skaliert die Textvorschauen (Klartext, Markdown, Quellcode — überall, wo die Vorschau den Text selbst setzt; gerenderte Seiten wie PDFs/Bilder bleiben unberührt), „Info table font size" im General-Frame die Informationstabellen (Metadaten-Raster der Vorschau UND die Tabellen der „mehr"-Fenster).  
+  ✅ 0.62.0 – umgesetzt: CSS-Klassen pvw-text-size/pvw-meta-size an zentralen Stellen (build\_text\_view, pack\_meta\_grid, Tag-/Paket-TreeViews), die Regeln baut \_apply\_font\_size\_css (util, K11-Provider-Muster) bei jedem Speichern neu — der Provider-Reload restylt offene Vorschauen und Fenster LIVE, ohne Re-Render; Konfig-Schlüssel text\_font\_size/meta\_font\_size mit 0–28-Deckel beim Laden.
+
 ### Internationalisierung &amp; Release-Vorbereitung
 
 - [x] **F49 – Alle Dateien ins Englische übersetzen** (Nutzer-Entscheid 2026-11-01)
