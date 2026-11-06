@@ -756,6 +756,16 @@ F65 (0.54.0, user wish): a red recording dot at the left of the header signals a
 F2 (0.56.0): heavy renderers (PDF, Office, audio, video) start only after _RENDER_QUIET_MS (400 ms) of selection quiet – fast browsing over many files no longer fires renders whose result is dropped immediately. Mechanism: set_selection ALWAYS cancels a pending render first (_cancel_pending_render via GLib.source_remove), then _is_heavy decides: light formats (text, images, folder …) render immediately as before, heavy ones arm GLib.timeout_add(_RENDER_QUIET_MS, _on_pending_render). The handler returns False (self-removing source) and re-checks self._path – a selection cleared in between renders nothing. _is_heavy classifies by extension (.pdf, _OFFICE_EXTS from the render switch, the audio endings) and by mime prefix (audio/, video/) via query_file_info. The timer id lives in _pending_render_id (None default in __init). During the quiet window the previous preview stays visible. Debounce cousins already in the code: the size-allocate re-render and the panel-width config save. 0.56.1 (deploy feedback: TypeError "can only concatenate tuple (not set) to tuple" on EVERY selection): _OFFICE_EXTS is a SET (built for the "in" lookups of the render switch), but _is_heavy concatenated it with a tuple – the tuple-plus-set expression was evaluated on every call, so every single selection raised and the preview died. Fix: tuple(_OFFICE_EXTS).
 ```
 
+### PAN-SELFTEST-1 – Parser selftest (F1)
+
+- **Module:** previewer\_panel.py
+- **Location:** module level, after the PREVIEWER\_VERSION dbg line: the \_st\_\* fixture builders and tests, run\_selftest and the \_\_main\_\_ guard; the parsers come in via the import line
+- **Reason:** F1 – regression tests for the file parsers without Nemo, called with `python3 previewer\_panel.py --selftest`.
+
+```text
+F1 (0.61.0): four synthetic fixtures are built in a tempfile dir and checked against the pure parsers: a Markdown file (bold/italic/strike/inline code, h1 heading, two bullet items, one link) against _markdown_to_pango, a minimal EPUB (one content.opf with dc:title/dc:creator/dc:language, manifest and spine; found via the .opf fallback) against _epub_data, a 94-byte MOBI (PalmDB header BOOKMOBI, one 4-byte record offset entry, record 0 with MOBI magic, header length 232, encoding 65001 and an EXTH author entry of type 100) against _mobi_data, and a minimal sfnt (one name table, family and subfamily records in UTF-16BE) against _font_faces. Each check prints PASS or FAIL (with the detail on FAIL), the summary line counts, the exit code is 0 or 1; the fixture dir is removed afterwards. Building the first MOBI fixture exposed a real bug in _mobi_records (TXT-DOC-23) – the Palm record offsets were read as three bytes although the PDB entry stores four, so on real files record 0 started at offset>>8 and the EXTH author was never parsed (unnoticed because the title comes from the PalmDB name field).
+```
+
 ---
 
 ## Selection (SEL)
@@ -2681,10 +2691,10 @@ FictionBook 2 (.fb2): book title, author, series, language and cover (base64 bin
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `\_mobi\_records` (module level)
-- **Reason:** S3 helper – Palm record offsets.
+- **Reason:** S3 helper – Palm record offsets; the four-byte contract is pinned by the selftest fixture (PAN-SELFTEST-1).
 
 ```text
-S3 (0.42.0): Palm records from offset 78 – 8 bytes per entry, the offset sits in the first three bytes.
+S3 (0.42.0): Palm records from offset 78 – 8 bytes per entry. 0.61.0 (F1 selftest finding): the offset is FOUR big-endian bytes per the PDB record entry (attributes and unique id follow); the previous three-byte read delivered offset>>8 – on real MOBIs record 0 started at the wrong position, so the MOBI header and with it the EXTH author were never parsed (unnoticed because the title comes from the PalmDB name field). Fixed together with F1; the selftest fixture pins the contract.
 ```
 
 ### TXT-DOC-24 – Docstring: \_mobi\_header
