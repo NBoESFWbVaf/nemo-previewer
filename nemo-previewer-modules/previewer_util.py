@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.59.2
+previewer_util.py – Version 0.60.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -288,7 +288,7 @@ def pack_hint(box, text):
 
 # → REF UT-DOC-11
 def pack_meta_grid(rows, container, wrap=False, bold_keys=False,
-                   italic_values=False):
+                   italic_values=False, title_width=None):
     grid = Gtk.Grid()
     grid.set_row_spacing(2)
     grid.set_column_spacing(10)
@@ -305,6 +305,12 @@ def pack_meta_grid(rows, container, wrap=False, bold_keys=False,
             kl.set_label(k)
             kl.get_style_context().add_class("dim-label")
         kl.set_halign(Gtk.Align.END)
+        if title_width:
+            # F52: fixed title column (ICS event table); ellipsize
+            # plus tooltip keeps the width at the requested pixels.
+            kl.set_size_request(title_width, -1)
+            kl.set_ellipsize(Pango.EllipsizeMode.END)
+            kl.set_tooltip_text(k)
         vl = Gtk.Label()
         if italic_values:
             # F54: italic values (EML header, user request).
@@ -409,5 +415,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.59.2"
+PREVIEWER_VERSION = "0.60.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
