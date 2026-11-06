@@ -773,7 +773,7 @@ F1 (0.61.0): four synthetic fixtures are built in a tempfile dir and checked aga
 - **Reason:** F69 – the two font size keys follow the F12 config pattern (defaults first, then load, then save).
 
 ```text
-F69 (0.62.0): two new conf keys, both integers with a 0–28 guard on load: text_font_size and meta_font_size (default 0 = theme font). Defaults sit next to the F25 spacing default; load next to the F25 block; _config_save persists both and then calls apply_font_size_css(self._conf_text_font_size, self._conf_meta_font_size) after save_to_file – so every settings save (also from other spins) reloads the CSS rules live. The same call runs once at panel startup behind _config_load.
+F69 (0.62.0): two new conf keys, both integers with a 0–28 guard on load: text_font_size and meta_font_size. Defaults sit next to the F25 spacing default; load next to the F25 block; _config_save persists both and then calls apply_font_size_css(self._conf_text_font_size, self._conf_meta_font_size) after save_to_file – so every settings save (also from other spins) reloads the CSS rules live. The same call runs once at panel startup behind _config_load. 0.62.1 (user finding before deploy): both defaults are the DETECTED system font size now (system_font_size_px, one call for both keys), not 0 – the spins start at the system value; a stored 0 keeps its meaning (explicit theme font).
 ```
 
 ---
@@ -1270,11 +1270,11 @@ F65 (0.53.0, user wish): debug logging as a SETTING – with the toggle on, ever
 ### UT-DOC-16 – Docstring: apply\_font\_size\_css (F69)
 
 - **Module:** previewer\_util.py
-- **Location:** `TEXT\_SIZE\_CSS\_CLASS`, `META\_SIZE\_CSS\_CLASS`, `\_SIZE\_CSS\_PROVIDER`, `apply\_font\_size\_css` (module level, widget helpers section)
+- **Location:** `TEXT\_SIZE\_CSS\_CLASS`, `META\_SIZE\_CSS\_CLASS`, `\_SIZE\_CSS\_PROVIDER`, `apply\_font\_size\_css`, `system\_font\_size\_px` (module level, widget helpers section)
 - **Reason:** F69 – font sizes of text previews and info tables as CSS classes, rebuilt on every settings save.
 
 ```text
-F69 (0.62.0, user wish): two font size settings ride on CSS classes instead of per-widget font plumbing: build_text_view adds pvw-text-size to every preview TextView, pack_meta_grid adds pvw-meta-size to every info grid, the tag window (media) and package table (text) TreeViews carry pvw-meta-size as well. apply_font_size_css(text_px, meta_px) holds ONE provider on the default screen (K11 pattern, port note in AUDIT-GTK4-3) and rebuilds the rules on every call: a rule only exists while the size is > 0, 0 means the theme font (no rule at all). Called at panel startup after _config_load and at the end of _config_save – the provider reload makes GTK re-resolve the styles, so open previews and windows restyle LIVE without a re-render. Keys: text_font_size and meta_font_size (0–28 px, 0 default).
+F69 (0.62.0, user wish): two font size settings ride on CSS classes instead of per-widget font plumbing: build_text_view adds pvw-text-size to every preview TextView, pack_meta_grid adds pvw-meta-size to every info grid, the tag window (media) and package table (text) TreeViews carry pvw-meta-size as well. apply_font_size_css(text_px, meta_px) holds ONE provider on the default screen (K11 pattern, port note in AUDIT-GTK4-3) and rebuilds the rules on every call: a rule only exists while the size is > 0, 0 means the theme font (no rule at all). Called at panel startup after _config_load and at the end of _config_save – the provider reload makes GTK re-resolve the styles, so open previews and windows restyle LIVE without a re-render. Keys: text_font_size and meta_font_size (0–28 px). 0.62.1 (user finding before deploy): system_font_size_px() measures the theme font size in px from a fresh TextView (get_font on its style context; points are converted at 96 dpi, the result is clamped to 1–28, every failure returns 0) – the panel uses it as the DEFAULT of both keys, so the spins start at the system value; a 0 → 1 step jumped from the ~12 px system default to 1 px and looked like a bug. 0 stays selectable as the explicit theme default.
 ```
 
 ---
@@ -1490,7 +1490,7 @@ F25 (0.55.0): value-changed handler of the "Line spacing (px)" spin (Adjustment 
 - **Reason:** F69 – two font size spins; saving reloads the CSS rules, so no re-render is needed (unlike the F25 spacing handler).
 
 ```text
-F69 (0.62.0): "Preview font size (px)" (Text files frame) scales the text previews – plain text, Markdown, source code, everywhere the preview sets the text itself; rendered pages (PDF, images) stay untouched. "Info table font size (px)" (General frame) scales the metadata tables in the preview and in the "more" windows. Both spins: Adjustment 0–28, step 1, page 2, 0 = the theme's normal size. The value-changed handlers store the value and call _config_save() only – the CSS provider reload inside it restyles open widgets live (UT-DOC-16), so unlike the F25 line spacing there is no re-render.
+F69 (0.62.0): "Preview font size (px)" (Text files frame) scales the text previews – plain text, Markdown, source code, everywhere the preview sets the text itself; rendered pages (PDF, images) stay untouched. "Info table font size (px)" (General frame) scales the metadata tables in the preview and in the "more" windows. Both spins: Adjustment 0–28, step 1, page 2, 0 = the theme's normal size. The value-changed handlers store the value and call _config_save() only – the CSS provider reload inside it restyles open widgets live (UT-DOC-16), so unlike the F25 line spacing there is no re-render. 0.62.1 (user finding before deploy): the spins start PRE-FILLED with the detected system font size (system_font_size_px, UT-DOC-16) instead of 0 – turning 0 → 1 made the preview jump from the ~12 px system default to 1 px, which looked like a bug; 0 remains the explicit "theme default" choice in the tooltips.
 ```
 
 ---
