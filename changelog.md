@@ -4,6 +4,16 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.61.0\] – 2026-11-06
+
+### Added
+
+- Parser selftest without Nemo (F1): `python3 previewer\_panel.py --selftest` builds four synthetic fixtures in a temp dir (Markdown, EPUB, MOBI, TrueType) and checks them against the parsers – one PASS/FAIL line per test, a summary line and exit code 0/1. Regression base for md/epub/mobi/font changes.
+
+### Fixed
+
+- `\_mobi\_records` read the PalmDB record offsets as three bytes instead of four: on real MOBI files record 0 started at offset >> 8, so the MOBI header and with it the EXTH author were never parsed – MOBI previews showed the title (it comes from the PalmDB name field) but never an author. The first selftest fixture exposed this.
+
 ## \[0.60.1\] – 2026-11-06
 
 ### Fixed
