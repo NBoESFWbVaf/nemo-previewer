@@ -336,15 +336,16 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 
 ### Kompatibilität
 
-- [ ] **F57 – Gegen GTK4 prüfen** (Nutzer-Wunsch 2026-11-01)
+- [x] **F57 – Gegen GTK4 prüfen** (Nutzer-Wunsch 2026-11-01)
 
-  Den Code regelmäßig gegen GTK4 prüfen, damit ein späterer Port möglich bleibt: Gtk-Deprecation-Warnungen im Log beobachten; keine in GTK4 entfernten APIs neu einführen (u. a. „draw“ → „snapshot“, Gdk.Screen → Gdk.Display/Gdk.Monitor, Container-add → \_set\_child/append, Event-Handler → Gesture-Controller); Bestandsaufnahme je Modul als REFERENZ-Abschnitt, wo im GTK4-Fall was anfällt – Nemo-API-Port (Caja) separat bewerten. **M**.
+  Den Code regelmäßig gegen GTK4 prüfen, damit ein späterer Port möglich bleibt: Gtk-Deprecation-Warnungen im Log beobachten; keine in GTK4 entfernten APIs neu einführen (u. a. „draw“ → „snapshot“, Gdk.Screen → Gdk.Display/Gdk.Monitor, Container-add → \_set\_child/append, Event-Handler → Gesture-Controller); Bestandsaufnahme je Modul als REFERENZ-Abschnitt, wo im GTK4-Fall was anfällt – Nemo-API-Port (Caja) separat bewerten. **M**.  
+  ✅ 2026-11-06 – Erstprüfung ohne Code-Änderung (Audit-Runde): Bestandsaufnahme als REFERENCE-Abschnitt „GTK4-Port-Audit (F57)" mit 10 Einträgen (AUDIT-GTK4-1…10): je Modul die GTK3-only-APIs mit Stellenzahl (draw-Signale ×7, size-allocate-Connects ×4, StyleContext-Farb-Getter, add\_provider\_for\_screen, IconTheme.get\_default ×4, FileChooserDialog, WindowType, ShadowType, rund 90 mechanische Box-/Container-Aufrufe) plus Nemo/Caja-Bewertung: Ein Port scheitert nicht an den Byte-/Parser-Layern (Pango offscreen, Gdk.pixbuf\_get\_from\_surface, Poppler, GStreamer überleben GTK4), sondern an der Painter-Kette (draw-Signale + StyleContext-Farb-Getter), den size-allocate-Connects und der Crowbar-Injektion in den Host — GTK4-Port nur mit GTK4-Host sinnvoll (Nemo/Caja sind GTK3). Regel für künftige Runden: keine neuen Verwendungen der Brecher-APIs; die Re-Grep-Musterliste liegt in AUDIT-GTK4-1.
 
 ### Audits vor dem Release
 
 - [ ] **F58 – Audit-Paket vor dem Release (1.0.0)** (Nutzer-Entscheid 2026-11-01)
 
-  Jeder noch offene Audit wird VOR dem Release (F51) abgeschlossen; Befunde laufen als neue Items in planned ein: (1) GTK4-Erstprüfung (F57); (2) Performance – Render-Zeiten je Format (große PDFs, Office-Konvertierung, volle Ordner) und Ladezeit des Einstiegs; (3) Speicher/Leaks – Signal-Handler und Referenzen bei den Live-Re-Renders (\_last\_docview und Co.), Pixbuf-Caches, Cache-Wachstum in \~/.cache/previewer/begrenzen; (4) Reentrancy/Threading – Klicks/Wechsel während laufender LibreOffice-Konvertierung, Timeout-ID-Disziplin; (5) a11y – erreichbare Rollen/States systematisch prüfen; (6) i18n-Vorarbeit – hardkodierte UI-Strings zählen und sammeln (bringt F49 mit); (7) Umgebungs-Matrix – Nemo-Versionen, Python-Minimum, Wayland vs. X11; (8) Lizenz-/Abhängigkeits-Audit (bleibt in F51 verankert). **L**.
+  Jeder noch offene Audit wird VOR dem Release (F51) abgeschlossen; Befunde laufen als neue Items in planned ein: (1) GTK4-Erstprüfung (F57) – ERLEDIGT 2026-11-06 (REFERENCE-Abschnitt AUDIT-GTK4-1…10); (2) Performance – Render-Zeiten je Format (große PDFs, Office-Konvertierung, volle Ordner) und Ladezeit des Einstiegs; (3) Speicher/Leaks – Signal-Handler und Referenzen bei den Live-Re-Renders (\_last\_docview und Co.), Pixbuf-Caches, Cache-Wachstum in \~/.cache/previewer/begrenzen; (4) Reentrancy/Threading – Klicks/Wechsel während laufender LibreOffice-Konvertierung, Timeout-ID-Disziplin; (5) a11y – erreichbare Rollen/States systematisch prüfen; (6) i18n-Vorarbeit – hardkodierte UI-Strings zählen und sammeln (bringt F49 mit); (7) Umgebungs-Matrix – Nemo-Versionen, Python-Minimum, Wayland vs. X11; (8) Lizenz-/Abhängigkeits-Audit (bleibt in F51 verankert). **L**.
 
 ---
 
@@ -541,10 +542,10 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 2. ✅ B9 + F50 – Bild-Runde (0.47.0 / 0.48.0–0.48.3): B9 mit der Nutzer-Meldung der fehlerhaften Felder, darauf aufbauend der Exiftool-Dialog.
 3. ✅ F52 + F54 – Text-Runde (0.58.0): ICS-Termintabelle und EML-Anhänge zusammen (beide previewer\_render\_text.py).
 4. **Kleinzeug nach Bedarf**: K6, K7 (F13 am 2026-11-06 entfernt, F15/F17 nach Release verschoben; F25 ✅ 0.55.0, F2 ✅ 0.56.0, K5 ✅ 0.57.0 erledigt und raus).
-5. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits (GTK4/F57, Performance, Speicher/Leaks, Reentrancy, a11y, i18n-Strings, Umgebungs-Matrix) – Befunde einplanen.
+5. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits (Performance, Speicher/Leaks, Reentrancy, a11y, i18n-Strings, Umgebungs-Matrix; GTK4/F57 erledigt 2026-11-06 in REFERENCE) – Befunde einplanen.
 6. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien, git-Tag v1.0.0, GitHub-Release.
 7. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane), F32 (Rest: Infobereich), F37, F66 (Zweit-Spalte, konzeptoffen), F67 (markdown-it-py) sowie die am 2026-11-06 verschobenen F15, F17, F20, F21, F26, F53, F55, F56 – wie vereinbart im Branch erproben.
 
-Nicht eingeplant (Pool nach Bedarf): F1, F2, F9, F11, F27, F57 – F21 (Office→PDF-Knopf) spätestens bei F51 entscheiden (README-Wunsch umsetzen oder aus dem README nehmen); F55 bündelt sich gut mit F21 – beide nutzen denselben wählbaren Office-Backend.
+Nicht eingeplant (Pool nach Bedarf): F2, F9, F11, F27 – F21 (Office→PDF-Knopf) spätestens bei F51 entscheiden (README-Wunsch umsetzen oder aus dem README nehmen); F55 bündelt sich gut mit F21 – beide nutzen denselben wählbaren Office-Backend.
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
