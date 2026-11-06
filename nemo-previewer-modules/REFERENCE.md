@@ -3466,3 +3466,106 @@ WOFF1 (wOFF) rebuild: the 20-byte directory entries (tag, offset, compLength, or
 ```text
 Reads family and style from the name table of ONE sfnt face at the given offset (pure byte work): walks the face's table directory for the name table, decodes the name records (platform 0/3 as UTF-16BE, else roughly Latin-1), prefers name IDs 1/16/4 for the family and 2/17 for the style, and returns (family, style). Extracted from the former \_font\_info so collections can parse EVERY face at its own offset.
 ```
+---
+
+## GTK4-Port-Audit (F57)
+
+### AUDIT-GTK4-1 – Method and standing rule (F57)
+
+- **Module:** all eight Python modules
+- **Location:** this REFERENCE section (added at the end of the file)
+- **Reason:** F57 – first GTK4 check: inventory per module of the GTK3-only APIs, so a later port stays possible.
+
+```text
+F57 (2026-11-06, audit round WITHOUT code changes): static scan of the eight modules for APIs that GTK4 removes or changes. Standing rule for every future round: do not introduce NEW uses of the breaking families (draw signal, Gdk.Screen, StyleContext color getters, size-allocate connects, container add/pack, border-width properties, show_all, IconTheme.get_default, FileChooserDialog, WindowType, shadow types). Re-run patterns: connect("draw", add_provider_for_screen, get_background_color, connect("size-allocate", show_all(), get_default(), FileChooserDialog, set_border_width, .pack_, container .add(. GTK deprecation warnings of the PyGObject layer land on the stderr of the Nemo process – watch them in the debug log (NEMO_PREVIEWER_DEBUG=1) after system GTK updates. Verdict: the port is NOT blocked by the byte and parser layers (struct/zipfile, offscreen Pango/cairo, Gdk.pixbuf_get_from_surface, Poppler, GStreamer all survive GTK4); it is blocked by (a) the draw-signal painter chain, (b) four size-allocate connects, (c) roughly 90 mechanical box/window calls and – hardest – (d) the crowbar itself, because the injection re-parents widgets of the HOST file manager and no GTK4 host exists today (see AUDIT-GTK4-10).
+```
+
+### AUDIT-GTK4-2 – Entry point (previewer.py)
+
+- **Module:** previewer.py
+- **Location:** PanelState: crowbar placement (\_on\_crowbar\_placed), \_on\_hpaned\_draw, \_on\_size\_allocate
+- **Reason:** F57 inventory – two GTK3-only signal connects plus the injection mechanics.
+
+```text
+hpaned.connect("draw") for the Paned handle painter: GTK4 has no draw signal, and the Paned handle GdkWindow the painter relies on disappears with Gdk.Window – the whole F46 handle approach needs a new plan in GTK4. hpaned.connect("size-allocate"): not a connectable signal in GTK4 (vfunc only) – would need a widget subclass. Gtk.Paned.new(Gtk.Orientation.HORIZONTAL) survives GTK4. Mechanical: pack_start x2, pack_end x1, parent.add(child1) (crowbar re-parent), show_all x2, set_no_show_all x1. The isinstance Gtk.Toolbar check survives (the class still exists), but the entire injection depends on the host widget tree (AUDIT-GTK4-10).
+```
+
+### AUDIT-GTK4-3 – Panel (previewer_panel.py)
+
+- **Module:** previewer\_panel.py
+- **Location:** painter chain (\_paint\_background, \_on\_panel\_draw), CSS provider, header/content packing, \_is\_desktop\_window
+- **Reason:** F57 inventory – the heaviest module: painters, StyleContext colors and screen-scoped CSS.
+
+```text
+connect("draw") x4 (panel itself, folder bar, scroll window, viewport): the whole F46 background chain rides on the draw signal – GTK4 needs Gtk.DrawingArea draw funcs or snapshot painting, and the chain paints through OTHER widgets' style contexts, which is exactly what the new render model forbids. Gtk.StyleContext.add_provider_for_screen (K11, 0.59.2) becomes add_provider_for_display; the #previewer-panel scope via widget name still works. get_style_context x20, get_color x3, get_background_color x4: the color getters are removed (background) or deprecated (color, 4.10) in GTK4 – the fallback color derivation of the painter chain needs a replacement source (settings/theme CSS). Gtk.IconTheme.get_default x2 becomes get_for_display. connect("size-allocate") x1 needs a subclass. get_toplevel x1 becomes get_root. Mechanical: pack_start x14, pack_end x2, container add x3, set_border_width x3 (CSS margins instead), show_all x2, set_no_show_all x1. Survive GTK4 unchanged: connect("realize"), set_overlay_scrolling(False), queue_draw, the rec dot, size drawing via Pango.
+```
+
+### AUDIT-GTK4-4 – Selection (previewer\_select.py)
+
+- **Module:** previewer\_select.py
+- **Location:** whole module (Nemo provider signals, ctypes capsule bridge)
+- **Reason:** F57 inventory – cleanest module.
+
+```text
+No GTK widget API at all: the module works on the Nemo provider signals and the ctypes capsule bridge; the .add( hits are Python sets. Zero port work outside the host API itself (see AUDIT-GTK4-10).
+```
+
+### AUDIT-GTK4-5 – Helpers (previewer\_util.py)
+
+- **Module:** previewer\_util.py
+- **Location:** pick\_icon, build\_text\_view, build\_scaled\_image, pack\_hint
+- **Reason:** F57 inventory – icon theme, shadow type, two container adds.
+
+```text
+pick_icon: Gtk.IconTheme.get_default() becomes get_for_display in GTK4. build_text_view: scroll.set_shadow_type(Gtk.ShadowType.IN) – shadow types are removed in GTK4, the frame look would move to CSS (border or .undershoot styling). Mechanical: scroll.add(img)/scroll.add(view) x2 become set_child, pack_start x2 becomes append. get_style_context x2 + add_class x2 survive GTK4 (add_class stays). Gdk.Display.get_default().get_primary_monitor()/get_monitor(0) and the Pango layout code survive GTK4 unchanged.
+```
+
+### AUDIT-GTK4-6 – Toolbar (previewer\_toolbar.py)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** settings window + frames, PreviewToolbarMixin packing
+- **Reason:** F57 inventory – settings window type, five border widths, pure box packing.
+
+```text
+Gtk.Window(type=Gtk.WindowType.TOPLEVEL) in the settings window: WindowType is removed in GTK4 – plain Gtk.Window() suffices there. set_border_width x5 (window and frames) becomes CSS margins/padding. Mechanical: pack_start x24, pack_end x1, frame.add x5 (set_child), show_all x2 (show). Everything else (Gtk.Frame, Gtk.CheckButton, Gtk.SpinButton, entries) survives GTK4.
+```
+
+### AUDIT-GTK4-7 – Media (previewer\_render\_media.py)
+
+- **Module:** previewer\_render\_media.py
+- **Location:** player bar (seek scale), tag windows, image split sync, placeholder cover
+- **Reason:** F57 inventory – the only event-signal connects of the codebase.
+
+```text
+Seek scale: connect("button-press-event")/connect("button-release-event") – event signals move to event controllers in GTK4 (GestureDrag or Button/GestureLongPress on the scale); both handlers ignore the event object (only _seek_dragging is toggled), so the port is mechanical. connect("size-allocate") x1 (image split sync) needs a subclass. get_toplevel x1 (tag window transient) becomes get_root. Gtk.IconTheme.get_default x1 becomes get_for_display. Mechanical: show_all x7, pack_start x17, container add x2 (scroll.add, win.add). Survive GTK4: the offscreen pycairo cover tile (F18), the SVG-DPI route (K3), Gdk.pixbuf_get_from_surface, the whole GStreamer layer (GtkSink/videooverlay stays a Gst question, not a Gtk one).
+```
+
+### AUDIT-GTK4-8 – Documents (previewer\_render\_docs.py)
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** PDF page box, office fallback, page scaling
+- **Reason:** F57 inventory – the smallest module.
+
+```text
+Mechanical only: show_all x1, pack_start x5, scroll.add(box) x1 (set_child). get_style_context x1 + add_class x1 survive. The rendering core (Poppler page render into a cairo ImageSurface, Gdk.pixbuf_get_from_surface) works the same under GTK4; the _pdf_scale_step idler lives on GLib, unaffected.
+```
+
+### AUDIT-GTK4-9 – Text (previewer\_render\_text.py)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** font file pick, vCard/ICS card painters, package split, tag/package tables
+- **Reason:** F57 inventory – file chooser, the two card painters, five container adds.
+
+```text
+Gtk.FileChooserDialog (font pick in the font preview) is removed in GTK4 – the replacement is Gtk.FileDialog (since 4.10) or Gtk.FileChooserNative. connect("draw") x2 (vCard and ICS cards) move to Gtk.DrawingArea with set_draw_func; the cards pre-render with pycairo offscreen anyway, so only the widget hookup changes. connect("size-allocate") x1 (package split) needs a subclass. get_toplevel x1 becomes get_root. Mechanical: pack_start x22, pack_end x1, scroll.add x5. Survive GTK4: the offscreen font waterfall (F68), watermarks and placeholder covers via ImageSurface + Gdk.pixbuf_get_from_surface, the TreeView tag/package tables (TreeView stays in GTK4), pack_meta_grid.
+```
+
+### AUDIT-GTK4-10 – Host API: Nemo (Caja) separately
+
+- **Module:** previewer.py + previewer\_select.py (host coupling)
+- **Location:** crowbar injection, column/info providers
+- **Reason:** F57 – the Nemo-API port is evaluated separately, as planned demands.
+
+```text
+The extension lives inside the host process: previewer.py re-parents Nemo's own widgets (crowbar) and walks the host widget tree (isinstance Gtk.Toolbar), previewer_select.py rides on the Nemo column/info provider API. A GTK4 port of OUR code would be pointless while the host binds GTK3 – and the crowbar would break first, because it relies on the host's container/add mechanics. Caja (MATE) is GTK3 as well. Conclusion: keep the own modules free of new GTK3-only APIs (this audit is the baseline), re-evaluate the injection layer only when a GTK4-based host exists; porting the Nemo API is a separate project item, not part of F57.
+```
