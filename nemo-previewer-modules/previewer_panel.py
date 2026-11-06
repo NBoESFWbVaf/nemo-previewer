@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.59.1
+previewer_panel.py – Version 0.59.2
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -53,6 +53,10 @@ try:
     HAVE_GTKSOURCE = True
 except Exception as e:
     dbg("panel/module-level: suppressed: %s" % e)
+
+# K11: one-shot flag – the undershoot CSS goes to the screen
+# ONCE per process, not once per Nemo window.
+_K11_STATE = {"screen_css": False}
 
 # F47: the MIME database types .theme and backup endings as
 # x-theme/x-trash, not text – whitelisted; binary .swp stays out.
@@ -317,17 +321,21 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # K11: GTK paints dashed undershoot hints at the edges of
         # scroll areas (theme-dependent) – hide them preview-wide.
         # → REF PAN-K11-1
-        try:
-            css = Gtk.CssProvider()
-            css.load_from_data(
-                b"undershoot.top, undershoot.right, "
-                b"undershoot.bottom, undershoot.left "
-                b"{ background-image: none; "
-                b"background-color: transparent; }")
-            self.get_style_context().add_provider(
-                css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-        except Exception as e:
-            dbg("panel/undershoot css: suppressed: %s" % e)
+        self.set_name("previewer-panel")
+        if not _K11_STATE["screen_css"]:
+            _K11_STATE["screen_css"] = True
+            try:
+                css = Gtk.CssProvider()
+                css.load_from_data(
+                    b"#previewer-panel undershoot, "
+                    b"#previewer-panel .undershoot "
+                    b"{ background-image: none; "
+                    b"background-color: transparent; }")
+                Gtk.StyleContext.add_provider_for_screen(
+                    self.get_screen(), css,
+                    Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+            except Exception as e:
+                dbg("panel/undershoot css: suppressed: %s" % e)
 
 
         # --- F19: toolbar at the bottom of the preview column ---
@@ -1378,7 +1386,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.59.1"
+PREVIEWER_VERSION = "0.59.2"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
