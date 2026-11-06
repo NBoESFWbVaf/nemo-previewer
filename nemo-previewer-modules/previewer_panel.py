@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.62.0
+previewer_panel.py – Version 0.62.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -41,6 +41,7 @@ from previewer_util import (
     build_scaled_image,
     build_text_view,
     apply_font_size_css,
+    system_font_size_px,
 )
 from previewer_render_media import MediaRendererMixin, _ensure_gst
 from previewer_render_docs import (
@@ -238,10 +239,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F25: extra line spacing in text previews – default 0 (the
         # normal look), configurable in the settings, applied live.
         self._conf_text_line_spacing = 0
-        # F69: font sizes in px, 0 = theme font – text previews and
-        # info tables (preview and "more" windows), via CSS classes.
-        self._conf_text_font_size = 0
-        self._conf_meta_font_size = 0
+        # F69: font sizes in px – default = the detected system font
+        # size; 0 stays selectable as the explicit theme font.
+        sys_px = system_font_size_px()
+        self._conf_text_font_size = sys_px
+        self._conf_meta_font_size = sys_px
         # F12 part 3: document cap configurable – limit PDF/office
         # previews or show all; default matches the old hard cap.
         self._conf_doc_page_limit = True
@@ -1426,7 +1428,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.62.0"
+PREVIEWER_VERSION = "0.62.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
