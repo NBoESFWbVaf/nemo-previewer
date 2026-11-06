@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.60.0\] – 2026-11-05
+
+### Changed
+
+- ICS events render as vCard-style cards with frame and drop shadow (`_vcard_card_draw` reused); event details appear as a title/value table with the title column pinned to 75 px via the new `title_width` parameter of `pack_meta_grid`.
+
 ## \[0.59.2\] – 2026-11-05
 
 ### Fixed
