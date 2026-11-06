@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.60.1
+previewer_panel.py – Version 0.61.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -10,8 +10,11 @@ background.
 """
 
 import os
+import struct
 import sys
+import tempfile
 import traceback
+import zipfile
 
 import gi
 
@@ -42,7 +45,10 @@ from previewer_render_media import MediaRendererMixin, _ensure_gst
 from previewer_render_docs import (
     DocsRendererMixin, HAVE_POPPLER, _OFFICE_EXTS,
 )
-from previewer_render_text import TextRendererMixin, _FONT_SAMPLE_TEXT
+from previewer_render_text import (
+    TextRendererMixin, _FONT_SAMPLE_TEXT,
+    _markdown_to_pango, _epub_data, _mobi_data, _font_faces,
+)
 from previewer_toolbar import PreviewToolbarMixin
 
 # → REF PAN-F44-1
@@ -1390,7 +1396,164 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.60.1"
+PREVIEWER_VERSION = "0.61.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
+
+
+# --- F1: parser selftest (python3 previewer_panel.py --selftest) ---
+
+
+# → REF PAN-SELFTEST-1
+def _st_md_fixture(path):
+    text = ("# Fixture Head\n"
+            "\n"
+            "Some **bold**, *italic* and ~~struck~~ text.\n"
+            "\n"
+            "- first item\n"
+            "- second item\n"
+            "\n"
+            "`inline code` plus [a link](https://example.com)\n")
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+
+
+def _st_epub_fixture(path):
+    opf = ("<?xml version=\"1.0\"?>"
+           "<package xmlns=\"http://www.idpf.org/2007/opf\" "
+           "xmlns:dc=\"http://purl.org/dc/elements/1.1/\" "
+           "version=\"2.0\">"
+           "<metadata>"
+           "<dc:title>Fixture Book</dc:title>"
+           "<dc:creator>Fixture Author</dc:creator>"
+           "<dc:language>en</dc:language>"
+           "</metadata>"
+           "<manifest>"
+           "<item id=\"ncx\" href=\"toc.ncx\" "
+           "media-type=\"application/x-dtbncx+xml\"/>"
+           "</manifest>"
+           "<spine><itemref idref=\"ncx\"/></spine>"
+           "</package>")
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("content.opf", opf)
+
+
+def _st_mobi_fixture(path):
+    author = b"Fixture Author"
+    exth = bytearray(struct.pack(">4sII", b"EXTH", 20 + len(author), 1))
+    exth += struct.pack(">II", 100, 8 + len(author)) + author
+    while len(exth) % 4:
+        exth += b"\x00"
+    r0 = bytearray(84)
+    struct.pack_into(">H", r0, 0, 1)          # PalmDOC: no compression
+    struct.pack_into(">I", r0, 4, 16)         # text length
+    struct.pack_into(">H", r0, 8, 1)         # text record count
+    struct.pack_into(">H", r0, 10, 4096)     # record size
+    r0[16:20] = b"MOBI"
+    struct.pack_into(">I", r0, 20, 232)       # MOBI header length
+    struct.pack_into(">I", r0, 28, 65001)    # utf-8 encoding
+    struct.pack_into(">I", r0, 80, 1)        # first non-book record
+    r0 += exth
+    data = bytearray(86)
+    data[0:12] = b"Fixture Book"
+    data[60:68] = b"BOOKMOBI"
+    struct.pack_into(">H", data, 76, 1)      # one record
+    struct.pack_into(">I", data, 78, 86)     # record 0 offset (4 bytes)
+    data += r0
+    with open(path, "wb") as fh:
+        fh.write(bytes(data))
+
+
+def _st_font_fixture(path):
+    family = "Fixture Sans".encode("utf-16-be")
+    style = "Bold".encode("utf-16-be")
+    table = (struct.pack(">HHH", 0, 2, 30)
+             + struct.pack(">HHHHHH", 3, 1, 0x409, 1, len(family), 0)
+             + struct.pack(">HHHHHH", 3, 1, 0x409, 2, len(style),
+                           len(family))
+             + family + style)
+    head = struct.pack(">4sHHHH", b"\x00\x01\x00\x00", 1, 16, 0, 0)
+    entry = struct.pack(">4sIII", b"name", 0, 28, len(table))
+    with open(path, "wb") as fh:
+        fh.write(head + entry + table)
+
+
+def _st_md_test(path):
+    with open(path, "r", encoding="utf-8") as fh:
+        out = _markdown_to_pango(fh.read())
+    ok = ("<b>bold</b>" in out
+          and "<i>italic</i>" in out
+          and "<s>struck</s>" in out
+          and "<tt>inline code</tt>" in out
+          and "size='x-large'" in out
+          and "Fixture Head" in out
+          and out.count("\u2022") >= 2)
+    return ok, out
+
+
+def _st_epub_test(path):
+    rows, cover = _epub_data(path)
+    meta = dict(rows)
+    ok = (meta.get("Book title") == "Fixture Book"
+          and meta.get("Author") == "Fixture Author"
+          and cover is None)
+    return ok, str(rows)
+
+
+def _st_mobi_test(path):
+    rows, _cover = _mobi_data(path)
+    meta = dict(rows)
+    ok = (meta.get("Book title") == "Fixture Book"
+          and meta.get("Author") == "Fixture Author")
+    return ok, str(rows)
+
+
+def _st_font_test(path):
+    reg, fmt, faces = _font_faces(path)
+    ok = (fmt == "TrueType"
+          and faces == [("Fixture Sans", "Bold")]
+          and reg == path)
+    return ok, "%s %s %s" % (reg, fmt, str(faces))
+
+
+def run_selftest():
+    # F1: regression tests for the file parsers - four synthetic
+    # fixtures in a temp dir, no Nemo or GTK involved.
+    tmpdir = tempfile.mkdtemp(prefix="previewer-selftest-")
+    checks = []
+    try:
+        for name, ext, builder, test in (
+                ("markdown", ".md", _st_md_fixture, _st_md_test),
+                ("epub", ".epub", _st_epub_fixture, _st_epub_test),
+                ("mobi", ".mobi", _st_mobi_fixture, _st_mobi_test),
+                ("font", ".ttf", _st_font_fixture, _st_font_test)):
+            path = os.path.join(tmpdir, "fixture" + ext)
+            builder(path)
+            try:
+                ok, detail = test(path)
+            except Exception as e:
+                ok, detail = False, "%s: %s" % (type(e).__name__, e)
+            checks.append((name, ok, detail))
+    finally:
+        for name in os.listdir(tmpdir):
+            try:
+                os.remove(os.path.join(tmpdir, name))
+            except OSError:
+                pass
+        try:
+            os.rmdir(tmpdir)
+        except OSError:
+            pass
+    failed = 0
+    for name, ok, detail in checks:
+        print("%s %s" % ("PASS" if ok else "FAIL", name))
+        if not ok:
+            failed += 1
+            print("  %s" % detail)
+    print("%d/%d passed" % (len(checks) - failed, len(checks)))
+    return 1 if failed else 0
+
+
+if __name__ == "__main__" and sys.argv[1:] == ["--selftest"]:
+    sys.exit(run_selftest())
