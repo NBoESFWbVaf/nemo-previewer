@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.61.0
+previewer_render_text.py – Version 0.62.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -52,6 +52,7 @@ from previewer_util import (
     _xml_dtd_rejected,
     pack_hint,
     pack_meta_grid,
+    META_SIZE_CSS_CLASS,
     center_window,
     cover_round_path,
 )
@@ -2616,6 +2617,8 @@ class TextRendererMixin:
                           Gtk.PolicyType.AUTOMATIC)
         scroll.set_overlay_scrolling(False)
         view = Gtk.TreeView()
+        # F69: class carries the configurable info table font size.
+        view.get_style_context().add_class(META_SIZE_CSS_CLASS)
         view.set_hexpand(True)
         view.set_vexpand(True)
         view.set_headers_clickable(True)
@@ -2793,7 +2796,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.61.0"
+PREVIEWER_VERSION = "0.62.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
