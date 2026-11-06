@@ -408,6 +408,16 @@ except Exception:
         return False
 ```
 
+### PAN-K11-1 – Hide dashed undershoot hints (K11)
+
+- **Module:** previewer\_panel.py
+- **Location:** panel \_\_init\_\_, after the content area setup
+- **Reason:** User finding (0.59.1): themes draw dashed lines at the scroll edges – hide them in the preview.
+
+```text
+K11 (0.59.1, user finding): GTK adds undershoot nodes to every GtkScrolledWindow at the edges where content is scrolled off and can be revealed by scrolling (STYLE_CLASS_UNDERSHOOT) – at the top only once scrolled, at the bottom only before the end; the active theme paints them as dashed lines, so every scrollable preview (text, PDF, font waterfall, card lists) showed them. One CssProvider on the panel's own style context (APPLICATION priority, inherited by all descendant widgets) hides all four directions preview-wide: undershoot.top/right/bottom/left get background-image: none and background-color: transparent. Deliberately scoped to the panel: the extension must not restyle Nemo itself, and the separate toplevel windows (settings, tags/EXIF "more") are outside the panel subtree and keep the theme look.
+```
+
 ### PAN-DOC-1 – Docstring: \_sniff\_is\_text
 
 - **Module:** previewer\_panel.py
