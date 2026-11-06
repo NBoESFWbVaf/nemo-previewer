@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.60.1\] – 2026-11-06
+
+### Fixed
+
+- PDF and office previews lagged while dragging the preview column back to a smaller size: every page re-scaled synchronously on each width change, starving the main loop, and the still-too-wide pages wobbled in the viewport. Page 1 now scales synchronously and the remaining pages follow in idle packets (`_pdf_scale_step`, K12).
+
 ## \[0.60.0\] – 2026-11-05
 
 ### Changed
