@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.62.0\] – 2026-11-06
+
+### Added
+
+- Two font size settings (F69): "Preview font size" scales the text previews (plain text, Markdown, source code) and "Info table font size" scales the metadata tables in the preview and in the "more" windows (EXIF/audio/video tags, packages) – both as px spins in the settings, 0 keeps the theme's normal size. Applied via CSS classes (`\_apply\_font\_size\_css`), so a change restyles open previews and windows live, without re-rendering.
+
 ## \[0.61.0\] – 2026-11-06
 
 ### Added
