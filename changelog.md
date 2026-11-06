@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.59.2\] – 2026-11-05
+
+### Fixed
+
+- K11 (nachgelegt) – the dashed undershoot lines are REALLY gone now: the first attempt (0.59.1) put the CSS provider on the panel's own style context, but a provider there never reaches the scrolled windows' contexts – the rule simply never applied. The provider now goes to the screen (add\_provider\_for\_screen), and the rule is scoped to the previewer panel by widget name: `#previewer-panel undershoot, #previewer-panel .undershoot { background-image: none; background-color: transparent; }`. It is installed once per process; Nemo's own windows keep the theme look.
+
 ## \[0.59.1\] – 2026-11-05
 
 ### Fixed
