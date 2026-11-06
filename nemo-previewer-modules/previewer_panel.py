@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.60.0
+previewer_panel.py – Version 0.60.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -206,6 +206,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._pdf_last_w = 0
         # → REF PAN-R2-1
         self._pdf_gen = 0
+        # K12: generation of the incremental resize passes.
+        self._pdf_scale_gen = 0
         # F14: page indicator of the PDF preview + total page count
         self._pdf_page_label = None
         self._pdf_count = 0
@@ -593,6 +595,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._pdf_page_label = None
         self._pdf_count = 0
         self._pdf_gen += 1
+        # K12: incremental resize passes abort as well.
+        self._pdf_scale_gen += 1
         # F68: drop the font waterfall state as well.
         self._font_wf = None
         # F24: was the just torn-down preview a text preview?
@@ -1386,7 +1390,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.60.0"
+PREVIEWER_VERSION = "0.60.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
