@@ -158,10 +158,11 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 
 ### Robustheit &amp; Qualität
 
-- [ ] **F1 – Parser-Selbsttest**: `python3 previewer_panel.py --selftest`
+- [x] **F1 – Parser-Selbsttest**: `python3 previewer_panel.py --selftest`
 
   mit Fixtur-Dateien (md/epub/mobi/font) – Regressionstests ohne Nemo.  
-  **M**
+  **M**  
+  ✅ 0.61.0: vier Fixtures (Markdown, EPUB, MOBI, TrueType) werden synthetisch in einem Temp-Verzeichnis gebaut und gegen die Parser geprüft – Fett/Kursiv/Durchgestrichen/Inline-Code/Überschrift/Liste in Pango, OPF-Metadaten, MOBI-Titel und Autor aus dem EXTH-Header, Font-Familie und Stil aus der Name-Tabelle; Ausgabe PASS/FAIL pro Test, Summenzeile, Exit-Code 0/1. Der Selbsttest entlarvte gleich einen echten Bug: \_mobi\_records las die Palm-Record-Offsets als 3 statt 4 Bytes – auf echten MOBI-Dateien startete Record 0 deshalb falsch, der Autor aus dem EXTH-Header wurde nie geparst (unbemerkt, weil der Titel aus dem Namensfeld stammt); mitgefixt.
 - [x] **F2 – Render-Debounce**: Schwer-Renderer (PDF, Office, Audio)
 
   ✅ 0.56.0 – umgesetzt (Nutzer-Auftrag 2026-11-05): Schwere Renderer (PDF, Office, Audio, Video) starten erst nach 400 ms Auswahl-Ruhe (\_RENDER\_QUIET\_MS); jede neue Auswahl verwirft den laufenden Timer und startet das Zeitfenster neu – schnelles Durchblättern feuert keine Renders mehr, deren Ergebnis sofort weggeworfen würde (PDF-Parsen, LibreOffice-Konvertierung, GStreamer-Pipeline). Leichte Formate (Text, Bilder, Ordner …) rendern unverändert sofort; während des Ruhefensters bleibt die vorherige Vorschau sichtbar. Klassifikation über \_is\_heavy: Endungen (.pdf, \_OFFICE\_EXTS, Audio-Liste der Render-Weiche) und mime-Präfix (audio/ bzw. video/) via query\_file\_info; Timer-ID \_pending\_render\_id, Handler \_on\_pending\_render (return False = Quelle entfernt sich selbst, \_path-Guard gegen zwischenzeitlich geleerte Auswahl). Debounce-Vettern im Code: size-allocate-Re-Render und entprelltes Panelbreite-Speichern. (→ REF PAN-DOC-33)  
@@ -217,10 +218,6 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
   ✅ 0.58.0 – umgesetzt: \_render\_eml sammelt Anhänge über \_eml\_attachment\_rows (jeder MIME-Teil mit Dateiname: Icon, Name, Größe, Typ; unlesbare Größen als „size unknown"), Liste plus Knopf „Extract all attachments" unter dem Body — auch Mails ohne lesbaren Body zeigen ihre Anhänge. Klick öffnet Gtk.FileChooserDialog (SELECT\_FOLDER, center\_window wie die Fenster-Regel), Extraktion re-readet mit 64-MB-Budget und schreibt konfliktfreie Namen (\_1/\_2-Suffix via \_unique\_target); Erfolg/Fehler als dim-Hint plus dbg, an der 2-MB-Vorschau-Kappe abgeschnittene Mails melden eine womöglich unvollständige Anhänge-Liste. (→ REF TXT-EML-ATT-1)  
   ✅ 0.58.1 – Feld-Fixes (Nutzer-Deploy-Feedback „Prinzipiell funktionieren beide Funktionen"): (1) „File trimmed at 2,1 MB"-Hinweis und die 0.9.2-Lesekappe ENTFERNT — die GESAMTE Mail wird geparst („Wenn eine Mail groß ist, dann soll sie auch groß bleiben"), Anhänge-Liste vollständig, Größen exakt, Extraktion liest ebenfalls die ganze Datei (64-MB-Budget entfällt). (2) Anhangs-Box per pack\_end von UNTEN gepackt — die Liste steht in jeder Mail (Text UND HTML-only) DIREKT über der Toolbar; vorher rutschte sie bei HTML-Mails ohne dekodierten Body nach oben (Kappen-Truncation fraß den Body, dann fehlte der expandierende Textbereich). (→ REF TXT-EML-ATT-1)  
   ✅ 0.58.2 – Feinschliff (Nutzer-Deploy-Feedback „Schon besser, aber noch nicht gut genug"): (1) Header-Stil — Bezeichner FETT, Werte KURSIV (neue Parameter bold\_keys/italic\_values in pack\_meta\_grid mit GLib.markup\_escape\_text, nur \_render\_eml setzt sie; alle anderen Info-Tabellen behalten dim), Betreff/Subject steht JETZT UNTER Datum/Date (Reihenfolge from, to, Cc, date, subject). (2) Mails OHNE Text rendern wie eine Mail MIT Text — \_text\_view wird immer aufgerufen, der „No readable text body found"-Hinweis ist entfernt. (3) Anhangs-Liste als zweispaltige Gtk.Grid (Spalte 1 Dateiname, hexpand, Middle-Ellipsize, Tooltip; Spalte 2 human\_size bzw. „unknown", dim, END-ausgerichtet) — KEIN Icon, KEIN Mimetype mehr; Extraktions-Knopf unverändert. (→ REF UT-DOC-11, TXT-DOC-68, TXT-DOC-91, TXT-DOC-93, TXT-EML-ATT-1)
-- [ ] **F56 – Tabellenkalkulationen als echte Tabelle (.ods/.xlsx)** (Nutzer-Wunsch 2026-11-01)
-
-  Spreadsheets zeigen wir bislang nur als LibreOffice-PDF (scharf, aber seitenweise und erst nach der Konvertierung); neu: native Tabelle im Stil von F8 (Gtk.TreeView) – sofort, ohne LibreOffice. **M** – *Skizze:* .xlsx und .ods sind ZIPs, die wir eh schon lesen (Miniatur/Text): xlsx über xl/workbook.xml, sharedStrings und worksheets (inkl. gecachte Formel-Ergebnisse), ods über content.xml; Parsen mit zipfile + xml.etree MIT dem R10-Guard (DOCTYPE/ENTITY prüfen – fremde Datei!); Deckel wie bei der Ordner-Liste (z. B. 300 Zeilen × 30 Spalten mit Rest-Hinweis), Spaltenköpfe aus Zeile 1 bzw. Spaltenbuchstaben, mehrere Blätter als Umschalter (Blatt 1/3); Einstellung in der Rubrik „Dokumente“ (an/aus – aus zeigt das PDF mit Formatierung); Spalten rücken nach: die Tabelle folgt der Breite der Vorschauspalte und rendert bei jedem Breitenwechsel neu (Ziehen am Trenner wie SpinButton – Muster \_last\_docview und \_last\_textish): Spaltenbreiten neu verteilt, mehr Platz zeigt mehr Spalten, Überhang horizontal scrollbar; .xls (BIFF, binär) bleibt LibreOffice-only (→ F39-Form). Grenzen: keine Farben/verbundenen Zellen, Zahlenformate vereinfacht.
-
 - [x] **F68 – Font-Wasserfall: Live-Neurenderung beim Spalten-Resize** (Nutzer-Bugmeldung 2026-11-05 „Kleiner Bug bei Schriftarten: Beim Aufziehen der Spalte werden die Schriften auch größer. Sie aktualisieren erst die Schriftgrößen, wenn ich den Font neu lade … Das Ganze muss aber live aktualisiert werden, sodass der Text auch dem Zeilenumbruch folgt")
 
   Die Wasserfall-Oberfläche war EINMALIG bei 2× der Breite vorgerendert, die die Vorschau beim Anklicken der Schrift gerade hatte — danach lief nur noch die Bild-Skalierung (R3): Beim Aufziehen wuchsen die Schriftgesichter, der Zeilenumbruch blieb aber auf der alten Breite stehen; erst Neu-Auswahl der Schrift half.  
@@ -238,22 +235,10 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
   ✅ Teil 1 in 0.12.0: Zahnrad-Knopf öffnet das Einstellungsfenster (eine Instanz, wiederholter Klick holt es nach vorn); jede Änderung speichert sofort und wird bei jedem Start angewendet (apply\_start\_settings im Einstieg, NACH dem show\_all der Injizierung); erste Einstellung „Vorschauspalte beim Start anzeigen" läuft damit komplett durch (Fenster → conf → Start).  
   ✅ Teil 2 in 0.13.0: „Standardbreite beim Start" – Default 300 px (zuvor hart 340), SpinButton trägt den aktuellen Wert vorab (gezogene Breite inklusive), „Standard: … · aktuell: …"-Zeile, Ziehen am Trenner übernimmt die Breite als künftige Startbreite (entprellt in der conf, Einstieg wendet sie beim ersten size-allocate an), Spin-Änderungen greifen sofort live. Der B8-Fix (GLib.KeyFile) steckt in 0.12.1.  
   ✅ Teil 3 in 0.27.0: Rubrik „Dokumente" – Vorschauseiten von PDF/Office begrenzen (Performance) oder unbegrenzt anzeigen, maximale Seitenzahl 1–999 frei wählbar (conf-Schlüssel doc\_page\_limit/doc\_max\_pages, Default wie bisher: Begrenzung mit 20 Seiten); Änderungen greifen live über den Merker \_last\_docview. Offen: die übrigen Einstellungen (Wasserfall-Probetext …) andocken.
-- [ ] **F13 – Knopf „Im Dateimanager zeigen“** neben
-
-  Öffnen. **S**
-- [ ] **F53 – Knopf „Pfad kopieren“** (entkoppelt aus F13, Nutzer-Wunsch 2026-11-01)
-
-  Kopiert den Pfad der angezeigten Datei in die Zwischenablage (Gtk.Clipboard); Knopf neben „Im Dateimanager zeigen“ (F13). **S**
 - [x] **F14 – PDF-Seitenanzeige** „Seite 3/47" beim Scrollen. **S**
 
   ✅ 0.9.0: dezentes dim-Label über dem scrollbaren Bereich; beim Scrollen zählt es die Seite nach, deren Unterkante den oberen Rand des Sichtfensters überschreitet; einseitige PDFs ohne Anzeige; der frühere Hinweis „N Seiten – Vorschau nach unten scrollen." entfiel als redundant.  
   ✅ 0.27.0 (Nutzer-Wunsch): Anzeige jetzt IMMER – auch einseitige Dokumente zeigen „Seite 1 von 1", Format einheitlich „Seite X von Y"; der Deckel selbst ist einstellbar (F12 Teil 3).
-- [ ] \*\*F15 – Audio: Lautstärke-Slider; bei Mehrfachauswahl Titel
-
-  vor/zurück.\*\* **S–M**
-- [ ] **F17 – Panel links/rechts umschaltbar** (Crowbar parametrisieren).
-
-  **M**
 - [x] **F18 – Audio-Platzhalter-Cover** (vorgezogen auf Wunsch)
 
   Musikdateien ohne eingebettetes Cover zeigten nur Textzeilen. **M**  
@@ -263,13 +248,7 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
   auf Wunsch). **S–M** Der MIME-Typ-Rater von Gio errät nur bekannte Namen (README, Makefile, LICENSE …) – frei benannte Dateien (notes, todo, Dotfiles wie .bashrc) fielen auf application/octet-stream und zeigten nur Icon + Infos. ✅ 0.10.0: \_sniff\_is\_text prüft die ersten 4 KB (keine NULL-Bytes, unter 5 % Steuerzeichen); nur ohne Endung UND bei bestandener Prüfung zeigt der Dispatcher die Text-Vorschau – endungslose Binärdateien bleiben generisch. Nebeneffekt: Der \_TEXT\_EXTRAS-Eintrag „.gitignore" konnte nie matchen (splitext zählt führende Punkte zum Namen); das Sniffing deckt solche Dotfiles jetzt generisch ab.
 - [ ] **F19 – Vorschau-Toolbar am unteren Rand der Vorschauspalte**
 
-  Kontextsensitive Knopfleiste unter dem Vorschaubereich; die Renderer melden ihre Aktionen, statt Buttons frei im Inhalt zu streuen. Basis für F13/F53 (Pfad kopieren), F20 (OCR), F21 (Office→PDF) und F24–F27 (Zeilennummern, Zeilenabstand, Bild→PNG-mit-Alpha, Mehrfachauswahl-Aktionen). **M** – *Skizze:* Gtk.ActionBar (oder ButtonBox) als fester Fuß der Spalte unter `self._content`; je Renderer Liste von (Icon, Tooltip, Callback)-Tripeln. Nutzer-Entscheid (0.11.0): Die Leiste ist STATISCH – immer sichtbar, solange das Panel aktiv ist; das ursprüngliche „ohne Aktionen bleibt die Leiste ausgeblendet" ist damit verworfen. ✅ Teil 1 in 0.11.0: ActionBar-Fuß mit eigener Trennlinie unter dem Inhaltsbereich, rechts außen fester Einstellungs-Knopf (preferences-system-symbolic, Zahnrad aus den Systemicons, Tooltip „Einstellungen"). 0.12.0: Der Knopf öffnet das F12-Einstellungsfenster; Leiste laut Nutzer-Wunsch \~5 px schmaler (CSS, 3+4 px Innenabstand). Offen: Anmeldung der Renderer-Aktionen (Icon, Tooltip, Callback) inkl. Auswahlwechsel-Verwaltung.
-- [ ] **F20 – OCR-Button bei PDFs** (in der Toolbar, F19)
-
-  Bei PDF-Auswahl erscheint ein OCR-Knopf; Klick führt eine Texterkennung auf die PDF durch und speichert das Ergebnis als Kopie (z.B. `Name_OCR.pdf`) neben dem Original – Original bleibt unangetastet. **M–L** – *Skizze:* Backend `ocrmypdf` (Paket, nutzt tesseract; erhält durchsuchbare Textebene), Hintergrund-Job im Muster `_office_start_job` (spawn\_async + child\_watch + Hinweis im Panel, kein UI-Freeze); ohne ocrmypdf: Knopf grau mit Hinweis „Paket ocrmypdf installieren". Gescannte PDFs = Hauptanwendungsfall.
-- [ ] **F21 – Office→PDF-Knopf** (in der Toolbar, F19)
-
-  Bei Office-Dokumenten (ODT/ODS/ODP, DOCX/XLSX/PPTX) bietet die Toolbar „Als PDF speichern": konvertiert das Dokument nach PDF und legt die Kopie neben dem Original ab. **S–M** – *Skizze:* Steht das Cache-PDF schon bereit (`_office_cached_pdf`), ist es ein reiner Kopierlauf; sonst LibreOffice-Konvertierung als Hintergrundjob im bestehenden Muster (`soffice --headless --convert-to pdf`) und danach kopieren. Zielname: gleicher Basisname + `.pdf` (Kollision vermeiden: bei Existenz `_1`, `_2` … anhängen).
+  Kontextsensitive Knopfleiste unter dem Vorschaubereich; die Renderer melden ihre Aktionen, statt Buttons frei im Inhalt zu streuen. Basis für F53 (Pfad kopieren), F20 (OCR), F21 (Office→PDF) und F24–F27 (Zeilennummern, Zeilenabstand, Bild→PNG-mit-Alpha, Mehrfachauswahl-Aktionen). **M** – *Skizze:* Gtk.ActionBar (oder ButtonBox) als fester Fuß der Spalte unter `self._content`; je Renderer Liste von (Icon, Tooltip, Callback)-Tripeln. Nutzer-Entscheid (0.11.0): Die Leiste ist STATISCH – immer sichtbar, solange das Panel aktiv ist; das ursprüngliche „ohne Aktionen bleibt die Leiste ausgeblendet" ist damit verworfen. ✅ Teil 1 in 0.11.0: ActionBar-Fuß mit eigener Trennlinie unter dem Inhaltsbereich, rechts außen fester Einstellungs-Knopf (preferences-system-symbolic, Zahnrad aus den Systemicons, Tooltip „Einstellungen"). 0.12.0: Der Knopf öffnet das F12-Einstellungsfenster; Leiste laut Nutzer-Wunsch \~5 px schmaler (CSS, 3+4 px Innenabstand). Offen: Anmeldung der Renderer-Aktionen (Icon, Tooltip, Callback) inkl. Auswahlwechsel-Verwaltung.
 - [x] **F24 – Zeilennummern ein-/ausblenden** (Text-Toolbar, F19)
 
   Bei Textdateien zeigt die Toolbar einen Knopf „Zeilennummern". Die Nummern dürfen NICHT mitkopiert werden – Selektion/Kopie erfassen ausschließlich den eigentlichen Inhalt (Nutzer-Wunsch).  
@@ -282,9 +261,6 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 - [x] **F25 – Zeilenabstand einstellen** (Text-Toolbar, F19)
 
   ✅ 0.55.0 – umgesetzt, aber bewusst als Settings-Spin statt des ursprünglich skizzierten Toolbar-Knopf-Zyklus (Nutzer-Entscheidung 2026-11-05): Spin-Button „Line spacing (px)“ in der Einstellungs-Rubrik „Textdateien“, frei einstellbar 0–12 px (Schrittweite 1) statt der drei Starfstufen normal/luftig/sehr luftig, sofort gespeichert und live auf die aktuelle Text-Vorschau angewendet (gleiches Muster wie Zeilennummern und Syntax). Technisch GtkTextTag „previewer-line-spacing“ mit pixels-above-lines über den gesamten Buffer, beim jedem Neuaufbau erneut angewandt; die Zwischenablage bleibt unberührt. Anders als die Zeilennummern gilt der Abstand für ALLE TextView-Vorschauen (Text, Markdown, EML, E-Book, Font-Wasserfall), weil \_text\_view den Konfigwert zentral an build\_text\_view übergibt. Config-Schlüssel: `text\_line\_spacing` (Integer, Range-Check 0–12 beim Laden).
-- [ ] **F26 – Bild als PNG mit Alphakanal speichern** (Toolbar, F19)
-
-  Bei Bilddateien ein Knopf „Als PNG mit Alpha speichern": legt das Bild als PNG MIT Alphakanal als Kopie neben dem Original ab – Original unangetastet (Nutzer-Wunsch). **S–M** – *Skizze:* Pixbuf im GTK-Thread laden (R1-Muster), EXIF-Ausrichtung anwenden, `pb.add_alpha()` erzwingt den Alphakanal auch bei JPEG-Quellen, `pb.savev()` als PNG; Zielname Basisname + `.png`, bei Existenz `_1`, `_2` … (wie F21); ohne Schreibrechte im Ordner: Fehler-Hinweis im Panel statt Traceback.
 - [ ] **F27 – Aktionen bei Mehrfachauswahl** (Toolbar, F19)
 
   Bei Mehrfachauswahl (das Panel kennt bereits alle Namen über `self._names`) bietet die Toolbar gemeinsame Aktionen für die ausgewählten Dateien statt nur „… und N weitere" (Nutzer-Wunsch). Erstes Beispiel: mehrere PDFs zu EINER Datei zusammenfügen.  
@@ -330,10 +306,6 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
   ✅ 0.52.1 (2026-11-04, Nutzer-Deploy-Feedback „Knopf da und anklickbar, aber ohne Funktion; Iconstil passt nicht — sidebar-collapse-right") – Zwei Fixes: (1) No-op-Wächter verglich \_panel\_width, das das Ziehen des Trenners seit 0.41.0 nie mehr aktualisiert (Wächter sah immer 350 == Standard und stieg aus) — jetzt misst der Wächter die LIVE-Spaltenbreite (Fensterbreite − Trennerposition) und dbg-protokolliert den Sprung („panel/reset\_width: X px -&gt; 350 px"). (2) Icon auf sidebar-collapse-right-symbolic gewechselt (Fallback sidebar-collapse-right, letzte Rettung zoom-fit-best-symbolic).  
   ✅ 0.52.2 (2026-11-04, Nutzer-Hinweis „Icon muss auch in Standard-Icon-Themes vorhanden sein — arrow-right wäre das Nächstgelegene") – Fallback-Kette auf Standard-Sicherheit umgestellt: sidebar-collapse-right-symbolic → arrow-right-symbolic (nächstgelegenes, bleibt symbolisch) → arrow-right als absolute letzte Rettung; Code-Kommentar „0.52.1:" im Handler bleibt historisch korrekt stehen.  
   ✅ 0.52.3 (2026-11-04, Nutzer-Deploy-Feedback „Knopf funktioniert, springt aber auf die Erststart-Breite 350 px statt auf die in den Einstellungen konfigurierte Breite") – Fix: \_panel\_width hält genau die konfigurierte Breite (Spin-Button/Config-Load; das Ziehen des Trenners fasst sie seit 0.41.0 nie an) — der Handler stellt die LIVE-Breite jetzt auf self.\_panel\_width wieder her, OHNE sie zu überschreiben (kein \_panel\_width = PANEL\_WIDTH, kein \_config\_save, nur \_apply\_panel\_width\_live); No-op-Wächter vergleicht cur == self.\_panel\_width, dbg-Zeile loggt das dynamische Ziel („panel/reset\_width: X px -&gt; Y px"); Tooltip auf „Reset preview column to configured width" geändert.
-
-- [ ] **F55 – Office-Renderer frei wählbar (LibreOffice/OnlyOffice)** (Nutzer-Wunsch 2026-11-01)
-
-  Die scharfe Office-Vorschau (Hintergrund-Konvertierung ins Cache-PDF) soll nicht mehr fest an LibreOffice hängen: Der Nutzer wählt den Renderer im Einstellungsfenster (Auto/LibreOffice/OnlyOffice; conf-Schlüssel office\_renderer), Erkennung per shutil.which (soffice bzw. x2t aus onlyoffice-desktopeditors). **M–L** – *Skizze:* LibreOffice sitzt bereits an EINER Stelle (SOFFICE + \_render\_office → Cache-PDF); einen Converter-Schritt dazwischenlegen: OnlyOffice headless via x2t (XML-Parameterdatei mit m\_sFileFrom/m\_sFileTo), Aufruf als ARGV-Liste ohne Shell wie bei LibreOffice; Auto = Kette LibreOffice → OnlyOffice → Miniatur/Text wie heute; Cache-Schlüssel um den Renderer ergänzen (sonst stale PDFs nach dem Wechsel); offen für weitere Renderer (z. B. calligraconverter). F21 (Office→PDF-Knopf) nutzt denselben Backend.
 
 - [x] **F59 – E-Book-Vorschau neu: Cover oben, Buch-Infos unten** (Nutzer-Wunsch 2026-11-02)
 
@@ -384,6 +356,37 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 
 - [ ] **F67 – Markdown-Vorschau auf markdown-it-py umstellen (CommonMark/GFM/Obsidian-Dialekte)** (Nutzer-Entscheid 2026-11-05 „umfangreichste Möglichkeit nutzen – da ein Umbau nicht trivial ist, soll das in einem eigenen Branch nach dem ersten Release getestet werden"): Ersetzung des eigenen GFM-Teilmengen-Parsers \_markdown\_to\_pango (previewer\_render\_text, TXT-DOC-10) durch die CommonMark-konforme Engine markdown-it-py + Plugin-Paket mdit-py-plugins — Dialekt-Deck CommonMark + GFM + Obsidian-Merkmale (Footnotes, Math, Callouts, Wikilinks, ==Highlight==), OHNE Webview und OHNE HTML-Umweg. **M–L** – *Skizze (Bibliotheks-Analyse 2026-11-05):* Kernstück ist der Token-Stream: markdown-it-py liefert strukturierte Token, die ein neuer Adapter direkt in Pango-Markup übersetzt — der Darstellungs-STIL bleibt unserer (Listen-Bullets, Tabellen-ASCII-Layout, Abstände/Luft); Tabellen und Strikethrough sind built-in; Plugins: tasklists, footnote, dollarmath ($$…$$), containers (Callout-Syntax \[!note\]), front\_matter, linkify; eigene kleine Inline-Plugins für Obsidian-Wikilinks (\[\[…\]\] und Embeds), ==Highlight== und %%Kommentare%% (die Plugin-API ist genau dafür gebaut); Mermaid-Blöcke bleiben als Codeblock sichtbar (kein Webview!). Abhängigkeits-Muster wie gir1.2-gtksource-4: markdown-it-py fehlt → alter Eigenparser läuft als Fallback (Graceful Degradation, nichts bricht); pure Python ohne Kompilat, Debian-Paket python3-markdown-it (bookworm 2.1.0, sid 4.2.0; Paketlage von mdit-py-plugins je Distro prüfen – F51-Release-Verpackung). Bewusst verworfen: python-markdown + PyMdown (größtes Extension-Ökosystem, aber nicht CommonMark-konform und nur HTML-Ausgabe → HTML→Pango-Umweg), cmarkgfm (GitHub-Engine 1:1, aber C-Bindings und Dialekt endet bei GFM), mistune 3 (begrenzter Dialekt), Pandoc (größter Dialekt überhaupt, aber \~100-MB-Binary + Prozessstart pro Vorschau – Overkill für die Sidebar). Migration in Runden (je deploy-testbar): (1) Token→Pango-Adapter für CommonMark + GFM-Kern, Eigenparser bleibt als Fallback hinter einem Konfig-Schalter, (2) Obsidian-Merkmale (Footnotes, Math, Callouts, Wikilinks/Highlight), (3) Feinschliff Tabellen-Layout im Token-Weg, danach erst den alten Parser entfernen (Totcode-Lehre Runde 32). Gemäß Sektionsregel: erst NACH dem ersten Release (1.0.0), ausschließlich im eigenen Branch (z. B. feature/markdown-it), Merge in die Hauptlinie erst nach bestandenem Feldtest.
 
+- [ ] **F20 – OCR-Button bei PDFs** (in der Toolbar, F19)
+
+  Bei PDF-Auswahl erscheint ein OCR-Knopf; Klick führt eine Texterkennung auf die PDF durch und speichert das Ergebnis als Kopie (z.B. `Name_OCR.pdf`) neben dem Original – Original bleibt unangetastet. **M–L** – *Skizze:* Backend `ocrmypdf` (Paket, nutzt tesseract; erhält durchsuchbare Textebene), Hintergrund-Job im Muster `_office_start_job` (spawn\_async + child\_watch + Hinweis im Panel, kein UI-Freeze); ohne ocrmypdf: Knopf grau mit Hinweis „Paket ocrmypdf installieren". Gescannte PDFs = Hauptanwendungsfall.
+
+- [ ] **F21 – Office→PDF-Knopf** (in der Toolbar, F19)
+
+  Bei Office-Dokumenten (ODT/ODS/ODP, DOCX/XLSX/PPTX) bietet die Toolbar „Als PDF speichern": konvertiert das Dokument nach PDF und legt die Kopie neben dem Original ab. **S–M** – *Skizze:* Steht das Cache-PDF schon bereit (`_office_cached_pdf`), ist es ein reiner Kopierlauf; sonst LibreOffice-Konvertierung als Hintergrundjob im bestehenden Muster (`soffice --headless --convert-to pdf`) und danach kopieren. Zielname: gleicher Basisname + `.pdf` (Kollision vermeiden: bei Existenz `_1`, `_2` … anhängen).
+
+- [ ] **F56 – Tabellenkalkulationen als echte Tabelle (.ods/.xlsx)** (Nutzer-Wunsch 2026-11-01)
+
+  Spreadsheets zeigen wir bislang nur als LibreOffice-PDF (scharf, aber seitenweise und erst nach der Konvertierung); neu: native Tabelle im Stil von F8 (Gtk.TreeView) – sofort, ohne LibreOffice. **M** – *Skizze:* .xlsx und .ods sind ZIPs, die wir eh schon lesen (Miniatur/Text): xlsx über xl/workbook.xml, sharedStrings und worksheets (inkl. gecachte Formel-Ergebnisse), ods über content.xml; Parsen mit zipfile + xml.etree MIT dem R10-Guard (DOCTYPE/ENTITY prüfen – fremde Datei!); Deckel wie bei der Ordner-Liste (z. B. 300 Zeilen × 30 Spalten mit Rest-Hinweis), Spaltenköpfe aus Zeile 1 bzw. Spaltenbuchstaben, mehrere Blätter als Umschalter (Blatt 1/3); Einstellung in der Rubrik „Dokumente“ (an/aus – aus zeigt das PDF mit Formatierung); Spalten rücken nach: die Tabelle folgt der Breite der Vorschauspalte und rendert bei jedem Breitenwechsel neu (Ziehen am Trenner wie SpinButton – Muster \_last\_docview und \_last\_textish): Spaltenbreiten neu verteilt, mehr Platz zeigt mehr Spalten, Überhang horizontal scrollbar; .xls (BIFF, binär) bleibt LibreOffice-only (→ F39-Form). Grenzen: keine Farben/verbundenen Zellen, Zahlenformate vereinfacht.
+
+- [ ] **F17 – Panel links/rechts umschaltbar** (Crowbar parametrisieren).
+
+  **M**
+
+- [ ] **F26 – Bild als PNG mit Alphakanal speichern** (Toolbar, F19)
+
+  Bei Bilddateien ein Knopf „Als PNG mit Alpha speichern": legt das Bild als PNG MIT Alphakanal als Kopie neben dem Original ab – Original unangetastet (Nutzer-Wunsch). **S–M** – *Skizze:* Pixbuf im GTK-Thread laden (R1-Muster), EXIF-Ausrichtung anwenden, `pb.add_alpha()` erzwingt den Alphakanal auch bei JPEG-Quellen, `pb.savev()` als PNG; Zielname Basisname + `.png`, bei Existenz `_1`, `_2` … (wie F21); ohne Schreibrechte im Ordner: Fehler-Hinweis im Panel statt Traceback.
+
+- [ ] **F55 – Office-Renderer frei wählbar (LibreOffice/OnlyOffice)** (Nutzer-Wunsch 2026-11-01)
+
+  Die scharfe Office-Vorschau (Hintergrund-Konvertierung ins Cache-PDF) soll nicht mehr fest an LibreOffice hängen: Der Nutzer wählt den Renderer im Einstellungsfenster (Auto/LibreOffice/OnlyOffice; conf-Schlüssel office\_renderer), Erkennung per shutil.which (soffice bzw. x2t aus onlyoffice-desktopeditors). **M–L** – *Skizze:* LibreOffice sitzt bereits an EINER Stelle (SOFFICE + \_render\_office → Cache-PDF); einen Converter-Schritt dazwischenlegen: OnlyOffice headless via x2t (XML-Parameterdatei mit m\_sFileFrom/m\_sFileTo), Aufruf als ARGV-Liste ohne Shell wie bei LibreOffice; Auto = Kette LibreOffice → OnlyOffice → Miniatur/Text wie heute; Cache-Schlüssel um den Renderer ergänzen (sonst stale PDFs nach dem Wechsel); offen für weitere Renderer (z. B. calligraconverter). F21 (Office→PDF-Knopf) nutzt denselben Backend.
+
+- [ ] \*\*F15 – Audio: Lautstärke-Slider; bei Mehrfachauswahl Titel
+
+  vor/zurück.\*\* **S–M**
+
+- [ ] **F53 – Knopf „Pfad kopieren“** (entkoppelt aus F13, Nutzer-Wunsch 2026-11-01)
+
+  Kopiert den Pfad der angezeigten Datei in die Zwischenablage (Gtk.Clipboard); Knopf in der Vorschau-Toolbar. **S**
 - [ ] \*\*F30 – Dual-Pane-Ansicht (F3): Vorschau folgt der aktiven
 
   Spalte\*\* (Feldbeobachtung des Nutzers) In Nemos 2-Spalten-Ansicht zeigen Dateiauswahl in der LINKEN Spalte Vorschauen, Auswahl in der RECHTEN bleibt wirkungslos. KEIN klassischer Bug, sondern die implizite Annahme der Extension „ein Fenster = eine Dateiansicht": find\_view liefert nur die ERSTE gemappte Ansicht zurück, \_view\_ok hookt genau eine Ansicht pro PanelState, und der 500-ms-Poll liest ebenfalls nur diese – die rechte Spalte wird nie angekoppelt und bleibt komplett stumm (nicht mal ein Log-Hinweis, daher wirkt es wie ein Bug).  
@@ -532,17 +535,16 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                      | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-05, 0.58.0 gebaut – Deploy-Test offen)
+## Aktuelle Reihenfolge (Stand 2026-11-06, 0.60.1 gebaut – Deploy-Test offen)
 
 1. ✅ F49 – Alle Dateien ins Englische (0.47.0): vor den Feature-Runden, damit neue Inhalte gleich englisch entstehen; je Datei eine Runde; Erfolg-dbg für \_render\_sqlite nachgerüstet.
 2. ✅ B9 + F50 – Bild-Runde (0.47.0 / 0.48.0–0.48.3): B9 mit der Nutzer-Meldung der fehlerhaften Felder, darauf aufbauend der Exiftool-Dialog.
 3. ✅ F52 + F54 – Text-Runde (0.58.0): ICS-Termintabelle und EML-Anhänge zusammen (beide previewer\_render\_text.py).
-4. **F13 + F53 – Knopf-Runde**: „Im Dateimanager zeigen“ und „Pfad kopieren“ (je **S**).
-5. **Kleinzeug nach Bedarf**: F15, F17, K6, K7 (F25 ✅ 0.55.0, F2 ✅ 0.56.0, K5 ✅ 0.57.0 erledigt und raus).
-6. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits (GTK4/F57, Performance, Speicher/Leaks, Reentrancy, a11y, i18n-Strings, Umgebungs-Matrix) – Befunde einplanen.
-7. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien, git-Tag v1.0.0, GitHub-Release.
-8. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane), F32 (Rest: Infobereich), F37, F66 (Zweit-Spalte, konzeptoffen), F67 (markdown-it-py) – wie vereinbart im Branch erproben.
+4. **Kleinzeug nach Bedarf**: K6, K7 (F13 am 2026-11-06 entfernt, F15/F17 nach Release verschoben; F25 ✅ 0.55.0, F2 ✅ 0.56.0, K5 ✅ 0.57.0 erledigt und raus).
+5. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits (GTK4/F57, Performance, Speicher/Leaks, Reentrancy, a11y, i18n-Strings, Umgebungs-Matrix) – Befunde einplanen.
+6. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien, git-Tag v1.0.0, GitHub-Release.
+7. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane), F32 (Rest: Infobereich), F37, F66 (Zweit-Spalte, konzeptoffen), F67 (markdown-it-py) sowie die am 2026-11-06 verschobenen F15, F17, F20, F21, F26, F53, F55, F56 – wie vereinbart im Branch erproben.
 
-Nicht eingeplant (Pool nach Bedarf): F1, F2, F9, F11, F20, F21, F26, F27, F55, F56, F57 – F21 (Office→PDF-Knopf) spätestens bei F51 entscheiden (README-Wunsch umsetzen oder aus dem README nehmen); F55 bündelt sich gut mit F21 – beide nutzen denselben wählbaren Office-Backend.
+Nicht eingeplant (Pool nach Bedarf): F1, F2, F9, F11, F27, F57 – F21 (Office→PDF-Knopf) spätestens bei F51 entscheiden (README-Wunsch umsetzen oder aus dem README nehmen); F55 bündelt sich gut mit F21 – beide nutzen denselben wählbaren Office-Backend.
 
 Die Reihenfolge ist ein Vorschlag – nichts ist in Stein gemeißelt.
