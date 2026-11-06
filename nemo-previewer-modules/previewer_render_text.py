@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.60.1
+previewer_render_text.py – Version 0.61.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -679,9 +679,11 @@ def _mobi_records(data):
     rec_offs = []
     for i in range(num_rec):
         p = 78 + 8 * i
-        if p + 3 > len(data):
+        if p + 4 > len(data):
             break
-        rec_offs.append(int.from_bytes(data[p:p + 3], "big"))
+        # PDB record entries store the offset as four big-endian
+        # bytes; attributes and unique id follow after them.
+        rec_offs.append(struct.unpack(">I", data[p:p + 4])[0])
     if not rec_offs:
         raise ValueError("no records")
     recs = []
@@ -2791,7 +2793,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.60.1"
+PREVIEWER_VERSION = "0.61.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
