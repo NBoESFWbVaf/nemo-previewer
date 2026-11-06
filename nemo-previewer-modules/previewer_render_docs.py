@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.60.0
+previewer_render_docs.py – Version 0.60.1
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -297,11 +297,34 @@ class DocsRendererMixin:
         if abs(target - self._pdf_last_w) < 8:
             return
         self._pdf_last_w = target
+        self._pdf_scale_gen += 1
+        gen = self._pdf_scale_gen
+        # K12: page 1 scales synchronously, the rest per idle
+        # cycle – inline scaling of all pages starved the drag.
         try:
-            for src, img in zip(srcs, imgs):
-                self._pdf_scale_one(src, img, target)
+            self._pdf_scale_one(srcs[0], imgs[0], target)
         except Exception as e:
             dbg("docs/_apply_pdf_scale: suppressed: %s" % e)
+        if len(srcs) > 1:
+            GLib.idle_add(self._pdf_scale_step, 1, target, gen)
+
+    # → REF DOC-DOC-20
+    def _pdf_scale_step(self, i, target, gen):
+        # K12: stale pass – a newer resize or a clear ran.
+        if gen != self._pdf_scale_gen or self._pdf_box is None:
+            return False
+        try:
+            end = min(len(self._pdf_src), i + 4)
+            while i < end:
+                self._pdf_scale_one(self._pdf_src[i], self._pdf_imgs[i],
+                                    target)
+                i += 1
+        except Exception as e:
+            dbg("docs/_pdf_scale_step: suppressed: %s" % e)
+        if i >= len(self._pdf_src):
+            return False
+        GLib.idle_add(self._pdf_scale_step, i, target, gen)
+        return False
 
     # → REF DOC-DOC-12
     def _render_office(self, path):
@@ -504,7 +527,7 @@ class DocsRendererMixin:
             dbg("docs/_office_job_done: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.60.0"
+PREVIEWER_VERSION = "0.60.1"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)
