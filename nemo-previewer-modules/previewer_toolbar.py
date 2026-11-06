@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.61.0
+previewer_toolbar.py – Version 0.62.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -144,6 +144,25 @@ class PreviewToolbarMixin:
         chk.connect("toggled", self._on_debug_log_toggled)
         fbox.pack_start(chk, False, False, 0)
 
+        # F69: info table font size as a spin – metadata tables in
+        # the preview and in the "more" windows.
+        mrow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                       spacing=8)
+        mrow.pack_start(Gtk.Label(label="Info table font size (px)"),
+                        False, False, 0)
+        adj = Gtk.Adjustment(value=self._conf_meta_font_size,
+                             lower=0, upper=28, step_increment=1,
+                             page_increment=2)
+        self._settings_metasize_spin = Gtk.SpinButton.new(adj, 1.0, 0)
+        self._settings_metasize_spin.set_tooltip_text(
+            "Font size of the info tables (file metadata in the "
+            "preview and the tag windows) – 0 keeps the theme's "
+            "normal size, applies immediately.")
+        self._settings_metasize_spin.connect(
+            "value-changed", self._on_meta_size_changed)
+        mrow.pack_start(self._settings_metasize_spin, False, False, 0)
+        fbox.pack_start(mrow, False, False, 0)
+
         # → REF TB-F12-1
         wrow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         lbl_width = Gtk.Label(label="Default width at launch")
@@ -208,6 +227,24 @@ class PreviewToolbarMixin:
             "value-changed", self._on_line_spacing_changed)
         srow.pack_start(self._settings_spacing_spin, False, False, 0)
         fbox.pack_start(srow, False, False, 0)
+        # F69: text preview font size as a spin – 0 keeps the theme
+        # size; the CSS rule applies it live.
+        trow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                       spacing=8)
+        trow.pack_start(Gtk.Label(label="Preview font size (px)"),
+                        False, False, 0)
+        adj = Gtk.Adjustment(value=self._conf_text_font_size,
+                             lower=0, upper=28, step_increment=1,
+                             page_increment=2)
+        self._settings_textsize_spin = Gtk.SpinButton.new(adj, 1.0, 0)
+        self._settings_textsize_spin.set_tooltip_text(
+            "Font size of the text previews (plain text, Markdown, "
+            "source code) – 0 keeps the theme's normal size, "
+            "applies immediately.")
+        self._settings_textsize_spin.connect(
+            "value-changed", self._on_text_size_changed)
+        trow.pack_start(self._settings_textsize_spin, False, False, 0)
+        fbox.pack_start(trow, False, False, 0)
         return frame
 
     # → REF TB-DOC-6
@@ -322,6 +359,17 @@ class PreviewToolbarMixin:
         if self._last_textish and self._path:
             self._render()
 
+    # → REF TB-DOC-18
+    def _on_text_size_changed(self, spin):
+        # F69: save immediately – the reloaded CSS rule restyles
+        # the open previews live (no re-render needed).
+        self._conf_text_font_size = int(spin.get_value())
+        self._config_save()
+
+    def _on_meta_size_changed(self, spin):
+        self._conf_meta_font_size = int(spin.get_value())
+        self._config_save()
+
     # → REF TB-DOC-11
     def _on_syntax_toggled(self, chk):
         self._conf_text_syntax = chk.get_active()
@@ -374,7 +422,7 @@ class PreviewToolbarMixin:
         return True
 
 
-PREVIEWER_VERSION = "0.61.0"
+PREVIEWER_VERSION = "0.62.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
