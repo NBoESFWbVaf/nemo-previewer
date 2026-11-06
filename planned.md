@@ -315,7 +315,8 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 - [x] **F69 – Schriftgrößen punktuell einstellbar** (Nutzer-Wunsch 2026-11-06 „Ich möchte in den Einstellungen die Schriftgröße bei Dateien wo es möglich ist, punktuell ändern können. Gleiches auch für Informationstabellen in Fenstern oder der Vorschau.")
 
   Zwei Spins in den Einstellungen (je 0–28 px, 0 = Theme-Standard, sofort angewendet): „Preview font size" im Text-Frame skaliert die Textvorschauen (Klartext, Markdown, Quellcode — überall, wo die Vorschau den Text selbst setzt; gerenderte Seiten wie PDFs/Bilder bleiben unberührt), „Info table font size" im General-Frame die Informationstabellen (Metadaten-Raster der Vorschau UND die Tabellen der „mehr"-Fenster).  
-  ✅ 0.62.0 – umgesetzt: CSS-Klassen pvw-text-size/pvw-meta-size an zentralen Stellen (build\_text\_view, pack\_meta\_grid, Tag-/Paket-TreeViews), die Regeln baut \_apply\_font\_size\_css (util, K11-Provider-Muster) bei jedem Speichern neu — der Provider-Reload restylt offene Vorschauen und Fenster LIVE, ohne Re-Render; Konfig-Schlüssel text\_font\_size/meta\_font\_size mit 0–28-Deckel beim Laden.
+  ✅ 0.62.0 – umgesetzt: CSS-Klassen pvw-text-size/pvw-meta-size an zentralen Stellen (build\_text\_view, pack\_meta\_grid, Tag-/Paket-TreeViews), die Regeln baut \_apply\_font\_size\_css (util, K11-Provider-Muster) bei jedem Speichern neu — der Provider-Reload restylt offene Vorschauen und Fenster LIVE, ohne Re-Render; Konfig-Schlüssel text\_font\_size/meta\_font\_size mit 0–28-Deckel beim Laden.  
+  ✅ 0.62.1 (Nutzer-Hinweis vor Deploy) – die Spins starten nicht mehr bei 0, sondern beim ermittelten System-Standard (system\_font\_size\_px: Style-Font eines frischen TextView, Punkte bei 96 dpi in px, geclamped 1–28, bei Fehlern 0): der Sprung von „0 = Systemgröße" auf 1 sah sonst wie ein Bug aus; 0 bleibt als explizite Wahl „Theme-Standard" wählbar.
 
 ### Internationalisierung &amp; Release-Vorbereitung
 
