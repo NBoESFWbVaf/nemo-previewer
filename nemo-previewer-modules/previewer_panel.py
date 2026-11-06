@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.61.0
+previewer_panel.py – Version 0.62.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -40,6 +40,7 @@ from previewer_util import (
     pack_hint,
     build_scaled_image,
     build_text_view,
+    apply_font_size_css,
 )
 from previewer_render_media import MediaRendererMixin, _ensure_gst
 from previewer_render_docs import (
@@ -237,6 +238,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F25: extra line spacing in text previews – default 0 (the
         # normal look), configurable in the settings, applied live.
         self._conf_text_line_spacing = 0
+        # F69: font sizes in px, 0 = theme font – text previews and
+        # info tables (preview and "more" windows), via CSS classes.
+        self._conf_text_font_size = 0
+        self._conf_meta_font_size = 0
         # F12 part 3: document cap configurable – limit PDF/office
         # previews or show all; default matches the old hard cap.
         self._conf_doc_page_limit = True
@@ -261,6 +266,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F2: pending debounced heavy render (selection quiet).
         self._pending_render_id = None
         self._config_load()
+        # F69: initial font size rules – later saves reload them.
+        apply_font_size_css(self._conf_text_font_size,
+                            self._conf_meta_font_size)
         # F65b: stale debug logs (older than 7 days) vanish at
         # every panel start – even with logging off.
         debug_log_cleanup()
@@ -1273,6 +1281,20 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     self._conf_text_line_spacing = int(ls)
             except Exception as e:
                 dbg("panel/_config_load: suppressed: %s" % e)
+            # F69: font sizes (px, 0 = theme font) – text previews
+            # and info tables.
+            try:
+                ts = kf.get_integer("previewer", "text_font_size")
+                if 0 <= ts <= 28:
+                    self._conf_text_font_size = int(ts)
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
+            try:
+                ms = kf.get_integer("previewer", "meta_font_size")
+                if 0 <= ms <= 28:
+                    self._conf_meta_font_size = int(ms)
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             # F12 part 3: document cap (PDF/office) – limit on/off
             # and the maximum page count (1–999).
             try:
@@ -1328,6 +1350,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # F25: persist the line spacing.
             kf.set_integer("previewer", "text_line_spacing",
                            int(self._conf_text_line_spacing))
+            # F69: persist both font sizes.
+            kf.set_integer("previewer", "text_font_size",
+                           int(self._conf_text_font_size))
+            kf.set_integer("previewer", "meta_font_size",
+                           int(self._conf_meta_font_size))
             # F12 part 3: persist the document cap.
             kf.set_boolean("previewer", "doc_page_limit",
                            self._conf_doc_page_limit)
@@ -1339,6 +1366,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             kf.set_boolean("previewer", "debug_log",
                            self._conf_debug_log)
             kf.save_to_file(CONF_FILE)
+            # F69: reloaded CSS rules restyle open widgets live.
+            apply_font_size_css(self._conf_text_font_size,
+                                self._conf_meta_font_size)
         except Exception as exc:
             dbg("Config not saved: %s" % exc)
 
@@ -1396,7 +1426,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.61.0"
+PREVIEWER_VERSION = "0.62.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
