@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.61.0
+previewer_util.py – Version 0.62.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -277,6 +277,38 @@ def _xml_dtd_rejected(data, source):
 
 # ------------------------------ Widget helpers ------------------------------
 
+# --- F69: font sizes for text previews and info tables (CSS) ---
+
+
+# → REF UT-DOC-16
+TEXT_SIZE_CSS_CLASS = "pvw-text-size"
+META_SIZE_CSS_CLASS = "pvw-meta-size"
+_SIZE_CSS_PROVIDER = None
+
+
+def apply_font_size_css(text_px, meta_px):
+    # F69: one provider on the default screen (K11 pattern); a rule
+    # exists only while the size is > 0 – 0 means the theme font.
+    global _SIZE_CSS_PROVIDER
+    try:
+        if _SIZE_CSS_PROVIDER is None:
+            _SIZE_CSS_PROVIDER = Gtk.CssProvider()
+            Gtk.StyleContext.add_provider_for_screen(
+                Gdk.Screen.get_default(), _SIZE_CSS_PROVIDER,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        rules = []
+        if text_px:
+            rules.append(".%s { font-size: %dpx; }"
+                         % (TEXT_SIZE_CSS_CLASS, int(text_px)))
+        if meta_px:
+            rules.append(".%s { font-size: %dpx; }"
+                         % (META_SIZE_CSS_CLASS, int(meta_px)))
+        _SIZE_CSS_PROVIDER.load_from_data(
+            "\n".join(rules).encode("utf-8"), -1)
+    except Exception as e:
+        dbg("util/apply_font_size_css: suppressed: %s" % e)
+
+
 # → REF UT-DOC-10
 def pack_hint(box, text):
     lbl = Gtk.Label(label=text)
@@ -290,6 +322,8 @@ def pack_hint(box, text):
 def pack_meta_grid(rows, container, wrap=False, bold_keys=False,
                    italic_values=False, title_width=None):
     grid = Gtk.Grid()
+    # F69: class carries the configurable info table font size.
+    grid.get_style_context().add_class(META_SIZE_CSS_CLASS)
     grid.set_row_spacing(2)
     grid.set_column_spacing(10)
     for i, (k, v) in enumerate(rows):
@@ -367,6 +401,8 @@ def build_text_view(view, text, font, markup, spacing=0):
     view.set_editable(False)
     view.set_cursor_visible(False)
     view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+    # F69: class carries the configurable text preview font size.
+    view.get_style_context().add_class(TEXT_SIZE_CSS_CLASS)
     if font is not None:
         view.override_font(Pango.FontDescription(font))
     # Padding so the text does not stick to the border
@@ -415,5 +451,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.61.0"
+PREVIEWER_VERSION = "0.62.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
