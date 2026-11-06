@@ -143,6 +143,11 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 
   ✅ 0.42.0: umgesetzt – Verhalten unverändert, keine God-Function über 100 Zeilen verbleibt, alle pass-Schlucker loggen mit dbg().
 
+- [x] **K11 – Gestrichelte Undershoot-Linien an Scroll-Kanten ausblenden** (Nutzer-Fund 2026-11-05 „Seit geraumer Zeit erscheint bei zu scrollenden Objekten eine hässliche gestrichelte Linie" – unscrolled nur unten, mittendrin oben+unten, am Ende nur oben)
+
+  GTK setzt an jede GtkScrolledWindow Undershoot-Knoten an den Kanten, hinter denen noch Inhalt liegt (STYLE\_CLASS\_UNDERSHOOT) — das aktive Theme malt sie als gestrichelte Linie; betroffen ist jedes GTK3-Programm, im Previewer fallen sie an fast jeder Vorschau auf. **S**  
+  ✅ 0.59.1 – umgesetzt: EIN CssProvider am Panel-Style-Context (APPLICATION-Priorität, an alle absteigenden Widgets vererbt) blendet alle vier Richtungen aus (background-image: none + background-color: transparent für undershoot.top/right/bottom/left) — wirkt preview-weit; bewusst NUR auf dem Panel (Nemo selbst wird nicht umgestylt, separate Toplevel-Fenster wie Tags/EXIF/Einstellungen behalten das Theme). (→ REF PAN-K11-1)
+
 ---
 
 ## Teil 2: Features (Vorschläge)

@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.59.1\] – 2026-11-05
+
+### Fixed
+
+- K11 – no more dashed undershoot lines at the edges of scrollable previews (user finding): GTK adds undershoot hint nodes at every edge where content can still be scrolled into view, and the active theme paints them as dashed lines – at the start only below, in the middle above and below, at the end only above. A CSS rule on the panel (background-image: none / background-color: transparent for undershoot.top/right/bottom/left) hides them preview-wide; Nemo itself and the extension's separate windows keep the theme look.
+
 ## \[0.59.0\] – 2026-11-05
 
 ### Added
