@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.62.1\] – 2026-11-06
+
+### Fixed
+
+- The two font size spins (F69, 0.62.0) started at 0: one step up to 1 made the preview jump from the system default size to 1 px, which looked like a bug. Both spins now start pre-filled with the detected system font size (`\_system\_font\_size\_px`, measured from a fresh TextView, points converted at 96 dpi); 0 stays selectable as the explicit "theme default".
+
 ## \[0.62.0\] – 2026-11-06
 
 ### Added
