@@ -2201,10 +2201,10 @@ Scale one PDF page to the target width and assign it.
 
 - **Module:** previewer\_render\_docs.py
 - **Location:** `DocsRendererMixin._apply\_pdf\_scale` (method)
-- **Reason:** Re-scales all PDF pages on width changes.
+- **Reason:** Re-scales the PDF pages on width changes – K12: incrementally, only page 1 synchronously.
 
 ```text
-Fit all PDF pages to the current panel width.
+Fit the PDF pages to the current panel width. K12 (0.60.1): only page 1 scales synchronously – the top page stays exact and the pass stays cheap even mid-drag; the remaining pages follow via _pdf_scale_step, a few per idle cycle. Until 0.60.0 this loop scaled EVERY page inline in the size-allocate handler; while dragging the column the passes starved the main loop (the preview lagged behind) and the still-too-wide pages wobbled in the viewport when shrinking – enlarging looked smooth only because the lagging images stayed narrower than the column.
 ```
 
 ### DOC-DOC-12 – Docstring: \_render\_office
@@ -2285,6 +2285,16 @@ Start the LibreOffice conversion in the background.
 
 ```text
 Conversion finished: cache the result, refresh the preview.
+```
+
+### DOC-DOC-20 – Docstring: \_pdf\_scale\_step
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._pdf\_scale\_step` (method)
+- **Reason:** K12 – incremental resize pass: 4 pages per idle cycle.
+
+```text
+K12 (0.60.1): the idler behind _apply_pdf_scale – scales the pages in _pdf_src/_pdf_imgs in packets of 4 per idle cycle to the passed target width, so a column drag never starves the main loop. Stale passes end silently: a newer resize bumps _pdf_scale_gen, a torn-down preview nulls _pdf_box (both checked first). Pages arriving from the R2 feed chain meanwhile are already scaled by _pdf_idle_step and get re-scaled at most once – harmless.
 ```
 
 ---
