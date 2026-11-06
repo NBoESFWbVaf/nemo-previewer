@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.62.0
+previewer_util.py – Version 0.62.1
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -309,6 +309,25 @@ def apply_font_size_css(text_px, meta_px):
         dbg("util/apply_font_size_css: suppressed: %s" % e)
 
 
+# → REF UT-DOC-16
+def system_font_size_px():
+    # F69: the theme font size in px – measured from a fresh
+    # TextView, so the size spins start at the system value.
+    try:
+        desc = Gtk.TextView().get_style_context().get_font(
+            Gtk.StateFlags.NORMAL)
+        size = desc.get_size()
+        if desc.get_size_is_absolute():
+            px = int(round(float(size) / Pango.SCALE))
+        else:
+            px = int(round(size * 96.0 / 72.0 / Pango.SCALE))
+        if 0 < px <= 28:
+            return px
+    except Exception as e:
+        dbg("util/system_font_size_px: suppressed: %s" % e)
+    return 0
+
+
 # → REF UT-DOC-10
 def pack_hint(box, text):
     lbl = Gtk.Label(label=text)
@@ -451,5 +470,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.62.0"
+PREVIEWER_VERSION = "0.62.1"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
