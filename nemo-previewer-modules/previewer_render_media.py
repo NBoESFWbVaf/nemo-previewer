@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.61.0
+previewer_render_media.py – Version 0.62.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -38,6 +38,7 @@ from previewer_util import (
     _pixbuf_from_bytes,
     pack_hint,
     pack_meta_grid,
+    META_SIZE_CSS_CLASS,
     cover_round_path,
 )
 
@@ -532,6 +533,8 @@ def _tags_table_window(title):
     center_window(win, 560)
     store = Gtk.ListStore(str, str)
     view = Gtk.TreeView(model=store)
+    # F69: class carries the configurable info table font size.
+    view.get_style_context().add_class(META_SIZE_CSS_CLASS)
     view.get_selection().set_mode(Gtk.SelectionMode.NONE)
     # Subtle table lines: set_enable_grid_lines is not mapped in
     # every PyGObject build – the property is the portable path.
@@ -1557,7 +1560,7 @@ class MediaRendererMixin:
         self._tags_store = None
 
 
-PREVIEWER_VERSION = "0.61.0"
+PREVIEWER_VERSION = "0.62.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
