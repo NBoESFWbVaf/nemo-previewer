@@ -776,6 +776,16 @@ F1 (0.61.0): four synthetic fixtures are built in a tempfile dir and checked aga
 F69 (0.62.0): two new conf keys, both integers with a 0–28 guard on load: text_font_size and meta_font_size. Defaults sit next to the F25 spacing default; load next to the F25 block; _config_save persists both and then calls apply_font_size_css(self._conf_text_font_size, self._conf_meta_font_size) after save_to_file – so every settings save (also from other spins) reloads the CSS rules live. The same call runs once at panel startup behind _config_load. 0.62.1 (user finding before deploy): both defaults are the DETECTED system font size now (system_font_size_px, one call for both keys), not 0 – the spins start at the system value; a stored 0 keeps its meaning (explicit theme font).
 ```
 
+### PAN-K6-1 – Multi-selection shows only the count (K6)
+
+- **Module:** previewer\_panel.py
+- **Location:** `\_render\_inner`, first block after the content margin reset
+- **Reason:** K6 – user decision (2026-11-07): multi-selection renders no preview, the column only shows the count.
+
+```text
+K6 (0.63.0): _render_inner returns early when the selection holds more than one item – no renderer runs, the column shows only a centered dim label "N items selected" (N = number of selected items). The old behavior (preview of the first selected file plus "... and N more selected") is removed. A dbg line logs the count for deploy tests; single and empty selection behave as before.
+```
+
 ---
 
 ## Selection (SEL)
