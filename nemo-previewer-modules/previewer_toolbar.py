@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.66.0
+previewer_toolbar.py – Version 0.66.1
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -55,7 +55,7 @@ class PreviewToolbarMixin:
         self._btn_xbit.set_relief(Gtk.ReliefStyle.NONE)
         self._btn_xbit.set_no_show_all(True)
         self._btn_xbit.connect("clicked", self._on_xbit_clicked)
-        self._toolbar.pack_start(self._btn_xbit, False, False, 0)
+        self._toolbar.pack_start(self._btn_xbit)
         try:
             css = Gtk.CssProvider()
             css.load_from_data(
@@ -519,7 +519,7 @@ class PreviewToolbarMixin:
                 "Make the file executable (owner)"))
 
 
-PREVIEWER_VERSION = "0.66.0"
+PREVIEWER_VERSION = "0.66.1"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
