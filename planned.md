@@ -339,6 +339,7 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 
   Unten links in der Toolbar ein Knopf, der das Ausführbar-Bit (x-Bit) des BESITZERS umschaltet (u+x / u-x) – Nutzer-Entscheide: voller Toggle, nur Besitzer-Bit, nur bei Dateien, die der Kernel ausführen kann. Der Kandidaten-Check liest die ersten 4 Bytes: Shebang (#!) = Skript (beliebige Endung), ELF-Magie = Binary; alles andere (Configs, Daten, Bilder) verbirgt den Knopf, Mehrfachauswahl ebenfalls. Ist das x-Bit gesetzt, erscheint der Knopf dezent rot (F65-Rot #e01b24 bei Viertel-Alpha, CSS-Klasse pvw-xbit-set), Klick entfernt es; ohne x-Bit macht ein Klick die Datei ausführbar. Tooltips über po/pot zweisprachig; chmod-Fehler bleiben dbg-Zeilen.  
   ✅ 0.66.0 – umgesetzt: \_xbit\_candidate / \_on\_xbit\_clicked / \_update\_xbit\_button (previewer\_toolbar.py, → REFERENCE TB-DOC-19…21), Refresh am Ende von \_render und im Leerzweig von set\_selection, Icon system-run-symbolic mit geprüftem Fallback, dbg-Zeile „toolbar/xbit: … owner x-bit set/removed".
+  ✅ 0.66.1 (Deploy-Crash) – Gtk.ActionBar.pack\_start() nimmt GENAU EIN Argument (nur das Kind, keine expand/fill/padding-Parameter wie bei Gtk.Box): der Knopf-Aufruf mit 5 Argumenten warf TypeError und das Panel dockete nie; jetzt pack\_start(self.\_btn\_xbit) wie beim Zahnrad-Knopf.
 
 ### Internationalisierung &amp; Release-Vorbereitung
 

@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.66.1\] – 2026-11-07
+
+### Fixed
+
+- Deploy crash (F74, first attempt): Gtk.ActionBar.pack\_start() takes exactly ONE argument (the child) – unlike Gtk.Box it has no expand/fill/padding parameters, so the x-bit button call with five arguments raised a TypeError and the panel never docked. The button now packs with pack\_start(child), same call as the settings button.
+
 ## \[0.66.0\] – 2026-11-07
 
 ### Added
