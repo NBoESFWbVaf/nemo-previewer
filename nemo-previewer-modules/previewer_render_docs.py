@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.65.4
+previewer_render_docs.py – Version 0.65.5
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -74,6 +74,41 @@ def office_cache_path(path):
     key = hashlib.sha1(
         os.path.abspath(path).encode("utf-8", "replace")).hexdigest()
     return os.path.join(office_cache_dir(), key + ".pdf")
+
+
+# F70: total size cap of the conversion cache.
+_OFFICE_CACHE_MAX = 256 * 1024 * 1024
+
+
+def office_cache_evict():
+    # F70: keep the conversion cache bounded – when the total
+    # exceeds the cap, the oldest files go first.
+    try:
+        entries = []
+        total = 0
+        for name in os.listdir(office_cache_dir()):
+            fp = os.path.join(office_cache_dir(), name)
+            try:
+                st = os.stat(fp)
+            except OSError:
+                continue
+            if os.path.isfile(fp):
+                entries.append((st.st_mtime, st.st_size, fp))
+                total += st.st_size
+        if total <= _OFFICE_CACHE_MAX:
+            return
+        entries.sort()
+        for mtime, size, fp in entries:
+            if total <= _OFFICE_CACHE_MAX:
+                break
+            try:
+                os.remove(fp)
+                total -= size
+                dbg("docs/office_cache_evict: removed: %s" % fp)
+            except OSError:
+                pass
+    except Exception as e:
+        dbg("docs/office_cache_evict: suppressed: %s" % e)
 
 
 # Office documents are ZIP archives: show the embedded thumbnail
@@ -490,6 +525,8 @@ class DocsRendererMixin:
                     # sits on its own device (tmpfs) – rename(2)
                     # would fail with EXDEV, move copies instead.
                     shutil.move(out_pdf, office_cache_path(path))
+                    # F70: bound the cache right where it grows.
+                    office_cache_evict()
                     cache_ok = True
                 except Exception as exc:
                     dbg("Office cache write failed: %s"
@@ -530,7 +567,7 @@ class DocsRendererMixin:
             dbg("docs/_office_job_done: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.65.4"
+PREVIEWER_VERSION = "0.65.5"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)

@@ -66,7 +66,7 @@ sudo apt install nemo-python python3-gi git gir1.2-poppler-0.18 python3-cairo gi
 ```
 
 
-Everything else runs on Python standard library modules only.
+The extension itself needs **Python 3.8 or newer** – every distribution that ships Nemo 3.x already carries a newer one (tested on Python 3.12 and 3.13). Everything else runs on Python standard library modules only.
 
 **Debian notes** (verified on Debian 13 "Trixie" with Cinnamon/Nemo)
 
@@ -97,14 +97,14 @@ nemo -q && nemo
 ```
 2. Check the log. Each module reports its version on load:
 ```text
-[previewer] previewer_util 0.65.4 loaded
-[previewer] previewer_select 0.65.4 loaded
-[previewer] previewer_render_media 0.65.4 loaded (...)
-[previewer] previewer_render_docs 0.65.4 loaded (...)
-[previewer] previewer_render_text 0.65.4 loaded (...)
-[previewer] previewer_toolbar 0.65.4 loaded (...)
-[previewer] previewer_panel 0.65.4 loaded (...)
-[previewer] previewer (entry) v0.65.4 ready
+[previewer] previewer_util 0.65.5 loaded
+[previewer] previewer_select 0.65.5 loaded
+[previewer] previewer_render_media 0.65.5 loaded (...)
+[previewer] previewer_render_docs 0.65.5 loaded (...)
+[previewer] previewer_render_text 0.65.5 loaded (...)
+[previewer] previewer_toolbar 0.65.5 loaded (...)
+[previewer] previewer_panel 0.65.5 loaded (...)
+[previewer] previewer (entry) v0.65.5 ready
 ```
 
    Eight lines with the same version number — anything else means an old file is still in one of the two folders.

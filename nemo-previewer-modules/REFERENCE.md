@@ -681,7 +681,7 @@ F43 (user wish): the folder preview shows the content as a list instead of just 
 - **Reason:** Stop playback and timers when the panel is torn down (B3).
 
 ```text
-Panel is torn down: stop playback and timers (B3).
+Panel is torn down: stop playback and timers (B3). 0.65.5 (F71): the F2 pending-render timer and the F25 line-spacing quiet timer are cancelled here too – no one-shot fires into the dead widget tree.
 ```
 
 ### PAN-DOC-27 – Docstring: \_config\_load
@@ -1950,7 +1950,7 @@ Create the playbin once and set the URI. B2: bus watch – without it the player
 - **Reason:** B2/B3 player bar – play/pause, slider, position.
 
 ```text
-Build and pack the player bar (play/pause, slider, position) – the central building block of the music preview (B2/B3).
+Build and pack the player bar (play/pause, slider, position) – the central building block of the music preview (B2/B3). 0.65.5 (F72): play/pause button and seek slider carry tooltips (state-following Play/Pause, Seek position) – the bar is no longer the nameless corner of the a11y inventory.
 ```
 
 ### MED-DOC-33 – Docstring: \_on\_player\_eos
@@ -2164,7 +2164,7 @@ K5 (0.57.0): GStreamer was imported and initialized (Gst.init(None)) at MODULE I
 - **Reason:** Cache folder for LibreOffice conversion PDFs.
 
 ```text
-Cache folder ~/.cache/previewer (created on demand).
+Cache folder ~/.cache/previewer (created on demand). 0.65.5 (F70): the cache is BOUNDED – _OFFICE_CACHE_MAX (256 MB) plus office_cache_evict(), which runs after every successful cache write and removes the oldest files first.
 ```
 
 ### DOC-DOC-2 – Docstring: office\_cache\_path
@@ -3618,4 +3618,304 @@ Gtk.FileChooserDialog (font pick in the font preview) is removed in GTK4 – the
 
 ```text
 The extension lives inside the host process: previewer.py re-parents Nemo's own widgets (crowbar) and walks the host widget tree (isinstance Gtk.Toolbar), previewer_select.py rides on the Nemo column/info provider API. A GTK4 port of OUR code would be pointless while the host binds GTK3 – and the crowbar would break first, because it relies on the host's container/add mechanics. Caja (MATE) is GTK3 as well. Conclusion: keep the own modules free of new GTK3-only APIs (this audit is the baseline), re-evaluate the injection layer only when a GTK4-based host exists; porting the Nemo API is a separate project item, not part of F57.
+```
+
+## Performance-Audit (F58)
+
+### AUDIT-PERF-1 – Method and standing rule (F58)
+
+- **Module:** all eight Python modules
+- **Location:** this REFERENCE section (after the GTK4-Port-Audit)
+- **Reason:** F58 (2) performance – static scan of the hot paths: render times per format (large PDFs, office conversion, full folders) and entry load time.
+
+```text
+F58 (2026-11-07, audit round WITHOUT code changes): static performance scan – the sandbox cannot run or profile the code, so the audit covers the planned scope from the code side (structure, caps, thread/idle discipline, per-event costs) and names the deploy-side runtime checks at the end. Standing rule for every future round: (a) heavy work NEVER runs synchronously inside a size-allocate or value-changed handler – the 0.65.3 incidents are the reference case; generation-guarded idle steps (K12 pattern) or a quiet timer are the accepted patterns; (b) every reader keeps a byte/row/page budget; (c) one stat per render is fine, per-row I/O needs a cap; (d) worker threads decode, idle_add delivers to GTK (R1/B7).
+```
+
+### AUDIT-PERF-2 – Entry load time and per-window costs (previewer.py)
+
+- **Module:** previewer.py (+ previewer_select.py)
+- **Location:** module imports, _get_widget, PanelState, _poll/_refresh/_reconcile
+- **Reason:** F58 (2) – load time of the entry: import chain and the recurring per-window costs.
+
+```text
+Startup: Nemo imports the extension module once per process – previewer.py then imports all seven modules eagerly (extension contract, unavoidable). Heavy gi families stay guarded: Poppler (HAVE_POPPLER), GtkSource (HAVE_GTKSOURCE) and PangoCairo (HAVE_PANGOCAIRO) sit behind require_version try blocks; GStreamer initialises lazily on the first media render (K5 one-shot, HAVE_GST tri-state). Startup cost = Python imports + GTK binding init; no Poppler/Gst work at load. Per window: _get_state caches ONE PanelState per window (no re-scan per folder change), the crowbar packs a zero-size box and defers its placement to an idle handler; _get_widget itself is cheap widget packing. Recurring: the 500 ms safety-net poll (POLL_MS, util) runs _reconcile (bounded: window children once + parent-pointer chain up to the top box) and _refresh (SelectionReader.read per tick, one widget-tree diag dump per view TYPE, the selection-unreadable debug throttled to 5 s). Verdict: OK – the only recurring cost is the bounded 500 ms walk; the timer is removed on window destroy (ENT-DOC-17). Deploy-side check: Nemo start with and without the extension (log timestamps), rapid folder hopping.
+```
+
+### AUDIT-PERF-3 – Render dispatch, F2 debounce and per-render overhead (panel)
+
+- **Module:** previewer_panel.py
+- **Location:** _render/_render_inner, _is_heavy, the _pending_render_id chain, _clear_content
+- **Reason:** F58 (2) – dispatch costs: how often renders run and what each render pays up front.
+
+```text
+F2: heavy formats (PDF/Office via _OFFICE_EXTS + .pdf, audio/video by MIME) render after a 400 ms selection-quiet timeout (_RENDER_QUIET_MS), light formats immediately; a new selection CANCELS a queued render – renders never stack. Per render: exactly ONE query_file_info (single Gio query_info stat) plus _clear_content, which resets all incremental state and bumps every generation counter (_pdf_gen, _pdf_scale_gen; the 0.65.3 image rescale rides _img_scale_gen) – running idle steps abort cleanly instead of painting into a torn-down tree. Verdict: OK – no unbounded pre-work per render; the heavy/light split keeps the common case (images, text) immediate.
+```
+
+### AUDIT-PERF-4 – Large PDFs (previewer_render_docs.py)
+
+- **Module:** previewer_render_docs.py
+- **Location:** _render_pdf, _pdf_page_pixbuf, the R2 idle feed, _pdf_scale/_pdf_scale_step
+- **Reason:** F58 (2) – large PDFs: first-page latency, page budget, resize costs.
+
+```text
+_render_pdf: page 1 renders synchronously (the panel is usable at once), the remaining pages feed through R2 idle steps – a huge PDF paints progressively without blocking the loop. Per page: _pdf_page_pixbuf renders at 2x the target width (stays sharp while live-scaling) but is BOUNDED – the scale is clamped to 0.2–3.0 and _PDF_PIXEL_BUDGET shrinks both dimensions until the pixel count fits (DOC-BUDGET-1), so the worst-case single-page cost is constant, not proportional to the PDF. Page COUNT: the settings cap (_pdf_page_cap, at most 999) limits the feed. Resize: _pdf_scale does NOT re-render pages – it scales the stored pixbufs, generation-guarded, one page per idle step (K12). Verdict: OK. Deploy-side check: 1000+-page PDF and a 500 MB scanned PDF – first page fast, scrolling stays fluid.
+```
+
+### AUDIT-PERF-5 – Office conversion (previewer_render_docs.py)
+
+- **Module:** previewer_render_docs.py
+- **Location:** _render_office, _render_office_thumb, _office_start_job/_office_job_done, office_cache_path
+- **Reason:** F58 (2) – office conversion: UI blocking, retry storms, repeat costs.
+
+```text
+Flow: the thumbnail route first (ZIP member read with caps – _OFFICE_THUMB_CAP guards a crafted thumbnail bomb; embedded text via _extract_office_text) gives an instant preview; the sharp conversion runs soffice --headless via GLib.spawn_async + child_watch – the UI NEVER blocks on LibreOffice. Single-flight: _office_job holds exactly ONE running conversion (a further selection just shows the thumbnail), _office_failed prevents endless retries of broken documents. Repeat selections are O(1): the result lands in ~/.cache/previewer/<sha-of-path>.pdf and _office_cached_pdf validates by mtime before reuse. Temp handling: one temp dir per job, shutil.move (EXDEV-safe) into the cache, cleanup on every path including _destroyed (window gone). Verdict: OK. Follow-up for the memory audit: the cache has no size limit (planned item 3). Deploy-side check: a 100 MB DOCX – thumbnail at once, sharp view after the conversion, re-selection instant.
+```
+
+### AUDIT-PERF-6 – Full folders (previewer_panel.py)
+
+- **Module:** previewer_panel.py
+- **Location:** _render_folder, _folder_row, _folder_symbol
+- **Reason:** F58 (2) – full folders: scan cost, row building, icon work.
+
+```text
+Scan: os.scandir with the dirent type – the dirs/files split needs NO per-entry stat; the one os.stat per FILE row (size column) is bounded by the row cap of 300 (worst case 300 stats – negligible on local disks, bounded on network shares). Rows: max 300 built, the rest collapses into "... and N more". Icon work stays O(unique types), not O(rows): _folder_symbol caches the drawn silhouettes per symbol (sil dict), the picked map collects one entry per content type; per row only Label+Box assembly. The rows land in a Gtk.ListBox inside a ScrolledWindow. Verdict: OK – a folder with 10000 files costs one scandir plus 300 cheap rows. Deploy-side check: /usr/bin or a kernel source directory.
+```
+
+### AUDIT-PERF-7 – Images and A/V (previewer_render_media.py)
+
+- **Module:** previewer_render_media.py
+- **Location:** image probe worker, _image_probe_done, GStreamer lazy init, media probe threads
+- **Reason:** F58 (2) – decode costs: big images, EXIF walk, media discovery.
+
+```text
+Images: the EXIF/XMP probe and the file read run in a worker thread (R1/B7 discipline) with GLib.idle_add delivery; the decode uses new_from_file_at_scale – the cost scales with the TARGET size, not the source resolution (a 50 MP photo decodes to panel width, never to full size). Lifeline: only when a thread cannot start at all does the same path run synchronously. A/V: GStreamer initialises lazily on the first media render (K5 one-shot, tri-state HAVE_GST – nothing Gst at import), the discoverer runs in its own thread with idle delivery; the pipeline builds once per preview. Live resize of images goes through the 0.65.3 generation-guarded idle rescale (see AUDIT-PERF-9). Verdict: OK – nothing decodes on the GTK thread. Deploy-side check: a 40 MP photo and a 4K video file.
+```
+
+### AUDIT-PERF-8 – Text format caps (previewer_render_text.py)
+
+- **Module:** previewer_render_text.py
+- **Location:** the reader constants (caps) and the truncation points
+- **Reason:** F58 (2) – per-format budgets: no unbounded reader in the text module.
+
+```text
+Every reader has a budget: plain text MAX_TEXT_BYTES/MAX_TEXT_LINES (read truncated, lines capped), vCard/FB2/ICS 8 MB each (_VCARD_FILE_CAP, _FB2_FILE_CAP, _ICS_FILE_CAP), ICS events _ICS_EVENT_CAP = 50, CSV 4 MB/1000 rows with a 64 KB sniffer window (_CSV_FILE_CAP/_CSV_ROW_CAP/_CSV_SNIFF_CAP), e-book container chunks 2 MB and covers 16 MB (_EBOOK_CHUNK_CAP/_EBOOK_COVER_CAP), package control 2 MB/RPM head 4 MB/icon scan 8 MB (_PKG_CONTROL_CAP/_PKG_HEADER_CAP/_PKG_ICON_SCAN_CAP), TTC faces 8 (_TTC_FACE_CAP). Long strings truncate BEFORE widget building (descriptions 240 characters, package fields, and so on). Verdict: OK – no reader in this module can loop over unbounded input; the caps are old and battle-tested.
+```
+
+### AUDIT-PERF-9 – Findings, fixed incidents and follow-ups
+
+- **Module:** previewer_panel.py, previewer_toolbar.py (incidents) / all modules (standing rules)
+- **Location:** this audit section
+- **Reason:** F58 (2) – verdict summary: what the audit found, what it confirms, what moves to the other audits.
+
+```text
+Verdict: no NEW hot-path defect found. The audit CONFIRMS the 0.65.3 fixes as the correct patterns for this risk class: the live-deploy incidents (synchronous image rescale per size-allocate; config write + full re-render per spin tick) violated exactly the standing rules, and their fixes (generation-guarded idle steps; equality guard + 400 ms quiet timer) match how the PDF path has worked since K12. Remaining notes, none blocking: (a) _apply_font_scale (F68 font waterfall) still re-renders synchronously on a width change – bounded to a handful of font previews, acceptable here, revisit when the waterfall grows; (b) the office conversion cache is unbounded – not a PERFORMANCE bug (repeat selections are cache hits), but it is the planned memory-audit item "Cache-Wachstum in ~/.cache/previewer/ begrenzen"; (c) runtime numbers (ms per format) are deploy-side: the per-renderer dbg lines plus NEMO_PREVIEWER_DEBUG=1 provide the timestamps for a quick profile pass. Deploy-side checks are named in AUDIT-PERF-2/4/5/6/7.
+```
+
+## Speicher/Leaks-Audit (F58)
+
+### AUDIT-MEM-1 – Method and standing rule (F58)
+
+- **Module:** all eight Python modules
+- **Location:** this REFERENCE section (after the Performance-Audit)
+- **Reason:** F58 (3) memory/leaks – signal handlers and references during the live re-renders, pixbuf caches, growth of ~/.cache/previewer.
+
+```text
+F58 (2026-11-07, audit round WITHOUT code changes): static leak scan with the planned focus areas. Standing rule: every widget-owned signal dies with the widget (GTK destroy cascade), every process-wide structure needs a cap or an explicit cleanup, every GLib source needs exactly ONE owner that removes it, and every byte we park on disk outside the config belongs to a bounded store. The audit inventories (a) the signal wiring and its teardown, (b) the live re-render state that holds big objects, (c) unbounded sets and disk stores, (d) the timer-vs-destroy races.
+```
+
+### AUDIT-MEM-2 – Signal wiring and teardown
+
+- **Module:** previewer_panel.py, previewer_render_media.py, previewer.py, previewer_select.py
+- **Location:** all connect() sites, _on_panel_destroy, _on_window_destroyed
+- **Reason:** F58 (3) – do handlers outlive their widgets and keep references alive?
+
+```text
+Panel/media signal wiring connects handlers ON the widgets they belong to (draw, size-allocate, clicked, change-value) – GTK disconnects them when the widget dies in the destroy cascade; no manual disconnect list is needed and none exists, so none can be forgotten half-managed. The panel destroy handler sets _destroyed, stops playback and removes the playbin bus signal watch (0.9.1) – the only watch that needs manual removal. The per-window poll timer is the single GLib source owned by the WINDOW side; _on_window_destroyed removes it explicitly (ENT-DOC-17). previewer_select.py holds NO GTK signal handlers at all (AUDIT-GTK4-4) – the module reads the host via the Nemo provider API and Atk, it never connects. The one child_watch (LibreOffice) is one-shot and fires exactly once. Verdict: no leaked handler wiring.
+```
+
+### AUDIT-MEM-3 – Live re-render state (big objects)
+
+- **Module:** previewer_panel.py, previewer_render_docs.py, previewer_render_media.py
+- **Location:** _clear_content, _scale_items, _pdf_src/_pdf_imgs, _font_wf, _image_info_box, playbin
+- **Reason:** F58 (3) – the preview keeps big pixbufs alive during live re-renders; where do they die?
+
+```text
+The heavy objects of a preview are the ORIGINAL-resolution pixbufs behind the scale items, the rendered PDF page pixbufs (_pdf_src/_pdf_imgs) and the font waterfall surfaces. All of them die TOGETHER in _clear_content, which every new selection/render passes through: it resets _scale_items (dropping the originals), _pdf_src/_pdf_imgs/_pdf_box, _font_wf and _image_info_box, and bumps every generation counter (_pdf_gen, _pdf_scale_gen – and via the 0.65.3 rescale _img_scale_gen) so already-scheduled idle steps stop instead of painting into the torn-down tree. The GStreamer playbin is created ONCE per panel and reused per media file (no per-render pipeline accumulation); the progress timer stops itself within one tick when nothing plays. The office thumbnail/text route holds only capped byte blobs. Verdict: no accumulation across renders – the clear discipline is the load-bearing wall and it is intact.
+```
+
+### AUDIT-MEM-4 – Unbounded sets and disk stores
+
+- **Module:** previewer_render_docs.py, previewer_util.py, previewer_render_text.py
+- **Location:** _office_failed, office_cache_dir, debug log (F65), _FONT_STATE tmpdir, selftest
+- **Reason:** F58 (3) – process-lifetime structures and on-disk growth.
+
+```text
+_office_failed (broken office documents): CAPPED at 256 entries – on overflow it clears completely (all-or-nothing, retry storm impossible either way). Debug log (F65/F65b): rotates once per session at 512 KB (keeps exactly one .old) and the stale cleanup deletes logs older than 7 days at every panel start – bounded on both axes. Font temp dir (_FONT_STATE): process-lifetime in /tmp, grows with the number of PREVIEWED fonts (rebuilt WOFF sfnts + copies for Fontconfig, deduplicated by path hash) – bounded by usage, and /tmp is a systemd-tmpfiles store; acceptable, not a leak. Selftest: temp dir removed in a finally (files then rmdir). FINDING (the one real gap): the office conversion cache ~/.cache/previewer/<sha>.pdf has NO size limit – every distinct office document leaves a permanent PDF of up to document size; nothing ever deletes an entry. Not a process leak (disk), but exactly the planned item "Cache-Wachstum begrenzen". Recommendation: cap by total size (e.g. 256 MB) with oldest-mtime eviction at panel start, or cap per-file at conversion time. → FIXED in 0.65.5 (F70): _OFFICE_CACHE_MAX 256 MB, oldest-mtime eviction after every successful cache write (office_cache_evict).
+```
+
+### AUDIT-MEM-5 – Timer races vs. panel destroy
+
+- **Module:** previewer_panel.py, previewer_toolbar.py, previewer_render_media.py
+- **Location:** _pending_render_id, _spacing_render_id, probe idle callbacks vs. _destroyed
+- **Reason:** F58 (3) – timers and idle callbacks that fire into a destroyed panel.
+
+```text
+The F2 pending render (_pending_render_id) is cancelled on every NEW selection, but _on_panel_destroy does NOT cancel it – a queued heavy render can fire up to 400 ms after the panel died. The 0.65.4 line-spacing quiet timer (_spacing_render_id) has the same shape: re-armed on every tick, never cancelled at panel teardown, and _on_line_spacing_quiet checks neither. The worker-idle deliveries (image/media probe done) compare self._path != path (stale-selection guard, works), but do not check _destroyed. All three are WARNING class, not leak class: the callbacks are one-shot, the Python objects still exist after the GTK destroy, and the references die with the fired callback – nothing accumulates. Still: _on_pending_render/_on_line_spacing_quiet/probe callbacks painting into a destroyed panel produce GTK warnings on stderr of the host. Recommendation (one small hardening item): cancel _pending_render_id and _spacing_render_id in _on_panel_destroy and let the idle deliveries test _destroyed first. → FIXED in 0.65.5 (F71): _on_panel_destroy cancels both timers (_cancel_pending_render + _spacing_render_id), _image_probe_done/_media_probe_done return early on _destroyed.
+```
+
+### AUDIT-MEM-6 – Verdict (F58/3)
+
+- **Module:** –
+- **Location:** this audit section
+- **Reason:** F58 (3) – summary: leaks, findings, planned items.
+
+```text
+Verdict: no classic leak found – handler wiring dies with its widgets, the big-object clear discipline is intact on every render switch, every process-lifetime structure except the disk cache is capped, and the GStreamer pipeline is reused, not accumulated. TWO findings go into planned as items: (1) office conversion cache unbounded (~/.cache/previewer) – size cap with oldest-first eviction recommended; (2) timer/idle callbacks can fire up to 400 ms into a destroyed panel (F2 pending render, spacing quiet timer, probe deliveries) – add destroy cancels and _destroyed guards. Both are small, neither blocks the release; together with AUDIT-PERF-9 they are the complete follow-up list of the audit phase.
+```
+
+## Reentrancy-Audit (F58)
+
+### AUDIT-REENTR-1 – Method and standing rule (F58)
+
+- **Module:** all eight Python modules
+- **Location:** this REFERENCE section (after the Speicher/Leaks-Audit)
+- **Reason:** F58 (4) reentrancy/threading – clicks and selection changes during a running LibreOffice conversion; timeout-ID discipline.
+
+```text
+F58 (2026-11-07, audit round WITHOUT code changes): the audit follows the two planned focus areas. Standing rule: (a) every GLib source has exactly one owner and one removal path; (b) async results apply only if the world they were computed for still exists (stale checks: generation counters, path comparison, _destroyed); (c) ONE async job per class of work (single-flight); (d) GTK calls happen on the GTK thread only – worker threads hand over via idle_add; (e) no synchronous heavy work inside signal emission (the 0.65.3 incidents are the reference cases).
+```
+
+### AUDIT-REENTR-2 – Clicks and changes during the LibreOffice conversion
+
+- **Module:** previewer_render_docs.py
+- **Location:** _office_start_job, _office_job_done, _office_failed
+- **Reason:** F58 (4) – the planned core question: what happens to a conversion when the user moves on?
+
+```text
+Single-flight: _office_job holds exactly ONE running conversion – a second office selection cannot start a parallel soffice (it shows the thumbnail route and waits). The child_watch fires once, _office_job resets first, and _office_job_done then decides by STATE, not by hope: _destroyed (panel gone) drops the result and cleans the temp dir; on success the cache gets the PDF (mtime-validated on reuse); a re-render only happens when self._path == path – the stale-selection guard; a failure lands in _office_failed (capped) so nothing retry-loops. finally: rmtree covers every branch. And the queueing is explicit: after the job ends, IF the current selection is an office file without cache/failed/job, the NEXT conversion starts immediately – no implicit recursion depth, just one hand-off. Verdict: OK – the conversion pipeline is the discipline showpiece; the 0.65.3 incidents happened in UI-thread paths, not here.
+```
+
+### AUDIT-REENTR-3 – Worker threads and their delivery
+
+- **Module:** previewer_render_media.py, previewer_render_text.py
+- **Location:** image/media/font probe workers, GLib.idle_add delivery, stale guards
+- **Reason:** F58 (4) – thread/GTK hand-overs: who checks what, and when?
+
+```text
+All decode/probe work runs in daemon threads and hands its result over with GLib.idle_add (R1/B7); the GTK thread only assembles widgets. Stale guards on delivery: the image probe compares self._path != path and drops the result ("Image result dropped, selection changed"), the media probe delivers the same way, the font work deduplicates by path hash in a state dict (no double-registration races because everything mutates on the GTK side). The known weak spot is not reentrancy inside the workers (they never touch GTK) but the delivery target: the idle callbacks test the SELECTION but not _destroyed – a destroyed panel can receive one last paint attempt (see AUDIT-MEM-5, warning class). The 0.65.2 live incident pair (sync rescale inside size-allocate; re-render storm inside value-changed) was exactly rule (e) violated; the 0.65.3 fixes restored it. Verdict: OK with one hardening item (shared with AUDIT-MEM-5). → FIXED in 0.65.5 (F71).
+```
+
+### AUDIT-REENTR-4 – Timeout- and idle-ID discipline (inventory)
+
+- **Module:** all modules with GLib sources
+- **Location:** poll timer, F2 pending render, spacing quiet timer, progress timer, R2 feed, scale steps
+- **Reason:** F58 (4) – the planned "Timeout-ID-Disziplin": every source, its owner, its removal.
+
+```text
+Inventory: (1) window poll (500 ms, entry) – owned by the window state, removed in _on_window_destroyed; (2) F2 pending render (400 ms, panel) – cancelled on every new selection, source id cleared in _cancel_pending_render and _on_pending_render; NOT cancelled at panel destroy (AUDIT-MEM-5); (3) spacing quiet timer (400 ms, 0.65.4) – re-armed via source_remove before every new arm, id cleared in the callback; not destroyed-at-teardown (AUDIT-MEM-5); (4) player progress timer (400 ms, media) – self-stopping: _tick_player returns False when nothing plays, re-created on the next start (no remove needed, no id leak); (5) R2 PDF page feed + K12 pdf scale steps + 0.65.3 image scale steps – generation-guarded idlers: every new event bumps the generation, stale steps return False and drop themselves (no ids to track, the generation IS the discipline); (6) _refresh_soon/crowbar placement idles – one-shot lambdas. Verdict: two disciplines coexist and both are consistently applied: id-with-owner for timers, generation-counter for idler families; the only gap is the destroy path of (2) and (3).
+```
+
+### AUDIT-REENTR-5 – Verdict (F58/4)
+
+- **Module:** –
+- **Location:** this audit section
+- **Reason:** F58 (4) – summary.
+
+```text
+Verdict: the async machinery is sound: single-flight conversions with stale-selection and destroy guards, worker threads that never touch GTK, delivery via idle with path checks, and two clean cancellation disciplines (id-owner for timers, generation counter for idler families). The two live incidents of the 0.65.x deploys both traced back to rule (e) violations in UI-thread handlers and are fixed since 0.65.3. The one remaining hardening item is shared with AUDIT-MEM-5: destroy-side cancels for the two 400 ms timers plus _destroyed checks in the probe deliveries – warnings only, one small planned item, not release-blocking.
+```
+
+## Barrierefreiheits-Audit (F58)
+
+### AUDIT-A11Y-1 – Method (F58)
+
+- **Module:** all UI modules
+- **Location:** this REFERENCE section (after the Reentrancy-Audit)
+- **Reason:** F58 (5) a11y – accessible roles and states, checked systematically (static scan of the widget inventory).
+
+```text
+F58 (2026-11-07, audit round WITHOUT code changes): systematic static pass over the widget inventory by class: every interactive control needs a name (label, tooltip or accessible description), every informational label needs its text in the widget (not only painted), every icon-only button needs a tooltip, ellipsized text needs the full content as tooltip, and state changes must ride on widget states (dim-label, sensitivity), not on invisible side channels. Screen-reader behaviour itself is deploy-side; this audit checks the supply side.
+```
+
+### AUDIT-A11Y-2 – Inventory: what is already supplied
+
+- **Module:** previewer_panel.py, previewer_toolbar.py, previewer_util.py, previewer_render_text.py
+- **Location:** labels, tooltips, ellipsized widgets, settings window
+- **Reason:** F58 (5) – the positive inventory.
+
+```text
+Labels carry their text in the widget everywhere (no painted-only text); info tables get tooltips with the FULL value on every row (pack_meta_grid, including the ellipsized title column of the ICS cards); the folder rows give the full name as tooltip on middle-ellipsized labels and dim hidden files via a style class; the settings window is fully supplied: every check button, spin and the close button carry label or tooltip; the toolbar toggle, the reset-width arrow, the open button and the recording dot carry tooltips; the K6 multi-selection count is a real label in the content area; hints (pack_hint) are labels, not painted text; interactive widgets use sensitivity (set_sensitive) for state, not hidden alternatives. previewer_select.py consumes Atk on the HOST side (AtkSelection/StateType to READ the Nemo selection) – the only a11y API in the project so far.
+```
+
+### AUDIT-A11Y-3 – Finding: the media player bar
+
+- **Module:** previewer_render_media.py
+- **Location:** _player_bar (_btn_play, _seek_scale)
+- **Reason:** F58 (5) – the one gap of the scan.
+
+```text
+The player bar is the ONLY unsupplied area: the module has zero set_tooltip_text calls. The play/pause button is icon-only (media-playback-start-symbolic, swaps its icon per state) and has NEITHER a tooltip NOR an accessible name/description; the seek scale has no label/tooltip either. For a keyboard/screen-reader user the bar reads as two nameless controls; the icon swap also means the accessible name should follow the state (play vs. pause). Recommendation (planned item): tooltip + accessible description on _btn_play that follows the state (_("Play")/_("Pause")), a tooltip on _seek_scale (_("Seek position")), and the duration label already exists as text. One small, isolated fix – the rest of the widget inventory is supplied. → FIXED in 0.65.5 (F72): state-following tooltips on _btn_play (_("Play")/_("Pause")), tooltip on _seek_scale (_("Seek position")); three new msgids in pot and de.po.
+```
+
+### AUDIT-A11Y-4 – Verdict (F58/5)
+
+- **Module:** –
+- **Location:** this audit section
+- **Reason:** F58 (5) – summary.
+
+```text
+Verdict: the supply side is in good shape for a preview tool – text lives in widgets, tooltips carry full content where the display truncates, settings and toolbar are completely named, and state rides on widget states. ONE finding goes into planned: the media player bar needs tooltips and state-following accessible names for play/pause and seek. Deploy-side check for the release notes: run orca (or any AT-SPI client) over a preview with an image, a text file and an audio file – everything except the player bar should announce sensibly.
+```
+
+## Umgebungs-Matrix-Audit (F58)
+
+### AUDIT-ENV-1 – Method (F58)
+
+- **Module:** all eight Python modules
+- **Location:** this REFERENCE section (after the Barrierefreiheits-Audit)
+- **Reason:** F58 (7) environment matrix – Nemo versions, Python minimum, Wayland vs. X11.
+
+```text
+F58 (2026-11-07, audit round WITHOUT code changes): static determination of the supported environment from the code side (API pins, language features, windowing dependencies) plus the tested matrix from INSTALL.md; the runtime matrix cells (older Nemo, older Python distros, Wayland session) are deploy-side checks, listed at the end.
+```
+
+### AUDIT-ENV-2 – Nemo and the host API
+
+- **Module:** previewer.py, previewer_select.py
+- **Location:** gi.require_version Nemo 3.0, NameAndDescProvider hasattr guard
+- **Reason:** F58 (7) – which Nemo versions does the extension support?
+
+```text
+The Nemo API pin is require_version('Nemo', '3.0') – the Nemo 3.x GIR that Mint ships since the Cinnamon 3.x era. The provider set is defensive: the NameAndDescProvider base is only added when hasattr(Nemo, 'NameAndDescProvider') – an older Nemo without it still loads the extension (it then simply reports no name/description); the LocationWidgetProvider/ColumnProvider bases are as old as the Nemo-python binding itself. The crowbar and the selection reader walk the widget tree of whatever Nemo builds – no version-specific widget paths (the view scan is structural, not version-pinned), and the reader carries multiple strategies (vtable/ATK/GTK) precisely because the view zoo varies. Tested: Nemo on Linux Mint 22 and Debian 13 (INSTALL.md). Caja (MATE) is NOT supported – the extension targets Nemo only (AUDIT-GTK4-10). Verdict: Nemo 3.x line; concrete older-version cells are a deploy-side check.
+```
+
+### AUDIT-ENV-3 – Python minimum
+
+- **Module:** all eight Python modules
+- **Location:** language feature scan (syntax floor), stdlib usage
+- **Reason:** F58 (7) – the oldest Python that runs the code.
+
+```text
+Syntax floor: the code base uses %-formatting throughout – NO f-strings, no walrus, no match statements (the grep hits for "f\"" are the aperture string "f/%.1f" and a variation-selector escape). The newest stdlib features in use: os.scandir (3.5), email.policy (3.3+), sqlite3, subprocess, csv.Sniffer, xml.etree – so the SYNTAX floor is about 3.5. Realistic floor: every distro that ships Nemo 3.x also ships at least Python 3.9 (Debian 11-era), and the tested cells are 3.12 (Mint 22) and 3.13 (Debian 13); gettext/GLib bindings need PyGObject, which the distro pairs anyway. Recommendation for the README/INSTALL: declare "Python 3.8+" (comfortably below every realistic Nemo 3.x distro, far above the syntax floor) and drop the vaguer wording. → DONE in 0.65.5 (F73): INSTALL.md declares "Python 3.8 or newer".
+```
+
+### AUDIT-ENV-4 – Wayland vs. X11
+
+- **Module:** all eight Python modules
+- **Location:** windowing-API scan (GdkX11, XIDs, screen geometry, draw painters)
+- **Reason:** F58 (7) – does anything tie the extension to X11?
+
+```text
+Nothing in the extension touches the windowing layer directly: no GdkX11 import, no XID handling (the only "X11" hit is a comment about GTK selection-signal NAMES). Geometry goes through the monitor API (Gdk.Display.get_default().get_primary_monitor() in center_window), which works on both backends; all painting rides the GTK3 draw signal, which is cairo-based and backend-neutral; the crowbar re-parents widgets inside the GTK hierarchy, not windows on the X stack. Caveat: the injection depends on the HOST's widget tree, and the tested sessions are X11 (Cinnamon on Mint 22 and Debian 13) – under Wayland the extension itself has no blocker, but Nemo/Cinnamon runs as XWayland or native; the crowbar being widget-level (not X-window-level) is exactly why it should survive both. Verdict: no X11 dependency; Wayland session is a deploy-side matrix cell (Mint 22 ships an experimental Wayland session).
+```
+
+### AUDIT-ENV-5 – Verdict and matrix (F58/7)
+
+- **Module:** –
+- **Location:** this audit section
+- **Reason:** F58 (7) – the matrix as it stands after the audit.
+
+```text
+Matrix after the audit: Nemo 3.x (API pin 3.0, defensive provider guards), Cinnamon/X11 tested on Mint 22 + Debian 13; Python 3.12/3.13 tested, recommendation to declare 3.8+; Wayland: no code blocker (widget-level architecture), runtime cell open. Deploy-side matrix checks for the release: (1) one older-Nemo cell (e.g. Mint 21.x), (2) one Wayland session (Mint 22 experimental), (3) confirm the Python declaration against the oldest distro you care about. No code change required by this audit; the declaration text for README/INSTALL is the only follow-up (documentation item, goes into planned).
 ```

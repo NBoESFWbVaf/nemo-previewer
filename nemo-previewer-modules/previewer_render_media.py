@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.65.4
+previewer_render_media.py – Version 0.65.5
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -784,6 +784,10 @@ class MediaRendererMixin:
     # → REF MED-DOC-22
     def _image_probe_done(self, path, target_w, data, err, exif=None,
                           xmp=None):
+        # F71: a late worker delivery must not pack into a
+        # destroyed panel.
+        if getattr(self, "_destroyed", False):
+            return False
         if self._path != path:
             dbg("Image result dropped, selection changed: %s" % path)
             return False      # selection changed meanwhile
@@ -975,6 +979,10 @@ class MediaRendererMixin:
     # → REF MED-DOC-25
     def _media_probe_done(self, path, uri, finish, tags, duration,
                           image_bytes):
+        # F71: a late worker delivery must not pack into a
+        # destroyed panel.
+        if getattr(self, "_destroyed", False):
+            return False
         # Selection changed meanwhile – drop the result.
         if self._path != path:
             return False
@@ -1265,6 +1273,9 @@ class MediaRendererMixin:
         self._btn_play = Gtk.Button.new_from_icon_name(
             "media-playback-start-symbolic", Gtk.IconSize.BUTTON)
         self._btn_play.connect("clicked", self._on_play_pause)
+        # F72: the icon-only control needs a name for assistive
+        # technology – the tooltip follows the play state.
+        self._btn_play.set_tooltip_text(_("Play"))
         player_box.pack_start(self._btn_play, False, False, 0)
 
         self._seek_scale = Gtk.Scale.new_with_range(
@@ -1272,6 +1283,8 @@ class MediaRendererMixin:
         self._seek_scale.set_value(0)
         self._seek_scale.set_draw_value(False)
         self._seek_scale.set_hexpand(True)
+        # F72: nameless for screen readers without this.
+        self._seek_scale.set_tooltip_text(_("Seek position"))
         self._seek_scale.connect("change-value", self._on_seek)
         # While the user drags the slider, the timer must not push
         # it back (it would jump away under the hand).
@@ -1297,6 +1310,7 @@ class MediaRendererMixin:
             if getattr(self, "_btn_play", None):
                 self._btn_play.set_image(Gtk.Image.new_from_icon_name(
                     "media-playback-start-symbolic", Gtk.IconSize.BUTTON))
+                self._btn_play.set_tooltip_text(_("Play"))
             if getattr(self, "_pos_label", None):
                 self._pos_label.set_text("0:00")
             if getattr(self, "_seek_scale", None):
@@ -1316,6 +1330,7 @@ class MediaRendererMixin:
             if getattr(self, "_btn_play", None):
                 self._btn_play.set_image(Gtk.Image.new_from_icon_name(
                     "media-playback-start-symbolic", Gtk.IconSize.BUTTON))
+                self._btn_play.set_tooltip_text(_("Play"))
             pack_hint(self._content, _("Playback error – view the file via the "
                        "open button in another application."))
         except Exception as e:
@@ -1389,10 +1404,12 @@ class MediaRendererMixin:
             self._playbin.set_state(Gst.State.PAUSED)
             self._btn_play.set_image(Gtk.Image.new_from_icon_name(
                 "media-playback-start-symbolic", Gtk.IconSize.BUTTON))
+            self._btn_play.set_tooltip_text(_("Play"))
         else:
             self._playbin.set_state(Gst.State.PLAYING)
             self._btn_play.set_image(Gtk.Image.new_from_icon_name(
                 "media-playback-pause-symbolic", Gtk.IconSize.BUTTON))
+            self._btn_play.set_tooltip_text(_("Pause"))
             # B3: the timer only runs while playback exists – after
             # pause/stop it is cleared; recreate it here if gone.
             self._ensure_progress_timer()
@@ -1562,7 +1579,7 @@ class MediaRendererMixin:
         self._tags_store = None
 
 
-PREVIEWER_VERSION = "0.65.4"
+PREVIEWER_VERSION = "0.65.5"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)

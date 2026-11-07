@@ -6,7 +6,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 0.65.4\n"
+"Project-Id-Version: nemo-previewer 0.65.5\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -433,10 +433,16 @@ msgstr ""
 msgid "Part of a series"
 msgstr ""
 
+msgid "Pause"
+msgstr ""
+
 msgid "PDF preview not available – install package gir1.2-poppler-0.18."
 msgstr ""
 
 msgid "Phone"
+msgstr ""
+
+msgid "Play"
 msgstr ""
 
 msgid ""
@@ -478,6 +484,9 @@ msgid "RPM header magic missing at offset %d"
 msgstr ""
 
 msgid "Section"
+msgstr ""
+
+msgid "Seek position"
 msgstr ""
 
 msgid "Select a file\nto see a preview."

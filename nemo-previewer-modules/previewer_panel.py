@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.65.4
+previewer_panel.py – Version 0.65.5
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -1246,6 +1246,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # LibreOffice conversion then drops its result.
         self._destroyed = True
         self._stop_playback()
+        # F71: drop the queued one-shot timers (F2 render, F25
+        # line spacing) so they cannot fire into the dead panel.
+        self._cancel_pending_render()
+        if getattr(self, "_spacing_render_id", None) is not None:
+            try:
+                GLib.source_remove(self._spacing_render_id)
+            except Exception as e:
+                dbg("panel/_on_panel_destroy: suppressed: %s" % e)
+            self._spacing_render_id = None
         if self._playbin is not None:
             try:
                 self._playbin.get_bus().remove_signal_watch()
@@ -1453,7 +1462,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.65.4"
+PREVIEWER_VERSION = "0.65.5"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)

@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 0.65.4\n"
+"Project-Id-Version: nemo-previewer 0.65.5\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: 2026-11-07 12:00+0000\n"
@@ -461,6 +461,9 @@ msgstr "PangoCairo nicht verfügbar"
 msgid "Part of a series"
 msgstr "Teil einer Reihe"
 
+msgid "Pause"
+msgstr "Pausieren"
+
 msgid "PDF preview not available – install package gir1.2-poppler-0.18."
 msgstr ""
         "PDF-Vorschau nicht verfügbar – Paket gir1.2-poppler-0.18. "
@@ -468,6 +471,9 @@ msgstr ""
 
 msgid "Phone"
 msgstr "Telefon"
+
+msgid "Play"
+msgstr "Wiedergeben"
 
 msgid ""
         "Playback error – view the file via the open button in another "
@@ -511,6 +517,9 @@ msgstr "RPM-Header-Magic fehlt an Offset %d"
 
 msgid "Section"
 msgstr "Sektion"
+
+msgid "Seek position"
+msgstr "Wiedergabeposition"
 
 msgid "Select a file\nto see a preview."
 msgstr "Wähle eine Datei aus,\num eine Vorschau zu sehen."

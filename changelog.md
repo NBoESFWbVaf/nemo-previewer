@@ -4,6 +4,18 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.65.5\] – 2026-11-07
+
+### Fixed
+
+- Audit finding F71: the debounced render timer (F2) and the line-spacing quiet timer (0.65.4) were not cancelled when the panel was destroyed – the one-shot callbacks could fire into the dead widget tree for up to 400 ms and produce GTK warnings on stderr. The destroy handler now cancels both timers, and the worker deliveries (image/media probe) test \_destroyed before packing anything.
+- Audit finding F72: the media player bar was the only area of the widget inventory without tooltips – the icon-only play/pause button and the seek slider read as two nameless controls to screen-reader users. Both carry tooltips now; the play button tooltip follows the state (Play/Pause). Three new msgids in po/nemo-previewer.pot and po/de.po (German: Wiedergeben, Pausieren, Wiedergabeposition).
+
+### Changed
+
+- Audit finding F70: the LibreOffice conversion cache (\~/.cache/previewer) grew without limit – every distinct office document left a permanent PDF. The cache is now capped at 256 MB in total: after every successful conversion office\_cache\_evict() removes the oldest cache files first.
+- Audit finding F73: the installation guide now declares Python 3.8 or newer as the minimum (the syntax floor is lower; every distribution that ships Nemo 3.x already carries a newer Python).
+
 ## \[0.65.4\] – 2026-11-07
 
 ### Fixed
