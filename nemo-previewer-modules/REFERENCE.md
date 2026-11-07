@@ -2500,11 +2500,11 @@ WOFF1 (.woff): Fontconfig cannot read WOFF – _woff1_to_sfnt unpacks the zlib-c
 
 - **Module:** previewer\_render\_text.py (\_render\_eml, \_pack\_eml\_attachments, \_on\_eml\_extract)
 - **Location:** `\_eml\_attachment\_rows` collects the parts, `\_unique\_target` avoids name conflicts
-- **Reason:** User request: the EML preview lists attachments (name, size) and extracts them on a button. The listing walks the MIME parts of the parsed message – every part with a filename becomes a row; 0.58.2 (user request): the list is a two-column table of file name and human-readable size – icon and content type are gone; undecodable sizes show "unknown". 0.58.1 (user request: a big mail stays big): the 0.9.2 EML read cap is GONE – the whole file is parsed, the list is complete and the sizes exact; the same applies to the extraction. The "Extract all attachments" button opens a folder chooser (Gtk.FileChooserDialog, SELECT\_FOLDER, centered via center\_window like every window) and re-reads the whole file. Every attachment is written with a conflict-free name (existing files get \_1, \_2 …). Feedback lands as a dim hint plus a dbg line, single failures are named. 0.58.1 position fix: the attachment box is packed from the BOTTOM (pack\_end) – the list always sits directly above the toolbar, for text mails and HTML-only mails alike (deploy finding: HTML mails truncated at the old cap lost their body and pushed the list to the top).
+- **Reason:** User request: the EML preview lists attachments (name, size) and extracts them on a button. 0.64.0 (user request): a checkbox column before the name – only checked attachments extract; the list keeps five rows visible, the rest scrolls.
 
 ```text
-        btn = Gtk.Button(label="Extract all attachments")
-        btn.connect("clicked", self._on_eml_extract, path)
+        btn = Gtk.Button(label="Extract selected attachments")
+        btn.connect("clicked", self._on_eml_extract, path, checks)
 ```
 
 ### TXT-DOC-1 – Docstring: \_pango\_escape
@@ -3431,20 +3431,20 @@ Conflict-free target: if a file of that name already exists in the folder, a num
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `TextRendererMixin.\_pack\_eml\_attachments` (method)
-- **Reason:** Attachment list plus extract button in the preview; 0.58.2: two-column table (name, size), no icon, no content type.
+- **Reason:** Attachment list plus extract button in the preview; 0.58.2: two-column table (name, size), no icon; 0.64.0: checkbox column before the name, five visible rows.
 
 ```text
-Builds the "Attachments (N)" section at the bottom of the preview (packed from the bottom, directly above the toolbar): a two-column grid (0.58.2, user request) – column 1 the file name (hexpand, ellipsized in the middle, full name in the tooltip), column 2 the human-readable size (dim, END-aligned, "unknown" if undecodable); no icon, no content type. Below sits the "Extract all attachments" button which hands the file path to the extraction handler.
+Builds the "Attachments (N)" section at the bottom of the preview (packed from the bottom, directly above the toolbar). Each row: CheckButton, file name (hexpand, Middle-Ellipsize, tooltip), size (dim, END). The grid sits in a ScrolledWindow (policy NEVER/AUTOMATIC, max_content_height 150 px, propagate_natural_height) – at most five rows stay visible, longer lists scroll. The button "Extract selected attachments" receives the checkbox list via connect.
 ```
 
 ### TXT-DOC-94 – Docstring: \_on\_eml\_extract
 
 - **Module:** previewer\_render\_text.py
 - **Location:** `TextRendererMixin.\_on\_eml\_extract` (method)
-- **Reason:** Extract all attachments into a chosen folder.
+- **Reason:** Extract the CHECKED attachments into a chosen folder (0.64.0: selected only, was all before).
 
 ```text
-Opens a folder chooser (centered like every window, transient for the Nemo toplevel), re-reads the whole e-mail (0.58.1: no budget – a big mail stays big) and writes every attachment with a conflict-free name. Success and failures land as a dim hint plus a dbg line; single failures are named.
+Reads the checkbox states (none checked: dim hint "No attachment selected", no chooser), opens the folder chooser (centered, transient for the Nemo toplevel), re-reads the whole e-mail and writes every part whose cleaned file name is in the checked set; conflicts get numbered suffixes via _unique_target. Duplicate file names share one checkbox and extract together; feedback counts only the selected parts.
 ```
 
 ### TXT-DOC-95 – Docstring: \_render\_ics
