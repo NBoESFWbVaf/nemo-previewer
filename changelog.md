@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.65.6\] – 2026-11-07
+
+### Fixed
+
+- Deploy feedback (Linux Mint 22.3): the reset-width button showed no icon – the fallback name arrow-right is not part of the preinstalled Mint-Y icon theme, and pick\_icon returned that name unchecked. The button's icon chain gains the standard navigation icons go-next-symbolic/go-next, and pick\_icon now verifies its fallback too – if the theme lacks that name as well, GTK's built-in image-missing is returned instead, so no button is ever left blank.
+
 ## \[0.65.5\] – 2026-11-07
 
 ### Fixed

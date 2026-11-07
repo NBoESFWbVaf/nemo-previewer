@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.65.5
+previewer_util.py – Version 0.65.6
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -298,6 +298,12 @@ def pick_icon(names, fallback):
         for name in names:
             if theme.has_icon(name):
                 return name
+        # Deploy feedback (Mint-Y): the fallback may be absent
+        # from the active theme – never hand out an unchecked name.
+        if theme.has_icon(fallback):
+            return fallback
+        dbg("util/pick_icon: %s missing too, image-missing" % fallback)
+        return "image-missing"
     except Exception as e:
         dbg("util/pick_icon: suppressed: %s" % e)
     return fallback
@@ -592,5 +598,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.65.5"
+PREVIEWER_VERSION = "0.65.6"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
