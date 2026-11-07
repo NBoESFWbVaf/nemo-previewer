@@ -1,0 +1,629 @@
+# SOME DESCRIPTIVE TITLE
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the nemo-previewer package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: nemo-previewer 0.65.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-07 12:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid " (WOFF)"
+msgstr ""
+
+msgid "… and %d more"
+msgstr ""
+
+msgid "… and %d more events"
+msgstr ""
+
+msgid "… details in the file"
+msgstr ""
+
+msgid "(%d more tags – capped)"
+msgstr ""
+
+msgid "(file not found)"
+msgstr ""
+
+msgid "(no name)"
+msgstr ""
+
+msgid "(no summary)"
+msgstr ""
+
+msgid "%d × %d px"
+msgstr ""
+
+msgid "%d items selected"
+msgstr ""
+
+msgid "%d of %d"
+msgstr ""
+
+msgid "%d pt"
+msgstr ""
+
+msgid "%s – Volume %s"
+msgstr ""
+
+msgid "Address"
+msgstr ""
+
+msgid "Album"
+msgstr ""
+
+msgid "Album artist"
+msgstr ""
+
+msgid "Aperture"
+msgstr ""
+
+msgid "Architecture"
+msgstr ""
+
+msgid "Artist"
+msgstr ""
+
+msgid "Attachments (%d)"
+msgstr ""
+
+msgid ""
+        "Audio preview not available – install package "
+        "gir1.2-gst-plugins-base-1.0."
+msgstr ""
+
+msgid "Audio tags"
+msgstr ""
+
+msgid "Author"
+msgstr ""
+
+msgid "Birthday"
+msgstr ""
+
+msgid "Book title"
+msgstr ""
+
+msgid "Camera"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Cc"
+msgstr ""
+
+msgid "Choose a folder – existing files get a numbered suffix"
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "Codec"
+msgstr ""
+
+msgid "collecting – one moment …"
+msgstr ""
+
+msgid ""
+        "Colour source code (.py, .sh, .c …) in the text preview – requires "
+        "the optional package gir1.2-gtksource-4; when unchecked, the plain "
+        "text always shows."
+msgstr ""
+
+msgid "Column %d"
+msgstr ""
+
+msgid "Columns"
+msgstr ""
+
+msgid "Coordinates"
+msgstr ""
+
+msgid "Could not load image: %s"
+msgstr ""
+
+msgid "Could not open the calendar: %s"
+msgstr ""
+
+msgid "Could not open the contact card: %s"
+msgstr ""
+
+msgid "Could not open the e-mail: %s"
+msgstr ""
+
+msgid "Could not read SVG: %s"
+msgstr ""
+
+msgid "Could not read the e-book: %s"
+msgstr ""
+
+msgid "Could not read the file: %s"
+msgstr ""
+
+msgid "Could not read the font: %s"
+msgstr ""
+
+msgid "Could not read the package: %s"
+msgstr ""
+
+msgid "Date"
+msgstr ""
+
+msgid "Date taken"
+msgstr ""
+
+msgid "Debug logging (write log file)"
+msgstr ""
+
+msgid "Debug logging is active"
+msgstr ""
+
+msgid "Default width at launch"
+msgstr ""
+
+msgid "Dependencies"
+msgstr ""
+
+msgid "Description"
+msgstr ""
+
+msgid "Dimensions"
+msgstr ""
+
+msgid "Disc number"
+msgstr ""
+
+msgid "Docked preview of the selected file"
+msgstr ""
+
+msgid "Documents (PDF and Office)"
+msgstr ""
+
+msgid "E-book format"
+msgstr ""
+
+msgid "Email"
+msgstr ""
+
+msgid "End"
+msgstr ""
+
+msgid "EXIF details"
+msgstr ""
+
+msgid "Exposure time"
+msgstr ""
+
+msgid ""
+        "Extra space between the lines of a text preview – 0 is the normal "
+        "line height, applies immediately."
+msgstr ""
+
+msgid "Extract"
+msgstr ""
+
+msgid "Extract attachments to folder"
+msgstr ""
+
+msgid "Extract selected attachments"
+msgstr ""
+
+msgid "Extracted %d attachments to %s"
+msgstr ""
+
+msgid "Extracted %d of %d selected attachments – %s"
+msgstr ""
+
+msgid "Family"
+msgstr ""
+
+msgid "file"
+msgstr ""
+
+msgid "File"
+msgstr ""
+
+msgid "files"
+msgstr ""
+
+msgid "First %d of %d fonts – the rest is not shown."
+msgstr ""
+
+msgid "First %d of %d pages – view the whole file via the open button."
+msgstr ""
+
+msgid "First released"
+msgstr ""
+
+msgid "Focal length"
+msgstr ""
+
+msgid "Folder"
+msgstr ""
+
+msgid ""
+        "Font preview unavailable – install the python3-cairo and "
+        "gir1.2-pango packages."
+msgstr ""
+
+msgid "Font preview unavailable."
+msgstr ""
+
+msgid ""
+        "Font size of the info tables (file metadata in the preview and the "
+        "tag windows) – 0 keeps the theme's normal size, applies immediately."
+msgstr ""
+
+msgid ""
+        "Font size of the text previews (plain text, Markdown, source code) "
+        "– 0 keeps the theme's normal size, applies immediately."
+msgstr ""
+
+msgid "Fonts"
+msgstr ""
+
+msgid "Format"
+msgstr ""
+
+msgid "From"
+msgstr ""
+
+msgid "General"
+msgstr ""
+
+msgid "Genre"
+msgstr ""
+
+msgid "Group"
+msgstr ""
+
+msgid "Height"
+msgstr ""
+
+msgid "Home"
+msgstr ""
+
+msgid "Homepage"
+msgstr ""
+
+msgid "Info table font size (px)"
+msgstr ""
+
+msgid "Info:"
+msgstr ""
+
+msgid "Installed size"
+msgstr ""
+
+msgid "ISO"
+msgstr ""
+
+msgid "Language"
+msgstr ""
+
+msgid "Length"
+msgstr ""
+
+msgid "License"
+msgstr ""
+
+msgid "Limit preview pages (performance)"
+msgstr ""
+
+msgid ""
+        "Line numbers in the left margin of the text preview. The numbers "
+        "are drawn outside the text – only the text itself is selected and "
+        "copied."
+msgstr ""
+
+msgid "Line spacing (px)"
+msgstr ""
+
+msgid "Loading image – one moment …"
+msgstr ""
+
+msgid "Location"
+msgstr ""
+
+msgid "Maintainer"
+msgstr ""
+
+msgid "Maximum number of pages"
+msgstr ""
+
+msgid ""
+        "Mirror the debug output into "
+        "~/.local/state/nemo-previewer/previewer.log – rotates at 512 KB, "
+        "keeps one backup; NEMO_PREVIEWER_DEBUG=1 switches it on without any "
+        "setting"
+msgstr ""
+
+msgid "Mobile"
+msgstr ""
+
+msgid "more"
+msgstr ""
+
+msgid "More"
+msgstr ""
+
+msgid "more via exiftool – install package libimage-exiftool-perl"
+msgstr ""
+
+msgid "Nemo-Previewer – Settings"
+msgstr ""
+
+msgid "Nickname"
+msgstr ""
+
+msgid "No attachment selected"
+msgstr ""
+
+msgid "No contact found – open the file via the open button."
+msgstr ""
+
+msgid "No cover available – open the file via the open button."
+msgstr ""
+
+msgid ""
+        "No embedded preview and no text found – view the file via the open "
+        "button."
+msgstr ""
+
+msgid "No event found – open the file via the open button."
+msgstr ""
+
+msgid "No icon available – open the file via the open button."
+msgstr ""
+
+msgid ""
+        "No preview possible – install LibreOffice (package "
+        "libreoffice-core), then the preview converts in sharp quality."
+msgstr ""
+
+msgid "no records"
+msgstr ""
+
+msgid "no tags found"
+msgstr ""
+
+msgid "Note"
+msgstr ""
+
+msgid "Number of pages"
+msgstr ""
+
+msgid ""
+        "Number of pages that PDF and Office previews show at most – applies "
+        "live, also to the document currently displayed."
+msgstr ""
+
+msgid "Open with the default application"
+msgstr ""
+
+msgid "Optional dependencies"
+msgstr ""
+
+msgid "Package format"
+msgstr ""
+
+msgid "Package name"
+msgstr ""
+
+msgid "Page %d of %d"
+msgstr ""
+
+msgid "Page 1 of %d"
+msgstr ""
+
+msgid "PangoCairo not available"
+msgstr ""
+
+msgid "Part of a series"
+msgstr ""
+
+msgid "PDF preview not available – install package gir1.2-poppler-0.18."
+msgstr ""
+
+msgid "Phone"
+msgstr ""
+
+msgid ""
+        "Playback error – view the file via the open button in another "
+        "application."
+msgstr ""
+
+msgid "Preview font size (px)"
+msgstr ""
+
+msgid "Preview side panel (Ctrl+Alt+P)"
+msgstr ""
+
+msgid "Preview trimmed (long file)."
+msgstr ""
+
+msgid "Preview trimmed (max. %d rows)."
+msgstr ""
+
+msgid "Preview trimmed (max. %d tables)."
+msgstr ""
+
+msgid "Reading media information – one moment …"
+msgstr ""
+
+msgid "Recommendations"
+msgstr ""
+
+msgid "Reset preview column to configured width"
+msgstr ""
+
+msgid "Rows"
+msgstr ""
+
+msgid "RPM header larger than the read buffer"
+msgstr ""
+
+msgid "RPM header magic missing at offset %d"
+msgstr ""
+
+msgid "Section"
+msgstr ""
+
+msgid "Select a file\nto see a preview."
+msgstr ""
+
+msgid "Settings"
+msgstr ""
+
+msgid ""
+        "Sharp preview is being created in the background (LibreOffice) – "
+        "one moment …"
+msgstr ""
+
+msgid "Short description"
+msgstr ""
+
+msgid "Show folder contents in the preview"
+msgstr ""
+
+msgid "Show line numbers (not copyable)"
+msgstr ""
+
+msgid "Show preview side panel at launch"
+msgstr ""
+
+msgid "Start"
+msgstr ""
+
+msgid "Style"
+msgstr ""
+
+msgid "Subject"
+msgstr ""
+
+msgid "Summary"
+msgstr ""
+
+msgid "SVG preview not available – install package gir1.2-rsvg."
+msgstr ""
+
+msgid "Syntax highlighting in source code files"
+msgstr ""
+
+msgid "Table"
+msgstr ""
+
+msgid "Text files"
+msgstr ""
+
+msgid ""
+        "Text for the font preview – applies live to the font currently "
+        "displayed. Empty text stays unsaved."
+msgstr ""
+
+msgid "The database contains no tables."
+msgstr ""
+
+msgid "The database could not be read: %s"
+msgstr ""
+
+msgid "The file contains no table rows."
+msgstr ""
+
+msgid "The folder contains %d %s, %d of them hidden."
+msgstr ""
+
+msgid "The folder contains %d %s."
+msgstr ""
+
+msgid "The folder is empty."
+msgstr ""
+
+msgid ""
+        "The font could not be registered – the waterfall shows the fallback "
+        "font."
+msgstr ""
+
+msgid "The office document could not be opened: %s"
+msgstr ""
+
+msgid "The PDF contains no pages."
+msgstr ""
+
+msgid "The PDF could not be rendered."
+msgstr ""
+
+msgid "The quick brown fox jumps over the lazy dog"
+msgstr ""
+
+msgid ""
+        "The sharp preview could not be created – view the file via the open "
+        "button."
+msgstr ""
+
+msgid "The table could not be read: %s"
+msgstr ""
+
+msgid "Title"
+msgstr ""
+
+msgid "To"
+msgstr ""
+
+msgid "Track number"
+msgstr ""
+
+msgid ""
+        "Uncheck to display PDF and Office documents completely without a "
+        "limit – with very large documents this costs more memory and time."
+msgstr ""
+
+msgid ""
+        "Uncheck to keep the preview side panel hidden after Nemo starts "
+        "(Ctrl+Alt+P shows it again at any time)"
+msgstr ""
+
+msgid ""
+        "Uncheck to show only the plain folder icon with file info instead "
+        "of the contents list"
+msgstr ""
+
+msgid "unknown"
+msgstr ""
+
+msgid "Version"
+msgstr ""
+
+msgid "Video tags"
+msgstr ""
+
+msgid "Waterfall sample text"
+msgstr ""
+
+msgid "Web"
+msgstr ""
+
+msgid "Width"
+msgstr ""
+
+msgid ""
+        "Width of the preview side panel Nemo opens with at every start – "
+        "dragging the divider applies only to the current session"
+msgstr ""
+
+msgid "WOFF2 is not supported"
+msgstr ""
+
+msgid "Work"
+msgstr ""
