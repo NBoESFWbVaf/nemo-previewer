@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.63.0\] – 2026-11-07
+
+### Changed
+
+- Multi-selection (K6) no longer previews the first selected file: the preview column only shows the number of selected items ("N items selected"); a single selection previews as usual.
+
 ## \[0.62.1\] – 2026-11-06
 
 ### Fixed
