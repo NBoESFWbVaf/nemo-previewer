@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.64.0
+previewer_render_docs.py – Version 0.65.1
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -30,6 +30,7 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
 from previewer_util import (
+    _,
     dbg,
     MAX_IMAGE_HEIGHT,
     _zf_read_capped, _pixbuf_from_bytes,
@@ -182,7 +183,7 @@ class DocsRendererMixin:
         doc = Poppler.Document.new_from_file(GLib.filename_to_uri(path), None)
         n = doc.get_n_pages()
         if n == 0:
-            pack_hint(self._content, "The PDF contains no pages.")
+            pack_hint(self._content, _("The PDF contains no pages."))
             return
         cap = self._pdf_page_cap()
         count = n if cap == 0 else min(n, cap)
@@ -210,12 +211,12 @@ class DocsRendererMixin:
         except Exception as exc:
             dbg("PDF page 1 not renderable: %s" % exc)
         if not self._pdf_src:
-            pack_hint(self._content, "The PDF could not be rendered.")
+            pack_hint(self._content, _("The PDF could not be rendered."))
             self._pdf_box = None
             return
         # F14: page indicator above the scrollable area – ALWAYS, even
         # one-page documents show "Page 1 of 1"; counts while scrolling.
-        self._pdf_page_label = Gtk.Label(label="Page 1 of %d" % count)
+        self._pdf_page_label = Gtk.Label(label=_("Page 1 of %d") % count)
         self._pdf_page_label.get_style_context().add_class("dim-label")
         self._content.pack_start(self._pdf_page_label, False, False, 0)
         scroll = Gtk.ScrolledWindow()
@@ -231,8 +232,9 @@ class DocsRendererMixin:
             GLib.idle_add(self._pdf_idle_step, doc, path, src_w, count, 1,
                           self._pdf_gen)
         if n > count:
-            pack_hint(self._content, "First %d of %d pages – view the whole file "
-                       "via the open button." % (count, n))
+            pack_hint(self._content, _("First %d of %d pages – view the "
+                       "whole file via the open button.")
+                      % (count, n))
         # → REF DOC-F14-1
         self._content.show_all()
 
@@ -275,7 +277,7 @@ class DocsRendererMixin:
                 page = i + 1
                 break
         self._pdf_page_label.set_text(
-            "Page %d of %d" % (page, max(1, self._pdf_count)))
+            _("Page %d of %d") % (page, max(1, self._pdf_count)))
         return False
 
     # → REF DOC-DOC-10
@@ -362,7 +364,8 @@ class DocsRendererMixin:
             # K2 (2026-10-30): only the hint line looks empty – the
             # file icon gives the error message a visual anchor.
             self._render_generic()
-            pack_hint(self._content, "The office document could not be opened: %s" % e)
+            pack_hint(self._content,
+                      _("The office document could not be opened: %s") % e)
             return
         shown = False
         if thumb:
@@ -385,26 +388,26 @@ class DocsRendererMixin:
             self._text_view(text, font="Monospace 9")
             shown = True
         if not shown:
-            pack_hint(self._content, "No embedded preview and no text "
-                       "found – view the file via the open button.")
+            pack_hint(self._content, _("No embedded preview and no text "
+                       "found – view the file via the open button."))
         if converting:
-            pack_hint(self._content, "Sharp preview is being created in the "
-                       "background (LibreOffice) – one moment …")
+            pack_hint(self._content, _("Sharp preview is being created in "
+                       "the background (LibreOffice) – one moment …"))
 
     # → REF DOC-DOC-14
     def _office_nozip_hint(self, converting):
         if converting:
-            pack_hint(self._content, "Sharp preview is being created in the "
-                       "background (LibreOffice) – one moment …")
+            pack_hint(self._content, _("Sharp preview is being created in "
+                       "the background (LibreOffice) – one moment …"))
         elif SOFFICE and HAVE_POPPLER:
             # F39: conversion ran but produced no result (broken
             # file) – do not retry endlessly.
-            pack_hint(self._content, "The sharp preview could not be created "
-                       "– view the file via the open button.")
+            pack_hint(self._content, _("The sharp preview could not be "
+                       "created – view the file via the open button."))
         else:
-            pack_hint(self._content, "No preview possible – install "
+            pack_hint(self._content, _("No preview possible – install "
                        "LibreOffice (package libreoffice-core), then the "
-                       "preview converts in sharp quality.")
+                       "preview converts in sharp quality."))
 
     # → REF DOC-DOC-15
     def _office_package_data(self, path):
@@ -527,7 +530,7 @@ class DocsRendererMixin:
             dbg("docs/_office_job_done: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.64.0"
+PREVIEWER_VERSION = "0.65.1"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)

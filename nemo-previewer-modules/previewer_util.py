@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.64.0
+previewer_util.py – Version 0.65.1
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
 """
 
+import gettext
 import math
 import os
 import sys
@@ -22,6 +23,123 @@ gi.require_version('GdkPixbuf', '2.0')
 gi.require_version('Pango', '1.0')
 
 from gi.repository import Gtk, Gdk, Gio, GLib, GdkPixbuf, Pango
+
+# → REF UT-I18N-1
+# I18N: gettext catalogs (locale/) or the shipped po/ sources load at
+# import; without any match the English msgid shows.
+_LOCALE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "locale")
+_PO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "po")
+
+
+class _PoTranslations(gettext.NullTranslations):
+    # Entries of a parsed .po source; gettext() keeps the msgid when
+    # the entry is missing (the same contract as fallback=True).
+
+    def __init__(self, catalog):
+        gettext.NullTranslations.__init__(self)
+        self._catalog = catalog
+
+    def gettext(self, msgid):
+        return self._catalog.get(msgid, msgid)
+
+
+def _po_unesc(text):
+    # Unescape the po subset of the project's own files: \n, \" and \\.
+    out = []
+    i = 0
+    while i < len(text):
+        if text[i] == "\\" and i + 1 < len(text):
+            nxt = text[i + 1]
+            out.append("\n" if nxt == "n"
+                       else ('"' if nxt == '"' else nxt))
+            i += 2
+        else:
+            out.append(text[i])
+            i += 1
+    return "".join(out)
+
+
+def _po_inner(part):
+    # Strip the enclosing quotes of one po segment, keep inner spaces.
+    part = part.strip()
+    if len(part) >= 2 and part[0] == '"' and part[-1] == '"':
+        return part[1:-1]
+    return part
+
+
+def _po_read(path):
+    # Minimal parser for the well-formed po files this project ships
+    # (comments, msgid/msgstr, adjacent segments); empty key = header.
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+    except Exception:
+        return None
+    entries = {}
+    key = None
+    val = ""
+    mode = 0
+
+    def store():
+        if key is not None and key:
+            entries[key] = val
+
+    for line in lines:
+        s = line.strip()
+        if not s or s[0] == "#":
+            continue
+        if s.startswith("msgid "):
+            if mode == 2:
+                store()
+            key = _po_unesc(_po_inner(s[6:]))
+            val = ""
+            mode = 1
+        elif s.startswith("msgstr "):
+            val = _po_unesc(_po_inner(s[7:]))
+            mode = 2
+        elif s[0] == '"':
+            part = _po_unesc(_po_inner(s))
+            if mode == 1 and key is not None:
+                key += part
+            elif mode == 2:
+                val += part
+    if mode == 2:
+        store()
+    return entries
+
+
+def _po_translation():
+    # Same resolution order as gettext: the system language names are
+    # matched against the po/ sources shipped next to the modules.
+    try:
+        names = GLib.get_language_names()
+    except Exception:
+        return None
+    for name in names:
+        code = name.split(".")[0].split("@")[0]
+        if not code or code == "C":
+            continue
+        path = os.path.join(_PO_DIR, code + ".po")
+        if os.path.isfile(path):
+            entries = _po_read(path)
+            if entries:
+                return _PoTranslations(entries)
+    return None
+
+
+try:
+    _TRANSLATION = gettext.translation("nemo-previewer",
+                                       localedir=_LOCALE_DIR)
+except OSError:
+    # No compiled catalog: the shipped .po source of the system
+    # language loads directly – nobody compiles at the deploy side.
+    _TRANSLATION = _po_translation()
+if _TRANSLATION is None:
+    _TRANSLATION = gettext.translation("nemo-previewer",
+                                       localedir=_LOCALE_DIR,
+                                       fallback=True)
+_ = _TRANSLATION.gettext
 
 # ------------------------------ Configuration ------------------------------
 # F12: default start width, configurable in the settings window and
@@ -470,5 +588,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.64.0"
+PREVIEWER_VERSION = "0.65.1"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.64.0
+previewer_render_text.py – Version 0.65.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -45,6 +45,7 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
 from previewer_util import (
+    _,
     dbg,
     MAX_TEXT_BYTES, MAX_TEXT_LINES, MAX_IMAGE_HEIGHT,
     pick_icon, human_size,
@@ -459,7 +460,7 @@ def _series_text(series, index):
     if not series:
         return None
     if index:
-        return "%s – Volume %s" % (series, index)
+        return _("%s – Volume %s") % (series, index)
     return series
 
 
@@ -593,16 +594,16 @@ def _epub_data(path):
         opf_raw = _zf_read_capped(zf, opf_path, _EBOOK_CHUNK_CAP)
         # R10: OPF ships without DTD – entity guard before parsing.
         if _xml_dtd_rejected(opf_raw, "EPUB-OPF " + opf_path):
-            raise ValueError("DOCTYPE im OPF (R10-Entity-Guard)")
+            raise ValueError("DOCTYPE in the OPF (R10 entity guard)")
         root = ElementTree.fromstring(opf_raw)
         (title, author, lang, manifest, cover_id,
          series, series_index, pages) = _epub_metadata(root)
         cover = _epub_cover(zf, names, base, manifest, cover_id)
-    return (_meta_rows((("Book title", title), ("Author", author),
-                         ("Part of a series", _series_text(series,
+    return (_meta_rows(((_("Book title"), title), (_("Author"), author),
+                         (_("Part of a series"), _series_text(series,
                                                            series_index)),
-                         ("Number of pages", pages),
-                         ("E-book format", "EPUB"), ("Language", lang))),
+                         (_("Number of pages"), pages),
+                         (_("E-book format"), "EPUB"), (_("Language"), lang))),
             cover)
 
 
@@ -663,10 +664,10 @@ def _fb2_data(path):
     root = ElementTree.fromstring(raw).getroot()
     title, author, lang, cover_ref, series, seq_index = _fb2_metadata(root)
     cover = _fb2_cover(root, cover_ref)
-    return (_meta_rows((("Book title", title), ("Author", author),
-                         ("Part of a series", _series_text(series,
+    return (_meta_rows(((_("Book title"), title), (_("Author"), author),
+                         (_("Part of a series"), _series_text(series,
                                                            seq_index)),
-                         ("E-book format", "FB2"), ("Language", lang))),
+                         (_("E-book format"), "FB2"), (_("Language"), lang))),
             cover)
 
 
@@ -686,7 +687,7 @@ def _mobi_records(data):
         # bytes; attributes and unique id follow after them.
         rec_offs.append(struct.unpack(">I", data[p:p + 4])[0])
     if not rec_offs:
-        raise ValueError("no records")
+        raise ValueError(_("no records"))
     recs = []
     for i, off in enumerate(rec_offs):
         end = rec_offs[i + 1] if i + 1 < len(rec_offs) else len(data)
@@ -737,8 +738,8 @@ def _mobi_data(path):
     title = data[0:32].split(b"\x00")[0].decode("utf-8", "replace").strip()
     recs = _mobi_records(data)
     author = _mobi_header(recs)[3]
-    return (_meta_rows((("Book title", title), ("Author", author),
-                         ("E-book format", "MOBI"))), None)
+    return (_meta_rows(((_("Book title"), title), (_("Author"), author),
+                         (_("E-book format"), "MOBI"))), None)
 
 
 # --- Packages: DEB, RPM, Arch/Pacman (stdlib only) --------------------------
@@ -828,19 +829,19 @@ def _kb_size(kb):
 
 # → REF TXT-DOC-31
 def _deb_rows(fields):
-    short, _, long = (fields.get("Description") or "").partition("\n")
-    rows = [("Package name", fields.get("Package")),
-            ("Version", fields.get("Version")),
-            ("Architecture", fields.get("Architecture")),
-            ("Package format", "DEB"),
-            ("Section", fields.get("Section")),
-            ("Short description", short.strip()),
-            ("Description", long.strip("\n").strip()),
-            ("Installed size", _kb_size(fields.get("Installed-Size"))),
-            ("Dependencies", fields.get("Depends")),
-            ("Recommendations", fields.get("Recommends")),
-            ("Maintainer", fields.get("Maintainer")),
-            ("Homepage", fields.get("Homepage"))]
+    short, sep, long = (fields.get("Description") or "").partition("\n")
+    rows = [(_("Package name"), fields.get("Package")),
+            (_("Version"), fields.get("Version")),
+            (_("Architecture"), fields.get("Architecture")),
+            (_("Package format"), "DEB"),
+            (_("Section"), fields.get("Section")),
+            (_("Short description"), short.strip()),
+            (_("Description"), long.strip("\n").strip()),
+            (_("Installed size"), _kb_size(fields.get("Installed-Size"))),
+            (_("Dependencies"), fields.get("Depends")),
+            (_("Recommendations"), fields.get("Recommends")),
+            (_("Maintainer"), fields.get("Maintainer")),
+            (_("Homepage"), fields.get("Homepage"))]
     return _meta_rows(rows)
 
 
@@ -917,11 +918,11 @@ def _deb_data(path):
 # → REF TXT-DOC-34
 def _rpm_section(data, pos):
     if data[pos:pos + 3] != b"\x8e\xad\xe8":
-        raise ValueError("RPM header magic missing at offset %d" % pos)
+        raise ValueError(_("RPM header magic missing at offset %d") % pos)
     n, size = struct.unpack(">II", data[pos + 8:pos + 16])
     i0 = pos + 16
     if i0 + 16 * n + size > len(data):
-        raise ValueError("RPM header larger than the read buffer")
+        raise ValueError(_("RPM header larger than the read buffer"))
     index = [struct.unpack(">IIII", data[i0 + 16 * i:i0 + 16 * i + 16])
              for i in range(n)]
     store = data[i0 + 16 * n:i0 + 16 * n + size]
@@ -962,18 +963,18 @@ def _rpm_rows(index, store):
             ("rpmlib(", "config(", "rtld(")))
     else:
         reqs = None
-    rows = [("Package name", s(1000)),
-            ("Version", version),
-            ("Architecture", s(1022)),
-            ("Package format", "RPM"),
-            ("Summary", s(1004)),
-            ("Description", s(1005)),
-            ("Group", s(1016)),
-            ("License", s(1014)),
-            ("Installed size", size),
-            ("Dependencies", reqs),
-            ("Maintainer", s(1015)),
-            ("Homepage", s(1020))]
+    rows = [(_("Package name"), s(1000)),
+            (_("Version"), version),
+            (_("Architecture"), s(1022)),
+            (_("Package format"), "RPM"),
+            (_("Summary"), s(1004)),
+            (_("Description"), s(1005)),
+            (_("Group"), s(1016)),
+            (_("License"), s(1014)),
+            (_("Installed size"), size),
+            (_("Dependencies"), reqs),
+            (_("Maintainer"), s(1015)),
+            (_("Homepage"), s(1020))]
     return _meta_rows(rows)
 
 
@@ -1019,17 +1020,17 @@ def _pkg_rows(single, multi):
         size = human_size(int(single.get("size")))
     except (TypeError, ValueError):
         size = None
-    rows = [("Package name", single.get("pkgname")),
-            ("Version", version),
-            ("Architecture", single.get("arch")),
-            ("Package format", "Pacman"),
-            ("Short description", single.get("pkgdesc")),
-            ("Installed size", size),
-            ("Dependencies", ", ".join(multi["depend"])),
-            ("Optional dependencies", ", ".join(multi["optdepend"])),
-            ("License", ", ".join(multi["license"])),
-            ("Maintainer", single.get("packager")),
-            ("Homepage", single.get("url"))]
+    rows = [(_("Package name"), single.get("pkgname")),
+            (_("Version"), version),
+            (_("Architecture"), single.get("arch")),
+            (_("Package format"), "Pacman"),
+            (_("Short description"), single.get("pkgdesc")),
+            (_("Installed size"), size),
+            (_("Dependencies"), ", ".join(multi["depend"])),
+            (_("Optional dependencies"), ", ".join(multi["optdepend"])),
+            (_("License"), ", ".join(multi["license"])),
+            (_("Maintainer"), single.get("packager")),
+            (_("Homepage"), single.get("url"))]
     return _meta_rows(rows)
 
 
@@ -1243,10 +1244,10 @@ def _font_faces(path):
         data = sfnt
         tag = data[0:4]
         fmt = ("OpenType (CFF)" if tag == b"OTTO" else "TrueType")
-        fmt += " (WOFF)"
+        fmt += _(" (WOFF)")
         faces = [_sfnt_face_names(data, 0)]
     elif tag == b"wOF2":
-        raise ValueError("WOFF2 is not supported")
+        raise ValueError(_("WOFF2 is not supported"))
     elif tag == b"ttcf":
         num = int.from_bytes(data[8:12], "big")
         if num == 0:
@@ -1344,7 +1345,7 @@ def _font_waterfall_pixbuf(family, fctx, fg, text, target_w):
     for size in _FONT_SIZES:
         tag_l = Pango.Layout.new(fctx)
         tag_l.set_font_description(tag_fd)
-        tag_l.set_text("%d pt" % size, -1)
+        tag_l.set_text(_("%d pt") % size, -1)
         text_fd = Pango.FontDescription()
         text_fd.set_family(family)
         text_fd.set_size(size * Pango.SCALE * s)
@@ -1483,7 +1484,7 @@ def _vcard_display_name(card):
         name = " ".join(x for x in (parts[3], parts[1], parts[0]) if x)
         if name:
             return name
-    return _vcard_first(card, "NICKNAME") or "(no name)"
+    return _vcard_first(card, "NICKNAME") or _("(no name)")
 
 
 _VCARD_TEL_LABELS = (("CELL", "Mobile"), ("HOME", "Home"),
@@ -1496,8 +1497,8 @@ def _vcard_tel_label(params):
     types = set(params.get("TYPE", []))
     for key, label in _VCARD_TEL_LABELS:
         if key in types:
-            return label
-    return "Telefon"
+            return _(label)
+    return _("Phone")
 
 
 # → REF TXT-DOC-53
@@ -1957,7 +1958,7 @@ def _csv_data(path):
     if header and rows:
         headers = rows.pop(0)
     else:
-        headers = ["Column %d" % (i + 1) for i in range(width)]
+        headers = [_("Column %d") % (i + 1) for i in range(width)]
     return headers, rows, delim, truncated
 
 
@@ -2027,7 +2028,7 @@ class TextRendererMixin:
         try:
             text, truncated = self._read_text_file(path)
         except Exception as e:
-            self._hint("Could not read the file: %s" % e)
+            self._hint(_("Could not read the file: %s") % e)
             return
         # F24: line numbers per the "Text files" setting (default on);
         # margin drawing, not text buffer – only the text is copied.
@@ -2037,14 +2038,14 @@ class TextRendererMixin:
                         linenumbers=self._conf_text_linenumbers,
                         source_path=path)
         if truncated:
-            pack_hint(self._content, "Preview trimmed (long file).")
+            pack_hint(self._content, _("Preview trimmed (long file)."))
 
     # → REF TXT-DOC-67
     def _render_markdown(self, path):
         try:
             text, truncated = self._read_text_file(path)
         except Exception as e:
-            self._hint("Could not read the file: %s" % e)
+            self._hint(_("Could not read the file: %s") % e)
             return
         markup = _markdown_to_pango(text)
         valid = True
@@ -2058,7 +2059,7 @@ class TextRendererMixin:
         # → REF TXT-B6-1
         self._text_view(text, font=None, markup=(markup if valid else None))
         if truncated:
-            pack_hint(self._content, "Preview trimmed (long file).")
+            pack_hint(self._content, _("Preview trimmed (long file)."))
 
     # → REF TXT-DOC-68
     def _render_eml(self, path):
@@ -2069,13 +2070,13 @@ class TextRendererMixin:
                 raw = fh.read()
             msg = email.message_from_bytes(raw, policy=policy.default)
         except Exception as e:
-            self._hint("Could not open the e-mail: %s" % e)
+            self._hint(_("Could not open the e-mail: %s") % e)
             return
 
         rows = []
-        for key, label in (("from", "From"), ("to", "To"),
-                           ("cc", "Cc"), ("date", "Date"),
-                           ("subject", "Subject")):
+        for key, label in (("from", _("From")), ("to", _("To")),
+                           ("cc", _("Cc")), ("date", _("Date")),
+                           ("subject", _("Subject"))):
             try:
                 val = msg.get(key)
             except Exception:
@@ -2140,7 +2141,8 @@ class TextRendererMixin:
     def _pack_eml_attachments(self, path, rows):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         head = Gtk.Label()
-        head.set_markup("<b>Attachments (%d)</b>" % len(rows))
+        head.set_markup("<b>%s</b>"
+                        % (_("Attachments (%d)") % len(rows)))
         head.set_halign(Gtk.Align.START)
         box.pack_start(head, False, False, 2)
         # F54: checkbox, file name and size per row; only checked
@@ -2160,7 +2162,7 @@ class TextRendererMixin:
             nl.set_tooltip_text(name)
             grid.attach(nl, 1, i, 1, 1)
             sl = Gtk.Label(label=(human_size(size)
-                                  if size is not None else "unknown"))
+                                  if size is not None else _("unknown")))
             sl.get_style_context().add_class("dim-label")
             sl.set_halign(Gtk.Align.END)
             grid.attach(sl, 2, i, 1, 1)
@@ -2171,9 +2173,9 @@ class TextRendererMixin:
         scroll.set_propagate_natural_height(True)
         scroll.add(grid)
         box.pack_start(scroll, False, False, 0)
-        btn = Gtk.Button(label="Extract selected attachments")
-        btn.set_tooltip_text("Choose a folder – existing files get "
-                            "a numbered suffix")
+        btn = Gtk.Button(label=_("Extract selected attachments"))
+        btn.set_tooltip_text(_("Choose a folder – existing files get "
+                              "a numbered suffix"))
         btn.set_halign(Gtk.Align.START)
         btn.set_margin_top(4)
         btn.connect("clicked", self._on_eml_extract, path, checks)
@@ -2196,17 +2198,17 @@ class TextRendererMixin:
         dbg("text/_on_eml_extract: %d of %d attachments selected"
             % (len(want), len(checks)))
         if not want:
-            pack_hint(self._content, "No attachment selected")
+            pack_hint(self._content, _("No attachment selected"))
             return
         try:
             dlg = Gtk.FileChooserDialog(
-                title="Extract attachments to folder",
+                title=_("Extract attachments to folder"),
                 action=Gtk.FileChooserAction.SELECT_FOLDER)
             toplevel = self.get_toplevel()
             if isinstance(toplevel, Gtk.Window):
                 dlg.set_transient_for(toplevel)
-            dlg.add_buttons("Cancel", Gtk.ResponseType.CANCEL,
-                            "Extract", Gtk.ResponseType.OK)
+            dlg.add_buttons(_("Cancel"), Gtk.ResponseType.CANCEL,
+                            _("Extract"), Gtk.ResponseType.OK)
             center_window(dlg, 560)
             resp = dlg.run()
             folder = dlg.get_filename() \
@@ -2257,11 +2259,11 @@ class TextRendererMixin:
         dbg("text/_on_eml_extract: %d saved, %d failed -> %s"
             % (saved, len(errors), folder))
         if errors:
-            pack_hint(self._content, "Extracted %d of %d selected "
-                      "attachments – %s" % (saved, saved + len(errors),
+            pack_hint(self._content, _("Extracted %d of %d selected "
+                      "attachments – %s") % (saved, saved + len(errors),
                                             "; ".join(errors[:3])))
         else:
-            pack_hint(self._content, "Extracted %d attachments to %s"
+            pack_hint(self._content, _("Extracted %d attachments to %s")
                       % (saved, folder))
 
     # → REF TXT-DOC-70
@@ -2273,7 +2275,7 @@ class TextRendererMixin:
                 # file – a few MB are normal, dozens would be a bomb.
                 raw = fh.read(_VCARD_FILE_CAP)
         except Exception as e:
-            self._hint("Could not open the contact card: %s"
+            self._hint(_("Could not open the contact card: %s")
                        % e)
             return
         text = raw.decode("utf-8", "replace")
@@ -2287,8 +2289,8 @@ class TextRendererMixin:
         else:
             cards = _vcard_parse(text)
         if not cards:
-            pack_hint(self._content, "No contact found – open the file via the "
-                       "open button.")
+            pack_hint(self._content, _("No contact found – open the file "
+                       "via the open button."))
             self._render_generic()
             return
         # No card cap (user request): ALL contacts are built and
@@ -2324,30 +2326,30 @@ class TextRendererMixin:
         for params, value in _vcard_props(card, "EMAIL"):
             v = _vcard_unescape(value).strip()
             if v:
-                rows.append(("Email", v))
+                rows.append((_("Email"), v))
         for params, value in _vcard_props(card, "URL"):
             v = _vcard_unescape(value).strip()
             if v:
-                rows.append(("Web", v))
+                rows.append((_("Web"), v))
         for params, value in _vcard_props(card, "ADR"):
             v = _vcard_adr(value)
             if v:
-                rows.append(("Address", v))
+                rows.append((_("Address"), v))
         for params, value in _vcard_props(card, "BDAY"):
             v = _vcard_bday(value)
             if v:
-                rows.append(("Birthday", v))
+                rows.append((_("Birthday"), v))
         nick = _vcard_first(card, "NICKNAME")
         if nick:
-            rows.append(("Nickname", nick))
+            rows.append((_("Nickname"), nick))
         note = _vcard_first(card, "NOTE")
         if note:
-            rows.append(("Note", note.replace("\n", " ")[:120]))
+            rows.append((_("Note"), note.replace("\n", " ")[:120]))
         # Line cap: address book exports love dozens of phone
         # numbers – stop after 14 lines with a hint.
         if len(rows) > 14:
             rows = rows[:14]
-            rows.append(("More", "… details in the file"))
+            rows.append((_("More"), _("… details in the file")))
 
         photo_bytes = _vcard_photo(card)
         pb, had_photo = None, False
@@ -2439,12 +2441,12 @@ class TextRendererMixin:
             events = _ics_data(path)
         except Exception as e:
             dbg("ICS unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "Could not open the calendar: %s" % e)
+            pack_hint(self._content, _("Could not open the calendar: %s") % e)
             self._render_generic()
             return
         if not events:
-            pack_hint(self._content, "No event found – open the file via "
-                      "the open button.")
+            pack_hint(self._content, _("No event found – open the file via "
+                      "the open button."))
             self._render_generic()
             return
         count = len(events)
@@ -2457,7 +2459,7 @@ class TextRendererMixin:
         for ev in events:
             stack.pack_start(self._ics_event_widget(ev), False, False, 0)
         if count > _ICS_EVENT_CAP:
-            rest = Gtk.Label(label="… and %d more events"
+            rest = Gtk.Label(label=_("… and %d more events")
                              % (count - _ICS_EVENT_CAP))
             rest.get_style_context().add_class("dim-label")
             stack.pack_start(rest, False, False, 0)
@@ -2472,22 +2474,22 @@ class TextRendererMixin:
     def _ics_event_widget(self, ev):
         # One event as a vCard-style card: frame and shadow via
         # _vcard_card_draw, title column fixed at 75 px.
-        summary = _ics_text(ev.get("SUMMARY", ("", ""))[1]) or "(no summary)"
+        summary = _ics_text(ev.get("SUMMARY", ("", ""))[1]) or _("(no summary)")
         rows = []
         start = ev.get("DTSTART")
         end = ev.get("DTEND")
         if start:
-            rows.append(("Start", _ics_dt(start[1], start[0])))
+            rows.append((_("Start"), _ics_dt(start[1], start[0])))
         if end:
-            rows.append(("End", _ics_dt(end[1], end[0])))
+            rows.append((_("End"), _ics_dt(end[1], end[0])))
         location = _ics_text(ev.get("LOCATION", ("", ""))[1])
         if location:
-            rows.append(("Location", location))
+            rows.append((_("Location"), location))
         desc = _ics_text(ev.get("DESCRIPTION", ("", ""))[1])
         if desc:
             if len(desc) > 240:
                 desc = desc[:240] + "…"
-            rows.append(("Description", desc))
+            rows.append((_("Description"), desc))
         inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         # Same air as on the vCards: shadow pad plus card margin.
         inner.set_margin_start(18)
@@ -2512,11 +2514,11 @@ class TextRendererMixin:
             rows, cover = loader(path)
         except Exception as e:
             dbg("E-book unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "Could not read the e-book: %s" % e)
+            pack_hint(self._content, _("Could not read the e-book: %s") % e)
             self._render_generic()
             return
         if not rows:
-            rows = [("E-book format", fmt)]
+            rows = [(_("E-book format"), fmt)]
         pb = None
         if cover:
             try:
@@ -2526,8 +2528,8 @@ class TextRendererMixin:
         if pb is None:
             pb = _ebook_placeholder()
         if pb is None:
-            pack_hint(self._content, "No cover available – open the file via the "
-                       "open button.")
+            pack_hint(self._content, _("No cover available – open the file "
+                       "via the open button."))
             pack_meta_grid(rows, self._content)
             return
         # 60/40 split like images (F38): _pack_image_capped sets
@@ -2599,11 +2601,11 @@ class TextRendererMixin:
             rows, icon = loader(path)
         except Exception as e:
             dbg("Package unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "Could not read the package: %s" % e)
+            pack_hint(self._content, _("Could not read the package: %s") % e)
             self._render_generic()
             return
         if not rows:
-            rows = [("Package format", fmt)]
+            rows = [(_("Package format"), fmt)]
         pb = None
         if icon:
             try:
@@ -2613,8 +2615,8 @@ class TextRendererMixin:
         if pb is None:
             pb = _package_placeholder(fmt)
         if pb is None:
-            pack_hint(self._content, "No icon available – open the file via the "
-                       "open button.")
+            pack_hint(self._content, _("No icon available – open the file "
+                       "via the open button."))
             pack_meta_grid(rows, self._content)
             return
         scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=True,
@@ -2674,20 +2676,20 @@ class TextRendererMixin:
             headers, rows, delim, truncated = _csv_data(path)
         except Exception as e:
             dbg("CSV unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "The table could not be "
-                       "read: %s" % e)
+            pack_hint(self._content, _("The table could not be "
+                       "read: %s") % e)
             self._render_generic()
             return
         if not rows:
-            pack_hint(self._content, "The file contains no table "
-                      "rows.")
+            pack_hint(self._content, _("The file contains no table "
+                      "rows."))
             return
         self._pack_table(headers, rows)
         dbg("text/_render_csv: delimiter %r detected, %d rows"
             % (delim, len(rows)))
         if truncated:
             pack_hint(self._content,
-                      "Preview trimmed (max. %d rows)."
+                      _("Preview trimmed (max. %d rows).")
                       % _CSV_ROW_CAP)
 
     # → REF TXT-DOC-85
@@ -2697,19 +2699,19 @@ class TextRendererMixin:
             rows, truncated = _sqlite_data(path)
         except Exception as e:
             dbg("SQLite unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "The database could not be "
-                       "read: %s" % e)
+            pack_hint(self._content, _("The database could not be "
+                       "read: %s") % e)
             self._render_generic()
             return
         if not rows:
-            pack_hint(self._content, "The database contains no "
-                      "tables.")
+            pack_hint(self._content, _("The database contains no "
+                      "tables."))
             return
-        self._pack_table(["Table", "Columns", "Rows"], rows)
+        self._pack_table([_("Table"), _("Columns"), _("Rows")], rows)
         dbg("text/_render_sqlite: %d tables" % len(rows))
         if truncated:
             pack_hint(self._content,
-                      "Preview trimmed (max. %d tables)."
+                      _("Preview trimmed (max. %d tables).")
                       % _SQLITE_TABLE_CAP)
 
     # → REF TXT-DOC-86
@@ -2718,22 +2720,22 @@ class TextRendererMixin:
             reg, fmt, faces = _font_faces(path)
         except Exception as e:
             dbg("Font unreadable (%s): %s" % (path, e))
-            pack_hint(self._content, "Could not read the font: %s" % e)
+            pack_hint(self._content, _("Could not read the font: %s") % e)
             self._render_generic()
             return
         if not HAVE_PANGOCAIRO:
-            pack_hint(self._content, "Font preview unavailable – install the "
-                       "python3-cairo and gir1.2-pango packages.")
+            pack_hint(self._content, _("Font preview unavailable – install "
+                       "the python3-cairo and gir1.2-pango packages."))
             self._render_generic()
             return
         # F11: single fonts show Family/Style in the info table,
         # collections keep the per-face header labels instead.
         if len(faces) == 1:
-            pack_meta_grid([("Format", fmt), ("Family", faces[0][0]),
-                            ("Style", faces[0][1])], self._content)
+            pack_meta_grid([(_("Format"), fmt), (_("Family"), faces[0][0]),
+                            (_("Style"), faces[0][1])], self._content)
         else:
-            pack_meta_grid([("Format", fmt),
-                            ("Fonts", "%d" % len(faces))], self._content)
+            pack_meta_grid([(_("Format"), fmt),
+                            (_("Fonts"), "%d" % len(faces))], self._content)
         if not _fc_add_font_file(reg):
             dbg("Font could not be added to Fontconfig: %s"
                 % reg)
@@ -2743,13 +2745,13 @@ class TextRendererMixin:
             fctx = PangoCairo.FontMap.new().create_context()
         except Exception as e:
             dbg("Pango context failed: %s" % e)
-            pack_hint(self._content, "Font preview unavailable.")
+            pack_hint(self._content, _("Font preview unavailable."))
             self._render_generic()
             return
         if not _font_known(fctx.get_font_map(), faces[0][0]):
             dbg("Pango does not know the family: %s" % faces[0][0])
-            pack_hint(self._content, "The font could not be registered – the "
-                       "waterfall shows the fallback font.")
+            pack_hint(self._content, _("The font could not be registered – "
+                       "the waterfall shows the fallback font."))
 
         # Theme text color. F12 fix (0.34.0): get_color() requires a
         # state in GTK3; StateFlags.NORMAL reads the theme color (→ REF TXT-FONT-2).
@@ -2790,7 +2792,7 @@ class TextRendererMixin:
                                   "img": img, "last_w": -1})
         if len(faces) > _TTC_FACE_CAP:
             pack_hint(self._content,
-                      "First %d of %d fonts – the rest is not shown."
+                      _("First %d of %d fonts – the rest is not shown.")
                       % (_TTC_FACE_CAP, len(faces)))
         self._apply_font_scale()
 
@@ -2822,7 +2824,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.64.0"
+PREVIEWER_VERSION = "0.65.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "

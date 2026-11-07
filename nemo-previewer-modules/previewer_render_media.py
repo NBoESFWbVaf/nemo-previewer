@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 0.64.0
+previewer_render_media.py – Version 0.65.1
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -32,6 +32,7 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
 from previewer_util import (
+    _,
     dbg,
     center_window,
     MAX_IMAGE_HEIGHT, format_seconds,
@@ -515,13 +516,13 @@ def _exif_rows(exif, xmp):
     rows = []
     for key in ("Date taken", "Coordinates"):
         if exif and key in exif:
-            rows.append((key, exif[key]))
+            rows.append((_(key), exif[key]))
     if xmp and xmp.get("Location"):
-        rows.append(("Location", xmp["Location"]))
+        rows.append((_("Location"), xmp["Location"]))
     for key in ("Camera", "Exposure time", "Focal length",
                 "Aperture", "ISO"):
         if exif and key in exif:
-            rows.append((key, exif[key]))
+            rows.append((_(key), exif[key]))
     return rows
 
 
@@ -574,7 +575,7 @@ def _tags_table_window(title):
                       Gtk.PolicyType.AUTOMATIC)
     scroll.add(view)
     win.add(scroll)
-    store.append(["Info:", "collecting – one moment …"])
+    store.append([_("Info:"), _("collecting – one moment …")])
     win.show_all()
     return win, store
 
@@ -599,7 +600,7 @@ def _exiftool_tag_rows(path):
     if len(rows) > 500:
         extra = len(rows) - 500
         rows = rows[:500]
-        rows.append(("…", "(%d more tags – capped)" % extra))
+        rows.append(("…", _("(%d more tags – capped)") % extra))
     return rows
 
 
@@ -692,8 +693,8 @@ class MediaRendererMixin:
     # → REF MED-DOC-20
     def _render_svg(self, path):
         if not HAVE_RSVG:
-            pack_hint(self._content, "SVG preview not available – "
-                       "install package gir1.2-rsvg.")
+            pack_hint(self._content, _("SVG preview not available – "
+                       "install package gir1.2-rsvg."))
             self._render_generic()
             return
         handle = None
@@ -716,7 +717,7 @@ class MediaRendererMixin:
                 except Exception as e:
                     err = err or e
         if pb is None:
-            pack_hint(self._content, "Could not read SVG: %s" % err)
+            pack_hint(self._content, _("Could not read SVG: %s") % err)
             self._render_generic()
             return
         scroll = self._scaled_image(pb, MAX_IMAGE_HEIGHT, upscale=False,
@@ -725,7 +726,7 @@ class MediaRendererMixin:
         try:
             if dims is None:
                 dims = (pb.get_width(), pb.get_height())
-            info = Gtk.Label(label="%d × %d px" % dims)
+            info = Gtk.Label(label=_("%d × %d px") % dims)
             info.get_style_context().add_class("dim-label")
             info.set_halign(Gtk.Align.START)
             # F38: dimensions into the info area of the column split.
@@ -736,8 +737,8 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-21
     def _render_image(self, path):
-        self._tags_win_follow("EXIF details")
-        pack_hint(self._content, "Loading image – one moment …")
+        self._tags_win_follow(_("EXIF details"))
+        pack_hint(self._content, _("Loading image – one moment …"))
         try:
             target_w = max(1024, self._preview_width() * 2)
         except Exception:
@@ -809,7 +810,7 @@ class MediaRendererMixin:
             # EXIF/XMP are in the buffer – show a photo table (→ REF MED-EXIF-3).
             rows = []
             if exif and "Dimensions" in exif:
-                rows.append(("Dimensions", exif["Dimensions"]))
+                rows.append((_("Dimensions"), exif["Dimensions"]))
             rows += _exif_rows(exif, xmp)
             if rows:
                 dbg("RAW/undecodable: photo table (%d rows)"
@@ -818,7 +819,8 @@ class MediaRendererMixin:
                 pack_meta_grid(rows, self._content)
                 self._content.show_all()
                 return False
-            pack_hint(self._content, "Could not load image: %s" % (err or "unknown"))
+            pack_hint(self._content, _("Could not load image: %s")
+                      % (err or "unknown"))
             self._render_generic()
             # This fallback also packs AFTER the render pass's
             # show_all() – invisible without its own show_all.
@@ -846,7 +848,7 @@ class MediaRendererMixin:
                 w, h = h, w
             # F36: the dimensions row moved into the photo info
             # table; further rows only if EXIF provides them.
-            rows = [("Height", "%d px" % h), ("Width", "%d px" % w)]
+            rows = [(_("Height"), "%d px" % h), (_("Width"), "%d px" % w)]
             # F42: EXIF/XMP rows together with the RAW fallback.
             rows += _exif_rows(exif, xmp)
             # F38: table into the 40% info area of the split.
@@ -855,7 +857,7 @@ class MediaRendererMixin:
             # with ALL EXIF details via exiftool; without exiftool an
             # install hint appears instead of the button.
             if EXIFTOOL:
-                btn = Gtk.Button(label="more")
+                btn = Gtk.Button(label=_("more"))
                 btn.set_halign(Gtk.Align.START)
                 btn.set_margin_top(10)
                 btn.set_margin_start(10)
@@ -863,8 +865,8 @@ class MediaRendererMixin:
                 self._image_info_box.pack_start(btn, False, False, 0)
             else:
                 hint = Gtk.Label(
-                    label="more via exiftool – "
-                    "install package libimage-exiftool-perl")
+                    label=_("more via exiftool – "
+                            "install package libimage-exiftool-perl"))
                 hint.get_style_context().add_class("dim-label")
                 hint.set_halign(Gtk.Align.START)
                 self._image_info_box.pack_start(hint, False, False, 0)
@@ -876,12 +878,12 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-23
     def _render_audio(self, path, uri):
-        self._tags_win_follow("Audio tags")
+        self._tags_win_follow(_("Audio tags"))
         self._media_probe_async(path, uri, self._finish_audio)
 
     # → REF MED-DOC-24
     def _media_probe_async(self, path, uri, finish, video=False):
-        pack_hint(self._content, "Reading media information – one moment …")
+        pack_hint(self._content, _("Reading media information – one moment …"))
         _media_gi_warmup()
         try:
             try:
@@ -1011,7 +1013,7 @@ class MediaRendererMixin:
         size = 640
         try:
             if not HAVE_PANGOCAIRO:
-                raise ValueError("PangoCairo not available")
+                raise ValueError(_("PangoCairo not available"))
             surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
             cr = cairo.Context(surf)
             # Rounded corners as a clip path; the area outside
@@ -1198,33 +1200,33 @@ class MediaRendererMixin:
         def _num_row(label, num, total):
             # F33: "x of y" – the total count first, else just the number.
             if num:
-                rows.append((label, ("%d of %d" % (num, total))
+                rows.append((label, (_("%d of %d") % (num, total))
                              if total else str(num)))
 
         rows = []
         if "title" in tags:
-            rows.append(("Title", tags["title"]))
+            rows.append((_("Title"), tags["title"]))
         if "artist" in tags:
-            rows.append(("Artist", tags["artist"]))
+            rows.append((_("Artist"), tags["artist"]))
         if duration >= 0:
-            rows.append(("Length", format_seconds(duration)))
-        _num_row("Track number", tags.get("track"),
+            rows.append((_("Length"), format_seconds(duration)))
+        _num_row(_("Track number"), tags.get("track"),
                  tags.get("track_total"))
         # F35: year as its own row BELOW the album – label
         # "First released" (based on the F33 year detection).
         if "album" in tags:
-            rows.append(("Album", tags["album"]))
+            rows.append((_("Album"), tags["album"]))
         if tags.get("year"):
-            rows.append(("First released", str(tags["year"])))
+            rows.append((_("First released"), str(tags["year"])))
         if "album_artist" in tags:
-            rows.append(("Album artist", tags["album_artist"]))
-        _num_row("Disc number", tags.get("disc"),
+            rows.append((_("Album artist"), tags["album_artist"]))
+        _num_row(_("Disc number"), tags.get("disc"),
                  tags.get("disc_total"))
         if "codec" in tags:
-            rows.append(("Codec", tags["codec"]))
+            rows.append((_("Codec"), tags["codec"]))
         # F35: genre – only show the row if the tag exists.
         if "genre" in tags:
-            rows.append(("Genre", tags["genre"]))
+            rows.append((_("Genre"), tags["genre"]))
 
         # 0.9.1: info table via the central helper (previously
         # inline). F35: colons are set centrally in _meta_grid.
@@ -1233,7 +1235,7 @@ class MediaRendererMixin:
         # F61 (user wish): "more" button below the info table –
         # same pattern as the photo EXIF window (F50).
         if EXIFTOOL:
-            btn = Gtk.Button(label="more")
+            btn = Gtk.Button(label=_("more"))
             btn.set_halign(Gtk.Align.START)
             btn.set_margin_top(10)
             btn.set_margin_start(10)
@@ -1241,8 +1243,8 @@ class MediaRendererMixin:
             self._content.pack_start(btn, False, False, 0)
         else:
             hint = Gtk.Label(
-                label="more via exiftool – "
-                "install package libimage-exiftool-perl")
+                label=_("more via exiftool – "
+                        "install package libimage-exiftool-perl"))
             hint.get_style_context().add_class("dim-label")
             hint.set_halign(Gtk.Align.START)
             self._content.pack_start(hint, False, False, 0)
@@ -1314,8 +1316,8 @@ class MediaRendererMixin:
             if getattr(self, "_btn_play", None):
                 self._btn_play.set_image(Gtk.Image.new_from_icon_name(
                     "media-playback-start-symbolic", Gtk.IconSize.BUTTON))
-            pack_hint(self._content, "Playback error – view the file via the open button "
-                       "in another application.")
+            pack_hint(self._content, _("Playback error – view the file via the "
+                       "open button in another application."))
         except Exception as e:
             dbg("media/_on_player_error: suppressed: %s" % e)
 
@@ -1335,7 +1337,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-36
     def _render_video(self, path, uri):
-        self._tags_win_follow("Video tags")
+        self._tags_win_follow(_("Video tags"))
         self._media_probe_async(path, uri, self._finish_video, video=True)
 
     # → REF MED-DOC-37
@@ -1351,11 +1353,11 @@ class MediaRendererMixin:
                                     keep_height=True)
         self._content.pack_start(scroll, False, False, 0)
 
-        rows = [("File", os.path.basename(path))]
+        rows = [(_("File"), os.path.basename(path))]
         if "title" in tags:
-            rows.append(("Title", tags["title"]))
+            rows.append((_("Title"), tags["title"]))
         if duration >= 0:
-            rows.append(("Length", format_seconds(duration)))
+            rows.append((_("Length"), format_seconds(duration)))
         # 0.9.1: info table via the central helper (previously
         # inline, now uniform like EML/e-book/audio).
         pack_meta_grid(rows, self._content)
@@ -1363,7 +1365,7 @@ class MediaRendererMixin:
         # F62 (user wish): "more" button below the info table –
         # same pattern as photo and audio (F50/F61).
         if EXIFTOOL:
-            btn = Gtk.Button(label="more")
+            btn = Gtk.Button(label=_("more"))
             btn.set_halign(Gtk.Align.START)
             btn.set_margin_top(10)
             btn.set_margin_start(10)
@@ -1371,8 +1373,8 @@ class MediaRendererMixin:
             self._content.pack_start(btn, False, False, 0)
         else:
             hint = Gtk.Label(
-                label="more via exiftool – "
-                "install package libimage-exiftool-perl")
+                label=_("more via exiftool – "
+                        "install package libimage-exiftool-perl"))
             hint.get_style_context().add_class("dim-label")
             hint.set_halign(Gtk.Align.START)
             self._content.pack_start(hint, False, False, 0)
@@ -1483,17 +1485,17 @@ class MediaRendererMixin:
     # → REF MED-DOC-41
     def _on_exif_more(self, *a):
         # F50 photo window – delegates to the shared tag table.
-        self._on_tags_more("EXIF details")
+        self._on_tags_more(_("EXIF details"))
 
     # → REF MED-DOC-42
     def _on_id3_more(self, *a):
         # F61 audio window – delegates to the shared tag table.
-        self._on_tags_more("Audio tags")
+        self._on_tags_more(_("Audio tags"))
 
     # → REF MED-DOC-43
     def _on_video_more(self, *a):
         # F62 video window – delegates to the shared tag table.
-        self._on_tags_more("Video tags")
+        self._on_tags_more(_("Video tags"))
 
     # → REF MED-DOC-46
     def _tags_win_follow(self, title):
@@ -1512,7 +1514,7 @@ class MediaRendererMixin:
             self._tags_win.set_title(title)
             self._tags_store.clear()
             self._tags_store.append(
-                ["Info:", "collecting – one moment …"])
+                [_("Info:"), _("collecting – one moment …")])
             # Manual clicks focus the window; the automatic
             # follow-up never steals the focus of the file window.
             if present:
@@ -1546,7 +1548,7 @@ class MediaRendererMixin:
                         self._tags_store.append([name, val])
                 else:
                     self._tags_store.append(
-                        ["Info:", "no tags found"])
+                        [_("Info:"), _("no tags found")])
                 return False
             GLib.idle_add(apply)
 
@@ -1560,7 +1562,7 @@ class MediaRendererMixin:
         self._tags_store = None
 
 
-PREVIEWER_VERSION = "0.64.0"
+PREVIEWER_VERSION = "0.65.1"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.64.0
+previewer_toolbar.py – Version 0.65.1
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -22,6 +22,7 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
 from previewer_util import (
+    _,
     dbg,
     set_debug_log,
     center_window,
@@ -45,7 +46,7 @@ class PreviewToolbarMixin:
         self._toolbar = Gtk.ActionBar()
         self._btn_settings = Gtk.Button.new_from_icon_name(
             "preferences-system-symbolic", Gtk.IconSize.BUTTON)
-        self._btn_settings.set_tooltip_text("Settings")
+        self._btn_settings.set_tooltip_text(_("Settings"))
         self._btn_settings.set_relief(Gtk.ReliefStyle.NONE)
         self._btn_settings.connect("clicked", self._on_settings_clicked)
         self._toolbar.pack_end(self._btn_settings)
@@ -82,7 +83,7 @@ class PreviewToolbarMixin:
             except Exception:
                 self._settings_win = None
         win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
-        win.set_title("Nemo-Previewer – Settings")
+        win.set_title(_("Nemo-Previewer – Settings"))
         try:
             win.set_transient_for(self._window)
         except Exception as e:
@@ -98,7 +99,7 @@ class PreviewToolbarMixin:
         box.pack_start(self._settings_frame_docs(), False, False, 0)
         box.pack_start(self._settings_frame_fonts(), False, False, 0)
 
-        btn_close = Gtk.Button.new_with_label("Close")
+        btn_close = Gtk.Button.new_with_label(_("Close"))
         btn_close.connect("clicked", lambda *a: win.destroy())
         box.pack_start(btn_close, False, False, 0)
 
@@ -107,15 +108,15 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-4
     def _settings_frame_general(self):
-        frame = Gtk.Frame(label="General")
+        frame = Gtk.Frame(label=_("General"))
         fbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         fbox.set_border_width(8)
         frame.add(fbox)
 
-        chk = Gtk.CheckButton(label="Show preview side panel at launch")
+        chk = Gtk.CheckButton(label=_("Show preview side panel at launch"))
         chk.set_tooltip_text(
-            "Uncheck to keep the preview side panel hidden after "
-            "Nemo starts (Ctrl+Alt+P shows it again at any time)")
+            _("Uncheck to keep the preview side panel hidden after "
+              "Nemo starts (Ctrl+Alt+P shows it again at any time)"))
         chk.set_active(self._conf_show_at_start)
         chk.connect("toggled", self._on_show_at_start_toggled)
         fbox.pack_start(chk, False, False, 0)
@@ -123,10 +124,10 @@ class PreviewToolbarMixin:
         # F48: folder contents list on/off – default on; off shows the
         # plain folder icon with file info (→ REF PAN-FOLDER-2).
         chk = Gtk.CheckButton(
-            label="Show folder contents in the preview")
+            label=_("Show folder contents in the preview"))
         chk.set_tooltip_text(
-            "Uncheck to show only the plain folder icon with file "
-            "info instead of the contents list")
+            _("Uncheck to show only the plain folder icon with file "
+              "info instead of the contents list"))
         chk.set_active(self._conf_folder_contents)
         chk.connect("toggled", self._on_folder_contents_toggled)
         fbox.pack_start(chk, False, False, 0)
@@ -134,12 +135,12 @@ class PreviewToolbarMixin:
         # F65: debug logging – mirrors dbg into the log file under
         # XDG_STATE_HOME (env var NEMO_PREVIEWER_DEBUG always wins).
         chk = Gtk.CheckButton(
-            label="Debug logging (write log file)")
+            label=_("Debug logging (write log file)"))
         chk.set_tooltip_text(
-            "Mirror the debug output into "
-            "~/.local/state/nemo-previewer/previewer.log – rotates "
-            "at 512 KB, keeps one backup; NEMO_PREVIEWER_DEBUG=1 "
-            "switches it on without any setting")
+            _("Mirror the debug output into "
+              "~/.local/state/nemo-previewer/previewer.log – rotates "
+              "at 512 KB, keeps one backup; NEMO_PREVIEWER_DEBUG=1 "
+              "switches it on without any setting"))
         chk.set_active(self._conf_debug_log)
         chk.connect("toggled", self._on_debug_log_toggled)
         fbox.pack_start(chk, False, False, 0)
@@ -148,16 +149,16 @@ class PreviewToolbarMixin:
         # the preview and in the "more" windows.
         mrow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                        spacing=8)
-        mrow.pack_start(Gtk.Label(label="Info table font size (px)"),
+        mrow.pack_start(Gtk.Label(label=_("Info table font size (px)")),
                         False, False, 0)
         adj = Gtk.Adjustment(value=self._conf_meta_font_size,
                              lower=0, upper=28, step_increment=1,
                              page_increment=2)
         self._settings_metasize_spin = Gtk.SpinButton.new(adj, 1.0, 0)
         self._settings_metasize_spin.set_tooltip_text(
-            "Font size of the info tables (file metadata in the "
-            "preview and the tag windows) – 0 keeps the theme's "
-            "normal size, applies immediately.")
+            _("Font size of the info tables (file metadata in the "
+              "preview and the tag windows) – 0 keeps the theme's "
+              "normal size, applies immediately."))
         self._settings_metasize_spin.connect(
             "value-changed", self._on_meta_size_changed)
         mrow.pack_start(self._settings_metasize_spin, False, False, 0)
@@ -165,7 +166,7 @@ class PreviewToolbarMixin:
 
         # → REF TB-F12-1
         wrow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        lbl_width = Gtk.Label(label="Default width at launch")
+        lbl_width = Gtk.Label(label=_("Default width at launch"))
         lbl_width.set_halign(Gtk.Align.START)
         wrow.pack_start(lbl_width, False, False, 0)
         adj = Gtk.Adjustment(value=self._panel_width,
@@ -174,9 +175,9 @@ class PreviewToolbarMixin:
         self._settings_spin = Gtk.SpinButton.new(adj, 1.0, 0)
         self._settings_spin.set_value(self._panel_width)
         self._settings_spin.set_tooltip_text(
-            "Width of the preview side panel Nemo opens with at "
-            "every start – dragging the divider applies only to "
-            "the current session")
+            _("Width of the preview side panel Nemo opens with at "
+              "every start – dragging the divider applies only to "
+              "the current session"))
         self._settings_spin.connect("value-changed",
                                     self._on_start_width_changed)
         wrow.pack_start(self._settings_spin, False, False, 0)
@@ -185,28 +186,28 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-5
     def _settings_frame_text(self):
-        frame = Gtk.Frame(label="Text files")
+        frame = Gtk.Frame(label=_("Text files"))
         fbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         fbox.set_border_width(8)
         frame.add(fbox)
 
         ln = Gtk.CheckButton(
-            label="Show line numbers (not copyable)")
+            label=_("Show line numbers (not copyable)"))
         ln.set_tooltip_text(
-            "Line numbers in the left margin of the text preview. "
-            "The numbers are drawn outside the text – only the "
-            "text itself is selected and copied.")
+            _("Line numbers in the left margin of the text preview. "
+              "The numbers are drawn outside the text – only the "
+              "text itself is selected and copied."))
         ln.set_active(self._conf_text_linenumbers)
         ln.connect("toggled", self._on_linenumbers_toggled)
         fbox.pack_start(ln, False, False, 0)
         # F44: syntax highlighting as a switch – default on, saved
         # immediately and applied live.
         syn = Gtk.CheckButton(
-            label="Syntax highlighting in source code files")
+            label=_("Syntax highlighting in source code files"))
         syn.set_tooltip_text(
-            "Colour source code (.py, .sh, .c …) in the text preview – "
-            "requires the optional package gir1.2-gtksource-4; "
-            "when unchecked, the plain text always shows.")
+            _("Colour source code (.py, .sh, .c …) in the text preview – "
+              "requires the optional package gir1.2-gtksource-4; "
+              "when unchecked, the plain text always shows."))
         syn.set_active(self._conf_text_syntax)
         syn.connect("toggled", self._on_syntax_toggled)
         fbox.pack_start(syn, False, False, 0)
@@ -214,15 +215,15 @@ class PreviewToolbarMixin:
         # height, applies immediately to the text preview.
         srow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                        spacing=8)
-        srow.pack_start(Gtk.Label(label="Line spacing (px)"),
+        srow.pack_start(Gtk.Label(label=_("Line spacing (px)")),
                         False, False, 0)
         adj = Gtk.Adjustment(value=self._conf_text_line_spacing,
                              lower=0, upper=12, step_increment=1,
                              page_increment=2)
         self._settings_spacing_spin = Gtk.SpinButton.new(adj, 1.0, 0)
         self._settings_spacing_spin.set_tooltip_text(
-            "Extra space between the lines of a text preview – 0 is "
-            "the normal line height, applies immediately.")
+            _("Extra space between the lines of a text preview – 0 is "
+              "the normal line height, applies immediately."))
         self._settings_spacing_spin.connect(
             "value-changed", self._on_line_spacing_changed)
         srow.pack_start(self._settings_spacing_spin, False, False, 0)
@@ -231,16 +232,16 @@ class PreviewToolbarMixin:
         # size; the CSS rule applies it live.
         trow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                        spacing=8)
-        trow.pack_start(Gtk.Label(label="Preview font size (px)"),
+        trow.pack_start(Gtk.Label(label=_("Preview font size (px)")),
                         False, False, 0)
         adj = Gtk.Adjustment(value=self._conf_text_font_size,
                              lower=0, upper=28, step_increment=1,
                              page_increment=2)
         self._settings_textsize_spin = Gtk.SpinButton.new(adj, 1.0, 0)
         self._settings_textsize_spin.set_tooltip_text(
-            "Font size of the text previews (plain text, Markdown, "
-            "source code) – 0 keeps the theme's normal size, "
-            "applies immediately.")
+            _("Font size of the text previews (plain text, Markdown, "
+              "source code) – 0 keeps the theme's normal size, "
+              "applies immediately."))
         self._settings_textsize_spin.connect(
             "value-changed", self._on_text_size_changed)
         trow.pack_start(self._settings_textsize_spin, False, False, 0)
@@ -249,23 +250,23 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-6
     def _settings_frame_docs(self):
-        frame = Gtk.Frame(label="Documents (PDF and Office)")
+        frame = Gtk.Frame(label=_("Documents (PDF and Office)"))
         fbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         fbox.set_border_width(8)
         frame.add(fbox)
 
         lim = Gtk.CheckButton(
-            label="Limit preview pages (performance)")
+            label=_("Limit preview pages (performance)"))
         lim.set_tooltip_text(
-            "Uncheck to display PDF and Office documents completely "
-            "without a limit – with very large documents this "
-            "costs more memory and time.")
+            _("Uncheck to display PDF and Office documents completely "
+              "without a limit – with very large documents this "
+              "costs more memory and time."))
         lim.set_active(self._conf_doc_page_limit)
         lim.connect("toggled", self._on_doc_limit_toggled)
         fbox.pack_start(lim, False, False, 0)
 
         prow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        lbl_pages = Gtk.Label(label="Maximum number of pages")
+        lbl_pages = Gtk.Label(label=_("Maximum number of pages"))
         lbl_pages.set_halign(Gtk.Align.START)
         prow.pack_start(lbl_pages, False, False, 0)
         padj = Gtk.Adjustment(value=self._conf_doc_max_pages,
@@ -275,9 +276,9 @@ class PreviewToolbarMixin:
         self._settings_pages_spin.set_value(self._conf_doc_max_pages)
         self._settings_pages_spin.set_sensitive(self._conf_doc_page_limit)
         self._settings_pages_spin.set_tooltip_text(
-            "Number of pages that PDF and Office previews show at "
-            "most – applies live, also to the document currently "
-            "displayed.")
+            _("Number of pages that PDF and Office previews show at "
+              "most – applies live, also to the document currently "
+              "displayed."))
         self._settings_pages_spin.connect(
             "value-changed", self._on_doc_max_pages_changed)
         prow.pack_start(self._settings_pages_spin, False, False, 0)
@@ -286,19 +287,19 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-7
     def _settings_frame_fonts(self):
-        frame = Gtk.Frame(label="Fonts")
+        frame = Gtk.Frame(label=_("Fonts"))
         frame.set_border_width(8)
         frow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
                        spacing=8)
         frame.add(frow)
-        flabel = Gtk.Label(label="Waterfall sample text")
+        flabel = Gtk.Label(label=_("Waterfall sample text"))
         flabel.set_halign(Gtk.Align.START)
         frow.pack_start(flabel, False, False, 0)
         self._settings_font_entry = Gtk.Entry()
         self._settings_font_entry.set_text(self._conf_font_sample_text)
         self._settings_font_entry.set_tooltip_text(
-            "Text for the font preview – applies live to the font "
-            "currently displayed. Empty text stays unsaved.")
+            _("Text for the font preview – applies live to the font "
+              "currently displayed. Empty text stays unsaved."))
         self._settings_font_entry.connect(
             "changed", self._on_font_sample_changed)
         frow.pack_start(self._settings_font_entry, True, True, 0)
@@ -422,7 +423,7 @@ class PreviewToolbarMixin:
         return True
 
 
-PREVIEWER_VERSION = "0.64.0"
+PREVIEWER_VERSION = "0.65.1"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

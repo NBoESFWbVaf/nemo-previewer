@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.64.0
+previewer_panel.py – Version 0.65.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -29,6 +29,7 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
 from previewer_util import (
+    _,
     dbg,
     set_debug_log,
     debug_log_active,
@@ -229,7 +230,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._conf_folder_contents = True
         # F12: waterfall sample text of the font preview – default
         # is the classic sentence, editable in the settings (→ REF TXT-FONT-2).
-        self._conf_font_sample_text = _FONT_SAMPLE_TEXT
+        self._conf_font_sample_text = _(_FONT_SAMPLE_TEXT)
         # F24: line numbers in the plain text preview – default ON
         # (user request), toggleable in the settings ("Text files").
         self._conf_text_linenumbers = True
@@ -287,7 +288,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             Gtk.IconSize.BUTTON)
         self._rec_dot.set_name("previewer-rec-dot")
         self._rec_dot.set_no_show_all(True)
-        self._rec_dot.set_tooltip_text("Debug logging is active")
+        self._rec_dot.set_tooltip_text(_("Debug logging is active"))
         try:
             css = Gtk.CssProvider()
             css.load_from_data(
@@ -307,7 +308,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                       "arrow-right"),
             Gtk.IconSize.BUTTON)
         btn_width.set_tooltip_text(
-            "Reset preview column to configured width")
+            _("Reset preview column to configured width"))
         btn_width.set_relief(Gtk.ReliefStyle.NONE)
         btn_width.connect("clicked", self._on_reset_width_clicked)
         header.pack_end(btn_width, False, False, 0)
@@ -319,7 +320,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                        "edit-symbolic", "text-editor-symbolic"),
                       "document-open-symbolic"),
             Gtk.IconSize.BUTTON)
-        btn_open.set_tooltip_text("Open with the default application")
+        btn_open.set_tooltip_text(_("Open with the default application"))
         btn_open.set_relief(Gtk.ReliefStyle.NONE)
         btn_open.connect("clicked", self._on_open_clicked)
         header.pack_end(btn_open, False, False, 0)
@@ -638,7 +639,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             logo.set_pixel_size(96)
         except Exception:
             logo.set_from_icon_name("folder", Gtk.IconSize.DIALOG)
-        lbl = Gtk.Label(label="Select a file\nto see a preview.")
+        lbl = Gtk.Label(label=_("Select a file\nto see a preview."))
         lbl.set_line_wrap(True)
         lbl.get_style_context().add_class("dim-label")
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -672,7 +673,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # K6: multi-selection shows no preview – the column
         # only shows the count (→ REF PAN-K6-1).
         if len(self._names) > 1:
-            extra = Gtk.Label(label="%d items selected" % len(self._names))
+            extra = Gtk.Label(label=_("%d items selected")
+                              % len(self._names))
             extra.get_style_context().add_class("dim-label")
             extra.set_halign(Gtk.Align.CENTER)
             extra.set_valign(Gtk.Align.CENTER)
@@ -684,7 +686,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if not path or not os.path.exists(path):
             # F35: the name sits in the Nemo list – only the warning
             # hint remains, in the content area.
-            pack_hint(self._content, "(file not found)")
+            pack_hint(self._content, _("(file not found)"))
             return
 
         mime, size, mtime = query_file_info(path)
@@ -717,15 +719,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             if HAVE_POPPLER:
                 self._render_pdf(path)
             else:
-                pack_hint(self._content, "PDF preview not available – "
-                           "install package gir1.2-poppler-0.18.")
+                pack_hint(self._content, _("PDF preview not available – "
+                           "install package gir1.2-poppler-0.18."))
                 self._render_generic()
         elif mime.startswith("audio/") or lower.endswith((".mp3", ".flac", ".ogg", ".opus", ".m4a", ".wav", ".wma")):
             if _ensure_gst():
                 self._render_audio(path, uri)
             else:
-                pack_hint(self._content, "Audio preview not available – "
-                           "install package gir1.2-gst-plugins-base-1.0.")
+                pack_hint(self._content, _("Audio preview not available – "
+                           "install package gir1.2-gst-plugins-base-1.0."))
                 self._render_generic()
         elif mime.startswith("video/"):
             if _ensure_gst():
@@ -1088,7 +1090,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         nm.set_tooltip_text(name)
         if name.startswith("."):
             nm.get_style_context().add_class("dim-label")
-        side = Gtk.Label(label="Folder" if is_dir else "")
+        side = Gtk.Label(label=_("Folder") if is_dir else "")
         if not is_dir:
             try:
                 side.set_text(human_size(
@@ -1138,21 +1140,21 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     (dirs if entry.is_dir() else files).append(
                         entry.name)
         except Exception:
-            pack_hint(self._content, "Folder")
+            pack_hint(self._content, _("Folder"))
             return
         total = len(dirs) + len(files)
         if total == 0:
-            pack_hint(self._content, "The folder is empty.")
+            pack_hint(self._content, _("The folder is empty."))
             return
         hidden = sum(1 for n in dirs + files if n.startswith("."))
-        unit = "file" if total == 1 else "files"
+        unit = _("file") if total == 1 else _("files")
         if hidden > 0:
             pack_hint(self._content,
-                      "The folder contains %d %s, %d of them hidden."
+                      _("The folder contains %d %s, %d of them hidden.")
                       % (total, unit, hidden))
         else:
             pack_hint(self._content,
-                      "The folder contains %d %s." % (total, unit))
+                      _("The folder contains %d %s.") % (total, unit))
         # 0.30.0: show hidden files only if Nemo shows them; an
         # unreadable setting falls back to showing everything.
         show_hidden = True
@@ -1182,7 +1184,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             last_row = self._folder_row(box, theme, sil, picked, fg,
                                         nr, path, name, is_dir)
         if rest > 0:
-            more = Gtk.Label(label="… and %d more" % rest)
+            more = Gtk.Label(label=_("… and %d more") % rest)
             more.get_style_context().add_class("dim-label")
             more.set_halign(Gtk.Align.START)
             # Same row padding as the rows above (0.31.11).
@@ -1433,7 +1435,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.64.0"
+PREVIEWER_VERSION = "0.65.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)

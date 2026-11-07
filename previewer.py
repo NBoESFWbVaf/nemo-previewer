@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer.py – Version 0.64.0
+previewer.py – Version 0.65.1
 
 Entry point and Nemo integration: injects the preview panel into
 every Nemo window, loads the seven modules from the
@@ -33,6 +33,7 @@ if os.path.isdir(_MODDIR) and _MODDIR not in sys.path:
     sys.path.insert(0, _MODDIR)
 
 from previewer_util import (
+    _,
     dbg, diag, VERBOSE_DIAG,
     walk, type_name,
     PANEL_WIDTH, POLL_MS,
@@ -54,7 +55,7 @@ from previewer_panel import PreviewPanel
 
 # PREVIEWER_VERSION must be identical in all eight modules; the entry
 # point checks loaded modules and warns about outdated copies.
-PREVIEWER_VERSION = "0.64.0"
+PREVIEWER_VERSION = "0.65.1"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -137,7 +138,7 @@ class PanelState:
 
     # → REF ENT-DOC-3
     def _pack_toggle(self, btn, icon, where, pack):
-        btn.set_tooltip_text("Preview side panel (Ctrl+Alt+P)")
+        btn.set_tooltip_text(_("Preview side panel (Ctrl+Alt+P)"))
         # F40: sync the initial state – notify::visible only fires on
         # change; set_active before connecting triggers nothing (→ REF ENT-TOGGLE-1).
         btn.set_active(self.panel.get_visible())
@@ -621,7 +622,7 @@ def _get_widget(self, uri, window):
 
 def _get_name_and_desc(self):
     return ["previewer:::"
-            "Docked preview of the selected file:::"]
+            _("Docked preview of the selected file") + ":::"]
 
 
 _bases = [GObject.GObject, Nemo.LocationWidgetProvider]
