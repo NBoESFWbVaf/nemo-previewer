@@ -4,6 +4,13 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.64.0\] – 2026-11-07
+
+### Changed
+
+- EML attachments: each row gets a checkbox before the name and the button extracts only the checked attachments ("Extract selected attachments"; without a selection it shows a hint instead of the folder chooser).
+- EML attachments: the list keeps at most five rows visible; longer lists scroll inside the attachment box.
+
 ## \[0.63.0\] – 2026-11-07
 
 ### Changed
