@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.65.10
+previewer_render_docs.py – Version 0.65.11
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -331,9 +331,8 @@ class DocsRendererMixin:
                         and self._pdf_scaled[i] != target):
                     self._pdf_scale_one(i, target)
                     hooked += 1
-            if hooked:
-                dbg("docs/_on_pdf_scrolled: %d page(s) -> %d px"
-                    % (hooked, target))
+            dbg("docs/_on_pdf_scrolled: pos %d, page %d, scaled %d "
+                "page(s) -> %d px" % (value, page, hooked, target))
         except Exception as e:
             dbg("docs/_on_pdf_scrolled: suppressed: %s" % e)
         return False
@@ -411,12 +410,28 @@ class DocsRendererMixin:
         return lo, hi
 
     def _pdf_relayout(self):
-        # K16: queue_resize from inside a size-allocate is deferred –
-        # the shrunk pages never repaint until an expose (scroll).
-        box = self._pdf_box
-        if box is not None:
-            box.queue_resize()
-            box.queue_draw()
+        # K17: shrunk pages repaint only on user events – force the
+        # full invalidation + update a scroll performs, from code.
+        try:
+            box = self._pdf_box
+            scroll = self._pdf_scroll
+            if box is not None:
+                box.queue_resize()
+            if scroll is not None:
+                scroll.queue_draw()
+                win = scroll.get_window()
+                if win is not None:
+                    win.invalidate_rect(None, True)
+                    win.process_updates(True)
+                adj = scroll.get_hadjustment()
+                if box is not None and self._pdf_imgs:
+                    dbg("docs/_pdf_relayout: box %d px, h.upper "
+                        "%d px, page 1 alloc %d px"
+                        % (box.get_allocated_width(),
+                           adj.get_upper(),
+                           self._pdf_imgs[0].get_allocated_width()))
+        except Exception as e:
+            dbg("docs/_pdf_relayout: suppressed: %s" % e)
         return False
 
     def _pdf_scale_step(self, target, gen):
@@ -662,7 +677,7 @@ class DocsRendererMixin:
             dbg("docs/_office_job_done: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.65.10"
+PREVIEWER_VERSION = "0.65.11"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)
