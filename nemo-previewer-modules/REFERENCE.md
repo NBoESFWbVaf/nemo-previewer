@@ -1515,6 +1515,42 @@ F69 (0.62.0): "Preview font size (px)" (Text files frame) scales the text previe
 
 ---
 
+### TB-DOC-19 – Docstring: \_xbit\_candidate (F74)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin.\_xbit\_candidate` (method)
+- **Reason:** F74 – the candidate check decides which files get the x-bit button (user decision: shebang scripts and ELF binaries only).
+
+```text
+F74 (0.66.0): the x-bit button only makes sense for files the kernel can execute, so the candidate check reads the FIRST FOUR BYTES of the file: ELF magic (\x7fELF) marks a binary, a leading shebang (#!) marks a script (shell, Python, Perl … – regardless of the file extension). Everything else – configs, data files, images – never sees the button. The read is capped at 4 bytes, unreadable files and non-files return False (button hidden).
+```
+
+---
+
+### TB-DOC-20 – Docstring: \_on\_xbit\_clicked (F74)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin.\_on\_xbit\_clicked` (method)
+- **Reason:** F74 – full toggle of the owner execute bit; chmod errors stay dbg lines.
+
+```text
+F74 (0.66.0): full toggle of the OWNER execute bit only (u+x / u-x, user decision): the handler works on stat.S_IMODE, sets S_IXUSR or clears it and leaves group/other permission bits untouched. A failing chmod (read-only file system, foreign owner) stays a dbg line. The dbg success line names the file and the direction ("owner x-bit set"/"owner x-bit removed"), so a deploy test can prove BOTH directions in the log; _update_xbit_button refreshes state, tooltip and style right after the toggle.
+```
+
+---
+
+### TB-DOC-21 – Docstring: \_update\_xbit\_button (F74)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin.\_update\_xbit\_button` (method) and the button block in `_build_toolbar`
+- **Reason:** F74 – single refresh point for visibility, tooltip and the subtle red "already executable" state.
+
+```text
+F74 (0.66.0): single refresh point, called at the end of _render and in the empty-selection branch of set_selection (multi-selection hides the button too – a toggle would target only the first file). Visibility: single selection plus _xbit_candidate; state: S_IXUSR. While the bit is set the button carries the CSS class pvw-xbit-set (button.pvw-xbit-set { background: rgba(224,27,36,0.25); } – the F65 red #e01b24 at a quarter alpha, subtle on purpose) and the tooltip "Executable – click to remove the executable bit (owner)"; otherwise plain with "Make the file executable (owner)". The button sits pack_start at the LEFT end of the action bar (user wish), built in _build_toolbar with pick_icon("system-run-symbolic", "system-run"), relief NONE, no_show_all so show_all passes never reveal it.
+```
+
+---
+
 ## Media (MED)
 
 ### MED-B7-1 – Own show\_all in the image idle callback (B7)

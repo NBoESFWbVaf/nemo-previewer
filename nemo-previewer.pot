@@ -6,7 +6,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 0.65.10\n"
+"Project-Id-Version: nemo-previewer 0.66.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -202,6 +202,9 @@ msgstr ""
 msgid "EXIF details"
 msgstr ""
 
+msgid "Executable – click to remove the executable bit (owner)"
+msgstr ""
+
 msgid "Exposure time"
 msgstr ""
 
@@ -337,6 +340,9 @@ msgid "Location"
 msgstr ""
 
 msgid "Maintainer"
+msgstr ""
+
+msgid "Make the file executable (owner)"
 msgstr ""
 
 msgid "Maximum number of pages"

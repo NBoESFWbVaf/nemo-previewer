@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 0.65.10\n"
+"Project-Id-Version: nemo-previewer 0.66.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: 2026-11-07 12:00+0000\n"
@@ -205,6 +205,9 @@ msgstr "Ende"
 msgid "EXIF details"
 msgstr "EXIF-Details"
 
+msgid "Executable – click to remove the executable bit (owner)"
+msgstr "Ausführbar – Klick entfernt das Ausführbar-Bit (Besitzer)"
+
 msgid "Exposure time"
 msgstr "Belichtungszeit"
 
@@ -355,6 +358,9 @@ msgstr "Ort"
 
 msgid "Maintainer"
 msgstr "Maintainer"
+
+msgid "Make the file executable (owner)"
+msgstr "Datei ausführbar machen (Besitzer)"
 
 msgid "Maximum number of pages"
 msgstr "Maximale Seitenzahl"

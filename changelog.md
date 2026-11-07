@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.66.0\] – 2026-11-07
+
+### Added
+
+- Toolbar button that toggles the owner execute bit (F74, user wish): it only appears where it makes sense – for shebang scripts (any extension) and ELF binaries (magic check of the first four bytes); for everything else the kernel cannot execute the button stays hidden. Without the x-bit one click makes the file executable (u+x), while the bit is set the button shows a subtle red and a click removes it again (u-x). Group and other permission bits stay untouched, multi-selections hide the button, a failing chmod (read-only, foreign owner) stays a dbg line. Tooltips are translated via the po files.
+
 ## \[0.65.12\] – 2026-11-07
 
 ### Fixed

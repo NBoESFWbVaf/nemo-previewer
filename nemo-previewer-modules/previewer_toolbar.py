@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.65.12
+previewer_toolbar.py – Version 0.66.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -10,6 +10,7 @@ Ctrl+Alt+P shortcut and all preference widgets.
 
 import sys
 import os
+import stat
 
 import gi
 
@@ -26,6 +27,7 @@ from previewer_util import (
     dbg,
     set_debug_log,
     center_window,
+    pick_icon,
     PANEL_MIN_WIDTH,
     TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
 )
@@ -44,6 +46,24 @@ class PreviewToolbarMixin:
             orientation=Gtk.Orientation.HORIZONTAL)
         self.pack_start(self._toolbar_sep, False, False, 0)
         self._toolbar = Gtk.ActionBar()
+        # F74 (x-bit): owner execute-bit toggle at the LEFT end;
+        # visibility and red state live in _update_xbit_button.
+        self._btn_xbit = Gtk.Button.new_from_icon_name(
+            pick_icon(("system-run-symbolic", "system-run"),
+                      "system-run"),
+            Gtk.IconSize.BUTTON)
+        self._btn_xbit.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_xbit.set_no_show_all(True)
+        self._btn_xbit.connect("clicked", self._on_xbit_clicked)
+        self._toolbar.pack_start(self._btn_xbit, False, False, 0)
+        try:
+            css = Gtk.CssProvider()
+            css.load_from_data(
+                b"button.pvw-xbit-set { background: rgba(224,27,36,0.25); }")
+            self._btn_xbit.get_style_context().add_provider(
+                css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        except Exception as e:
+            dbg("toolbar/_build_toolbar xbit css: suppressed: %s" % e)
         self._btn_settings = Gtk.Button.new_from_icon_name(
             "preferences-system-symbolic", Gtk.IconSize.BUTTON)
         self._btn_settings.set_tooltip_text(_("Settings"))
@@ -436,8 +456,70 @@ class PreviewToolbarMixin:
             self.show_all()
         return True
 
+    # → REF TB-DOC-19
+    def _xbit_candidate(self, path):
+        # F74: only files the kernel can execute qualify: shebang
+        # scripts and ELF binaries (first 4 bytes, capped read).
+        try:
+            if not path or not os.path.isfile(path):
+                return False
+            with open(path, "rb") as fh:
+                head = fh.read(4)
+            return head.startswith(b"\x7fELF") or head.startswith(b"#!")
+        except Exception as e:
+            dbg("toolbar/_xbit_candidate: suppressed: %s" % e)
+            return False
 
-PREVIEWER_VERSION = "0.65.12"
+    # → REF TB-DOC-20
+    def _on_xbit_clicked(self, button):
+        # F74: full toggle of the OWNER execute bit only (u+x/u-x);
+        # a failing chmod (read-only, foreign owner) stays a dbg.
+        path = self._path
+        if not path:
+            return
+        try:
+            st = os.stat(path)
+            mode = stat.S_IMODE(st.st_mode)
+            if st.st_mode & stat.S_IXUSR:
+                os.chmod(path, mode & ~stat.S_IXUSR)
+                dbg("toolbar/xbit: %s: owner x-bit removed"
+                    % os.path.basename(path))
+            else:
+                os.chmod(path, mode | stat.S_IXUSR)
+                dbg("toolbar/xbit: %s: owner x-bit set"
+                    % os.path.basename(path))
+            self._update_xbit_button()
+        except Exception as e:
+            dbg("toolbar/_on_xbit_clicked: suppressed: %s" % e)
+
+    # → REF TB-DOC-21
+    def _update_xbit_button(self):
+        # F74: single refresh point (render/toggle): visibility,
+        # tooltip and the subtle red pvw-xbit-set state (F65 red).
+        path = self._path
+        on = False
+        try:
+            if (path and len(self._names) == 1
+                    and self._xbit_candidate(path)):
+                on = bool(os.stat(path).st_mode & stat.S_IXUSR)
+                self._btn_xbit.show()
+            else:
+                self._btn_xbit.hide()
+        except Exception as e:
+            self._btn_xbit.hide()
+            dbg("toolbar/_update_xbit_button: suppressed: %s" % e)
+        ctx = self._btn_xbit.get_style_context()
+        if on:
+            ctx.add_class("pvw-xbit-set")
+            self._btn_xbit.set_tooltip_text(_(
+                "Executable – click to remove the executable bit (owner)"))
+        else:
+            ctx.remove_class("pvw-xbit-set")
+            self._btn_xbit.set_tooltip_text(_(
+                "Make the file executable (owner)"))
+
+
+PREVIEWER_VERSION = "0.66.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

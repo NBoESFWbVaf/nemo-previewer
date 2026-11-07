@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.65.12
+previewer_panel.py – Version 0.66.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -557,6 +557,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._names = []
             self._cancel_pending_render()
             self._show_placeholder()
+            # F74: no selection – the x-bit button hides as well.
+            self._update_xbit_button()
             return
 
         self._names = list(names)
@@ -671,6 +673,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             except Exception as e:
                 dbg("panel/_render: suppressed: %s" % e)
         self._content.show_all()
+        # F74: keep the x-bit button in sync with the previewed file.
+        self._update_xbit_button()
 
     def _render_inner(self):
         path = self._path
@@ -1467,7 +1471,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.65.12"
+PREVIEWER_VERSION = "0.66.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
