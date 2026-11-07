@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.65.6
+previewer_render_docs.py – Version 0.65.8
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -233,6 +233,7 @@ class DocsRendererMixin:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self._pdf_src = []
         self._pdf_imgs = []
+        self._pdf_scaled = []
         self._pdf_box = box
         # Page 1 immediately – only then is the panel usable.
         try:
@@ -243,6 +244,7 @@ class DocsRendererMixin:
             box.pack_start(img, False, False, 0)
             self._pdf_src.append(pb)
             self._pdf_imgs.append(img)
+            self._pdf_scaled.append(0)
         except Exception as exc:
             dbg("PDF page 1 not renderable: %s" % exc)
         if not self._pdf_src:
@@ -260,6 +262,7 @@ class DocsRendererMixin:
         scroll.get_vadjustment().connect("value-changed",
                                          self._on_pdf_scrolled)
         self._content.pack_start(scroll, True, True, 0)
+        self._pdf_scroll = scroll
         self._apply_pdf_scale()
         # R2: feed the remaining pages one per idle cycle. The
         # generation is passed along so each step knows its render pass.
@@ -288,9 +291,10 @@ class DocsRendererMixin:
             img.show()
             self._pdf_src.append(pb)
             self._pdf_imgs.append(img)
+            self._pdf_scaled.append(0)
             # Scale only the new page – _apply_pdf_scale returns early
             # via its width threshold if the panel width did not change.
-            self._pdf_scale_one(pb, img, self._preview_width())
+            self._pdf_scale_one(i, self._preview_width())
         except Exception as exc:
             dbg("PDF page %d not renderable: %s" % (i + 1, exc))
         i += 1
@@ -313,16 +317,32 @@ class DocsRendererMixin:
                 break
         self._pdf_page_label.set_text(
             _("Page %d of %d") % (page, max(1, self._pdf_count)))
+        # K14: pages scrolled into view scale right away when the
+        # background pass has not reached them yet.
+        try:
+            target = self._pdf_last_w or self._preview_width()
+            lo, hi = self._pdf_visible_range()
+            for i in range(lo, hi + 1):
+                if (i < len(self._pdf_scaled)
+                        and self._pdf_scaled[i] != target):
+                    self._pdf_scale_one(i, target)
+        except Exception as e:
+            dbg("docs/_on_pdf_scrolled: suppressed: %s" % e)
         return False
 
     # → REF DOC-DOC-10
-    def _pdf_scale_one(self, src, img, target):
+    def _pdf_scale_one(self, idx, target):
+        # K14: index-based – the passes record each page's width,
+        # so scroll-triggered scaling skips finished pages.
+        src = self._pdf_src[idx]
+        img = self._pdf_imgs[idx]
         sw, sh = src.get_width(), src.get_height()
         f = min(float(target) / sw, 1.0)   # never upscale
         w = max(1, int(sw * f))
         h = max(1, int(sh * f))
         img.set_from_pixbuf(
             src.scale_simple(w, h, GdkPixbuf.InterpType.BILINEAR))
+        self._pdf_scaled[idx] = target
 
     # → REF DOC-DOC-11
     def _apply_pdf_scale(self):
@@ -339,28 +359,59 @@ class DocsRendererMixin:
         # K12: page 1 scales synchronously, the rest per idle
         # cycle – inline scaling of all pages starved the drag.
         try:
-            self._pdf_scale_one(srcs[0], imgs[0], target)
+            self._pdf_scale_one(0, target)
         except Exception as e:
             dbg("docs/_apply_pdf_scale: suppressed: %s" % e)
         if len(srcs) > 1:
-            GLib.idle_add(self._pdf_scale_step, 1, target, gen)
+            GLib.idle_add(self._pdf_scale_step, target, gen)
 
     # → REF DOC-DOC-20
-    def _pdf_scale_step(self, i, target, gen):
+    def _pdf_visible_range(self):
+        # K14: page indices inside the scroll viewport.
+        lo, hi = 0, 0
+        try:
+            adj = self._pdf_scroll.get_vadjustment()
+            top = adj.get_value()
+            bottom = top + adj.get_page_size()
+            first = None
+            last = 0
+            for i, img in enumerate(self._pdf_imgs):
+                a = img.get_allocation()
+                if a.y + a.height > top and a.y < bottom:
+                    if first is None:
+                        first = i
+                    last = i
+            if first is not None:
+                lo, hi = first, last
+        except Exception as e:
+            dbg("docs/_pdf_visible_range: suppressed: %s" % e)
+        return lo, hi
+
+    def _pdf_scale_step(self, target, gen):
         # K12: stale pass – a newer resize or a clear ran.
         if gen != self._pdf_scale_gen or self._pdf_box is None:
             return False
         try:
-            end = min(len(self._pdf_src), i + 4)
-            while i < end:
-                self._pdf_scale_one(self._pdf_src[i], self._pdf_imgs[i],
-                                    target)
-                i += 1
+            # K14: visible pages jump the queue – the column fits
+            # right after a width jump (reset button); the rest
+            # follows in idle batches as before.
+            lo, hi = self._pdf_visible_range()
+            batch = 0
+            for i in range(len(self._pdf_src)):
+                if self._pdf_scaled[i] == target:
+                    continue
+                visible = lo <= i <= hi
+                if not visible and batch >= 4:
+                    break
+                self._pdf_scale_one(i, target)
+                if not visible:
+                    batch += 1
         except Exception as e:
             dbg("docs/_pdf_scale_step: suppressed: %s" % e)
-        if i >= len(self._pdf_src):
-            return False
-        GLib.idle_add(self._pdf_scale_step, i, target, gen)
+        for w in self._pdf_scaled:
+            if w != target:
+                GLib.idle_add(self._pdf_scale_step, target, gen)
+                break
         return False
 
     # → REF DOC-DOC-12
@@ -498,7 +549,9 @@ class DocsRendererMixin:
                 [SOFFICE, "--headless", "--convert-to", "pdf",
                  "--outdir", tmpdir, path],
                 flags=GLib.SpawnFlags.SEARCH_PATH
-                | GLib.SpawnFlags.DO_NOT_REAP_CHILD)[0]
+                | GLib.SpawnFlags.DO_NOT_REAP_CHILD
+                | GLib.SpawnFlags.STDOUT_TO_DEV_NULL
+                | GLib.SpawnFlags.STDERR_TO_DEV_NULL)[0]
         except Exception as exc:
             dbg("LibreOffice conversion not started (%s): %s"
                 % (path, exc))
@@ -552,6 +605,8 @@ class DocsRendererMixin:
                 if self._path == path:
                     dbg("LibreOffice conversion without result "
                         "(status %s) – thumbnail stays" % status)
+                    dbg("Hint: LibreOffice component packages "
+                        "installed? (writer/calc/impress)")
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         # If the current selection is waiting for its conversion,
@@ -567,7 +622,7 @@ class DocsRendererMixin:
             dbg("docs/_office_job_done: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.65.6"
+PREVIEWER_VERSION = "0.65.8"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.65.6
+previewer_panel.py – Version 0.65.8
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -211,7 +211,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Multi-page PDF preview: source pixbufs per page + display images
         self._pdf_src = None
         self._pdf_imgs = None
+        self._pdf_scaled = None
         self._pdf_box = None
+        self._pdf_scroll = None
         self._pdf_last_w = 0
         # → REF PAN-R2-1
         self._pdf_gen = 0
@@ -612,7 +614,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # so running idle feed steps (R2) abort instead of painting.
         self._pdf_src = None
         self._pdf_imgs = None
+        self._pdf_scaled = None
         self._pdf_box = None
+        self._pdf_scroll = None
         self._pdf_last_w = 0
         self._pdf_page_label = None
         self._pdf_count = 0
@@ -1463,7 +1467,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.65.6"
+PREVIEWER_VERSION = "0.65.8"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)

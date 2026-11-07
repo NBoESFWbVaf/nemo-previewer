@@ -4,6 +4,19 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.65.8\] – 2026-11-07
+
+### Fixed
+
+- Deploy feedback: after the reset-width button snapped the column back, PDF/office pages stayed in an overflow state (horizontal scrollbar) and only settled page by page – the more pages, the longer it took; dragging was fine, because the 8-px threshold usually skips the rescale entirely. The reset jump now scales visible-first: the pages inside the viewport scale immediately (the column fits right away), the remaining pages follow in small idle batches in the background, and scrolling scales newly visible pages on the spot.
+
+## \[0.65.7\] – 2026-11-07
+
+### Fixed
+
+- Deploy feedback (Mint 22.3 VM): the LibreOffice helper printed its messages straight into Nemo's terminal ("Warning: failed to launch javaldx – java may not function correctly", "Error: source file could not be loaded") – the spawned soffice inherited stdout and stderr from the Nemo process. Both streams now go to /dev/null, and a dbg hint in the conversion failure path names the likely cause.
+- The failed conversions themselves traced back to the installation guide: it recommended only libreoffice-core, which ships no document filters at all – every headless conversion then fails with "Error: source file could not be loaded". INSTALL.md now installs the component packages libreoffice-writer/calc/impress/draw/math (they pull libreoffice-core in automatically).
+
 ## \[0.65.6\] – 2026-11-07
 
 ### Fixed

@@ -2264,7 +2264,7 @@ Scale one PDF page to the target width and assign it.
 - **Reason:** Re-scales the PDF pages on width changes – K12: incrementally, only page 1 synchronously.
 
 ```text
-Fit the PDF pages to the current panel width. K12 (0.60.1): only page 1 scales synchronously – the top page stays exact and the pass stays cheap even mid-drag; the remaining pages follow via _pdf_scale_step, a few per idle cycle. Until 0.60.0 this loop scaled EVERY page inline in the size-allocate handler; while dragging the column the passes starved the main loop (the preview lagged behind) and the still-too-wide pages wobbled in the viewport when shrinking – enlarging looked smooth only because the lagging images stayed narrower than the column.
+Fit the PDF pages to the current panel width. K12 (0.60.1): only page 1 scales synchronously – the top page stays exact and the pass stays cheap even mid-drag; the remaining pages follow via _pdf_scale_step, a few per idle cycle. Until 0.60.0 this loop scaled EVERY page inline in the size-allocate handler; while dragging the column the passes starved the main loop (the preview lagged behind) and the still-too-wide pages wobbled in the viewport when shrinking – enlarging looked smooth only because the lagging images stayed narrower than the column. K14 (0.65.8, deploy feedback): _pdf_scale_one is now index-based and records each page's scaled width in the new list _pdf_scaled (0 = not yet scaled / mismatching width; panel init/clear reset it, _render_pdf and the R2 feed append entries); _apply_pdf_scale arms _pdf_scale_step without a start index. Dragging usually skips the pass entirely via the 8-px threshold, but a width JUMP (reset button) re-scales everything – the visible-first handling in _pdf_scale_step makes the column fit right after the jump.
 ```
 
 ### DOC-DOC-12 – Docstring: \_render\_office
@@ -2334,7 +2334,7 @@ Remember a failed conversion (B4: capped at 256 paths, the set then resets – r
 - **Reason:** One background LibreOffice conversion at a time, safe fallback.
 
 ```text
-Start the LibreOffice conversion in the background.
+Start the LibreOffice conversion in the background. 0.65.7 (deploy feedback, Mint 22.3 VM): the child's stdout/stderr go to DEVNULL (SpawnFlags STDOUT_TO_DEV_NULL | STDERR_TO_DEV_NULL) – the benign javaldx warning and load errors no longer leak into Nemo's terminal; a dbg hint in the failure path of _office_job_done points at the LibreOffice component packages (libreoffice-core alone ships no document filters, headless conversion then fails with "Error: source file could not be loaded").
 ```
 
 ### DOC-DOC-19 – Docstring: \_office\_job\_done
@@ -2354,7 +2354,7 @@ Conversion finished: cache the result, refresh the preview.
 - **Reason:** K12 – incremental resize pass: 4 pages per idle cycle.
 
 ```text
-K12 (0.60.1): the idler behind _apply_pdf_scale – scales the pages in _pdf_src/_pdf_imgs in packets of 4 per idle cycle to the passed target width, so a column drag never starves the main loop. Stale passes end silently: a newer resize bumps _pdf_scale_gen, a torn-down preview nulls _pdf_box (both checked first). Pages arriving from the R2 feed chain meanwhile are already scaled by _pdf_idle_step and get re-scaled at most once – harmless.
+K12 (0.60.1): the idler behind _apply_pdf_scale – scales the pages in _pdf_src/_pdf_imgs in packets of 4 per idle cycle to the passed target width, so a column drag never starves the main loop. Stale passes end silently: a newer resize bumps _pdf_scale_gen, a torn-down preview nulls _pdf_box (both checked first). Pages arriving from the R2 feed chain meanwhile are already scaled by _pdf_idle_step and get re-scaled at most once – harmless. K14 (0.65.8, deploy feedback): visible-first – each cycle first scales ALL pages inside the viewport (_pdf_visible_range reads the vertical adjustment of _pdf_scroll and checks the page allocations against top/bottom, so the column fits immediately after a width jump like the reset button), then at most 4 off-screen pages; re-arm only while _pdf_scaled still holds a mismatching width. The scroll hook _on_pdf_scrolled scales newly visible pages on the spot, so the background pass is never felt.
 ```
 
 ---

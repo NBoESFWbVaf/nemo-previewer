@@ -55,14 +55,18 @@ sudo apt install gir1.2-gtksource-4
 sudo apt install libimage-exiftool-perl
 
 # Sharp office preview (ODT/ODS/ODP, DOCX/XLSX/PPTX, DOC/XLS/PPT):
-# converts documents to PDF in the background, once per document
-sudo apt install libreoffice-core
+# converts documents to PDF in the background, once per document.
+# The COMPONENT packages are required – libreoffice-core alone
+# ships no document filters, and every conversion fails with
+# "Error: source file could not be loaded"; the components pull
+# libreoffice-core in automatically.
+sudo apt install libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw libreoffice-math
 ```
 
 **All packages at once**
 
 ```bash
-sudo apt install nemo-python python3-gi git gir1.2-poppler-0.18 python3-cairo gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-good gir1.2-rsvg-2.0 gir1.2-gtksource-4 libimage-exiftool-perl libreoffice-core
+sudo apt install nemo-python python3-gi git gir1.2-poppler-0.18 python3-cairo gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-good gir1.2-rsvg-2.0 gir1.2-gtksource-4 libimage-exiftool-perl libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw libreoffice-math
 ```
 
 
@@ -72,7 +76,7 @@ The extension itself needs **Python 3.8 or newer** – every distribution that s
 
 - There is **no `python-gi` package on Debian** — the Python 3 GObject bindings are called `python3-gi`. Installing `nemo-python` pulls in `python3-gi` and the Nemo GIR bindings automatically
 - Cinnamon on Debian does **not** preinstall `nemo-python`. Without it, extensions in `~/.local/share/nemo-python/extensions/` are silently ignored — the panel never appears
-- The SVG package is named `gir1.2-rsvg-2.0` on both Debian and Mint (Debian has no `gir1.2-rsvg` alias). PDF (`gir1.2-poppler-0.18`), `python3-cairo`, GStreamer, `gir1.2-gtksource-4`, `libimage-exiftool-perl` and `libreoffice-core` carry the same names on both distributions
+- The SVG package is named `gir1.2-rsvg-2.0` on both Debian and Mint (Debian has no `gir1.2-rsvg` alias). PDF (`gir1.2-poppler-0.18`), `python3-cairo`, GStreamer, `gir1.2-gtksource-4`, `libimage-exiftool-perl` and the `libreoffice-writer/calc/impress/draw/math` component packages carry the same names on both distributions
 
 ## Install
 
@@ -97,14 +101,14 @@ nemo -q && nemo
 ```
 2. Check the log. Each module reports its version on load:
 ```text
-[previewer] previewer_util 0.65.6 loaded
-[previewer] previewer_select 0.65.6 loaded
-[previewer] previewer_render_media 0.65.6 loaded (...)
-[previewer] previewer_render_docs 0.65.6 loaded (...)
-[previewer] previewer_render_text 0.65.6 loaded (...)
-[previewer] previewer_toolbar 0.65.6 loaded (...)
-[previewer] previewer_panel 0.65.6 loaded (...)
-[previewer] previewer (entry) v0.65.6 ready
+[previewer] previewer_util 0.65.8 loaded
+[previewer] previewer_select 0.65.8 loaded
+[previewer] previewer_render_media 0.65.8 loaded (...)
+[previewer] previewer_render_docs 0.65.8 loaded (...)
+[previewer] previewer_render_text 0.65.8 loaded (...)
+[previewer] previewer_toolbar 0.65.8 loaded (...)
+[previewer] previewer_panel 0.65.8 loaded (...)
+[previewer] previewer (entry) v0.65.8 ready
 ```
 
    Eight lines with the same version number — anything else means an old file is still in one of the two folders.
