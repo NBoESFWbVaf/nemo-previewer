@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.65.3
+previewer_render_text.py – Version 0.65.4
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -2456,8 +2456,11 @@ class TextRendererMixin:
         stack.set_margin_end(6)
         stack.set_margin_top(6)
         stack.set_margin_bottom(6)
+        # One group for ALL cards: the label column gets the width
+        # of the widest label everywhere – never per card.
+        sg = Gtk.SizeGroup(Gtk.SizeGroupMode.HORIZONTAL)
         for ev in events:
-            stack.pack_start(self._ics_event_widget(ev), False, False, 0)
+            stack.pack_start(self._ics_event_widget(ev, sg), False, False, 0)
         if count > _ICS_EVENT_CAP:
             rest = Gtk.Label(label=_("… and %d more events")
                              % (count - _ICS_EVENT_CAP))
@@ -2471,9 +2474,9 @@ class TextRendererMixin:
             % (len(events), count))
 
     # → REF TXT-DOC-96
-    def _ics_event_widget(self, ev):
+    def _ics_event_widget(self, ev, sg):
         # One event as a vCard-style card: frame and shadow via
-        # _vcard_card_draw, title column fixed at 75 px.
+        # _vcard_card_draw; sg keeps the label column identical.
         summary = _ics_text(ev.get("SUMMARY", ("", ""))[1]) or _("(no summary)")
         rows = []
         start = ev.get("DTSTART")
@@ -2502,7 +2505,7 @@ class TextRendererMixin:
         lbl.set_halign(Gtk.Align.START)
         lbl.set_line_wrap(True)
         inner.pack_start(lbl, False, False, 0)
-        pack_meta_grid(rows, inner, wrap=True, title_width=75)
+        pack_meta_grid(rows, inner, wrap=True, title_width=75, size_group=sg)
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         outer.connect("draw", self._vcard_card_draw)
         outer.pack_start(inner, True, True, 0)
@@ -2824,7 +2827,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.65.3"
+PREVIEWER_VERSION = "0.65.4"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "

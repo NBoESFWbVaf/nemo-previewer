@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.65.4\] – 2026-11-07
+
+### Fixed
+
+- ICS event cards stood at odds: the label column (Start/End/Location/Description) had only a minimum width, so cards with fewer rows – e.g. without a description – shifted their table. One size group per file now gives every card the same label column; the widest label wins.
+
 ## \[0.65.3\] – 2026-11-07
 
 ### Fixed
