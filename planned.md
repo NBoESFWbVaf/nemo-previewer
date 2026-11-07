@@ -124,12 +124,9 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 - [x] **K5** – `Gst.init(None)` beim Import verlangsamt den Nemo-Start
 
   ✅ 0.57.0 – umgesetzt (Nutzer-Auftrag 2026-11-05): GStreamer wird LAZY initialisiert — Import und Gst.init laufen erst bei der ERSTEN Audio-/Video-Vorschau (neuer Accessor \_ensure\_gst in render\_media, one-shot, Ergebnis gecached in HAVE\_GST; Gst/GstPbutils werden erst nach dem Init den Modul-Globals zugewiesen). Der Nemo-Start zahlt die GStreamer-Registry-Kosten nicht mehr universell; Sitzungen ohne Medien-Vorschau fassen GStreamer nie an. Panel-Weiche ruft \_ensure\_gst() statt des Import-Flags (Python bindet Import-Werte beim Import — ein Accessor ist der einzige sichere Weg, gleiche Lehre wie set\_debug\_log 0.54.0); Verhalten der Zweige unverändert (inkl. Install-Hinweis). Alle Gst-Zugriffe liegen in den Audio/Video-Renderern hinter der Weiche — die None-Globals sind nie erreichbar. Die ERSTE Medien-Vorschau zahlt die Init-Kosten; dank F2-Debounce ist das exakt der Moment, in dem der Nutzer auf einer Datei verharrt. (→ REF MED-DOC-47)
-- [ ] **K6** – Mehrfachauswahl zeigt nur „… und N weitere" → Icon-Raster
+- [x] **K6** – Mehrfachauswahl zeigt keine Vorschau mehr; die Spalte nennt nur die Anzahl der ausgewählten Objekte (Nutzer-Entscheid 2026-11-07, ersetzt die frühere Icon-Raster-Idee). **S**  
 
-  der ersten \~8 Dateien. **S–M**
-- [ ] **K7** – Variable Fonts zeigen nur die Default-Instanz (bekannt;
-
-  ggf. named instances aus fvar-Tabelle anbieten). **M**
+  ✅ 0.63.0 – umgesetzt: \_render\_inner steigt bei Mehrfachauswahl sofort aus – kein Renderer läuft, die Spalte zeigt nur noch das zentrierte dim-label „N items selected" (N = Anzahl); die alte Erstdatei-Vorschau samt „… and N more selected" ist entfernt, Einzelwahl unverändert. (→ REF PAN-K6-1)
 
 - [x] **K8** – Log beruhigen: „Nemo-C-Auswahl-API nicht verfügbar“ (Nutzer-Fund, 0.38.0-Deploy-Log) ist auf Nemo 6 IMMER zu erwarten – libnemo-private wird seit Nemo 6 statisch gelinkt, eine libnemo-private.so\* existiert nicht mehr auf dem System, dlopen scheitert grundsätzlich (Risiko-Diagnose 2026-11-01: KEINE Fehler möglich – der Lader cached den Fehlversuch über \_NATIVE\_NEMO\_API\_TRIED, die Auswahl läuft primär über den funktionierenden VTable-Pfad, die C-API-Route fällt sauber auf None zurück). Meldung zu einer erwarteten Info umformulieren (statisch gelinktes libnemo-private + VTable als aktive Quelle nennen) und in derselben Runde die restlichen diag()-Zeilen auf Englisch übersetzen (0.38.0 hatte nur dbg-Zeilen erwischt: „Ansicht verbunden“, „Widget-Baum-Diagnose“, „Auswahl-Diagnose“ … – previewer 3, select 6, util 1, plus „Eigen=“ in panel und „Symbole fehlen:“ im C-API-Lader). **S**  
 
@@ -394,6 +391,9 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 - [ ] **F53 – Knopf „Pfad kopieren“** (entkoppelt aus F13, Nutzer-Wunsch 2026-11-01)
 
   Kopiert den Pfad der angezeigten Datei in die Zwischenablage (Gtk.Clipboard); Knopf in der Vorschau-Toolbar. **S**
+- [ ] **K7** – Variable Fonts zeigen nur die Default-Instanz (bekannt;
+
+  ggf. named instances aus fvar-Tabelle anbieten). **M** Am 2026-11-07 nach Release verschoben (Nutzer-Entscheid; bis dahin Kosmetik-Item).
 - [ ] \*\*F30 – Dual-Pane-Ansicht (F3): Vorschau folgt der aktiven
 
   Spalte\*\* (Feldbeobachtung des Nutzers) In Nemos 2-Spalten-Ansicht zeigen Dateiauswahl in der LINKEN Spalte Vorschauen, Auswahl in der RECHTEN bleibt wirkungslos. KEIN klassischer Bug, sondern die implizite Annahme der Extension „ein Fenster = eine Dateiansicht": find\_view liefert nur die ERSTE gemappte Ansicht zurück, \_view\_ok hookt genau eine Ansicht pro PanelState, und der 500-ms-Poll liest ebenfalls nur diese – die rechte Spalte wird nie angekoppelt und bleibt komplett stumm (nicht mal ein Log-Hinweis, daher wirkt es wie ein Bug).  
@@ -542,15 +542,15 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                      | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-06, 0.60.1 gebaut – Deploy-Test offen)
+## Aktuelle Reihenfolge (Stand 2026-11-07, 0.62.1 deployt bestätigt, 0.63.0 gebaut – Deploy-Test offen)
 
 1. ✅ F49 – Alle Dateien ins Englische (0.47.0): vor den Feature-Runden, damit neue Inhalte gleich englisch entstehen; je Datei eine Runde; Erfolg-dbg für \_render\_sqlite nachgerüstet.
 2. ✅ B9 + F50 – Bild-Runde (0.47.0 / 0.48.0–0.48.3): B9 mit der Nutzer-Meldung der fehlerhaften Felder, darauf aufbauend der Exiftool-Dialog.
 3. ✅ F52 + F54 – Text-Runde (0.58.0): ICS-Termintabelle und EML-Anhänge zusammen (beide previewer\_render\_text.py).
-4. **Kleinzeug nach Bedarf**: K6, K7 (F13 am 2026-11-06 entfernt, F15/F17 nach Release verschoben; F25 ✅ 0.55.0, F2 ✅ 0.56.0, K5 ✅ 0.57.0 erledigt und raus).
+4. ✅ **Kleinzeug**: K6 ✅ 0.63.0 (Mehrfachauswahl zeigt keine Vorschau, nur die Anzahl); K7 am 2026-11-07 nach Release verschoben (F13 am 2026-11-06 entfernt, F15/F17 nach Release verschoben; F25 ✅ 0.55.0, F2 ✅ 0.56.0, K5 ✅ 0.57.0 erledigt und raus).
 5. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits (Performance, Speicher/Leaks, Reentrancy, a11y, i18n-Strings, Umgebungs-Matrix; GTK4/F57 erledigt 2026-11-06 in REFERENCE) – Befunde einplanen.
 6. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien, git-Tag v1.0.0, GitHub-Release.
-7. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane), F32 (Rest: Infobereich), F37, F66 (Zweit-Spalte, konzeptoffen), F67 (markdown-it-py) sowie die am 2026-11-06 verschobenen F15, F17, F20, F21, F26, F53, F55, F56 – wie vereinbart im Branch erproben.
+7. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane), F32 (Rest: Infobereich), F37, F66 (Zweit-Spalte, konzeptoffen), F67 (markdown-it-py) sowie die am 2026-11-06 verschobenen F15, F17, F20, F21, F26, F53, F55, F56 und die am 2026-11-07 verschobene K7 (Variable Fonts) – wie vereinbart im Branch erproben.
 
 Nicht eingeplant (Pool nach Bedarf): F2, F9, F11, F27 – F21 (Office→PDF-Knopf) spätestens bei F51 entscheiden (README-Wunsch umsetzen oder aus dem README nehmen); F55 bündelt sich gut mit F21 – beide nutzen denselben wählbaren Office-Backend.
 
