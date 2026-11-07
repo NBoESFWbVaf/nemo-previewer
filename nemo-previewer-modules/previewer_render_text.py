@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 0.63.0
+previewer_render_text.py – Version 0.64.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -2143,37 +2143,61 @@ class TextRendererMixin:
         head.set_markup("<b>Attachments (%d)</b>" % len(rows))
         head.set_halign(Gtk.Align.START)
         box.pack_start(head, False, False, 2)
-        # F54: two-column table (user request) – file name and
-        # size; the content type is deliberately not shown.
+        # F54: checkbox, file name and size per row; only checked
+        # attachments extract, five rows stay visible.
         grid = Gtk.Grid()
         grid.set_row_spacing(2)
         grid.set_column_spacing(10)
+        checks = []
         for i, (name, size) in enumerate(rows):
+            chk = Gtk.CheckButton()
+            grid.attach(chk, 0, i, 1, 1)
+            checks.append((chk, name))
             nl = Gtk.Label(label=name)
             nl.set_halign(Gtk.Align.START)
             nl.set_hexpand(True)
             nl.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
             nl.set_tooltip_text(name)
-            grid.attach(nl, 0, i, 1, 1)
+            grid.attach(nl, 1, i, 1, 1)
             sl = Gtk.Label(label=(human_size(size)
                                   if size is not None else "unknown"))
             sl.get_style_context().add_class("dim-label")
             sl.set_halign(Gtk.Align.END)
-            grid.attach(sl, 1, i, 1, 1)
-        box.pack_start(grid, False, False, 0)
-        btn = Gtk.Button(label="Extract all attachments")
+            grid.attach(sl, 2, i, 1, 1)
+        # Longer lists scroll – only five rows stay visible.
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_max_content_height(150)
+        scroll.set_propagate_natural_height(True)
+        scroll.add(grid)
+        box.pack_start(scroll, False, False, 0)
+        btn = Gtk.Button(label="Extract selected attachments")
         btn.set_tooltip_text("Choose a folder – existing files get "
                             "a numbered suffix")
         btn.set_halign(Gtk.Align.START)
         btn.set_margin_top(4)
-        btn.connect("clicked", self._on_eml_extract, path)
+        btn.connect("clicked", self._on_eml_extract, path, checks)
         box.pack_start(btn, False, False, 0)
         # Packed from the BOTTOM – the list always sits directly
         # above the toolbar (user request).
         self._content.pack_end(box, False, False, 8)
 
     # → REF TXT-DOC-94
-    def _on_eml_extract(self, btn, path):
+    def _on_eml_extract(self, btn, path, checks):
+        # Only CHECKED attachments extract; nothing checked means
+        # a hint instead of a folder chooser.
+        want = set()
+        for chk, name in checks:
+            try:
+                if chk.get_active():
+                    want.add(name)
+            except Exception as e:
+                dbg("text/_on_eml_extract: check read: %s" % e)
+        dbg("text/_on_eml_extract: %d of %d attachments selected"
+            % (len(want), len(checks)))
+        if not want:
+            pack_hint(self._content, "No attachment selected")
+            return
         try:
             dlg = Gtk.FileChooserDialog(
                 title="Extract attachments to folder",
@@ -2211,6 +2235,8 @@ class TextRendererMixin:
                     name.replace("\\", "/")).strip()
                 if not fname:
                     continue
+                if fname not in want:
+                    continue
                 try:
                     data = part.get_payload(decode=True)
                 except Exception as e:
@@ -2231,9 +2257,9 @@ class TextRendererMixin:
         dbg("text/_on_eml_extract: %d saved, %d failed -> %s"
             % (saved, len(errors), folder))
         if errors:
-            pack_hint(self._content, "Extracted %d of %d attachments "
-                      "– %s" % (saved, saved + len(errors),
-                                "; ".join(errors[:3])))
+            pack_hint(self._content, "Extracted %d of %d selected "
+                      "attachments – %s" % (saved, saved + len(errors),
+                                            "; ".join(errors[:3])))
         else:
             pack_hint(self._content, "Extracted %d attachments to %s"
                       % (saved, folder))
@@ -2796,7 +2822,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.63.0"
+PREVIEWER_VERSION = "0.64.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
