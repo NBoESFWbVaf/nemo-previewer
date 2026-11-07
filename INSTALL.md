@@ -20,7 +20,7 @@ Tested on Linux Mint 22 and Debian 13 (Trixie) with Cinnamon/Nemo. The extension
 | `previewer_render_docs.py`  | Renderers: PDF, Office                         |
 | `previewer_render_text.py`  | Renderers: text, Markdown, EML, e-books, fonts |
 
-The entry point `previewer.py` stays directly in `~/.local/share/nemo-python/extensions/` — Nemo only loads extensions from that top-level folder. The seven module files live in the subfolder `nemo-previewer-modules` next to it; the entry point puts that subfolder on the import path at startup (before the extension folder itself, so flat leftover copies can never win).
+The entry point `previewer.py` stays directly in `~/.local/share/nemo-python/extensions/` — Nemo only loads extensions from that top-level folder. The seven module files live in the subfolder `nemo-previewer-modules` next to it; the entry point puts that subfolder on the import path at startup (before the extension folder itself, so flat leftover copies can never win). Since 0.65.1 the subfolder also holds one data file — `po/de.po`, the German translation catalog — which carries no version and is not part of the version lock.
 
 
 **Mandatory packages**
@@ -84,9 +84,10 @@ git clone https://github.com/NBoESFWbVaf/nemo-previewer.git
 
 ### Create the needed directories and copy the files
 ```bash
-mkdir -p ~/.local/share/nemo-python/extensions/nemo-previewer-modules
+mkdir -p ~/.local/share/nemo-python/extensions/nemo-previewer-modules/po
 cp /tmp/nemo-previewer/previewer.py ~/.local/share/nemo-python/extensions/
 cp /tmp/nemo-previewer/previewer_*.py ~/.local/share/nemo-python/extensions/nemo-previewer-modules/
+cp /tmp/nemo-previewer/po/de.po ~/.local/share/nemo-python/extensions/nemo-previewer-modules/po/
 ```
 
 
@@ -96,14 +97,14 @@ nemo -q && nemo
 ```
 2. Check the log. Each module reports its version on load:
 ```text
-[previewer] previewer_util 0.64.0 loaded
-[previewer] previewer_select 0.64.0 loaded
-[previewer] previewer_render_media 0.64.0 loaded (...)
-[previewer] previewer_render_docs 0.64.0 loaded (...)
-[previewer] previewer_render_text 0.64.0 loaded (...)
-[previewer] previewer_toolbar 0.64.0 loaded (...)
-[previewer] previewer_panel 0.64.0 loaded (...)
-[previewer] previewer (entry) v0.64.0 ready
+[previewer] previewer_util 0.65.1 loaded
+[previewer] previewer_select 0.65.1 loaded
+[previewer] previewer_render_media 0.65.1 loaded (...)
+[previewer] previewer_render_docs 0.65.1 loaded (...)
+[previewer] previewer_render_text 0.65.1 loaded (...)
+[previewer] previewer_toolbar 0.65.1 loaded (...)
+[previewer] previewer_panel 0.65.1 loaded (...)
+[previewer] previewer (entry) v0.65.1 ready
 ```
 
    Eight lines with the same version number — anything else means an old file is still in one of the two folders.
@@ -111,7 +112,7 @@ nemo -q && nemo
 
 ## Upgrade
 
-1. Overwrite **all eight files** — they share a version lock, and the entry point warns in the log about version mismatches. Since 0.35.0 the entry point sits in `extensions/` and the seven modules in the subfolder `nemo-previewer-modules`. Upgrading from a flat layout (≤ 0.34.1): also delete the old module copies (`previewer_*.py`) from `extensions/` afterwards.
+1. Overwrite **all eight files** — they share a version lock, and the entry point warns in the log about version mismatches. Since 0.35.0 the entry point sits in `extensions/` and the seven modules in the subfolder `nemo-previewer-modules`. Since 0.65.1 also copy the translation catalog (`po/de.po` into the subfolder's `po/`). Upgrading from a flat layout (≤ 0.34.1): also delete the old module copies (`previewer_*.py`) from `extensions/` afterwards.
 2. Remove stale bytecode caches (both folders), then restart Nemo:
 ```bash
 rm -rf ~/.local/share/nemo-python/extensions/__pycache__ ~/.local/share/nemo-python/extensions/nemo-previewer-modules/__pycache__
@@ -124,6 +125,21 @@ grep -H PREVIEWER_VERSION ~/.local/share/nemo-python/extensions/previewer.py ~/.
 ```
 
    All eight files must report the same version.
+
+## Translations
+
+Since 0.65.0 the UI texts are translatable via GNU gettext; since 0.65.1 the German catalog ships with the deployment (`po/de.po` inside the module folder) and is parsed automatically at startup — the language follows the system locale (`LANG`/`LANGUAGE`), so a German desktop shows the German UI out of the box. No compiling, no extra packages. To try it on a non-German system, quit Nemo and start it once with `LANG=de_DE.UTF-8 nemo --no-desktop`.
+
+Optional — compiled `.mo` override: if a compiled catalog exists in `locale/<lang>/LC_MESSAGES/nemo-previewer.mo` (package `gettext` provides `msgfmt`), it takes precedence over the shipped `.po` file. This is only useful to test edited translations without redeploying:
+
+```bash
+cd <repository>
+mkdir -p ~/.local/share/nemo-python/extensions/nemo-previewer-modules/locale/de/LC_MESSAGES
+msgfmt -o ~/.local/share/nemo-python/extensions/nemo-previewer-modules/locale/de/LC_MESSAGES/nemo-previewer.mo po/de.po
+nemo -q && nemo
+```
+
+Removing the `.mo` falls back to the shipped `po/de.po`; removing both switches back to English.
 
 ## Uninstall
 

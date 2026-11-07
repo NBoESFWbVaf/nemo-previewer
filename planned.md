@@ -349,7 +349,7 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 
 - [ ] **F58 – Audit-Paket vor dem Release (1.0.0)** (Nutzer-Entscheid 2026-11-01)
 
-  Jeder noch offene Audit wird VOR dem Release (F51) abgeschlossen; Befunde laufen als neue Items in planned ein: (1) GTK4-Erstprüfung (F57) – ERLEDIGT 2026-11-06 (REFERENCE-Abschnitt AUDIT-GTK4-1…10); (2) Performance – Render-Zeiten je Format (große PDFs, Office-Konvertierung, volle Ordner) und Ladezeit des Einstiegs; (3) Speicher/Leaks – Signal-Handler und Referenzen bei den Live-Re-Renders (\_last\_docview und Co.), Pixbuf-Caches, Cache-Wachstum in \~/.cache/previewer/begrenzen; (4) Reentrancy/Threading – Klicks/Wechsel während laufender LibreOffice-Konvertierung, Timeout-ID-Disziplin; (5) a11y – erreichbare Rollen/States systematisch prüfen; (6) i18n-Vorarbeit – hardkodierte UI-Strings zählen und sammeln (bringt F49 mit); (7) Umgebungs-Matrix – Nemo-Versionen, Python-Minimum, Wayland vs. X11; (8) Lizenz-/Abhängigkeits-Audit (bleibt in F51 verankert). **L**.
+  Jeder noch offene Audit wird VOR dem Release (F51) abgeschlossen; Befunde laufen als neue Items in planned ein: (1) GTK4-Erstprüfung (F57) – ERLEDIGT 2026-11-06 (REFERENCE-Abschnitt AUDIT-GTK4-1…10); (2) Performance – Render-Zeiten je Format (große PDFs, Office-Konvertierung, volle Ordner) und Ladezeit des Einstiegs; (3) Speicher/Leaks – Signal-Handler und Referenzen bei den Live-Re-Renders (\_last\_docview und Co.), Pixbuf-Caches, Cache-Wachstum in \~/.cache/previewer/begrenzen; (4) Reentrancy/Threading – Klicks/Wechsel während laufender LibreOffice-Konvertierung, Timeout-ID-Disziplin; (5) a11y – erreichbare Rollen/States systematisch prüfen; (6) i18n-Vorarbeit – hardkodierte UI-Strings zählen und sammeln (bringt F49 mit) – ERLEDIGT 2026-11-07 in 0.65.0: echte gettext-Infrastruktur statt Sammel- Konstanten (→ REF UT-I18N-1, po/nemo-previewer.pot + po/de.po mit 189 msgids, Deutsch komplett übersetzt; 0.65.1: de.po wird mitdeployt und beim Start geparst – kein Kompilieren); (7) Umgebungs-Matrix – Nemo-Versionen, Python-Minimum, Wayland vs. X11; (8) Lizenz-/Abhängigkeits-Audit (bleibt in F51 verankert). **L**.
 
 ---
 
@@ -543,13 +543,13 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                      | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-07, 0.62.1 deployt bestätigt, 0.63.0/0.64.0 gebaut – Deploy-Test offen)
+## Aktuelle Reihenfolge (Stand 2026-11-07, 0.65.0 deployed, 0.65.1 gebaut – Deploy-Test offen)
 
 1. ✅ F49 – Alle Dateien ins Englische (0.47.0): vor den Feature-Runden, damit neue Inhalte gleich englisch entstehen; je Datei eine Runde; Erfolg-dbg für \_render\_sqlite nachgerüstet.
 2. ✅ B9 + F50 – Bild-Runde (0.47.0 / 0.48.0–0.48.3): B9 mit der Nutzer-Meldung der fehlerhaften Felder, darauf aufbauend der Exiftool-Dialog.
 3. ✅ F52 + F54 – Text-Runde (0.58.0): ICS-Termintabelle und EML-Anhänge zusammen (beide previewer\_render\_text.py).
 4. ✅ **Kleinzeug**: K6 ✅ 0.63.0 (Mehrfachauswahl zeigt keine Vorschau, nur die Anzahl); K7 am 2026-11-07 nach Release verschoben (F13 am 2026-11-06 entfernt, F15/F17 nach Release verschoben; F25 ✅ 0.55.0, F2 ✅ 0.56.0, K5 ✅ 0.57.0 erledigt und raus).
-5. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits (Performance, Speicher/Leaks, Reentrancy, a11y, i18n-Strings, Umgebungs-Matrix; GTK4/F57 erledigt 2026-11-06 in REFERENCE) – Befunde einplanen.
+5. **F58 – Audit-Paket VOR dem Release**: alle offenen Audits (Performance, Speicher/Leaks, Reentrancy, a11y, Umgebungs-Matrix; GTK4/F57 erledigt 2026-11-06 in REFERENCE, i18n erledigt 2026-11-07 in 0.65.0, ohne-Kompilieren-Laden (de.po wird mitdeployt und beim Start geparst) in 0.65.1) – Befunde einplanen.
 6. **F51 – Release 1.0.0**: Byte-Verifikation aller 12 Dateien, git-Tag v1.0.0, GitHub-Release.
 7. **Danach (Teil 3)**: F22 (Video-Wiedergabe), F30 (Dual-Pane), F32 (Rest: Infobereich), F37, F66 (Zweit-Spalte, konzeptoffen), F67 (markdown-it-py) sowie die am 2026-11-06 verschobenen F15, F17, F20, F21, F26, F53, F55, F56 und die am 2026-11-07 verschobene K7 (Variable Fonts) – wie vereinbart im Branch erproben.
 

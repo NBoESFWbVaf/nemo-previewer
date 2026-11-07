@@ -4,6 +4,23 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.65.1\] – 2026-11-07
+
+### Changed
+
+- Translations without compiling: po/de.po ships with the deployment (copied to nemo-previewer-modules/po/) and is parsed automatically at startup – the language follows the system locale via GLib.get_language_names(), so a German desktop shows the German UI out of the box. A compiled .mo in locale/<lang>/LC_MESSAGES is now an optional override; without po/de.po the UI stays English.
+
+## \[0.65.0\] – 2026-11-07
+
+### Added
+
+- Translations: GNU gettext infrastructure – all user-visible strings (labels, tooltips, hints, window and dialog titles, buttons) are marked for translation; without a compiled catalog the UI stays English.
+- German translation: po/nemo-previewer.pot (template) and po/de.po with all 189 msgids; compiled with msgfmt into locale/de/LC_MESSAGES (see INSTALL.md "Translations").
+
+### Changed
+
+- Pre-i18n German leftovers became English msgids: the vCard TEL fallback "Telefon" is now "Phone" (with "Telefon" as its German translation), the EPUB guard exception "DOCTYPE im OPF" is now "DOCTYPE in the OPF (R10 entity guard)".
+
 ## \[0.64.0\] – 2026-11-07
 
 ### Changed
