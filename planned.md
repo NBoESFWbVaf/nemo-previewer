@@ -543,7 +543,7 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
 | 17      | F31 – Renderer-Modul-Split: previewer\_panel.py über Mixins entlasten; idealerweise mit F28 + F29 zu EINEM Struktur-Release, danach Canvas-Soll-Zeilen neu vereinbaren                                                                                      | ✅ 0.15.0 (Minor; Struktur-Release mit F28 + F29; Soll-Zeilen neu vereinbart) |
 
 
-## Aktuelle Reihenfolge (Stand 2026-11-07, 0.65.0 deployed, 0.65.1 gebaut – Deploy-Test offen)
+## Aktuelle Reihenfolge (Stand 2026-11-07, 0.65.1 deployed (Syntaxfehler im Entry), 0.65.2 Hotfix gebaut – Deploy-Test offen)
 
 1. ✅ F49 – Alle Dateien ins Englische (0.47.0): vor den Feature-Runden, damit neue Inhalte gleich englisch entstehen; je Datei eine Runde; Erfolg-dbg für \_render\_sqlite nachgerüstet.
 2. ✅ B9 + F50 – Bild-Runde (0.47.0 / 0.48.0–0.48.3): B9 mit der Nutzer-Meldung der fehlerhaften Felder, darauf aufbauend der Exiftool-Dialog.

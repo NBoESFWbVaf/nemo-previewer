@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.65.2\] – 2026-11-07
+
+### Fixed
+
+- Startup crash: the provider description in previewer.py (\_get\_name\_and\_desc) lost its concatenation operator when the string was marked for translation in 0.65.0 – Python raised a SyntaxError and Nemo never loaded the extension. The list is built with explicit + again.
+
 ## \[0.65.1\] – 2026-11-07
 
 ### Changed
