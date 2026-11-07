@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.65.2
+previewer_panel.py – Version 0.65.3
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -217,6 +217,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._pdf_gen = 0
         # K12: generation of the incremental resize passes.
         self._pdf_scale_gen = 0
+        # Image rescales run generation-guarded in idle steps.
+        self._img_scale_gen = 0
         # F14: page indicator of the PDF preview + total page count
         self._pdf_page_label = None
         self._pdf_count = 0
@@ -266,6 +268,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._settings_spin = None
         self._settings_pages_spin = None
         self._settings_spacing_spin = None
+        # F25: pending quiet re-render of the spacing spin.
+        self._spacing_render_id = None
         # F2: pending debounced heavy render (selection quiet).
         self._pending_render_id = None
         self._config_load()
@@ -833,11 +837,25 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     # → REF PAN-DOC-14
     def _apply_scale(self):
-        for item in self._scale_items or ():
-            try:
-                self._scale_item(item)
-            except Exception as e:
-                dbg("panel/_apply_scale: suppressed: %s" % e)
+        # R3: the rescale follows the pdf pattern (K12) – generation
+        # guard + one item per idle step, never a sync backlog.
+        self._img_scale_gen += 1
+        GLib.idle_add(self._scale_step, 0, self._img_scale_gen)
+
+    # → REF PAN-DOC-14
+    def _scale_step(self, i, gen):
+        # Stale pass – a newer resize or a clear ran.
+        if gen != self._img_scale_gen:
+            return False
+        items = self._scale_items or []
+        if i >= len(items):
+            return False
+        try:
+            self._scale_item(items[i])
+        except Exception as e:
+            dbg("panel/_scale_step: suppressed: %s" % e)
+        GLib.idle_add(self._scale_step, i + 1, gen)
+        return False
 
     # → REF PAN-DOC-15
     def _scale_item(self, item):
@@ -1435,7 +1453,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.65.2"
+PREVIEWER_VERSION = "0.65.3"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)

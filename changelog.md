@@ -4,6 +4,13 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.65.3\] – 2026-11-07
+
+### Fixed
+
+- Image previews fell behind when the panel width changed fast (divider drag, the reset arrow): all registered images were rescaled synchronously on every resize event. The rescale now runs generation-guarded in idle steps like the PDF path – a newer resize cancels older passes instead of queueing scale calls.
+- The line spacing setting froze the UI and could crash the settings window: every spin tick wrote the config file and fully re-rendered the text preview. The value now lands in memory at once; config write and re-render happen once, after the spin goes quiet (400 ms).
+
 ## \[0.65.2\] – 2026-11-07
 
 ### Fixed

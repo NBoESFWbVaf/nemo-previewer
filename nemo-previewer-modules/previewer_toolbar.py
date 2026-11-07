@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.65.2
+previewer_toolbar.py – Version 0.65.3
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -15,7 +15,7 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -353,12 +353,26 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-17
     def _on_line_spacing_changed(self, spin):
-        # F25: save immediately and re-render the text preview so
-        # the new spacing is visible right away.
-        self._conf_text_line_spacing = int(spin.get_value())
+        # F25: the value lands in memory at once; saving and the
+        # re-render wait for the spin to go QUIET (400 ms).
+        value = int(spin.get_value())
+        if value == self._conf_text_line_spacing:
+            return
+        self._conf_text_line_spacing = value
+        if self._spacing_render_id is not None:
+            GLib.source_remove(self._spacing_render_id)
+        self._spacing_render_id = GLib.timeout_add(
+            400, self._on_line_spacing_quiet)
+
+    # → REF TB-DOC-17
+    def _on_line_spacing_quiet(self):
+        # F25: fires once after the spin is quiet – one config
+        # write and ONE re-render of the open text preview.
+        self._spacing_render_id = None
         self._config_save()
         if self._last_textish and self._path:
             self._render()
+        return False
 
     # → REF TB-DOC-18
     def _on_text_size_changed(self, spin):
@@ -423,7 +437,7 @@ class PreviewToolbarMixin:
         return True
 
 
-PREVIEWER_VERSION = "0.65.2"
+PREVIEWER_VERSION = "0.65.3"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

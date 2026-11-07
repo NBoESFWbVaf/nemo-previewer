@@ -558,10 +558,10 @@ Gtk.Image that lives with the panel width. The source (src) stays in memory at f
 
 - **Module:** previewer\_panel.py
 - **Location:** `PreviewPanel.\_apply\_scale` (method)
-- **Reason:** Fit all registered preview images to the panel width (R3).
+- **Reason:** Fit all registered preview images to the panel width (R3); since the image-backlog fix the rescale runs generation-guarded in idle steps like the PDF path (K12).
 
 ```text
-Fit the displayed pixbufs of ALL registered preview images to the current panel width (R3: list instead of a single slot; entries are data dicts, see _scaled_image).
+Fit the displayed pixbufs of ALL registered preview images to the current panel width (R3: list instead of a single slot; entries are data dicts, see _scaled_image). Backlog fix (live deploy report: image previews fell behind on fast width changes, same phenomenon the Office/PDF path had): _apply_scale no longer loops synchronously – it bumps _img_scale_gen (init 0 next to _pdf_scale_gen) and schedules _scale_step(0, gen) via GLib.idle_add. _scale_step scales exactly ONE item per call, re-arms itself with GLib.idle_add(_scale_step, i + 1, gen) and stops early on a stale generation (a newer resize or a clear ran – return False drops the idle source). Rapid width changes (divider drag, the reset arrow of _on_reset_width_clicked/F63) cancel older passes instead of queueing scale_simple calls; the UI stays responsive between items. _scale_item itself is unchanged (lastw/lasth thresholds still dampen micro-changes).
 ```
 
 ### PAN-DOC-15 – Docstring: \_scale\_item
@@ -1497,10 +1497,10 @@ F65 (0.53.0): check button "Debug logging (write log file)" in the settings "Gen
 
 - **Module:** previewer\_toolbar.py
 - **Location:** `PreviewToolbarMixin.\_on\_line\_spacing\_changed` (method) and the spin in `\_settings\_frame\_text`
-- **Reason:** F25 line spacing – spin handler with live re-render (same pattern as TB-DOC-10/TB-DOC-11).
+- **Reason:** F25 line spacing – spin handler with ONE quiet re-render (backlog fix after live-deploy hangs; guard like the doc pages spin of TB-DOC-13).
 
 ```text
-F25 (0.55.0): value-changed handler of the "Line spacing (px)" spin (Adjustment 0–12, step 1, page 2). Course: int(spin.get_value()) into \_conf\_text\_line\_spacing, then \_config\_save() immediately, then – like line numbers and syntax – if \_last\_textish and \_path: self.\_render(). The re-render passes the value through build\_text\_view's spacing parameter (TextTag pixels\_above\_lines), so the current text preview widens/narrows right away. Because \_text\_view passes the config value centrally, the spacing applies to ALL TextView previews, not only the plain text.
+F25 (0.55.0): value-changed handler of the "Line spacing (px)" spin (Adjustment 0–12, step 1, page 2). Original course (full re-render + _config_save() per tick) HUNG the live deploy: holding an arrow fires value-changed per tick, every tick wrote the config file and rebuilt the whole TextView preview – the main loop starved and the settings window froze/crashed. New course: int(spin.get_value()) compared to _conf_text_line_spacing (equal -> return, same guard as TB-DOC-13), the value lands in MEMORY at once, then exactly ONE GLib.timeout_add(400, _on_line_spacing_quiet) is armed (a pending id is source_removed first; _spacing_render_id init None next to _settings_spacing_spin, toolbar imports GLib). _on_line_spacing_quiet fires once after the spin is quiet: ONE _config_save() and ONE _render() if _last_textish and _path, then return False drops the timeout source. The re-render passes the value through build_text_view's spacing parameter (TextTag pixels_above_lines), so the current text preview widens/narrows; because _text_view passes the config value centrally, the spacing applies to ALL TextView previews, not only the plain text.
 ```
 
 ### TB-DOC-18 – Docstring: \_on\_text\_size\_changed / \_on\_meta\_size\_changed (F69)
