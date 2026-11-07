@@ -4,6 +4,19 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.65.12\] – 2026-11-07
+
+### Fixed
+
+- Deploy feedback (reset button, fifth round – the layout-state dbg nailed it): after the reset jump the widget tree kept the OLD sizes – `box 634 px, h.upper 634 px, page 1 alloc 634 px` while every page had long been scaled to 317 px. queue\_resize is simply absorbed here: the follow-up allocation pass never runs, no matter whether it is queued from inside the resize or from an idle; only panel-driven resizes and SCROLLS re-allocate the subtree (the viewport re-allocates its child on every scroll – that is why scrolling "fixed" the view, it was never about the paint). \_pdf\_relayout now replicates the scroll's mechanism directly: it re-allocates the scrolled window's child viewport with its current allocation (alloc-needed flag set first), which re-allocates the page box and the pages at their new sizes and updates the adjustments; the state dbg line now shows before -> after values, so one line proves the fix per reset (`box 634 -> 317 px, h.upper 634 -> 333 px, page 1 alloc 317 px`). The one-behind lag during column drags disappears with the same change – every scaling pass fits its allocations immediately.
+
+## \[0.65.11\] – 2026-11-07
+
+### Fixed
+
+- Deploy feedback (reset button, fourth round): the queue\_draw from 0.65.10 still did not flush the stale paint – the view only refreshed when a user event (mouse scroll) pushed GTK into processing its updates. \_pdf\_relayout now performs exactly what a scroll performs, from code: it fully invalidates the scrolled window's GdkWindow (recursive) and processes the updates synchronously, so the shrunk pages repaint in the same main-loop cycle instead of waiting for the next user event. It also logs the layout state (box allocation width, horizontal adjustment upper span, first page allocation) – one dbg line per reset that proves whether the widget tree already holds the correct sizes.
+- The scroll hook now logs every event (`docs/_on_pdf_scrolled: pos …, page …, scaled N page(s) -> W px`), as requested for debugging the after-scroll behavior: position, computed page, how many pages it had to scale, and the target width. In a healthy run after a reset it should report `scaled 0` – the view must already be correct without scrolling.
+
 ## \[0.65.10\] – 2026-11-07
 
 ### Fixed
