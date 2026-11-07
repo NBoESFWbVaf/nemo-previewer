@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.65.9
+previewer_render_docs.py – Version 0.65.10
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -325,10 +325,15 @@ class DocsRendererMixin:
         try:
             target = self._pdf_last_w or self._preview_width()
             lo, hi = self._pdf_visible_range()
+            hooked = 0
             for i in range(lo, hi + 1):
                 if (i < len(self._pdf_scaled)
                         and self._pdf_scaled[i] != target):
                     self._pdf_scale_one(i, target)
+                    hooked += 1
+            if hooked:
+                dbg("docs/_on_pdf_scrolled: %d page(s) -> %d px"
+                    % (hooked, target))
         except Exception as e:
             dbg("docs/_on_pdf_scrolled: suppressed: %s" % e)
         return False
@@ -345,6 +350,8 @@ class DocsRendererMixin:
         h = max(1, int(sh * f))
         img.set_from_pixbuf(
             src.scale_simple(w, h, GdkPixbuf.InterpType.BILINEAR))
+        # K16: scaling inside the resize pass paints stale – force it.
+        img.queue_draw()
         self._pdf_scaled[idx] = target
 
     # → REF DOC-DOC-11
@@ -377,6 +384,7 @@ class DocsRendererMixin:
                     break
         except Exception as e:
             dbg("docs/_apply_pdf_scale: suppressed: %s" % e)
+        GLib.idle_add(self._pdf_relayout)
         if len(srcs) > 1:
             GLib.idle_add(self._pdf_scale_step, target, gen)
 
@@ -401,6 +409,15 @@ class DocsRendererMixin:
         except Exception as e:
             dbg("docs/_pdf_visible_range: suppressed: %s" % e)
         return lo, hi
+
+    def _pdf_relayout(self):
+        # K16: queue_resize from inside a size-allocate is deferred –
+        # the shrunk pages never repaint until an expose (scroll).
+        box = self._pdf_box
+        if box is not None:
+            box.queue_resize()
+            box.queue_draw()
+        return False
 
     def _pdf_scale_step(self, target, gen):
         # K12: stale pass – a newer resize or a clear ran.
@@ -645,7 +662,7 @@ class DocsRendererMixin:
             dbg("docs/_office_job_done: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.65.9"
+PREVIEWER_VERSION = "0.65.10"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)

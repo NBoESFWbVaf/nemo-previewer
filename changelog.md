@@ -4,6 +4,13 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.65.10\] – 2026-11-07
+
+### Fixed
+
+- Deploy feedback (reset button, third round – with screenshot): 0.65.9's dbg trail proved the scaling itself now runs completely and correctly on a reset jump (all pages end up at the target width, e.g. `751 px -> 317 px, 6 page(s)` with the background pass confirming `0 page(s)` left) – yet the view still showed the old, too-wide page, cut off on the right, until you scrolled once. The stale part was not the data but the paint: scaling happens inside the size-allocate handler of the resize pass, and the queue\_resize that `set_from_pixbuf` triggers there is deferred by GTK – the shrunk pages never get repainted until some expose event (any scroll) forces the redraw. \_pdf\_scale\_one now queues a draw right after setting the pixbuf, and \_apply\_pdf\_scale arms a one-shot idle (\_pdf\_relayout) that re-requests the page box layout and invalidates its paint after the resize pass – the view snaps into place immediately, no scrolling needed.
+- The scroll hook now logs when it actually scales something (`docs/_on_pdf_scrolled: N page(s) -> W px`), so a debug log distinguishes a repaint fix (no line) from a scaling fix (line) – in a healthy 0.65.10 run neither should appear after a reset.
+
 ## \[0.65.9\] – 2026-11-07
 
 ### Fixed
