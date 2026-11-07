@@ -4,6 +4,13 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.65.9\] – 2026-11-07
+
+### Fixed
+
+- Deploy feedback (reset button, second round): the visible-first background pass from 0.65.8 showed no effect after the reset jump – page 1 fitted (it scales synchronously), but the remaining pages stayed at the old width until you scrolled once, which scaled them via the scroll hook. A big width jump (reset button, window resize) now scales the first pages synchronously with the jump itself – the column fits immediately, whatever the background pass does; small drag crossings keep the light K12 behavior. The scale passes gained dbg breadcrumbs (\_apply\_pdf\_scale/\_pdf\_scale\_step with widths, page counts and stale reasons), so the debug log now shows exactly what each pass did.
+- Edge case found on the way: a PDF re-render at an unchanged width (e.g. an office conversion arriving after a resize) left page 1 at double width – the opening pass hit the 8-px threshold against the width remembered from the previous preview and returned early. \_render_pdf now forces the opening pass, so page 1 always fits after a (re-)render.
+
 ## \[0.65.8\] – 2026-11-07
 
 ### Fixed

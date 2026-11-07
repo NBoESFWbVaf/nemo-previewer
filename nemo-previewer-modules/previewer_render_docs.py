@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 0.65.8
+previewer_render_docs.py – Version 0.65.9
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -263,6 +263,9 @@ class DocsRendererMixin:
                                          self._on_pdf_scrolled)
         self._content.pack_start(scroll, True, True, 0)
         self._pdf_scroll = scroll
+        # K15: force the opening pass – a re-render at an unchanged
+        # width must still fit page 1 (office PDF arriving later).
+        self._pdf_last_w = 0
         self._apply_pdf_scale()
         # R2: feed the remaining pages one per idle cycle. The
         # generation is passed along so each step knows its render pass.
@@ -353,13 +356,25 @@ class DocsRendererMixin:
         target = self._preview_width()
         if abs(target - self._pdf_last_w) < 8:
             return
+        old = self._pdf_last_w
         self._pdf_last_w = target
         self._pdf_scale_gen += 1
         gen = self._pdf_scale_gen
-        # K12: page 1 scales synchronously, the rest per idle
-        # cycle – inline scaling of all pages starved the drag.
+        dbg("docs/_apply_pdf_scale: %d px -> %d px, %d page(s)"
+            % (old, target, len(srcs)))
         try:
-            self._pdf_scale_one(0, target)
+            lo, hi = self._pdf_visible_range()
+            # K15: after a big jump (reset button) the first pages
+            # scale synchronously; drag crossings stay light (K12).
+            wide = abs(target - old) >= 40
+            sync_max = 6 if wide else 1
+            for i in range(len(srcs)):
+                if self._pdf_scaled[i] == target:
+                    continue
+                if i < sync_max or (wide and lo <= i <= hi):
+                    self._pdf_scale_one(i, target)
+                else:
+                    break
         except Exception as e:
             dbg("docs/_apply_pdf_scale: suppressed: %s" % e)
         if len(srcs) > 1:
@@ -390,7 +405,12 @@ class DocsRendererMixin:
     def _pdf_scale_step(self, target, gen):
         # K12: stale pass – a newer resize or a clear ran.
         if gen != self._pdf_scale_gen or self._pdf_box is None:
+            dbg("docs/_pdf_scale_step: stale (gen %d/%d, box %s)"
+                % (gen, self._pdf_scale_gen,
+                   "gone" if self._pdf_box is None else "live"))
             return False
+        done = 0
+        lo = hi = 0
         try:
             # K14: visible pages jump the queue – the column fits
             # right after a width jump (reset button); the rest
@@ -404,10 +424,13 @@ class DocsRendererMixin:
                 if not visible and batch >= 4:
                     break
                 self._pdf_scale_one(i, target)
+                done += 1
                 if not visible:
                     batch += 1
         except Exception as e:
             dbg("docs/_pdf_scale_step: suppressed: %s" % e)
+        dbg("docs/_pdf_scale_step: %d page(s) -> %d px (lo %d, hi %d)"
+            % (done, target, lo, hi))
         for w in self._pdf_scaled:
             if w != target:
                 GLib.idle_add(self._pdf_scale_step, target, gen)
@@ -622,7 +645,7 @@ class DocsRendererMixin:
             dbg("docs/_office_job_done: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.65.8"
+PREVIEWER_VERSION = "0.65.9"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)
