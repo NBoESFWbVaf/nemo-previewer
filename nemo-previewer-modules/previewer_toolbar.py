@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 0.66.1
+previewer_toolbar.py – Version 0.66.2
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -16,7 +16,7 @@ import gi
 
 gi.require_version('Gtk', '3.0')
 
-from gi.repository import Gtk, GLib
+from gi.repository import Gtk, GLib, Gio
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -49,8 +49,8 @@ class PreviewToolbarMixin:
         # F74 (x-bit): owner execute-bit toggle at the LEFT end;
         # visibility and red state live in _update_xbit_button.
         self._btn_xbit = Gtk.Button.new_from_icon_name(
-            pick_icon(("system-run-symbolic", "system-run"),
-                      "system-run"),
+            pick_icon(("gtk-execute", "system-run-symbolic",
+                       "system-run"), "system-run"),
             Gtk.IconSize.BUTTON)
         self._btn_xbit.set_relief(Gtk.ReliefStyle.NONE)
         self._btn_xbit.set_no_show_all(True)
@@ -59,7 +59,7 @@ class PreviewToolbarMixin:
         try:
             css = Gtk.CssProvider()
             css.load_from_data(
-                b"button.pvw-xbit-set { background: rgba(224,27,36,0.25); }")
+                b"button.pvw-xbit-set { background: rgba(246,97,81,0.45); }")
             self._btn_xbit.get_style_context().add_provider(
                 css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         except Exception as e:
@@ -472,21 +472,21 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-20
     def _on_xbit_clicked(self, button):
-        # F74: full toggle of the OWNER execute bit only (u+x/u-x);
-        # a failing chmod (read-only, foreign owner) stays a dbg.
+        # F74: toggle ALL execute bits (u/g/o) – a file that stayed
+        # executable through group/other looked unreliable.
         path = self._path
         if not path:
             return
         try:
             st = os.stat(path)
             mode = stat.S_IMODE(st.st_mode)
-            if st.st_mode & stat.S_IXUSR:
-                os.chmod(path, mode & ~stat.S_IXUSR)
-                dbg("toolbar/xbit: %s: owner x-bit removed"
+            if mode & 0o111:
+                os.chmod(path, mode & ~0o111)
+                dbg("toolbar/xbit: %s: x-bits removed (u/g/o)"
                     % os.path.basename(path))
             else:
-                os.chmod(path, mode | stat.S_IXUSR)
-                dbg("toolbar/xbit: %s: owner x-bit set"
+                os.chmod(path, mode | 0o111)
+                dbg("toolbar/xbit: %s: x-bits set (u/g/o)"
                     % os.path.basename(path))
             self._update_xbit_button()
         except Exception as e:
@@ -494,17 +494,19 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-21
     def _update_xbit_button(self):
-        # F74: single refresh point (render/toggle): visibility,
-        # tooltip and the subtle red pvw-xbit-set state (F65 red).
+        # F74: single refresh point (render/toggle/monitor):
+        # visibility, tooltip, red state and the live file monitor.
         path = self._path
         on = False
         try:
             if (path and len(self._names) == 1
                     and self._xbit_candidate(path)):
-                on = bool(os.stat(path).st_mode & stat.S_IXUSR)
+                on = bool(os.stat(path).st_mode & 0o111)
                 self._btn_xbit.show()
+                self._xbit_watch(path)
             else:
                 self._btn_xbit.hide()
+                self._xbit_watch(None)
         except Exception as e:
             self._btn_xbit.hide()
             dbg("toolbar/_update_xbit_button: suppressed: %s" % e)
@@ -512,14 +514,37 @@ class PreviewToolbarMixin:
         if on:
             ctx.add_class("pvw-xbit-set")
             self._btn_xbit.set_tooltip_text(_(
-                "Executable – click to remove the executable bit (owner)"))
+                "Executable – click to remove the executable bit"))
         else:
             ctx.remove_class("pvw-xbit-set")
             self._btn_xbit.set_tooltip_text(_(
-                "Make the file executable (owner)"))
+                "Make the file executable"))
+
+    # → REF TB-DOC-22
+    def _xbit_watch(self, path):
+        # F74: one Gio file monitor on the previewed file – a
+        # permission flip from outside refreshes the button live.
+        try:
+            if getattr(self, "_xbit_mon", None) is not None:
+                self._xbit_mon.cancel()
+                self._xbit_mon = None
+            if not path:
+                return
+            mon = Gio.File.new_for_path(path).monitor_file(
+                Gio.FileMonitorFlags.NONE, None)
+            mon.connect("changed", self._on_xbit_file_changed)
+            self._xbit_mon = mon
+        except Exception as e:
+            dbg("toolbar/_xbit_watch: suppressed: %s" % e)
+
+    # → REF TB-DOC-22
+    def _on_xbit_file_changed(self, mon, gfile, other, event):
+        # F74: inotify IN_ATTRIB path (permissions dialog) – the
+        # refresh recreates the monitor safely inside its callback.
+        self._update_xbit_button()
 
 
-PREVIEWER_VERSION = "0.66.1"
+PREVIEWER_VERSION = "0.66.2"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

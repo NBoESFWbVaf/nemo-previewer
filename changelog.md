@@ -4,6 +4,19 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[0.66.2\] – 2026-11-07
+
+### Fixed
+
+- x-bit button unreliability (deploy feedback): the toggle now touches ALL THREE execute bits (u/g/o, mask 0o111) – a file that stayed executable through group or other (e. g. copied as 0755) looked like the button did nothing, and a bit set elsewhere could not be removed. State and toggle now match what the file manager shows.
+- The button refreshes live now: a Gio file monitor on the previewed file catches permission changes made outside the extension (e. g. the properties dialog) – no re-selection of the file needed.
+
+### Changed
+
+- The red "executable" state is brighter: rgba(246,97,81,0.45) instead of the dark F65 red at a quarter alpha.
+- The button icon tries gtk-execute first (user wish), falling back to system-run-symbolic and system-run.
+- The tooltip texts dropped the "(owner)" suffix; the po files carry the adjusted msgids.
+
 ## \[0.66.1\] – 2026-11-07
 
 ### Fixed

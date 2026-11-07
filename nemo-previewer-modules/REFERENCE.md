@@ -1534,7 +1534,7 @@ F74 (0.66.0): the x-bit button only makes sense for files the kernel can execute
 - **Reason:** F74 – full toggle of the owner execute bit; chmod errors stay dbg lines.
 
 ```text
-F74 (0.66.0): full toggle of the OWNER execute bit only (u+x / u-x, user decision): the handler works on stat.S_IMODE, sets S_IXUSR or clears it and leaves group/other permission bits untouched. A failing chmod (read-only file system, foreign owner) stays a dbg line. The dbg success line names the file and the direction ("owner x-bit set"/"owner x-bit removed"), so a deploy test can prove BOTH directions in the log; _update_xbit_button refreshes state, tooltip and style right after the toggle.
+F74 (0.66.0): full toggle of the OWNER execute bit only (u+x / u-x, user decision): the handler works on stat.S_IMODE, sets S_IXUSR or clears it and leaves group/other permission bits untouched. A failing chmod (read-only file system, foreign owner) stays a dbg line. The dbg success line names the file and the direction ("owner x-bit set"/"owner x-bit removed"), so a deploy test can prove BOTH directions in the log; _update_xbit_button refreshes state, tooltip and style right after the toggle. 0.66.2 (deploy feedback): the toggle now touches ALL THREE execute bits (u/g/o, mask 0o111) – a file that stayed executable through group or other (e. g. copied as 0755) looked like the button did nothing, and a bit set elsewhere could not be removed; the dbg lines say "x-bits set/removed (u/g/o)".
 ```
 
 ---
@@ -1546,7 +1546,19 @@ F74 (0.66.0): full toggle of the OWNER execute bit only (u+x / u-x, user decisio
 - **Reason:** F74 – single refresh point for visibility, tooltip and the subtle red "already executable" state.
 
 ```text
-F74 (0.66.0): single refresh point, called at the end of _render and in the empty-selection branch of set_selection (multi-selection hides the button too – a toggle would target only the first file). Visibility: single selection plus _xbit_candidate; state: S_IXUSR. While the bit is set the button carries the CSS class pvw-xbit-set (button.pvw-xbit-set { background: rgba(224,27,36,0.25); } – the F65 red #e01b24 at a quarter alpha, subtle on purpose) and the tooltip "Executable – click to remove the executable bit (owner)"; otherwise plain with "Make the file executable (owner)". The button sits pack_start at the LEFT end of the action bar (user wish), built in _build_toolbar with pick_icon("system-run-symbolic", "system-run"), relief NONE, no_show_all so show_all passes never reveal it. 0.66.1 (deploy crash): Gtk.ActionBar.pack_start() takes exactly ONE argument (the child) – unlike Gtk.Box there are no expand/fill/padding parameters; the first attempt passed five arguments and the panel never docked. The button now packs with pack_start(child), same call as the settings button.
+F74 (0.66.0): single refresh point, called at the end of _render and in the empty-selection branch of set_selection (multi-selection hides the button too – a toggle would target only the first file). Visibility: single selection plus _xbit_candidate; state: S_IXUSR. While the bit is set the button carries the CSS class pvw-xbit-set (button.pvw-xbit-set { background: rgba(224,27,36,0.25); } – the F65 red #e01b24 at a quarter alpha, subtle on purpose) and the tooltip "Executable – click to remove the executable bit (owner)"; otherwise plain with "Make the file executable (owner)". The button sits pack_start at the LEFT end of the action bar (user wish), built in _build_toolbar with pick_icon("system-run-symbolic", "system-run"), relief NONE, no_show_all so show_all passes never reveal it. 0.66.1 (deploy crash): Gtk.ActionBar.pack_start() takes exactly ONE argument (the child) – unlike Gtk.Box there are no expand/fill/padding parameters; the first attempt passed five arguments and the panel never docked. The button now packs with pack_start(child), same call as the settings button. 0.66.2: the red got brighter (rgba(246,97,81,0.45) instead of the dark F65 red at a quarter alpha), the state is ANY execute bit (mask 0o111), the icon chain tries gtk-execute first (user wish) with system-run-symbolic/system-run fallbacks, the tooltips dropped the (owner) suffix, and a Gio file monitor (see TB-DOC-22) refreshes the button live when permissions change outside the extension.
+```
+
+---
+
+### TB-DOC-22 – Docstring: \_xbit\_watch / \_on\_xbit\_file\_changed (F74)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin.\_xbit\_watch` and `.\_on\_xbit\_file\_changed` (methods, both share this entry)
+- **Reason:** F74 live refresh – permission changes made outside the extension (properties dialog) previously needed a re-selection.
+
+```text
+F74 (0.66.2, deploy feedback "not live"): one Gio file monitor on the previewed file. _xbit_watch(path) is the single management point, called from _update_xbit_button with the candidate path (or None): it cancels a pending monitor (self._xbit_mon, getattr-guarded because the panel builds before the first render) and, for a real path, creates a new one via Gio.File.new_for_path(path).monitor_file(Gio.FileMonitorFlags.NONE, None) and connects "changed". The handler _on_xbit_file_changed simply calls _update_xbit_button again – the inotify IN_ATTRIB path (chmod from the properties dialog) reaches the button without re-selecting the file. The refresh inside the callback recreates the monitor safely (cancel of the currently firing monitor is allowed, a fresh monitor fires nothing on creation, so there is no loop); errors stay dbg lines.
 ```
 
 ---
