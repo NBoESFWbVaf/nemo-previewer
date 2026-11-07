@@ -1,6 +1,6 @@
 # Nemo Previewer — Installation
 
-A Nemo file manager extension that docks a preview panel to the right side of every Nemo window and renders the currently selected file: images (with EXIF orientation), text and source code, Markdown, e-mails, e-books (EPUB, FictionBook 2, MOBI), PDF, audio (with player), video, folders, and office documents.
+A Nemo file manager extension that docks a preview panel to the right side of every Nemo window and renders the currently selected file: images (with EXIF orientation), text and source code, Markdown, e-mails, e-books (EPUB, FictionBook 2, MOBI), PDF, audio (with player), video, folders, office documents, vCard contacts, iCalendar events, package files (DEB/RPM/Arch), SQLite databases, and font files (TTF/OTF/WOFF1/TTC).
 
 Repository: [https://github.com/NBoESFWbVaf/nemo-previewer](https://github.com/NBoESFWbVaf/nemo-previewer)
 
@@ -29,10 +29,11 @@ The entry point `previewer.py` stays directly in `~/.local/share/nemo-python/ext
 sudo apt install nemo-python python3-gi git
 ```
 
-**Optional packages** — each one unlocks additional preview types:
+**Optional packages** — each one unlocks additional preview types or detail windows:
 
 ```bash
-# PDF preview
+# PDF preview (Poppler) plus pycairo — the renderings of the PDF
+# pages, the font waterfall and the cover placeholders draw on it
 sudo apt install gir1.2-poppler-0.18 python3-cairo
 
 # Audio/video preview (GStreamer)
@@ -49,6 +50,10 @@ sudo apt install gir1.2-rsvg-2.0
 # editor, practically always preinstalled on Mint via xed
 sudo apt install gir1.2-gtksource-4
 
+# Tag tables in the "more" windows: ALL EXIF details of photos and
+# the audio/video tags — read via the exiftool command line tool
+sudo apt install libimage-exiftool-perl
+
 # Sharp office preview (ODT/ODS/ODP, DOCX/XLSX/PPTX, DOC/XLS/PPT):
 # converts documents to PDF in the background, once per document
 sudo apt install libreoffice-core
@@ -57,7 +62,7 @@ sudo apt install libreoffice-core
 **All packages at once**
 
 ```bash
-sudo apt install nemo-python python3-gi git gir1.2-poppler-0.18 python3-cairo gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-good gir1.2-rsvg-2.0 gir1.2-gtksource-4 libreoffice-core
+sudo apt install nemo-python python3-gi git gir1.2-poppler-0.18 python3-cairo gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-good gir1.2-rsvg-2.0 gir1.2-gtksource-4 libimage-exiftool-perl libreoffice-core
 ```
 
 
@@ -67,7 +72,7 @@ Everything else runs on Python standard library modules only.
 
 - There is **no `python-gi` package on Debian** — the Python 3 GObject bindings are called `python3-gi`. Installing `nemo-python` pulls in `python3-gi` and the Nemo GIR bindings automatically
 - Cinnamon on Debian does **not** preinstall `nemo-python`. Without it, extensions in `~/.local/share/nemo-python/extensions/` are silently ignored — the panel never appears
-- The SVG package is named `gir1.2-rsvg-2.0` on both Debian and Mint (Debian has no `gir1.2-rsvg` alias). PDF (`gir1.2-poppler-0.18`), `python3-cairo`, GStreamer, `gir1.2-gtksource-4` and `libreoffice-core` carry the same names on both distributions
+- The SVG package is named `gir1.2-rsvg-2.0` on both Debian and Mint (Debian has no `gir1.2-rsvg` alias). PDF (`gir1.2-poppler-0.18`), `python3-cairo`, GStreamer, `gir1.2-gtksource-4`, `libimage-exiftool-perl` and `libreoffice-core` carry the same names on both distributions
 
 ## Install
 
@@ -91,14 +96,14 @@ nemo -q && nemo
 ```
 2. Check the log. Each module reports its version on load:
 ```text
-[previewer] previewer_util 0.46.0 loaded
-[previewer] previewer_select 0.46.0 loaded
-[previewer] previewer_render_media 0.46.0 loaded (...)
-[previewer] previewer_render_docs 0.46.0 loaded (...)
-[previewer] previewer_render_text 0.46.0 loaded (...)
-[previewer] previewer_toolbar 0.46.0 loaded (...)
-[previewer] previewer_panel 0.46.0 loaded (...)
-[previewer] previewer (entry) v0.46.0 ready
+[previewer] previewer_util 0.62.1 loaded
+[previewer] previewer_select 0.62.1 loaded
+[previewer] previewer_render_media 0.62.1 loaded (...)
+[previewer] previewer_render_docs 0.62.1 loaded (...)
+[previewer] previewer_render_text 0.62.1 loaded (...)
+[previewer] previewer_toolbar 0.62.1 loaded (...)
+[previewer] previewer_panel 0.62.1 loaded (...)
+[previewer] previewer (entry) v0.62.1 ready
 ```
 
    Eight lines with the same version number — anything else means an old file is still in one of the two folders.
@@ -126,7 +131,9 @@ grep -H PREVIEWER_VERSION ~/.local/share/nemo-python/extensions/previewer.py ~/.
 rm ~/.local/share/nemo-python/extensions/previewer*.py
 rm -rf ~/.local/share/nemo-python/extensions/nemo-previewer-modules
 rm -rf ~/.local/share/nemo-python/extensions/__pycache__
+rm -rf ~/.config/nemo-previewer   # extension settings (nemo-previewer.conf)
 rm -rf ~/.cache/previewer      # optional: office preview cache
+rm -rf ~/.local/state/nemo-previewer   # optional: debug log
 nemo -q && nemo
 ```
 
