@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 0.62.1
+previewer_panel.py – Version 0.63.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -669,12 +669,17 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # 8 px per render – edgeless renderers zero it themselves (→ REF PAN-BG-1).
         self._content.set_border_width(8)
 
+        # K6: multi-selection shows no preview – the column
+        # only shows the count (→ REF PAN-K6-1).
         if len(self._names) > 1:
-            extra = Gtk.Label(label="… and %d more selected" %
-                              (len(self._names) - 1))
+            extra = Gtk.Label(label="%d items selected" % len(self._names))
             extra.get_style_context().add_class("dim-label")
-            extra.set_halign(Gtk.Align.START)
-            self._content.pack_start(extra, False, False, 0)
+            extra.set_halign(Gtk.Align.CENTER)
+            extra.set_valign(Gtk.Align.CENTER)
+            self._content.pack_start(extra, True, True, 0)
+            dbg("panel/_render_inner: K6: %d items selected, no preview" %
+                len(self._names))
+            return
 
         if not path or not os.path.exists(path):
             # F35: the name sits in the Nemo list – only the warning
@@ -1428,7 +1433,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "0.62.1"
+PREVIEWER_VERSION = "0.63.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
