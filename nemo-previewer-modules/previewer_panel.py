@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.2.4
+previewer_panel.py – Version 1.2.5
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -282,6 +282,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_outer_pos = 0
         self._aux_outer_hold = False
         self._aux_outer_hid = None
+        # 1.2.5: one-shot handle calibration hook (PAN-AUX-2).
+        self._aux_calib_hid = None
         # F25: pending quiet re-render of the spacing spin.
         self._spacing_render_id = None
         # F2: pending debounced heavy render (selection quiet).
@@ -1334,6 +1336,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             except Exception:
                 pass
             self._aux_outer_hid = None
+        # 1.2.5: drop a pending calibration hook as well.
+        if getattr(self, "_aux_calib_hid", None) is not None:
+            try:
+                self._aux_shell.handler_disconnect(
+                    self._aux_calib_hid)
+            except Exception:
+                pass
+            self._aux_calib_hid = None
         self._stop_playback()
         # F71: drop the queued one-shot timers (F2 render, F25
         # line spacing) so they cannot fire into the dead panel.
@@ -1393,16 +1403,87 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         return 600
 
     def _aux_handle_px(self):
-        # GtkPaned handle width (style property) - part of the
-        # width the shell occupies while the column is open.
+        # 1.2.5: the real handle width is the separator's CSS
+        # min-width - the handle-size style property is
+        # deprecated since GTK 3.20 and the themes stopped
+        # writing it: the legacy read keeps reporting the
+        # default 5 while the separator on themed systems is
+        # only 1-2 px, so every open moved the outer divider
+        # too far and the preview grew by the difference
+        # (deploy report on 1.2.4).  The calibration after
+        # each open measures the ground truth (PAN-AUX-2).
         if self._aux_handle is None:
+            got = 0
             try:
-                self._aux_handle = int(
-                    self._aux_shell.style_get_property("handle-size"))
+                shell_ctx = self._aux_shell.get_style_context()
+                path = shell_ctx.get_path().copy()
+                path.append_type(Gtk.Separator)
+                ctx = Gtk.StyleContext.new()
+                ctx.set_path(path)
+                ctx.set_screen(shell_ctx.get_screen())
+                got = int(ctx.get_property(
+                    "min-width", Gtk.StateFlags.NORMAL))
             except Exception as e:
-                dbg("panel/_aux_handle_px: suppressed: %s" % e)
-                self._aux_handle = 5
+                dbg("panel/_aux_handle_px: css: %s" % e)
+            if got < 1:
+                try:
+                    got = int(
+                        self._aux_shell.style_get_property(
+                            "handle-size"))
+                except Exception as e:
+                    dbg("panel/_aux_handle_px: suppressed: %s" % e)
+                    got = 5
+            self._aux_handle = got
+            dbg("panel/aux: handle %d px" % got)
         return self._aux_handle
+
+    def _on_aux_calib_alloc(self, widget, alloc):
+        # 1.2.5: one-shot - the children allocate right after
+        # the shell; measure from the idle so the whole layout
+        # is settled (PAN-AUX-2).
+        hid = self._aux_calib_hid
+        if hid is not None:
+            self._aux_calib_hid = None
+            try:
+                widget.handler_disconnect(hid)
+            except Exception:
+                pass
+        GLib.idle_add(self._aux_calibrate)
+
+    def _aux_calibrate(self):
+        # 1.2.5: ground truth after the open - the allocated
+        # widths reveal the real handle: shell = column +
+        # handle + preview; a wrong prediction shifts the
+        # outer divider by the difference so the preview ends
+        # up exact.
+        if (self._destroyed or self._aux_key is None
+                or not self._aux_column.get_visible()):
+            return False
+        s = self._aux_shell.get_allocation().width
+        c = self._aux_column.get_allocation().width
+        p = self.get_allocation().width
+        if s <= c + p or c < 1 or p < 1:
+            return False
+        real = s - c - p
+        if real == self._aux_handle:
+            return False
+        err = self._aux_handle - real
+        self._aux_handle = real
+        self._aux_width = c + real
+        dbg("panel/aux: handle %d px (was %d px)"
+            % (real, real + err))
+        if err:
+            outer = self._host_paned()
+            if outer is not None:
+                try:
+                    old = outer.get_position()
+                    self._aux_outer_hold = True
+                    outer.set_position(max(0, old + err))
+                    if outer.get_position() == old:
+                        self._aux_outer_hold = False
+                except Exception as e:
+                    dbg("panel/_aux_calibrate: suppressed: %s" % e)
+        return False
 
     def _on_aux_dragged(self, paned, param):
         # 1.2.3: pure recorder - the divider is native GTK and
@@ -1509,6 +1590,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_apply_width(widget)
         self._aux_column.show()
         widget.show_all()
+        # 1.2.5: calibrate the handle width from the real
+        # allocation once this layout settles (PAN-AUX-2).
+        if self._aux_calib_hid is None:
+            self._aux_calib_hid = self._aux_shell.connect(
+                "size-allocate", self._on_aux_calib_alloc)
         dbg("panel/aux: open %r" % key)
 
     def _close_aux(self):
@@ -1783,7 +1869,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.2.4"
+PREVIEWER_VERSION = "1.2.5"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
