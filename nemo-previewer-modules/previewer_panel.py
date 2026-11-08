@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.1.1
+previewer_panel.py – Version 1.1.2
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -1367,15 +1367,16 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     # → REF PAN-AUX-2
     def _aux_apply_width(self, widget):
-        # Content-driven width between PANEL_MIN_WIDTH and the cap;
-        # the panel grows leftwards through the paned position.
+        # Standard 420 px (the former window rule, UT-DOC-15) -
+        # only content WIDER than that grows the column; the panel
+        # grows leftwards through the paned position (1.1.2).
         try:
-            _mn, nat = widget.get_preferred_width()
+            mn, nat = widget.get_preferred_width()
         except Exception as e:
             dbg("panel/_aux_apply_width: suppressed: %s" % e)
-            nat = 420
-        new_w = max(PANEL_MIN_WIDTH,
-                    min(nat + 32, self._aux_max_width()))
+            mn = nat = 400
+        new_w = min(max(420, mn + 32, nat + 32),
+                    self._aux_max_width())
         self._aux_column.set_size_request(new_w, -1)
         paned = self._host_paned()
         if paned is not None:
@@ -1385,7 +1386,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             except Exception as e:
                 dbg("panel/_aux_apply_width: suppressed: %s" % e)
         self._aux_width = new_w
-        dbg("panel/aux: width %d px" % new_w)
+        dbg("panel/aux: width %d px (content %d/%d px)"
+            % (new_w, mn, nat))
 
     def _open_aux(self, key, title, widget, refresh=None, trigger=None):
         # Generic entry point: open or swap a view; the SAME key
@@ -1668,7 +1670,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.1.1"
+PREVIEWER_VERSION = "1.1.2"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
