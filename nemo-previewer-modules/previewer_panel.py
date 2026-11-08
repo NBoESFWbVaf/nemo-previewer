@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.2.1
+previewer_panel.py – Version 1.2.2
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -278,6 +278,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_manual_width = 0
         self._aux_handle = None
         self._aux_syncing = False
+        # 1.2.2: reentry guard of the drag handler (PAN-AUX-2).
+        self._aux_drag_busy = False
         # F25: pending quiet re-render of the spacing spin.
         self._spacing_render_id = None
         # F2: pending debounced heavy render (selection quiet).
@@ -1354,9 +1356,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         return False
 
     def _host_paned(self):
-        # F66: the panel sits inside the aux shell – walk up to
-        # the Gtk.Paned that carries the whole column (PAN-AUX-2).
-        node = self.get_parent()
+        # 1.2.2: the shell is a Paned itself since 1.2.1 – the
+        # walk starts ABOVE it, else it returns the inner shell.
+        node = self._aux_shell.get_parent()
         while node is not None and not isinstance(node, Gtk.Paned):
             node = node.get_parent()
         return node
@@ -1389,7 +1391,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     def _on_aux_dragged(self, paned, param):
         # The user drags the inner divider: the panel keeps its
-        # width - the OUTER divider follows the drag delta.
+        # width - the OUTER divider follows the drag delta; the
+        # busy flag keeps reentrant notifies out (1.2.2).
         if self._aux_syncing or self._aux_key is None:
             return
         new_pos = paned.get_position()
@@ -1400,12 +1403,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_manual_width = new_pos
         self._aux_width = new_pos + self._aux_handle_px()
         outer = self._host_paned()
-        if outer is not None:
+        if outer is not None and not self._aux_drag_busy:
+            self._aux_drag_busy = True
             try:
                 outer.set_position(max(0, outer.get_position()
                                        - (new_pos - old_pos)))
             except Exception as e:
                 dbg("panel/_on_aux_dragged: suppressed: %s" % e)
+            self._aux_drag_busy = False
         dbg("panel/aux: drag %d px" % new_pos)
 
     # → REF PAN-AUX-2
@@ -1730,7 +1735,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.2.1"
+PREVIEWER_VERSION = "1.2.2"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
