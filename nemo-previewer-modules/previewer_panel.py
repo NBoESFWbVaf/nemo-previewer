@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.2.3
+previewer_panel.py – Version 1.2.4
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -278,9 +278,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_manual_width = 0
         self._aux_handle = None
         self._aux_syncing = False
-        # 1.2.3: shell width tracking + hold flag (PAN-AUX-2).
-        self._aux_alloc_w = 0
-        self._aux_alloc_hold = False
+        # 1.2.4: outer divider hook state (PAN-AUX-2).
+        self._aux_outer_pos = 0
+        self._aux_outer_hold = False
+        self._aux_outer_hid = None
         # F25: pending quiet re-render of the spacing spin.
         self._spacing_render_id = None
         # F2: pending debounced heavy render (selection quiet).
@@ -423,12 +424,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_column.show_all()
         self._aux_column.set_no_show_all(True)
         self._aux_column.hide()
-        self._aux_shell.pack1(self._aux_column, False, True)
+        # 1.2.4: shrink False + the 320 px request give the inner
+        # divider a hard floor - the preview can never swallow
+        # the column (deploy report on 1.2.3).
+        self._aux_column.set_size_request(320, -1)
+        self._aux_shell.pack1(self._aux_column, False, False)
         self._aux_shell.pack2(self, True, False)
         self._aux_shell.connect("notify::position",
                                 self._on_aux_dragged)
-        self._aux_shell.connect("size-allocate",
-                                self._on_aux_shell_alloc)
 
         # B3: on panel teardown, cleanly stop playback and timer
         self.connect("destroy", self._on_panel_destroy)
@@ -1322,6 +1325,15 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_key = None
         self._aux_refresh = None
         self._aux_trigger = None
+        # 1.2.4: drop the outer divider hook of the dead shell.
+        if getattr(self, "_aux_outer_hid", None) is not None:
+            try:
+                paned = self._host_paned()
+                if paned is not None:
+                    paned.handler_disconnect(self._aux_outer_hid)
+            except Exception:
+                pass
+            self._aux_outer_hid = None
         self._stop_playback()
         # F71: drop the queued one-shot timers (F2 render, F25
         # line spacing) so they cannot fire into the dead panel.
@@ -1406,23 +1418,28 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_width = new_pos + self._aux_handle_px()
         dbg("panel/aux: divider at %d px" % new_pos)
 
-    def _on_aux_shell_alloc(self, shell, alloc):
-        # 1.2.3: shell width changed - the COLUMN absorbs the delta
-        # so the preview keeps its width; programmatic moves hold.
-        delta = alloc.width - self._aux_alloc_w
-        self._aux_alloc_w = alloc.width
+    def _on_aux_outer_moved(self, paned, param):
+        # 1.2.4: the outer divider moved - the COLUMN absorbs the
+        # change BEFORE the layout runs, so the preview never
+        # wobbles; programmatic moves hold off one cycle.
+        new_pos = paned.get_position()
+        delta = new_pos - self._aux_outer_pos
+        self._aux_outer_pos = new_pos
         if delta == 0:
             return
-        if self._aux_alloc_hold:
-            self._aux_alloc_hold = False
+        if self._aux_outer_hold:
+            self._aux_outer_hold = False
             return
         if self._aux_key is None or not self._aux_column.get_visible():
             return
         try:
-            shell.set_position(max(0, shell.get_position() + delta))
-            dbg("panel/aux: shell delta %d px" % delta)
+            self._aux_shell.set_position(
+                min(self._aux_max_width(),
+                    max(320, self._aux_shell.get_position()
+                        - delta)))
+            dbg("panel/aux: outer delta %d px" % delta)
         except Exception as e:
-            dbg("panel/_on_aux_shell_alloc: suppressed: %s" % e)
+            dbg("panel/_on_aux_outer_moved: suppressed: %s" % e)
 
     # → REF PAN-AUX-2
     def _aux_apply_width(self, widget):
@@ -1444,11 +1461,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if paned is not None:
             try:
                 old_pos = paned.get_position()
+                # 1.2.4: the outer hook skips our own move.
+                self._aux_outer_hold = True
                 paned.set_position(
                     max(0, old_pos + self._aux_width - extra))
-                if paned.get_position() != old_pos:
-                    # 1.2.3: one adjustor cycle belongs to us.
-                    self._aux_alloc_hold = True
+                if paned.get_position() == old_pos:
+                    self._aux_outer_hold = False
             except Exception as e:
                 dbg("panel/_aux_apply_width: suppressed: %s" % e)
         # The inner position IS the column width; the guard keeps
@@ -1470,6 +1488,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if key is not None and key == self._aux_key:
             self._close_aux()
             return
+        # 1.2.4: hook the outer divider once - the column absorbs
+        # its drags; programmatic moves hold off (PAN-AUX-2).
+        if self._aux_outer_hid is None:
+            outer = self._host_paned()
+            if outer is not None:
+                self._aux_outer_pos = outer.get_position()
+                self._aux_outer_hid = outer.connect(
+                    "notify::position", self._on_aux_outer_moved)
         self._mirror_aux_trigger(trigger)
         self._aux_key = key
         self._aux_refresh = refresh
@@ -1501,9 +1527,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if paned is not None:
             try:
                 old_pos = paned.get_position()
+                self._aux_outer_hold = True
                 paned.set_position(max(0, old_pos + self._aux_width))
-                if paned.get_position() != old_pos:
-                    self._aux_alloc_hold = True
+                if paned.get_position() == old_pos:
+                    self._aux_outer_hold = False
             except Exception as e:
                 dbg("panel/_close_aux: suppressed: %s" % e)
         self._aux_width = 0
@@ -1712,11 +1739,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 # F66: an open aux column keeps its width - only
                 # the panel side is reset to the configured width.
                 old_pos = parent.get_position()
+                # 1.2.4: the outer hook skips our own move.
+                self._aux_outer_hold = True
                 parent.set_position(
                     total - self._panel_width - self._aux_width)
-                if parent.get_position() != old_pos:
-                    # 1.2.3: one adjustor cycle belongs to us.
-                    self._aux_alloc_hold = True
+                if parent.get_position() == old_pos:
+                    self._aux_outer_hold = False
         except Exception as e:
             dbg("panel/_apply_panel_width_live: suppressed: %s" % e)
 
@@ -1755,7 +1783,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.2.3"
+PREVIEWER_VERSION = "1.2.4"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
