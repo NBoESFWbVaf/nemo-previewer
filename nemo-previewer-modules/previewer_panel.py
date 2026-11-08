@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.2.2
+previewer_panel.py – Version 1.2.3
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -278,8 +278,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_manual_width = 0
         self._aux_handle = None
         self._aux_syncing = False
-        # 1.2.2: reentry guard of the drag handler (PAN-AUX-2).
-        self._aux_drag_busy = False
+        # 1.2.3: shell width tracking + hold flag (PAN-AUX-2).
+        self._aux_alloc_w = 0
+        self._aux_alloc_hold = False
         # F25: pending quiet re-render of the spacing spin.
         self._spacing_render_id = None
         # F2: pending debounced heavy render (selection quiet).
@@ -426,6 +427,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_shell.pack2(self, True, False)
         self._aux_shell.connect("notify::position",
                                 self._on_aux_dragged)
+        self._aux_shell.connect("size-allocate",
+                                self._on_aux_shell_alloc)
 
         # B3: on panel teardown, cleanly stop playback and timer
         self.connect("destroy", self._on_panel_destroy)
@@ -1390,28 +1393,36 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         return self._aux_handle
 
     def _on_aux_dragged(self, paned, param):
-        # The user drags the inner divider: the panel keeps its
-        # width - the OUTER divider follows the drag delta; the
-        # busy flag keeps reentrant notifies out (1.2.2).
-        if self._aux_syncing or self._aux_key is None:
+        # 1.2.3: pure recorder - the divider is native GTK and
+        # this never moves a divider back (no feedback loops).
+        if self._aux_syncing:
             return
         new_pos = paned.get_position()
-        old_pos = self._aux_pos
-        if new_pos == old_pos:
+        if new_pos == self._aux_pos:
             return
         self._aux_pos = new_pos
-        self._aux_manual_width = new_pos
+        if self._aux_key is not None:
+            self._aux_manual_width = new_pos
         self._aux_width = new_pos + self._aux_handle_px()
-        outer = self._host_paned()
-        if outer is not None and not self._aux_drag_busy:
-            self._aux_drag_busy = True
-            try:
-                outer.set_position(max(0, outer.get_position()
-                                       - (new_pos - old_pos)))
-            except Exception as e:
-                dbg("panel/_on_aux_dragged: suppressed: %s" % e)
-            self._aux_drag_busy = False
-        dbg("panel/aux: drag %d px" % new_pos)
+        dbg("panel/aux: divider at %d px" % new_pos)
+
+    def _on_aux_shell_alloc(self, shell, alloc):
+        # 1.2.3: shell width changed - the COLUMN absorbs the delta
+        # so the preview keeps its width; programmatic moves hold.
+        delta = alloc.width - self._aux_alloc_w
+        self._aux_alloc_w = alloc.width
+        if delta == 0:
+            return
+        if self._aux_alloc_hold:
+            self._aux_alloc_hold = False
+            return
+        if self._aux_key is None or not self._aux_column.get_visible():
+            return
+        try:
+            shell.set_position(max(0, shell.get_position() + delta))
+            dbg("panel/aux: shell delta %d px" % delta)
+        except Exception as e:
+            dbg("panel/_on_aux_shell_alloc: suppressed: %s" % e)
 
     # → REF PAN-AUX-2
     def _aux_apply_width(self, widget):
@@ -1432,9 +1443,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         paned = self._host_paned()
         if paned is not None:
             try:
+                old_pos = paned.get_position()
                 paned.set_position(
-                    max(0, paned.get_position()
-                        + self._aux_width - extra))
+                    max(0, old_pos + self._aux_width - extra))
+                if paned.get_position() != old_pos:
+                    # 1.2.3: one adjustor cycle belongs to us.
+                    self._aux_alloc_hold = True
             except Exception as e:
                 dbg("panel/_aux_apply_width: suppressed: %s" % e)
         # The inner position IS the column width; the guard keeps
@@ -1486,8 +1500,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         paned = self._host_paned()
         if paned is not None:
             try:
-                paned.set_position(
-                    max(0, paned.get_position() + self._aux_width))
+                old_pos = paned.get_position()
+                paned.set_position(max(0, old_pos + self._aux_width))
+                if paned.get_position() != old_pos:
+                    self._aux_alloc_hold = True
             except Exception as e:
                 dbg("panel/_close_aux: suppressed: %s" % e)
         self._aux_width = 0
@@ -1695,8 +1711,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             if total > self._panel_width + 100:
                 # F66: an open aux column keeps its width - only
                 # the panel side is reset to the configured width.
+                old_pos = parent.get_position()
                 parent.set_position(
                     total - self._panel_width - self._aux_width)
+                if parent.get_position() != old_pos:
+                    # 1.2.3: one adjustor cycle belongs to us.
+                    self._aux_alloc_hold = True
         except Exception as e:
             dbg("panel/_apply_panel_width_live: suppressed: %s" % e)
 
@@ -1735,7 +1755,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.2.2"
+PREVIEWER_VERSION = "1.2.3"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
