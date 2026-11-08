@@ -786,6 +786,36 @@ F69 (0.62.0): two new conf keys, both integers with a 0–28 guard on load: text
 K6 (0.63.0): _render_inner returns early when the selection holds more than one item – no renderer runs, the column shows only a centered dim label "N items selected" (N = number of selected items). The old behavior (preview of the first selected file plus "... and N more selected") is removed. A dbg line logs the count for deploy tests; single and empty selection behave as before.
 ```
 
+### PAN-AUX-1 – Aux column: shell and construction (F66)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_\_init\_\_` (aux shell block), `aux\_shell` (property)
+- **Reason:** F66 part 1 (1.1.0): settings and later the more views open in a second column LEFT of the preview instead of popup windows (user outline 2026-11-08).
+
+```text
+F66 (1.1.0): the panel moves itself into a horizontal shell [aux | preview] at the end of __init__; the entry packs the SHELL into the Gtk.Paned (pack2 at both injection sites) and every visibility toggle (Ctrl+Alt+P, Nemo toolbar button, show_at_start setting) switches the shell - an open aux view can never outlive the hidden preview column. Aux column: Gtk.Revealer (slide-left, 250 ms, non-expanding) with no_show_all, so Nemo's window-level show_all cannot pull the hidden column into view; inside header (title label with ellipsize + close button, border 6) plus separator plus ScrolledWindow (AUTO/AUTO). The column carries the panel's widget name "previewer-panel" (K11 undershoot CSS applies too), the style class "background" and the same painter chain (_paint_background). The public property aux_shell hands the shell to entry and toolbar. State: _aux_key/_aux_refresh/_aux_trigger/_aux_width; _open_aux(key, title, widget, refresh, trigger) opens or swaps - the SAME key collapses again (user wish); Escape and the column's X close too.
+```
+
+### PAN-AUX-2 – Aux column: content width, grow and restore (F66)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_host\_paned`, `PreviewPanel.\_aux\_max\_width`, `PreviewPanel.\_aux\_apply\_width`, `PreviewPanel.\_close\_aux`
+- **Reason:** F66 part 1 (1.1.0): the preview column keeps its width; the panel grows leftwards by the aux width, and the close restores the exact position (user outline).
+
+```text
+The panel no longer sits directly in the Gtk.Paned, so _host_paned() walks up from the panel to the Paned that carries the shell (same for _apply_panel_width_live and _on_reset_width_clicked; the reset keeps an open aux column at its width via - _aux_width). Width course: the aux column follows the content (natural width + 32 px), clamped between PANEL_MIN_WIDTH and _aux_max_width (half the monitor via get_monitor_at_window, 600 px fallback, floor 320). Growth and restore run through the paned POSITION, synchronously and relative: open/swap sets position = pos + old_width - new_width, close sets position = pos + aux_width - so a divider drag while the column is open survives the close, and there are no timer races in the crowbar embedding (K17/K18 lessons). The Paned clamps at the children's minimum sizes, so small windows squeeze the column safely.
+```
+
+### PAN-AUX-3 – Aux column: live refresh and teardown (F66)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_aux\_on\_render`, `PreviewPanel.\_mirror\_aux\_trigger`, `PreviewPanel.\_on\_panel\_destroy`
+- **Reason:** F66 part 1 (1.1.0): the column offers the same content and live updates as the former windows; the framework is reusable for the more views of 1.2.0.
+
+```text
+_render() calls _aux_on_render() after the x-bit update: an open view with a refresh callback is rebuilt on file change (callback builds the widget anew, width re-measured); a callback returning None means the view cannot exist for the new file - the column collapses. Views without a callback (the settings) stay open across selections. The trigger button mirrors the open state with the CSS class pvw-aux-active (rgba(128,128,128,0.30)); _mirror_aux_trigger clears the previous button so only ever one carries the class. Teardown: _on_panel_destroy drops key, callback and trigger - the column itself dies with the widget tree. The dbg lines log open/close/width for deploy tests ("panel/aux:").
+```
+
 ---
 
 ## Selection (SEL)
@@ -1351,14 +1381,14 @@ Mixin: action bar (F19) + settings window (F12) of the panel.
 F19/F12 (0.12.0): the settings button in the toolbar opens the configuration window. All settings of the preview column will gather there over time; changes apply immediately and land in the configuration file without an extra button.
 ```
 
-### TB-DOC-3 – Docstring: \_open\_settings\_window
+### TB-DOC-3 – Docstring: \_open\_settings\_aux
 
 - **Module:** previewer\_toolbar.py
-- **Location:** `PreviewToolbarMixin._open\_settings\_window` (method)
-- **Reason:** Single-instance configuration window; since 0.40.0 four section helpers build the frames.
+- **Location:** `PreviewToolbarMixin._open\_settings\_aux` (method)
+- **Reason:** F66 part 1 (1.1.0): the settings open in the reusable aux column instead of a popup window; the four section helpers build the frames unchanged.
 
 ```text
-F12 (0.12.0): configuration window of the preview column. The frame is in place; all settings will gather here over time (F12 catalogue: panel width, document page limit, waterfall sample text …) – each with instant saving via _config_save. Only ONE instance: another click on the gear brings the existing window to the front. Since 0.40.0 four section helpers build the individual frames. 0.49.0: the window opens centered on the screen with ~60 % of the screen height (user rule for all opening windows, → REF UT-DOC-15).
+F12 (0.12.0): configuration of the preview column. 0.40.0: four section helpers build the individual frames (general, text, documents, fonts), each with instant saving via _config_save. 0.49.0/0.61.0: popup window centered on the screen (user rule, → REF UT-DOC-15). 1.1.0 (F66 part 1): _open_settings_aux packs the four frames into a Gtk.Box (spacing 12, border width 12 – the same distances as the former window; user outline: content and spacing stay identical) and hands it to _open_aux("settings", ...) with the gear button as trigger – no window, no close button, no centering; the same gear click collapses (same key), Escape and the column's X close too. The old window code, the center_window call and _on_settings_win_destroyed are gone; _config_save lives on unchanged.
 ```
 
 ### TB-DOC-4 – Docstring: \_settings\_frame\_general

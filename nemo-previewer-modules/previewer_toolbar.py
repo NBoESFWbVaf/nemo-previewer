@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.0.0
+previewer_toolbar.py – Version 1.1.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -26,7 +26,6 @@ from previewer_util import (
     _,
     dbg,
     set_debug_log,
-    center_window,
     pick_icon,
     PANEL_MIN_WIDTH,
     TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
@@ -92,39 +91,20 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-2
     def _on_settings_clicked(self, button):
-        self._open_settings_window()
+        self._open_settings_aux()
 
     # → REF TB-DOC-3
-    def _open_settings_window(self):
-        if self._settings_win is not None:
-            try:
-                self._settings_win.present()
-                return
-            except Exception:
-                self._settings_win = None
-        win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
-        win.set_title(_("Nemo-Previewer – Settings"))
-        try:
-            win.set_transient_for(self._window)
-        except Exception as e:
-            dbg("toolbar/_open_settings_window: suppressed: %s" % e)
-        center_window(win, 420)
-        win.set_border_width(12)
-        win.connect("destroy", self._on_settings_win_destroyed)
-
+    def _open_settings_aux(self):
+        # F66 part 1: same frames and distances as the former
+        # settings window, but in the aux column (→ REF PAN-AUX-1).
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        win.add(box)
+        box.set_border_width(12)
         box.pack_start(self._settings_frame_general(), False, False, 0)
         box.pack_start(self._settings_frame_text(), False, False, 0)
         box.pack_start(self._settings_frame_docs(), False, False, 0)
         box.pack_start(self._settings_frame_fonts(), False, False, 0)
-
-        btn_close = Gtk.Button.new_with_label(_("Close"))
-        btn_close.connect("clicked", lambda *a: win.destroy())
-        box.pack_start(btn_close, False, False, 0)
-
-        win.show_all()
-        self._settings_win = win
+        self._open_aux("settings", _("Nemo-Previewer – Settings"), box,
+                       trigger=self._btn_settings)
 
     # → REF TB-DOC-4
     def _settings_frame_general(self):
@@ -325,12 +305,6 @@ class PreviewToolbarMixin:
         frow.pack_start(self._settings_font_entry, True, True, 0)
         return frame
 
-    def _on_settings_win_destroyed(self, *a):
-        self._settings_win = None
-        self._settings_spin = None
-        self._settings_pages_spin = None
-        self._settings_spacing_spin = None
-
     def _on_show_at_start_toggled(self, chk):
         # Save immediately – no separate save button needed.
         self._conf_show_at_start = chk.get_active()
@@ -450,10 +424,12 @@ class PreviewToolbarMixin:
             dbg("toolbar/_on_start_width_changed: suppressed: %s" % e)
 
     def _on_toggle_accel(self, group, accelerable, key, mods):
-        if self.get_visible():
-            self.hide()
+        # F66: the toggle hides the whole shell (column + aux),
+        # never the panel alone.
+        if self._aux_shell.get_visible():
+            self._aux_shell.hide()
         else:
-            self.show_all()
+            self._aux_shell.show_all()
         return True
 
     # → REF TB-DOC-19
@@ -544,7 +520,7 @@ class PreviewToolbarMixin:
         self._update_xbit_button()
 
 
-PREVIEWER_VERSION = "1.0.0"
+PREVIEWER_VERSION = "1.1.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

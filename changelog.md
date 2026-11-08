@@ -4,6 +4,18 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.1.0\] – 2026-11-08
+
+Second column instead of popup windows (F66, part 1; development branch: develop).
+
+### Added
+
+- Reusable second column (aux column, F66 – user outline): the settings open in a column LEFT of the preview column instead of a popup window. The preview column keeps its width; the panel grows leftwards by the content-driven column width (never beyond half the screen) and the close restores the exact former position. The same gear click collapses the column again, Escape and the column's close button work too; the gear button mirrors the open state. The column is a generic, reusable framework for the upcoming more views (1.2.0); it refreshes its content live on file change.
+
+### Changed
+
+- All visibility toggles (Ctrl+Alt+P, the Nemo toolbar button, the "show at start" setting) now switch the whole column shell – an open second column can never outlive the hidden preview column. The settings' four frames, their distances and the live saving behaviour are unchanged (1:1 from the former window).
+
 ## \[1.0.0\] – 2026-11-08
 
 First stable release – all deploy tests from 0.65.5 up to 0.66.2 passed on the user system.

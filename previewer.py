@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer.py – Version 1.0.0
+previewer.py – Version 1.1.0
 
 Entry point and Nemo integration: injects the preview panel into
 every Nemo window, loads the seven modules from the
@@ -55,7 +55,7 @@ from previewer_panel import PreviewPanel
 
 # PREVIEWER_VERSION must be identical in all eight modules; the entry
 # point checks loaded modules and warns about outdated copies.
-PREVIEWER_VERSION = "1.0.0"
+PREVIEWER_VERSION = "1.1.0"
 import previewer_util
 import previewer_select
 import previewer_panel
@@ -141,13 +141,13 @@ class PanelState:
         btn.set_tooltip_text(_("Preview side panel (Ctrl+Alt+P)"))
         # F40: sync the initial state – notify::visible only fires on
         # change; set_active before connecting triggers nothing (→ REF ENT-TOGGLE-1).
-        btn.set_active(self.panel.get_visible())
+        btn.set_active(self.panel.aux_shell.get_visible())
         btn.connect("toggled", self._on_toolbar_toggle)
         self.toggle_btn = btn
         pack(btn)
         # Track state when the panel is toggled elsewhere (Ctrl+Alt+P,
         # show_at_start setting).
-        self.panel.connect("notify::visible", self._on_panel_visibility)
+        self.panel.aux_shell.connect("notify::visible", self._on_panel_visibility)
         try:
             self.window._previewer_toggle = btn
         except Exception as e:
@@ -193,10 +193,12 @@ class PanelState:
 
     # → REF ENT-DOC-7
     def _on_toolbar_toggle(self, btn):
+        # F66: the toggle switches the whole shell (preview column
+        # plus aux column), never the panel alone.
         if btn.get_active():
-            self.panel.show_all()
+            self.panel.aux_shell.show_all()
         else:
-            self.panel.hide()
+            self.panel.aux_shell.hide()
 
     # → REF ENT-DOC-8
     def _on_panel_visibility(self, panel, prop):
@@ -295,7 +297,7 @@ def _reconcile(st):
             pos = top_box.child_get_property(target, "position")
             top_box.remove(target)
             st.hpaned.pack1(target, True, False)
-            st.hpaned.pack2(st.panel, False, False)
+            st.hpaned.pack2(st.panel.aux_shell, False, False)
             top_box.pack_start(st.hpaned, True, True, 0)
             top_box.reorder_child(st.hpaned, pos)
         elif isinstance(top_box, Gtk.Grid):
@@ -314,7 +316,7 @@ def _reconcile(st):
                 return
             top_box.remove(target)
             st.hpaned.pack1(target, True, False)
-            st.hpaned.pack2(st.panel, False, False)
+            st.hpaned.pack2(st.panel.aux_shell, False, False)
             top_box.attach(st.hpaned, left, top, width, height)
         else:
             dbg("Injection: main box neither Box nor Grid (%s)"
@@ -322,7 +324,7 @@ def _reconcile(st):
             return
         st.pos_pending = True
         st.hpaned.show()
-        st.panel.show_all()
+        st.panel.aux_shell.show_all()
         # F12: apply the config only AFTER show_all – requested
         # invisibility would otherwise be overridden at startup.
         _apply = getattr(st.panel, "apply_start_settings", None)
