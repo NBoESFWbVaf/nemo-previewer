@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.1.0
+previewer_panel.py – Version 1.1.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -378,13 +378,6 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # itself in; the column stays hidden until first open (PAN-AUX-1).
         self._aux_shell = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        self._aux_revealer = Gtk.Revealer()
-        self._aux_revealer.set_transition_type(
-            Gtk.RevealerTransitionType.SLIDE_LEFT)
-        self._aux_revealer.set_transition_duration(250)
-        # no_show_all keeps Nemo's window-level show_all from
-        # pulling the hidden column into view (K17/K18 family).
-        self._aux_revealer.set_no_show_all(True)
         self._aux_column = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL, spacing=0)
         # Same name as the panel: the K11 undershoot CSS covers the
@@ -415,8 +408,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
                                     Gtk.PolicyType.AUTOMATIC)
         self._aux_column.pack_start(self._aux_scroll, True, True, 0)
-        self._aux_revealer.add(self._aux_column)
-        self._aux_shell.pack_start(self._aux_revealer, False, False, 0)
+        # Plain show/hide instead of a Revealer: its animated width
+        # reporting derailed the synchronous paned moves (1.1.1).
+        # no_show_all keeps Nemo's window-level show_all from
+        # pulling the hidden column into view (K17/K18 family).
+        self._aux_column.show_all()
+        self._aux_column.set_no_show_all(True)
+        self._aux_column.hide()
+        self._aux_shell.pack_start(self._aux_column, False, False, 0)
         self._aux_shell.pack_start(self, True, True, 0)
 
         # B3: on panel teardown, cleanly stop playback and timer
@@ -1402,13 +1401,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if child is not None:
             self._aux_scroll.remove(child)
         self._aux_scroll.add(widget)
+        # Measure and move the divider while the column is still
+        # hidden - no requisition clamp in the way (PAN-AUX-2).
         self._aux_apply_width(widget)
-        if self._aux_revealer.get_reveal_child():
-            widget.show_all()
-        else:
-            self._aux_revealer.set_visible(True)
-            self._aux_column.show_all()
-            self._aux_revealer.set_reveal_child(True)
+        self._aux_column.show()
+        widget.show_all()
         dbg("panel/aux: open %r" % key)
 
     def _close_aux(self):
@@ -1418,7 +1415,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_key = None
         self._aux_refresh = None
         self._mirror_aux_trigger(None)
-        self._aux_revealer.set_reveal_child(False)
+        # Hide FIRST so the requisition drops before the divider
+        # returns - a visible column would clamp the move (1.1.1).
+        self._aux_column.hide()
+        self._aux_column.set_size_request(-1, -1)
         # Restore the position SYNCHRONOUSLY and relative – no
         # timer races in the crowbar embedding (K17/K18 lessons).
         paned = self._host_paned()
@@ -1668,7 +1668,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.1.0"
+PREVIEWER_VERSION = "1.1.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
