@@ -1129,7 +1129,7 @@ Debug output – visible when Nemo is started in a terminal. 0.53.0 (F65): with 
 
 - **Module:** previewer\_util.py
 - **Location:** `diag` (module level)
-- **Reason:** Verbose diagnostics (dumps, signals) behind the VERBOSE\_DIAG switch, silent in daily use.
+- **Reason:** Verbose diagnostics (dumps, signals) behind the VERBOSE\_DIAG switch, silent in daily use. Since 1.0.0 the switch defaults to False (release decision); flip it to True to investigate a new Nemo version or a new system.
 
 ```text
 Diagnostics output – only visible when VERBOSE_DIAG=True.

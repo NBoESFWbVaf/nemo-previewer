@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 0.66.2
+previewer_util.py – Version 1.0.0
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -236,7 +236,7 @@ def dbg(msg):
 
 # Verbose diagnostics (dumps, signals) stay silent in daily use; set
 # True to investigate a new Nemo version or a new system.
-VERBOSE_DIAG = True
+VERBOSE_DIAG = False
 
 
 # → REF UT-DOC-2
@@ -598,5 +598,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "0.66.2"
+PREVIEWER_VERSION = "1.0.0"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)

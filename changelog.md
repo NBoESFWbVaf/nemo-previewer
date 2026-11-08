@@ -4,6 +4,14 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.0.0\] – 2026-11-08
+
+First stable release – all deploy tests from 0.65.5 up to 0.66.2 passed on the user system.
+
+### Changed
+
+- VERBOSE\_DIAG defaults to False now (release decision): the diagnostic dumps stay silent in daily use; set it to True in previewer\_util.py to investigate a new Nemo version or a new system. The step trace via NEMO\_PREVIEWER\_TRACE is not affected.
+
 ## \[0.66.2\] – 2026-11-07
 
 ### Fixed
