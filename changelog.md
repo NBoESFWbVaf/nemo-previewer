@@ -4,6 +4,37 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.2.5\] – 2026-11-08
+
+### Fixed
+
+- Opening a view widened the preview column by a few pixels, closing restored it exactly (deploy report on 1.2.4): the outer move accounted the shell's divider handle with the deprecated handle-size style property, which themes no longer write since GTK 3.20 - the legacy read reports the default 5 px while the separator's CSS min-width on themed systems is 1-2 px, so the outer divider moved the difference too far. The handle width now comes from the separator node's CSS min-width (paned path plus a standalone style context), and a one-shot calibration after each open measures the ground truth from the settled allocations (shell = column + handle + preview) and shifts the outer divider by the remaining difference - the preview is exact even when the CSS read fails.
+
+## \[1.2.4\] – 2026-11-08
+
+### Fixed
+
+- Dragging the outer divider made the preview wobble (deploy report on 1.2.3): the shell size-allocate adjustor corrected the column only AFTER the children were allocated, so each drag frame painted the preview stretched before snapping back. The correction now rides the outer paned's notify::position, which fires BEFORE the layout: the column absorbs the delta in the same frame, the preview stays rock solid. Window resizes keep the pre-1.2.1 behavior again (the preview absorbs, the column keeps its width).
+- Enlarging the preview swallowed the secondary column (its divider let the column shrink to zero width): the aux column carries a hard 320 px floor now (size request plus shrink=False), so the inner divider stops and the column always stays visible.
+
+## \[1.2.3\] – 2026-11-08
+
+### Fixed
+
+- The divider interaction around the aux column is rebuilt (deploy report on 1.2.2): dragging the inner divider changed the column in the wrong direction and far too fast - the drag handler moved the outer divider synchronously, the shell origin wandered under the pointer and GTK computed ever growing deltas (runaway feedback). The handler is a pure recorder now: the inner divider is native GTK and only trades width between the column and the preview; no handler ever moves a divider. Dragging the OUTER divider (the left edge of the column) resizes ONLY the column now: a size-allocate adjustor on the shell shifts the column by the shell delta, so the preview keeps its width; programmatic divider moves (open, close, width apply, live panel width) hold the adjustor for exactly one cycle. The manual column width records every real divider change - inner drags and outer-divider resizes - within the session.
+
+## \[1.2.2\] – 2026-11-08
+
+### Fixed
+
+- Nemo crashed as soon as any aux view opened (deploy report on 1.2.1: the settings button and the "more" buttons alike). Cause: since the shell became a Gtk.Paned, the \_host\_paned() walk-up met the shell itself as the panel's direct parent and returned the INNER paned instead of Nemo's outer divider - the "outer" move then set the position of the very paned whose notify::position had just fired, and the first allocation clamp turned that into a synchronous recursion (stack overflow). The walk starts above the shell now; a reentry guard (\_aux\_drag\_busy) keeps nested notifies away from the outer move as well.
+
+## \[1.2.1\] – 2026-11-08
+
+### Added
+
+- The second column is freely width-resizable: the shell is a Gtk.Paned now and its divider drags the column width in both directions. The preview column keeps its width while dragging - the outer divider follows the drag delta synchronously. A manual width survives close/reopen and content refreshes within the session (it overrides the content measurement; the half-screen cap and the handle-size accounting stay).
+
 ## \[1.2.0\] – 2026-11-08
 
 The "more" views move into the second column (F66, part 2; development branch: develop).

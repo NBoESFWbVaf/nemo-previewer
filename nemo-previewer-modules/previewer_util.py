@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 1.2.0
+previewer_util.py – Version 1.2.5
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -170,7 +170,7 @@ LOG_FILE = os.path.join(LOG_DIR, "previewer.log")
 DEBUG_ENV = os.environ.get(
     "NEMO_PREVIEWER_DEBUG", "").strip().lower() not in ("", "0", "false")
 DEBUG_LOG = DEBUG_ENV
-_log_rotated = True
+_log_rotated = False
 
 
 # → REF UT-LOG-1
@@ -598,5 +598,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "1.2.0"
+PREVIEWER_VERSION = "1.2.5"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)
