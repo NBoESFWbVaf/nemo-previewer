@@ -4,6 +4,27 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.2.0\] – 2026-11-08
+
+The "more" views move into the second column (F66, part 2; development branch: develop).
+
+### Changed
+
+- The EXIF, audio and video "more" views open in the aux column instead of popup windows (F66 part 2): the same two-column tag table with the same distances, live refresh on selection change - and the same click collapses the column again. One view per panel as before; the triggering "more" button mirrors the open state (the buttons are rebuilt per render, so the tint lives until the next selection).
+- The aux framework re-labels its header per file: a refresh callback may return a (title, widget) tuple. Non-media selections close the tags column now (the former window kept the last file's tags); the settings view keeps staying open across selections.
+
+## \[1.1.2\] – 2026-11-08
+
+### Fixed
+
+- The settings column was still narrower than its content and showed horizontal scrollbars (deploy report on 1.1.1; the preview column kept its configured width in every situation now). The pure content measurement (natural width + 32 px) undershot the running content on the user system. The column keeps a standard width of 420 px now - the size rule of the former settings window - and only grows beyond that when the content is wider; the dbg line logs the measured content widths next to the applied column width for verification.
+
+## \[1.1.1\] – 2026-11-08
+
+### Fixed
+
+- Broken aux column layout (deploy report on the first 1.1.0 test: the preview column grew wider instead of keeping its width, the second column was only half visible and its content got a horizontal scrollbar). Cause: a Gtk.Revealer with a slide transition animates the width it reports while the transition runs - the synchronous divider moves of the growth strategy ran against the wrong requisition, the close move was clamped away and the preview column absorbed the freed space. The Revealer is gone; the column is a plain box that is shown and hidden directly, the divider moves while the column is still hidden (open) resp. after hiding it (close) - the layout is deterministic now, in a single allocation cycle.
+
 ## \[1.1.0\] – 2026-11-08
 
 Second column instead of popup windows (F66, part 1; development branch: develop).
