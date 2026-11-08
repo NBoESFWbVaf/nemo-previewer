@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.2.0
+previewer_panel.py – Version 1.2.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -273,6 +273,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_refresh = None
         self._aux_trigger = None
         self._aux_width = 0
+        # F66 III: inner divider drag state (1.2.1, → REF PAN-AUX-2).
+        self._aux_pos = 0
+        self._aux_manual_width = 0
+        self._aux_handle = None
+        self._aux_syncing = False
         # F25: pending quiet re-render of the spacing spin.
         self._spacing_render_id = None
         # F2: pending debounced heavy render (selection quiet).
@@ -374,10 +379,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
         self._show_placeholder()
 
-        # F66: horizontal shell [aux | preview] - the panel moves
-        # itself in; the column stays hidden until first open (PAN-AUX-1).
-        self._aux_shell = Gtk.Box(
-            orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        # F66: horizontal shell [aux | preview] - since 1.2.1 a
+        # Gtk.Paned: its divider drags the column width (PAN-AUX-2).
+        self._aux_shell = Gtk.Paned(
+            orientation=Gtk.Orientation.HORIZONTAL)
         self._aux_column = Gtk.Box(
             orientation=Gtk.Orientation.VERTICAL, spacing=0)
         # Same name as the panel: the K11 undershoot CSS covers the
@@ -415,8 +420,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_column.show_all()
         self._aux_column.set_no_show_all(True)
         self._aux_column.hide()
-        self._aux_shell.pack_start(self._aux_column, False, False, 0)
-        self._aux_shell.pack_start(self, True, True, 0)
+        self._aux_shell.pack1(self._aux_column, False, True)
+        self._aux_shell.pack2(self, True, False)
+        self._aux_shell.connect("notify::position",
+                                self._on_aux_dragged)
 
         # B3: on panel teardown, cleanly stop playback and timer
         self.connect("destroy", self._on_panel_destroy)
@@ -1368,27 +1375,73 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_aux_max_width: suppressed: %s" % e)
         return 600
 
+    def _aux_handle_px(self):
+        # GtkPaned handle width (style property) - part of the
+        # width the shell occupies while the column is open.
+        if self._aux_handle is None:
+            try:
+                self._aux_handle = int(
+                    self._aux_shell.style_get_property("handle-size"))
+            except Exception as e:
+                dbg("panel/_aux_handle_px: suppressed: %s" % e)
+                self._aux_handle = 5
+        return self._aux_handle
+
+    def _on_aux_dragged(self, paned, param):
+        # The user drags the inner divider: the panel keeps its
+        # width - the OUTER divider follows the drag delta.
+        if self._aux_syncing or self._aux_key is None:
+            return
+        new_pos = paned.get_position()
+        old_pos = self._aux_pos
+        if new_pos == old_pos:
+            return
+        self._aux_pos = new_pos
+        self._aux_manual_width = new_pos
+        self._aux_width = new_pos + self._aux_handle_px()
+        outer = self._host_paned()
+        if outer is not None:
+            try:
+                outer.set_position(max(0, outer.get_position()
+                                       - (new_pos - old_pos)))
+            except Exception as e:
+                dbg("panel/_on_aux_dragged: suppressed: %s" % e)
+        dbg("panel/aux: drag %d px" % new_pos)
+
     # → REF PAN-AUX-2
     def _aux_apply_width(self, widget):
         # Standard 420 px (the former window rule, UT-DOC-15) -
-        # only content WIDER than that grows the column; the panel
-        # grows leftwards through the paned position (1.1.2).
+        # a manual drag width wins over the measurement (1.2.1).
         try:
             mn, nat = widget.get_preferred_width()
         except Exception as e:
             dbg("panel/_aux_apply_width: suppressed: %s" % e)
             mn = nat = 400
-        new_w = min(max(420, mn + 32, nat + 32),
-                    self._aux_max_width())
-        self._aux_column.set_size_request(new_w, -1)
+        manual = self._aux_manual_width
+        if manual:
+            new_w = min(max(manual, 320), self._aux_max_width())
+        else:
+            new_w = min(max(420, mn + 32, nat + 32),
+                        self._aux_max_width())
+        extra = new_w + self._aux_handle_px()
         paned = self._host_paned()
         if paned is not None:
             try:
                 paned.set_position(
-                    max(0, paned.get_position() + self._aux_width - new_w))
+                    max(0, paned.get_position()
+                        + self._aux_width - extra))
             except Exception as e:
                 dbg("panel/_aux_apply_width: suppressed: %s" % e)
-        self._aux_width = new_w
+        # The inner position IS the column width; the guard keeps
+        # the drag handler out of programmatic moves (1.2.1).
+        self._aux_syncing = True
+        try:
+            self._aux_shell.set_position(new_w)
+        except Exception as e:
+            dbg("panel/_aux_apply_width: suppressed: %s" % e)
+        self._aux_syncing = False
+        self._aux_pos = new_w
+        self._aux_width = extra
         dbg("panel/aux: width %d px (content %d/%d px)"
             % (new_w, mn, nat))
 
@@ -1423,7 +1476,6 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Hide FIRST so the requisition drops before the divider
         # returns - a visible column would clamp the move (1.1.1).
         self._aux_column.hide()
-        self._aux_column.set_size_request(-1, -1)
         # Restore the position SYNCHRONOUSLY and relative – no
         # timer races in the crowbar embedding (K17/K18 lessons).
         paned = self._host_paned()
@@ -1678,7 +1730,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.2.0"
+PREVIEWER_VERSION = "1.2.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
