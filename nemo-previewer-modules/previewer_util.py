@@ -170,7 +170,7 @@ LOG_FILE = os.path.join(LOG_DIR, "previewer.log")
 DEBUG_ENV = os.environ.get(
     "NEMO_PREVIEWER_DEBUG", "").strip().lower() not in ("", "0", "false")
 DEBUG_LOG = DEBUG_ENV
-_log_rotated = False
+_log_rotated = True
 
 
 # → REF UT-LOG-1
