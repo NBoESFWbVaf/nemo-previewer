@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.1.0
+previewer_render_media.py – Version 1.2.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -34,7 +34,6 @@ if _HERE not in sys.path:
 from previewer_util import (
     _,
     dbg,
-    center_window,
     MAX_IMAGE_HEIGHT, format_seconds,
     _pixbuf_from_bytes,
     pack_hint,
@@ -526,12 +525,10 @@ def _exif_rows(exif, xmp):
     return rows
 
 
-def _tags_table_window(title):
-    # F61/F50 design (user wishes 2026-11-03): shared window with a
-    # two-column tag table for both media "more" buttons.
-    win = Gtk.Window()
-    win.set_title(title)
-    center_window(win, 560)
+def _tags_table_widget():
+    # F61/F50 design (user wishes 2026-11-03): shared two-column
+    # tag table for the media "more" views; F66 II packs it into
+    # the aux column - whose ScrolledWindow does the scrolling.
     store = Gtk.ListStore(str, str)
     view = Gtk.TreeView(model=store)
     # F69: class carries the configurable info table font size.
@@ -545,11 +542,11 @@ def _tags_table_window(title):
     except Exception as e:
         # Fallback for builds without the grid-lines property:
         # subtle alternating row banding instead of lines.
-        dbg("media/_tags_table_window: grid lines off: %s" % e)
+        dbg("media/_tags_table_widget: grid lines off: %s" % e)
         try:
             view.set_rules_hint(True)
         except Exception as e2:
-            dbg("media/_tags_table_window: rules off: %s" % e2)
+            dbg("media/_tags_table_widget: rules off: %s" % e2)
     view.set_margin_top(10)
     view.set_margin_bottom(10)
     view.set_margin_start(10)
@@ -570,14 +567,8 @@ def _tags_table_window(title):
     val_col.set_resizable(True)
     view.append_column(tag_col)
     view.append_column(val_col)
-    scroll = Gtk.ScrolledWindow()
-    scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
-                      Gtk.PolicyType.AUTOMATIC)
-    scroll.add(view)
-    win.add(scroll)
     store.append([_("Info:"), _("collecting – one moment …")])
-    win.show_all()
-    return win, store
+    return view, store
 
 
 def _exiftool_tag_rows(path):
@@ -609,9 +600,9 @@ def _exiftool_tag_rows(path):
 
 # → REF MED-DOC-16
 class MediaRendererMixin:
-    # F50/F61/F62 "more" window state: ONE window per panel
+    # F50/F61/F62/F66 "more" view state: ONE aux view per panel
     # (user wish) – class defaults, instance values on first use.
-    _tags_win = None
+    _tags_title = None
     _tags_store = None
     _tags_gen = 0
 
@@ -737,7 +728,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-21
     def _render_image(self, path):
-        self._tags_win_follow(_("EXIF details"))
+        self._tags_aux_follow(_("EXIF details"))
         pack_hint(self._content, _("Loading image – one moment …"))
         try:
             target_w = max(1024, self._preview_width() * 2)
@@ -857,9 +848,9 @@ class MediaRendererMixin:
             rows += _exif_rows(exif, xmp)
             # F38: table into the 40% info area of the split.
             pack_meta_grid(rows, self._image_info_box)
-            # F50 (user wish 2026-11-02): "more" button opens a window
-            # with ALL EXIF details via exiftool; without exiftool an
-            # install hint appears instead of the button.
+            # F50 (user wish 2026-11-02): "more" button opens the
+            # tags column with ALL EXIF details via exiftool; without
+            # exiftool an install hint appears instead of the button.
             if EXIFTOOL:
                 btn = Gtk.Button(label=_("more"))
                 btn.set_halign(Gtk.Align.START)
@@ -882,7 +873,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-23
     def _render_audio(self, path, uri):
-        self._tags_win_follow(_("Audio tags"))
+        self._tags_aux_follow(_("Audio tags"))
         self._media_probe_async(path, uri, self._finish_audio)
 
     # → REF MED-DOC-24
@@ -1241,7 +1232,7 @@ class MediaRendererMixin:
         pack_meta_grid(rows, self._content)
 
         # F61 (user wish): "more" button below the info table –
-        # same pattern as the photo EXIF window (F50).
+        # same pattern as the photo EXIF view (F50; F66 II column).
         if EXIFTOOL:
             btn = Gtk.Button(label=_("more"))
             btn.set_halign(Gtk.Align.START)
@@ -1352,7 +1343,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-36
     def _render_video(self, path, uri):
-        self._tags_win_follow(_("Video tags"))
+        self._tags_aux_follow(_("Video tags"))
         self._media_probe_async(path, uri, self._finish_video, video=True)
 
     # → REF MED-DOC-37
@@ -1501,85 +1492,84 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-41
     def _on_exif_more(self, *a):
-        # F50 photo window – delegates to the shared tag table.
-        self._on_tags_more(_("EXIF details"))
+        # F50 photo view – delegates to the shared tag table;
+        # the clicked button is the trigger (F66 II tint).
+        self._on_tags_more(_("EXIF details"), a[0] if a else None)
 
     # → REF MED-DOC-42
     def _on_id3_more(self, *a):
-        # F61 audio window – delegates to the shared tag table.
-        self._on_tags_more(_("Audio tags"))
+        # F61 audio view – delegates to the shared tag table.
+        self._on_tags_more(_("Audio tags"), a[0] if a else None)
 
     # → REF MED-DOC-43
     def _on_video_more(self, *a):
-        # F62 video window – delegates to the shared tag table.
-        self._on_tags_more(_("Video tags"))
+        # F62 video view – delegates to the shared tag table.
+        self._on_tags_more(_("Video tags"), a[0] if a else None)
 
     # → REF MED-DOC-46
-    def _tags_win_follow(self, title):
-        # While the "more" window is open, a media selection change
-        # refreshes it automatically (user wish) – no new click.
-        if self._tags_win is not None:
-            self._on_tags_more(title, present=False)
+    def _tags_aux_follow(self, title):
+        # The render entry points record their kind title; the
+        # render hook rebuilds the open tags column (PAN-AUX-3).
+        self._tags_title = title
 
     # → REF MED-DOC-44
-    def _on_tags_more(self, title, present=True):
-        path = self._path
-        title = "%s – %s" % (title, os.path.basename(path))
-        # One window only (user wish): while it is open, a "more"
-        # click on another file updates it instead of adding one.
-        if self._tags_win is not None:
-            self._tags_win.set_title(title)
-            self._tags_store.clear()
-            self._tags_store.append(
-                [_("Info:"), _("collecting – one moment …")])
-            # Manual clicks focus the window; the automatic
-            # follow-up never steals the focus of the file window.
-            if present:
-                self._tags_win.present()
-        else:
-            win, store = _tags_table_window(title)
-            # Keep the window above the file window (user wish) –
-            # transient windows never sink behind their parent.
-            try:
-                win.set_transient_for(self._content.get_toplevel())
-            except Exception as e:
-                dbg("media/_on_tags_more: transient: %s" % e)
-            self._tags_win = win
-            self._tags_store = store
-            win.connect("destroy", self._on_tags_win_destroyed)
+    def _on_tags_more(self, title, trigger=None):
+        # F66 II: ONE view per panel (user wish) – the SAME key
+        # collapses the open column again (→ REF PAN-AUX-1).
+        full = "%s – %s" % (title, os.path.basename(self._path))
+        view, store = _tags_table_widget()
+        self._open_aux("tags", full, view,
+                       refresh=self._tags_aux_refresh,
+                       trigger=trigger)
+        if self._aux_key != "tags":
+            return
+        self._tags_title = title
+        self._tags_store = store
+        self._tags_aux_fill(self._path)
+
+    # → REF MED-DOC-45
+    def _tags_aux_refresh(self):
+        # PAN-AUX-3 render hook: rebuilds the table for the new
+        # media file; non-media selections close the column.
+        if not self._tags_title or not self._path:
+            return None
+        view, store = _tags_table_widget()
+        self._tags_store = store
+        self._tags_aux_fill(self._path)
+        full = "%s – %s" % (self._tags_title,
+                            os.path.basename(self._path))
+        return full, view
+
+    # → REF MED-DOC-48
+    def _tags_aux_fill(self, path):
+        # R9: the exiftool worker is pure text work – the store
+        # is fed via idle_add in the GTK main loop (F66 II).
         self._tags_gen += 1
         gen = self._tags_gen
 
         def worker():
-            # R9: pure text work here – the store is fed via
-            # idle_add in the GTK main loop.
             rows = _exiftool_tag_rows(path)
 
             def apply():
                 # A newer "more" request took over – drop this one.
                 if gen != self._tags_gen:
                     return False
-                self._tags_store.clear()
+                store = self._tags_store
+                if store is None:
+                    return False
+                store.clear()
                 if rows:
                     for name, val in rows:
-                        self._tags_store.append([name, val])
+                        store.append([name, val])
                 else:
-                    self._tags_store.append(
-                        [_("Info:"), _("no tags found")])
+                    store.append([_("Info:"), _("no tags found")])
                 return False
             GLib.idle_add(apply)
 
         threading.Thread(target=worker, daemon=True).start()
 
-    # → REF MED-DOC-45
-    def _on_tags_win_destroyed(self, *a):
-        # User closed the window – the next "more" click builds
-        # a fresh one.
-        self._tags_win = None
-        self._tags_store = None
 
-
-PREVIEWER_VERSION = "1.1.0"
+PREVIEWER_VERSION = "1.2.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)

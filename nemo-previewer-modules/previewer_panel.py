@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.1.2
+previewer_panel.py – Version 1.2.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -678,6 +678,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._last_textish = False
         # F12 part 3: was it a document page view (PDF/office)?
         self._last_docview = False
+        # F66 II: reset the media "more" title - a non-media
+        # selection must not refresh the tags column (PAN-AUX-3).
+        self._tags_title = None
 
     def _show_placeholder(self):
         # F35: the former header is gone – the placeholder text in
@@ -1434,18 +1437,23 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     # → REF PAN-AUX-3
     def _aux_on_render(self):
-        # A new selection refreshes an open aux view via its
-        # callback; None means the view cannot exist (→ collapse).
+        # A new selection refreshes an open aux view; None
+        # collapses, a (title, widget) tuple retitles (F66 II).
         if self._aux_key is None or self._aux_refresh is None:
             return
         try:
-            widget = self._aux_refresh()
+            res = self._aux_refresh()
         except Exception as e:
             dbg("panel/_aux_on_render: suppressed: %s" % e)
-            widget = None
-        if widget is None:
+            res = None
+        if res is None:
             self._close_aux()
             return
+        if isinstance(res, tuple):
+            self._aux_title_label.set_text(res[0])
+            widget = res[1]
+        else:
+            widget = res
         child = self._aux_scroll.get_child()
         if child is not None:
             self._aux_scroll.remove(child)
@@ -1670,7 +1678,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.1.2"
+PREVIEWER_VERSION = "1.2.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
