@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.10.0\] – 2026-11-10
+
+### Added
+
+- New archive button (user wish): for a single Office, PDF, EML or Markdown file the toolbar shows an archive button (folder-move-symbolic) that moves the file to the configured archive folder – for example a Paperless "consume" directory. The folder is chosen in the settings ("Archive") and saved immediately; existing files in the target folder are never overwritten (numeric suffix). Without a configured folder the button opens the settings instead. Five new msgids (pot and de.po).
+
 ## \[1.9.0\] – 2026-11-10
 
 ### Added
