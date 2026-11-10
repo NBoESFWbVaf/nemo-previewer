@@ -6,7 +6,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.3.3\n"
+"Project-Id-Version: nemo-previewer 1.4.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -131,6 +131,9 @@ msgid "Columns"
 msgstr ""
 
 msgid "Coordinates"
+msgstr ""
+
+msgid "Could not convert the document for printing."
 msgstr ""
 
 msgid "Could not load image: %s"
@@ -472,6 +475,9 @@ msgid "Preview trimmed (max. %d rows)."
 msgstr ""
 
 msgid "Preview trimmed (max. %d tables)."
+msgstr ""
+
+msgid "Print document"
 msgstr ""
 
 msgid "Reading media information – one moment …"

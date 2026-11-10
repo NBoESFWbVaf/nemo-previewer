@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 1.3.3
+previewer_render_docs.py – Version 1.4.0
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -683,8 +683,117 @@ class DocsRendererMixin:
         except Exception as e:
             dbg("docs/_office_job_done: suppressed: %s" % e)
 
+    # → REF DOC-PRINT-1
+    def _print_document(self, path):
+        # F77: print button – the GTK print dialog opens for the
+        # LibreOffice PDF of the office file: cached PDF first,
+        # else ONE background conversion (own job, respects a
+        # running preview conversion – two soffice instances
+        # share the user profile).
+        if not HAVE_POPPLER or not SOFFICE:
+            dbg("docs/_print_document: no poppler/soffice")
+            return
+        pdf = self._office_cached_pdf(path)
+        if pdf is not None:
+            self._print_pdf(path, pdf)
+            return
+        if self._office_job is not None or self._print_job is not None:
+            dbg("docs/_print_document: conversion busy")
+            return
+        self._print_job = path
+        self._btn_print.set_sensitive(False)
+        tmpdir = tempfile.mkdtemp(prefix="previewer-print-")
+        out_pdf = os.path.join(
+            tmpdir, os.path.splitext(os.path.basename(path))[0] + ".pdf")
+        try:
+            pid = GLib.spawn_async(
+                [SOFFICE, "--headless", "--convert-to", "pdf",
+                 "--outdir", tmpdir, path],
+                flags=GLib.SpawnFlags.SEARCH_PATH
+                | GLib.SpawnFlags.DO_NOT_REAP_CHILD
+                | GLib.SpawnFlags.STDOUT_TO_DEV_NULL
+                | GLib.SpawnFlags.STDERR_TO_DEV_NULL)[0]
+        except Exception as exc:
+            dbg("Print conversion not started (%s): %s" % (path, exc))
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            self._print_job = None
+            self._btn_print.set_sensitive(True)
+            return
+        GLib.child_watch_add(pid, self._print_job_done,
+                             (path, tmpdir, out_pdf))
 
-PREVIEWER_VERSION = "1.3.3"
+    # → REF DOC-PRINT-1
+    def _print_job_done(self, pid, status, data):
+        path, tmpdir, out_pdf = data
+        self._print_job = None
+        if not getattr(self, "_destroyed", False):
+            self._btn_print.set_sensitive(True)
+        if getattr(self, "_destroyed", False):
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            return
+        if not os.path.exists(out_pdf):
+            dbg("Print conversion without result (status %s): %s"
+                % (status, path))
+            if self._path == path:
+                pack_hint(self._content, _(
+                    "Could not convert the document for printing."))
+            return
+        try:
+            # Same cache as the preview – the sharp page view and
+            # the print share one conversion per file version.
+            shutil.move(out_pdf, office_cache_path(path))
+            office_cache_evict()
+        except Exception as exc:
+            dbg("Print cache write failed: %s" % exc)
+            if self._path == path:
+                self._print_pdf(path, out_pdf)
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            return
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        if self._path == path:
+            self._print_pdf(path, office_cache_path(path))
+
+    # → REF DOC-PRINT-1
+    def _print_pdf(self, path, pdf):
+        # F77: the GTK print dialog (PrintOperation); the pages
+        # come from the Poppler document and render with
+        # render_for_printing (print resolution), scaled onto the
+        # paper. The dialog window is created by GTK itself – the
+        # center_window rule does not apply to it.
+        try:
+            doc = Poppler.Document.new_from_file(
+                GLib.filename_to_uri(pdf), None)
+        except Exception as exc:
+            dbg("Could not open the print PDF (%s): %s" % (pdf, exc))
+            if self._path == path:
+                pack_hint(self._content, _(
+                    "Could not convert the document for printing."))
+            return
+        op = Gtk.PrintOperation()
+        op.set_n_pages(doc.get_n_pages())
+        op.set_job_name("nemo-previewer – " + os.path.basename(path))
+        op.connect("draw-page", self._print_draw_page, doc)
+        try:
+            op.run(Gtk.PrintOperationAction.PRINT_DIALOG,
+                   self.get_toplevel())
+        except Exception as exc:
+            dbg("Print dialog failed (%s): %s" % (path, exc))
+
+    # → REF DOC-PRINT-1
+    def _print_draw_page(self, operation, context, page_nr, doc):
+        # F77: one Poppler page per print page – points on both
+        # sides, so the uniform scale fits the paper.
+        page = doc.get_page(page_nr)
+        cr = context.get_cairo_context()
+        pw, ph = context.get_width(), context.get_height()
+        doc_w, doc_h = page.get_size()
+        if doc_w > 0 and doc_h > 0:
+            cr.scale(min(pw / doc_w, ph / doc_h),
+                     min(pw / doc_w, ph / doc_h))
+        page.render_for_printing(cr)
+
+
+PREVIEWER_VERSION = "1.4.0"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)

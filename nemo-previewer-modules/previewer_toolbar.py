@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.3.3
+previewer_toolbar.py – Version 1.4.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -30,6 +30,7 @@ from previewer_util import (
     PANEL_MIN_WIDTH,
     TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
 )
+from previewer_render_docs import HAVE_POPPLER, SOFFICE, _OFFICE_EXTS
 
 
 # =============================== Toolbar ====================================
@@ -63,6 +64,15 @@ class PreviewToolbarMixin:
                 css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         except Exception as e:
             dbg("toolbar/_build_toolbar xbit css: suppressed: %s" % e)
+        # F77: print button for office documents – opens the GTK
+        # print dialog for the LibreOffice PDF of the file.
+        self._btn_print = Gtk.Button.new_from_icon_name(
+            "document-print-symbolic", Gtk.IconSize.BUTTON)
+        self._btn_print.set_tooltip_text(_("Print document"))
+        self._btn_print.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_print.set_no_show_all(True)
+        self._btn_print.connect("clicked", self._on_print_clicked)
+        self._toolbar.pack_start(self._btn_print)
         self._btn_settings = Gtk.Button.new_from_icon_name(
             "preferences-system-symbolic", Gtk.IconSize.BUTTON)
         self._btn_settings.set_tooltip_text(_("Settings"))
@@ -539,8 +549,35 @@ class PreviewToolbarMixin:
         # refresh recreates the monitor safely inside its callback.
         self._update_xbit_button()
 
+    # → REF TB-PRINT-1
+    def _on_print_clicked(self, button):
+        # F77: print the previewed office document – the docs
+        # mixin converts/caches and runs the GTK print dialog.
+        path = self._path
+        if path:
+            self._print_document(path)
 
-PREVIEWER_VERSION = "1.3.3"
+    # → REF TB-PRINT-1
+    def _update_print_button(self):
+        # F77: same refresh points as the x-bit button – visible
+        # only for a SINGLE office file (and only when the
+        # conversion stack exists: soffice + poppler).
+        on = False
+        try:
+            if (self._path and len(self._names) == 1
+                    and SOFFICE and HAVE_POPPLER
+                    and os.path.splitext(self._path.lower())[1]
+                    in _OFFICE_EXTS):
+                on = True
+        except Exception as e:
+            dbg("toolbar/_update_print_button: suppressed: %s" % e)
+        if on:
+            self._btn_print.show()
+        else:
+            self._btn_print.hide()
+
+
+PREVIEWER_VERSION = "1.4.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

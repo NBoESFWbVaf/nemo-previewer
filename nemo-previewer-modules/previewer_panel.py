@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.3.3
+previewer_panel.py – Version 1.4.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -220,6 +220,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Background conversion for office documents (LibreOffice → PDF)
         self._office_job = None
         self._office_failed = set()
+        # F77: pending print conversion (office print button).
+        self._print_job = None
         # 0.9.1: remember panel teardown – a running LibreOffice
         # child-watch must not render after that.
         self._destroyed = False
@@ -639,6 +641,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._show_placeholder()
             # F74: no selection – the x-bit button hides as well.
             self._update_xbit_button()
+            # F77: the print button follows the same rule.
+            self._update_print_button()
             return
 
         self._names = list(names)
@@ -758,6 +762,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._content.show_all()
         # F74: keep the x-bit button in sync with the previewed file.
         self._update_xbit_button()
+        # F77: keep the print button in sync as well.
+        self._update_print_button()
         # F66: keep an open aux view in sync with the new file.
         self._aux_on_render()
 
@@ -1897,7 +1903,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.3.3"
+PREVIEWER_VERSION = "1.4.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
