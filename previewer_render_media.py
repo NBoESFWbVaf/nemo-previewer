@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.6.1
+previewer_render_media.py – Version 1.7.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -1423,6 +1423,14 @@ class MediaRendererMixin:
     # → REF MED-DOC-33
     def _on_player_eos(self, bus, msg):
         try:
+            # F79/1.7.0: while Dauerplay is on, the end of a song
+            # hands over to the next audio file (same advance path
+            # as the delete-handover) instead of pausing at start.
+            if (getattr(self, "_dauerplay", False)
+                    and getattr(self, "_audio_path", None)
+                    and self._audio_path == getattr(self, "_path", None)):
+                GLib.idle_add(self._dauerplay_advance, self._audio_path)
+                return
             self._playbin.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, 0)
             self._playbin.set_state(Gst.State.PAUSED)
             if getattr(self, "_btn_play", None):
@@ -1804,7 +1812,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "1.6.1"
+PREVIEWER_VERSION = "1.7.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; F79: Dauerplay toggle; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
