@@ -6,7 +6,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.0.0\n"
+"Project-Id-Version: nemo-previewer 1.10.1\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -71,6 +71,12 @@ msgstr ""
 msgid "Architecture"
 msgstr ""
 
+msgid "Archive"
+msgstr ""
+
+msgid "Archive folder"
+msgstr ""
+
 msgid "Artist"
 msgstr ""
 
@@ -88,7 +94,13 @@ msgstr ""
 msgid "Author"
 msgstr ""
 
+msgid "Auto-play files on selection"
+msgstr ""
+
 msgid "Birthday"
+msgstr ""
+
+msgid "Bitrate"
 msgstr ""
 
 msgid "Book title"
@@ -128,6 +140,9 @@ msgid "Columns"
 msgstr ""
 
 msgid "Coordinates"
+msgstr ""
+
+msgid "Could not convert the document for printing."
 msgstr ""
 
 msgid "Could not load image: %s"
@@ -256,6 +271,11 @@ msgid "Folder"
 msgstr ""
 
 msgid ""
+        "Folder that the archive button moves files to – for "
+        "example a Paperless \"consume\" directory."
+msgstr ""
+
+msgid ""
         "Font preview unavailable – install the python3-cairo and "
         "gir1.2-pango packages."
 msgstr ""
@@ -356,6 +376,12 @@ msgid ""
 msgstr ""
 
 msgid "Mobile"
+msgstr ""
+
+msgid "Move file to archive folder"
+msgstr ""
+
+msgid "Move to archive folder failed."
 msgstr ""
 
 msgid "more"
@@ -469,6 +495,9 @@ msgid "Preview trimmed (max. %d rows)."
 msgstr ""
 
 msgid "Preview trimmed (max. %d tables)."
+msgstr ""
+
+msgid "Print document"
 msgstr ""
 
 msgid "Reading media information – one moment …"

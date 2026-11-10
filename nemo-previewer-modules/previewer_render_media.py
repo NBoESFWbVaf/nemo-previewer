@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.0.0
+previewer_render_media.py – Version 1.10.1
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -25,7 +25,7 @@ gi.require_version('Gdk', '3.0')
 gi.require_version('Pango', '1.0')
 gi.require_version('GdkPixbuf', '2.0')
 
-from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Gio, Pango
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -34,7 +34,6 @@ if _HERE not in sys.path:
 from previewer_util import (
     _,
     dbg,
-    center_window,
     MAX_IMAGE_HEIGHT, format_seconds,
     _pixbuf_from_bytes,
     pack_hint,
@@ -105,6 +104,85 @@ except Exception as e:
 # absolute path goes into the ARGV spawn (no shell, no PATH search).
 # Debian package: libimage-exiftool-perl.
 EXIFTOOL = shutil.which("exiftool")
+
+
+# F76: MP3 frame tables for the audio bitrate row – kbit/s by
+# header bitrate index, keyed by the version bits (3 = MPEG1).
+_MP3_BITRATES = {
+    3: (0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224,
+        256, 320, 0),
+    2: (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144,
+        160, 0),
+    0: (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144,
+        160, 0),
+}
+_MP3_RATES = {3: (44100, 48000, 32000), 2: (22050, 24000, 16000),
+              0: (11025, 12000, 8000)}
+
+
+# → REF MED-BITRATE-1
+def _mp3_frame_at(data, off):
+    # F76: parse one frame header; returns (kbit/s, frame size)
+    # or None when the header is not plausible.
+    if off + 4 > len(data):
+        return None
+    h = data[off:off + 4]
+    if h[0] != 0xFF or h[1] & 0xE0 != 0xE0:
+        return None
+    ver, layer = (h[1] >> 3) & 0x03, (h[1] >> 1) & 0x03
+    bri, sri = h[2] >> 4, (h[2] >> 2) & 0x03
+    if ver == 1 or layer != 1 or bri in (0, 15) or sri == 3:
+        return None
+    kbps = _MP3_BITRATES[ver][bri]
+    rate = _MP3_RATES[ver][sri]
+    per_frame = 144 if ver == 3 else 72
+    size = per_frame * kbps * 1000 // rate + (h[2] & 0x01)
+    return kbps, size
+
+
+def _mp3_bitrate_mode(path):
+    # F76: CBR/VBR detection without a dependency: Xing marks VBR,
+    # LAME writes "Info" for CBR; otherwise the first and the last
+    # frame headers are compared (same bitrate = CBR).
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as fh:
+            head = fh.read(65536)
+        if head[:3] == b"ID3":
+            skip = 6 + (((head[6] & 0x7F) << 21)
+                        | ((head[7] & 0x7F) << 14)
+                        | ((head[8] & 0x7F) << 7)
+                        | (head[9] & 0x7F))
+            head = head[skip:]
+        pos, first = 0, None
+        while pos < len(head) - 4:
+            first = _mp3_frame_at(head, pos)
+            if first:
+                break
+            pos += 1
+        if not first:
+            return None, None
+        win = head[pos + 4:pos + 4 + 96]
+        if win.find(b"Xing") >= 0 or win.find(b"VBRI") >= 0:
+            return "VBR", None
+        if win.find(b"Info") >= 0:
+            return "CBR", first[0]
+        with open(path, "rb") as fh:
+            fh.seek(max(0, size - 131072))
+            tail = fh.read(131072)
+        if tail[-128:-125] == b"TAG":
+            tail = tail[:-128]
+        tpos = len(tail) - 4
+        while tpos >= 0:
+            last = _mp3_frame_at(tail, tpos)
+            if last:
+                return ("CBR", first[0]) if last[0] == first[0] else (
+                    "VBR", None)
+            tpos -= 1
+        return None, first[0]
+    except Exception as e:
+        dbg("media/_mp3_bitrate_mode: suppressed: %s" % e)
+        return None, None
 
 
 # Process state for media probing (convention: module dict, no
@@ -526,12 +604,10 @@ def _exif_rows(exif, xmp):
     return rows
 
 
-def _tags_table_window(title):
-    # F61/F50 design (user wishes 2026-11-03): shared window with a
-    # two-column tag table for both media "more" buttons.
-    win = Gtk.Window()
-    win.set_title(title)
-    center_window(win, 560)
+def _tags_table_widget():
+    # F61/F50 design (user wishes 2026-11-03): shared two-column
+    # tag table for the media "more" views; F66 II packs it into
+    # the aux column - whose ScrolledWindow does the scrolling.
     store = Gtk.ListStore(str, str)
     view = Gtk.TreeView(model=store)
     # F69: class carries the configurable info table font size.
@@ -545,11 +621,11 @@ def _tags_table_window(title):
     except Exception as e:
         # Fallback for builds without the grid-lines property:
         # subtle alternating row banding instead of lines.
-        dbg("media/_tags_table_window: grid lines off: %s" % e)
+        dbg("media/_tags_table_widget: grid lines off: %s" % e)
         try:
             view.set_rules_hint(True)
         except Exception as e2:
-            dbg("media/_tags_table_window: rules off: %s" % e2)
+            dbg("media/_tags_table_widget: rules off: %s" % e2)
     view.set_margin_top(10)
     view.set_margin_bottom(10)
     view.set_margin_start(10)
@@ -570,14 +646,8 @@ def _tags_table_window(title):
     val_col.set_resizable(True)
     view.append_column(tag_col)
     view.append_column(val_col)
-    scroll = Gtk.ScrolledWindow()
-    scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
-                      Gtk.PolicyType.AUTOMATIC)
-    scroll.add(view)
-    win.add(scroll)
     store.append([_("Info:"), _("collecting – one moment …")])
-    win.show_all()
-    return win, store
+    return view, store
 
 
 def _exiftool_tag_rows(path):
@@ -609,9 +679,9 @@ def _exiftool_tag_rows(path):
 
 # → REF MED-DOC-16
 class MediaRendererMixin:
-    # F50/F61/F62 "more" window state: ONE window per panel
+    # F50/F61/F62/F66 "more" view state: ONE aux view per panel
     # (user wish) – class defaults, instance values on first use.
-    _tags_win = None
+    _tags_title = None
     _tags_store = None
     _tags_gen = 0
 
@@ -737,7 +807,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-21
     def _render_image(self, path):
-        self._tags_win_follow(_("EXIF details"))
+        self._tags_aux_follow(_("EXIF details"))
         pack_hint(self._content, _("Loading image – one moment …"))
         try:
             target_w = max(1024, self._preview_width() * 2)
@@ -857,9 +927,9 @@ class MediaRendererMixin:
             rows += _exif_rows(exif, xmp)
             # F38: table into the 40% info area of the split.
             pack_meta_grid(rows, self._image_info_box)
-            # F50 (user wish 2026-11-02): "more" button opens a window
-            # with ALL EXIF details via exiftool; without exiftool an
-            # install hint appears instead of the button.
+            # F50 (user wish 2026-11-02): "more" button opens the
+            # tags column with ALL EXIF details via exiftool; without
+            # exiftool an install hint appears instead of the button.
             if EXIFTOOL:
                 btn = Gtk.Button(label=_("more"))
                 btn.set_halign(Gtk.Align.START)
@@ -882,7 +952,7 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-23
     def _render_audio(self, path, uri):
-        self._tags_win_follow(_("Audio tags"))
+        self._tags_aux_follow(_("Audio tags"))
         self._media_probe_async(path, uri, self._finish_audio)
 
     # → REF MED-DOC-24
@@ -969,6 +1039,17 @@ class MediaRendererMixin:
                             image_bytes = buf.extract_dup(
                                 0, min(buf.get_size(), _MEDIA_IMAGE_CAP))
                             break
+                # F76: bitrate of the first audio stream (bps);
+                # MP3 files also get their CBR/VBR mode scanned.
+                try:
+                    streams = info.get_audio_streams()
+                    if streams:
+                        tags["bitrate"] = streams[0].get_bitrate()
+                except Exception as e:
+                    dbg("Audio bitrate unavailable: %s" % e)
+                if not video and path.lower().endswith(".mp3"):
+                    tags["mp3_mode"], tags["mp3_bitrate"] = (
+                        _mp3_bitrate_mode(path))
             except Exception as e:
                 dbg("Discoverer error: %s" % e)
             GLib.idle_add(self._media_probe_done, path, uri, finish,
@@ -1204,6 +1285,12 @@ class MediaRendererMixin:
         # --- Play bar (F33: between cover and information) ---
         self._playbin_set_uri(uri)
         self._player_bar(duration)
+        # F79: Dauerplay – auto-start when the toggle is on, and
+        # watch the file so deleting it advances to the next one.
+        self._audio_path = path
+        if self._dauerplay:
+            self._dauerplay_start()
+        self._dauerplay_watch(path)
 
         def _num_row(label, num, total):
             # F33: "x of y" – the total count first, else just the number.
@@ -1232,6 +1319,21 @@ class MediaRendererMixin:
                  tags.get("disc_total"))
         if "codec" in tags:
             rows.append((_("Codec"), tags["codec"]))
+        # F76: bitrate row below the codec – the mode only shows
+        # where the frame scan proved it (MP3).
+        bps = tags.get("bitrate") or 0
+        if tags.get("mp3_mode") == "CBR" and tags.get("mp3_bitrate"):
+            bps = tags["mp3_bitrate"] * 1000
+        if bps <= 0 and duration > 0:
+            try:
+                bps = os.path.getsize(path) * 8 // duration
+            except OSError:
+                bps = 0
+        if bps > 0:
+            val = "%d kbit/s" % max(1, int(round(bps / 1000.0)))
+            if tags.get("mp3_mode"):
+                val = "%s (%s)" % (val, tags["mp3_mode"])
+            rows.append((_("Bitrate"), val))
         # F35: genre – only show the row if the tag exists.
         if "genre" in tags:
             rows.append((_("Genre"), tags["genre"]))
@@ -1241,7 +1343,7 @@ class MediaRendererMixin:
         pack_meta_grid(rows, self._content)
 
         # F61 (user wish): "more" button below the info table –
-        # same pattern as the photo EXIF window (F50).
+        # same pattern as the photo EXIF view (F50; F66 II column).
         if EXIFTOOL:
             btn = Gtk.Button(label=_("more"))
             btn.set_halign(Gtk.Align.START)
@@ -1270,6 +1372,22 @@ class MediaRendererMixin:
     # → REF MED-DOC-32
     def _player_bar(self, duration):
         player_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        # F79: Dauerplay toggle LEFT of the play button – while it
+        # is on, every selected audio file starts by itself and a
+        # deleted file hands over to the next one in the folder.
+        # The state lives on self (the bar is rebuilt per render).
+        self._dauerplay = getattr(self, "_dauerplay", False)
+        # 1.6.1: Gtk.ToggleButton has NO new_from_icon_name
+        # constructor in PyGObject ("Button constructor cannot be
+        # used to create instances of a subclass") – plain
+        # constructor + set_image instead.
+        self._btn_dplay = Gtk.ToggleButton()
+        self._btn_dplay.set_image(Gtk.Image.new_from_icon_name(
+            "media-playlist-repeat-symbolic", Gtk.IconSize.BUTTON))
+        self._btn_dplay.set_active(self._dauerplay)
+        self._btn_dplay.connect("toggled", self._on_dauerplay_toggled)
+        self._btn_dplay.set_tooltip_text(_("Auto-play files on selection"))
+        player_box.pack_start(self._btn_dplay, False, False, 0)
         self._btn_play = Gtk.Button.new_from_icon_name(
             "media-playback-start-symbolic", Gtk.IconSize.BUTTON)
         self._btn_play.connect("clicked", self._on_play_pause)
@@ -1305,6 +1423,14 @@ class MediaRendererMixin:
     # → REF MED-DOC-33
     def _on_player_eos(self, bus, msg):
         try:
+            # F79/1.7.0: while Dauerplay is on, the end of a song
+            # hands over to the next audio file (same advance path
+            # as the delete-handover) instead of pausing at start.
+            if (getattr(self, "_dauerplay", False)
+                    and getattr(self, "_audio_path", None)
+                    and self._audio_path == getattr(self, "_path", None)):
+                GLib.idle_add(self._dauerplay_advance, self._audio_path)
+                return
             self._playbin.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, 0)
             self._playbin.set_state(Gst.State.PAUSED)
             if getattr(self, "_btn_play", None):
@@ -1352,11 +1478,14 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-36
     def _render_video(self, path, uri):
-        self._tags_win_follow(_("Video tags"))
+        self._tags_aux_follow(_("Video tags"))
         self._media_probe_async(path, uri, self._finish_video, video=True)
 
     # → REF MED-DOC-37
     def _finish_video(self, path, uri, tags, duration, image):
+        # F79: no audio preview active – the Dauerplay toggle must
+        # not auto-start a PREVIOUS file's playbin here.
+        self._audio_path = None
         # F22: without an embedded preview image show the generic
         # tile – play triangle and film perforation instead of notes.
         if image is None:
@@ -1490,6 +1619,9 @@ class MediaRendererMixin:
     def _stop_playback(self):
         # B3: tear down the timer (it otherwise runs forever, even
         # after window destruction) and cleanly NULL the player.
+        # F79: the deletion monitor of the old file goes with it –
+        # the new render re-arms it in _finish_audio.
+        self._dauerplay_watch(None)
         if self._progress_timer:
             GLib.source_remove(self._progress_timer)
             self._progress_timer = 0
@@ -1499,87 +1631,290 @@ class MediaRendererMixin:
             except Exception as e:
                 dbg("media/_stop_playback: suppressed: %s" % e)
 
+    # → REF MED-DAUERPLAY-1
+    def _dauerplay_start(self):
+        # F79: auto-start the just-rendered audio file – the toggle
+        # wins, no manual Play click needed. _on_play_pause toggles
+        # by state, and after _stop_playback the state is NULL.
+        if self._playbin is None:
+            return
+        try:
+            ok, state, pending = self._playbin.get_state(0)
+            if (state != Gst.State.PLAYING
+                    and pending != Gst.State.PLAYING):
+                self._on_play_pause()
+        except Exception as e:
+            dbg("media/_dauerplay_start: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _dauerplay_watch(self, path):
+        # F79: one Gio file monitor on the PLAYING audio file –
+        # deleting it (from Nemo or outside) advances to the next
+        # audio file in the folder while Dauerplay is on. Same
+        # pattern as the x-bit monitor (F74).
+        try:
+            if getattr(self, "_dauerplay_mon", None) is not None:
+                self._dauerplay_mon.cancel()
+                self._dauerplay_mon = None
+            if not path or not getattr(self, "_dauerplay", False):
+                return
+            mon = Gio.File.new_for_path(path).monitor_file(
+                Gio.FileMonitorFlags.NONE, None)
+            mon.connect("changed", self._on_dauerplay_file_changed)
+            self._dauerplay_mon = mon
+        except Exception as e:
+            dbg("media/_dauerplay_watch: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _on_dauerplay_file_changed(self, mon, gfile, other, event):
+        # F79: only a real deletion of the previewed file counts;
+        # the idle hop lets the panel clear its preview first
+        # (set_selection of the advance cancels this very monitor –
+        # allowed, F74 lore).
+        if event != Gio.FileMonitorEvent.DELETED:
+            return
+        if not getattr(self, "_dauerplay", False):
+            return
+        path = getattr(self, "_path", None)
+        try:
+            gpath = gfile.get_path() if gfile else None
+        except Exception:
+            gpath = None
+        if not path or not gpath or gpath != path:
+            return
+        GLib.idle_add(self._dauerplay_advance, path)
+
+    # → REF MED-DAUERPLAY-1
+    def _dauerplay_advance(self, deleted):
+        # F79: the next audio file ALPHABETICALLY after the deleted
+        # one (wrap-around to the first when it was the last) –
+        # rendered through the normal set_selection path, so
+        # preview, x-bit/print buttons and auto-play stay in sync.
+        try:
+            folder = os.path.dirname(deleted) or "."
+            try:
+                entries = sorted(os.listdir(folder))
+            except Exception as e:
+                dbg("media/_dauerplay_advance: listdir failed: %s" % e)
+                return False
+            exts = (".mp3", ".flac", ".ogg", ".opus",
+                    ".m4a", ".wav", ".wma")
+            old_name = os.path.basename(deleted)
+            audio = [f for f in entries if f.lower().endswith(exts)]
+            nxt = None
+            after = [f for f in audio if f > old_name]
+            if after:
+                nxt = after[0]
+            elif audio:
+                nxt = audio[0]      # wrap-around: deleted was last
+            if not nxt:
+                dbg("media/_dauerplay_advance: no audio file left")
+                return False
+            dbg("media/_dauerplay_advance: %s -> %s" % (old_name, nxt))
+            self.set_selection([nxt], folder)
+            # 1.8.0: move Nemo's own row marker too, so the user
+            # always sees where the playlist stands.
+            self._nemo_select_row(nxt, folder)
+        except Exception as e:
+            dbg("media/_dauerplay_advance: suppressed: %s" % e)
+        return False        # idle: run once
+
+    # → REF MED-DAUERPLAY-1
+    def _nemo_select_row(self, name, folder):
+        # 1.8.0: move Nemo's OWN selection row to the advanced-to
+        # file – the user watches the playlist position in the file
+        # list, not only in the preview. The extension runs inside
+        # the Nemo process, so its widgets are reachable: walk the
+        # visible Nemo toplevels, collect tree/icon views, match the
+        # row by file URI and move the selection there.
+        try:
+            want = Gio.File.new_for_path(
+                os.path.join(folder, name)).get_uri()
+            for toplevel in Gtk.Window.list_toplevels():
+                if not isinstance(toplevel, Gtk.Window):
+                    continue
+                if not toplevel.get_visible():
+                    continue
+                if "Nemo" not in type(toplevel).__name__:
+                    continue
+                views = []
+                self._nemo_collect_views(toplevel, views)
+                for view, kind in views:
+                    self._nemo_move_row_selection(view, kind, want)
+        except Exception as e:
+            dbg("media/_nemo_select_row: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _nemo_collect_views(self, widget, out):
+        # 1.8.0 helper: recursive walk (list/compact = GtkTreeView,
+        # icon = GtkIconView); non-containers just end the branch.
+        try:
+            if isinstance(widget, Gtk.TreeView):
+                out.append((widget, "tree"))
+            elif isinstance(widget, Gtk.IconView):
+                out.append((widget, "icon"))
+            if isinstance(widget, Gtk.Container):
+                for child in widget.get_children():
+                    self._nemo_collect_views(child, out)
+        except Exception as e:
+            dbg("media/_nemo_collect_views: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _nemo_move_row_selection(self, view, kind, want):
+        # 1.8.0 helper: unselect all, select the matching row
+        # (NemoListModel column 0 holds the Nemo.File) and scroll
+        # it into view, centered. No match -> no change.
+        try:
+            model = view.get_model()
+            if model is None:
+                return
+            # 1.8.2: PyGObject quirk - Gtk built-in models return
+            # (ok, iter) from get_iter_first/iter_next, C models
+            # like NemoListModel return the iter directly (deploy
+            # feedback: "cannot unpack non-iterable TreeIter").
+            first = model.get_iter_first()
+            if isinstance(first, tuple):
+                ok, it = first
+            else:
+                ok, it = first is not None, first
+            while ok and it is not None:
+                if self._nemo_row_uri(model, it) == want:
+                    path = model.get_path(it)
+                    if kind == "tree":
+                        sel = view.get_selection()
+                        sel.unselect_all()
+                        sel.select_iter(it)
+                        view.scroll_to_cell(path, None, True, 0.5, 0.0)
+                    else:
+                        view.unselect_all()
+                        view.select_path(path)
+                        view.scroll_to_path(path, True, 0.5, 0.5)
+                    return
+                nxt = model.iter_next(it)
+                if isinstance(nxt, tuple):
+                    ok, it = nxt
+                else:
+                    ok, it = nxt is not None, nxt
+        except Exception as e:
+            dbg("media/_nemo_move_row_selection: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _nemo_row_uri(self, model, it):
+        # 1.8.0 helper: the row's file URI (column 0 = Nemo.File);
+        # rows without a file object (headers etc.) yield None.
+        # 1.8.2: fallback to the URI string column (1) - column
+        # layouts differ between Nemo versions.
+        try:
+            val = model.get_value(it, 0)
+            if val is not None:
+                return val.get_uri()
+        except Exception:
+            pass
+        try:
+            val = model.get_value(it, 1)
+            if isinstance(val, str):
+                return val
+        except Exception:
+            pass
+        return None
+
+    # → REF MED-DAUERPLAY-1
+    def _on_dauerplay_toggled(self, btn):
+        # F79: the toggle survives re-renders (state on self, the
+        # button is rebuilt per audio preview). Switching it on
+        # while an audio file is open starts it right away; for
+        # non-audio previews nothing starts (no stale playbin).
+        self._dauerplay = btn.get_active()
+        dbg("media/dauerplay: %s" % self._dauerplay)
+        if not self._dauerplay:
+            self._dauerplay_watch(None)
+            return
+        cur = getattr(self, "_path", None)
+        if getattr(self, "_audio_path", None) \
+                and self._audio_path == cur:
+            self._dauerplay_start()
+            self._dauerplay_watch(cur)
+
     # → REF MED-DOC-41
     def _on_exif_more(self, *a):
-        # F50 photo window – delegates to the shared tag table.
-        self._on_tags_more(_("EXIF details"))
+        # F50 photo view – delegates to the shared tag table;
+        # the clicked button is the trigger (F66 II tint).
+        self._on_tags_more(_("EXIF details"), a[0] if a else None)
 
     # → REF MED-DOC-42
     def _on_id3_more(self, *a):
-        # F61 audio window – delegates to the shared tag table.
-        self._on_tags_more(_("Audio tags"))
+        # F61 audio view – delegates to the shared tag table.
+        self._on_tags_more(_("Audio tags"), a[0] if a else None)
 
     # → REF MED-DOC-43
     def _on_video_more(self, *a):
-        # F62 video window – delegates to the shared tag table.
-        self._on_tags_more(_("Video tags"))
+        # F62 video view – delegates to the shared tag table.
+        self._on_tags_more(_("Video tags"), a[0] if a else None)
 
     # → REF MED-DOC-46
-    def _tags_win_follow(self, title):
-        # While the "more" window is open, a media selection change
-        # refreshes it automatically (user wish) – no new click.
-        if self._tags_win is not None:
-            self._on_tags_more(title, present=False)
+    def _tags_aux_follow(self, title):
+        # The render entry points record their kind title; the
+        # render hook rebuilds the open tags column (PAN-AUX-3).
+        self._tags_title = title
 
     # → REF MED-DOC-44
-    def _on_tags_more(self, title, present=True):
-        path = self._path
-        title = "%s – %s" % (title, os.path.basename(path))
-        # One window only (user wish): while it is open, a "more"
-        # click on another file updates it instead of adding one.
-        if self._tags_win is not None:
-            self._tags_win.set_title(title)
-            self._tags_store.clear()
-            self._tags_store.append(
-                [_("Info:"), _("collecting – one moment …")])
-            # Manual clicks focus the window; the automatic
-            # follow-up never steals the focus of the file window.
-            if present:
-                self._tags_win.present()
-        else:
-            win, store = _tags_table_window(title)
-            # Keep the window above the file window (user wish) –
-            # transient windows never sink behind their parent.
-            try:
-                win.set_transient_for(self._content.get_toplevel())
-            except Exception as e:
-                dbg("media/_on_tags_more: transient: %s" % e)
-            self._tags_win = win
-            self._tags_store = store
-            win.connect("destroy", self._on_tags_win_destroyed)
+    def _on_tags_more(self, title, trigger=None):
+        # F66 II: ONE view per panel (user wish) – the SAME key
+        # collapses the open column again (→ REF PAN-AUX-1).
+        full = "%s – %s" % (title, os.path.basename(self._path))
+        view, store = _tags_table_widget()
+        self._open_aux("tags", full, view,
+                       refresh=self._tags_aux_refresh,
+                       trigger=trigger)
+        if self._aux_key != "tags":
+            return
+        self._tags_title = title
+        self._tags_store = store
+        self._tags_aux_fill(self._path)
+
+    # → REF MED-DOC-45
+    def _tags_aux_refresh(self):
+        # PAN-AUX-3 render hook: rebuilds the table for the new
+        # media file; non-media selections close the column.
+        if not self._tags_title or not self._path:
+            return None
+        view, store = _tags_table_widget()
+        self._tags_store = store
+        self._tags_aux_fill(self._path)
+        full = "%s – %s" % (self._tags_title,
+                            os.path.basename(self._path))
+        return full, view
+
+    # → REF MED-DOC-48
+    def _tags_aux_fill(self, path):
+        # R9: the exiftool worker is pure text work – the store
+        # is fed via idle_add in the GTK main loop (F66 II).
         self._tags_gen += 1
         gen = self._tags_gen
 
         def worker():
-            # R9: pure text work here – the store is fed via
-            # idle_add in the GTK main loop.
             rows = _exiftool_tag_rows(path)
 
             def apply():
                 # A newer "more" request took over – drop this one.
                 if gen != self._tags_gen:
                     return False
-                self._tags_store.clear()
+                store = self._tags_store
+                if store is None:
+                    return False
+                store.clear()
                 if rows:
                     for name, val in rows:
-                        self._tags_store.append([name, val])
+                        store.append([name, val])
                 else:
-                    self._tags_store.append(
-                        [_("Info:"), _("no tags found")])
+                    store.append([_("Info:"), _("no tags found")])
                 return False
             GLib.idle_add(apply)
 
         threading.Thread(target=worker, daemon=True).start()
 
-    # → REF MED-DOC-45
-    def _on_tags_win_destroyed(self, *a):
-        # User closed the window – the next "more" click builds
-        # a fresh one.
-        self._tags_win = None
-        self._tags_store = None
 
-
-PREVIEWER_VERSION = "1.0.0"
+PREVIEWER_VERSION = "1.10.1"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
-    "renderer; R9/B7 discipline and caps stay)"
+    "renderer; F79: Dauerplay toggle; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)

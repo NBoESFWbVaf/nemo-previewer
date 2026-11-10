@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.0.0
+previewer_toolbar.py – Version 1.10.1
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -10,6 +10,7 @@ Ctrl+Alt+P shortcut and all preference widgets.
 
 import sys
 import os
+import shutil
 import stat
 
 import gi
@@ -26,11 +27,17 @@ from previewer_util import (
     _,
     dbg,
     set_debug_log,
-    center_window,
     pick_icon,
+    pack_hint,
     PANEL_MIN_WIDTH,
     TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
 )
+from previewer_render_docs import HAVE_POPPLER, SOFFICE, _OFFICE_EXTS
+from previewer_render_text import HAVE_PANGOCAIRO, _PRINT_TEXT_EXTS
+
+# F81: file types the archive button handles – office documents,
+# PDF, EML and Markdown.
+_ARCHIVE_EXTS = set(_OFFICE_EXTS) | {".pdf", ".eml", ".md", ".markdown"}
 
 
 # =============================== Toolbar ====================================
@@ -64,6 +71,27 @@ class PreviewToolbarMixin:
                 css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         except Exception as e:
             dbg("toolbar/_build_toolbar xbit css: suppressed: %s" % e)
+        # F77: print button for office documents – opens the GTK
+        # print dialog for the LibreOffice PDF of the file.
+        self._btn_print = Gtk.Button.new_from_icon_name(
+            "document-print-symbolic", Gtk.IconSize.BUTTON)
+        self._btn_print.set_tooltip_text(_("Print document"))
+        self._btn_print.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_print.set_no_show_all(True)
+        self._btn_print.connect("clicked", self._on_print_clicked)
+        self._toolbar.pack_start(self._btn_print)
+        # F81: archive button – moves the previewed file to the
+        # archive folder chosen in the settings; the icon prefers
+        # an archive-specific symbolic name and falls back to the
+        # standard list-add-symbolic (never a colored icon).
+        self._btn_archive = Gtk.Button.new_from_icon_name(
+            self._archive_icon_name(), Gtk.IconSize.BUTTON)
+        self._btn_archive.set_tooltip_text(
+            _("Move file to archive folder"))
+        self._btn_archive.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_archive.set_no_show_all(True)
+        self._btn_archive.connect("clicked", self._on_archive_clicked)
+        self._toolbar.pack_start(self._btn_archive)
         self._btn_settings = Gtk.Button.new_from_icon_name(
             "preferences-system-symbolic", Gtk.IconSize.BUTTON)
         self._btn_settings.set_tooltip_text(_("Settings"))
@@ -92,39 +120,21 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-2
     def _on_settings_clicked(self, button):
-        self._open_settings_window()
+        self._open_settings_aux()
 
     # → REF TB-DOC-3
-    def _open_settings_window(self):
-        if self._settings_win is not None:
-            try:
-                self._settings_win.present()
-                return
-            except Exception:
-                self._settings_win = None
-        win = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
-        win.set_title(_("Nemo-Previewer – Settings"))
-        try:
-            win.set_transient_for(self._window)
-        except Exception as e:
-            dbg("toolbar/_open_settings_window: suppressed: %s" % e)
-        center_window(win, 420)
-        win.set_border_width(12)
-        win.connect("destroy", self._on_settings_win_destroyed)
-
+    def _open_settings_aux(self):
+        # F66 part 1: same frames and distances as the former
+        # settings window, but in the aux column (→ REF PAN-AUX-1).
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        win.add(box)
+        box.set_border_width(12)
         box.pack_start(self._settings_frame_general(), False, False, 0)
         box.pack_start(self._settings_frame_text(), False, False, 0)
         box.pack_start(self._settings_frame_docs(), False, False, 0)
         box.pack_start(self._settings_frame_fonts(), False, False, 0)
-
-        btn_close = Gtk.Button.new_with_label(_("Close"))
-        btn_close.connect("clicked", lambda *a: win.destroy())
-        box.pack_start(btn_close, False, False, 0)
-
-        win.show_all()
-        self._settings_win = win
+        box.pack_start(self._settings_frame_archive(), False, False, 0)
+        self._open_aux("settings", _("Nemo-Previewer – Settings"), box,
+                       trigger=self._btn_settings)
 
     # → REF TB-DOC-4
     def _settings_frame_general(self):
@@ -325,11 +335,34 @@ class PreviewToolbarMixin:
         frow.pack_start(self._settings_font_entry, True, True, 0)
         return frame
 
-    def _on_settings_win_destroyed(self, *a):
-        self._settings_win = None
-        self._settings_spin = None
-        self._settings_pages_spin = None
-        self._settings_spacing_spin = None
+    # → REF TB-ARCHIVE-2
+    def _settings_frame_archive(self):
+        frame = Gtk.Frame(label=_("Archive"))
+        frame.set_border_width(8)
+        frow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                       spacing=8)
+        frame.add(frow)
+        alabel = Gtk.Label(label=_("Archive folder"))
+        alabel.set_halign(Gtk.Align.START)
+        frow.pack_start(alabel, False, False, 0)
+        self._settings_archive_chooser = Gtk.FileChooserButton.new(
+            _("Archive folder"), Gtk.FileChooserAction.SELECT_FOLDER)
+        self._settings_archive_chooser.set_tooltip_text(
+            _("Folder that the archive button moves files to – for "
+              "example a Paperless \"consume\" directory."))
+        if self._conf_archive_dir and os.path.isdir(self._conf_archive_dir):
+            self._settings_archive_chooser.set_filename(
+                self._conf_archive_dir)
+        self._settings_archive_chooser.connect(
+            "file-set", self._on_archive_dir_set)
+        frow.pack_start(self._settings_archive_chooser, True, True, 0)
+        return frame
+
+    def _on_archive_dir_set(self, chooser):
+        # Save immediately – no separate save button needed.
+        folder = chooser.get_filename()
+        self._conf_archive_dir = folder or ""
+        self._config_save()
 
     def _on_show_at_start_toggled(self, chk):
         # Save immediately – no separate save button needed.
@@ -396,12 +429,32 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-18
     def _on_text_size_changed(self, spin):
-        # F69: save immediately – the reloaded CSS rule restyles
-        # the open previews live (no re-render needed).
-        self._conf_text_font_size = int(spin.get_value())
+        # B12 (1.3.2): the text size also rides IN the font
+        # descriptions of explicit fonts – the CSS reload alone no
+        # longer restyles the open text preview. F25 pattern:
+        # render once after the spin went QUIET (400 ms).
+        value = int(spin.get_value())
+        if value == self._conf_text_font_size:
+            return
+        self._conf_text_font_size = value
+        if self._textsize_render_id is not None:
+            GLib.source_remove(self._textsize_render_id)
+        self._textsize_render_id = GLib.timeout_add(
+            400, self._on_text_size_quiet)
+
+    # → REF TB-DOC-18
+    def _on_text_size_quiet(self):
+        # B12: fires once after the spin is quiet – one config
+        # write and ONE re-render of the open text preview.
+        self._textsize_render_id = None
         self._config_save()
+        if self._last_textish and self._path:
+            self._render()
+        return False
 
     def _on_meta_size_changed(self, spin):
+        # F69: save only – the reloaded CSS rule restyles the
+        # open info tables live (no re-render needed).
         self._conf_meta_font_size = int(spin.get_value())
         self._config_save()
 
@@ -450,10 +503,12 @@ class PreviewToolbarMixin:
             dbg("toolbar/_on_start_width_changed: suppressed: %s" % e)
 
     def _on_toggle_accel(self, group, accelerable, key, mods):
-        if self.get_visible():
-            self.hide()
+        # F66: the toggle hides the whole shell (column + aux),
+        # never the panel alone.
+        if self._aux_shell.get_visible():
+            self._aux_shell.hide()
         else:
-            self.show_all()
+            self._aux_shell.show_all()
         return True
 
     # → REF TB-DOC-19
@@ -543,8 +598,122 @@ class PreviewToolbarMixin:
         # refresh recreates the monitor safely inside its callback.
         self._update_xbit_button()
 
+    # → REF TB-PRINT-1
+    def _on_print_clicked(self, button):
+        # F77: print the previewed office document – the docs
+        # mixin converts/caches and runs the GTK print dialog.
+        # F78: Markdown/EML print directly from the preview text.
+        # F80: a PDF falls through to _print_document and prints
+        # directly (poppler only).
+        path = self._path
+        if not path:
+            return
+        ext = os.path.splitext(path.lower())[1]
+        if ext in _PRINT_TEXT_EXTS:
+            self._print_text_document(path)
+        else:
+            self._print_document(path)
 
-PREVIEWER_VERSION = "1.0.0"
+    # → REF TB-PRINT-1
+    def _update_print_button(self):
+        # F77: same refresh points as the x-bit button – visible
+        # only for a SINGLE office file (and only when the
+        # conversion stack exists: soffice + poppler). F78: also
+        # for a single Markdown/EML file (text print path, needs
+        # PangoCairo instead of the office stack). F80: also for
+        # a single PDF (direct poppler print, no office stack).
+        on = False
+        try:
+            if self._path and len(self._names) == 1:
+                ext = os.path.splitext(self._path.lower())[1]
+                if ext in _OFFICE_EXTS and SOFFICE and HAVE_POPPLER:
+                    on = True
+                elif ext == ".pdf" and HAVE_POPPLER:
+                    # F80: PDF prints directly (poppler only).
+                    on = True
+                elif ext in _PRINT_TEXT_EXTS and HAVE_PANGOCAIRO:
+                    on = True
+        except Exception as e:
+            dbg("toolbar/_update_print_button: suppressed: %s" % e)
+        if on:
+            self._btn_print.show()
+        else:
+            self._btn_print.hide()
+
+    def _archive_icon_name(self):
+        # F81: archive-specific symbolic icon when the theme has
+        # one, else the standard list-add-symbolic – has_icon only
+        # matches real symbolic names, so no colored icon appears.
+        theme = Gtk.IconTheme.get_default()
+        for name in ("archive-insert-symbolic",
+                     "add-files-to-archive-symbolic"):
+            if theme.has_icon(name):
+                return name
+        return "list-add-symbolic"
+
+    # → REF TB-ARCHIVE-1
+    def _on_archive_clicked(self, button):
+        # F81: move the previewed file to the configured archive
+        # folder; without a folder the settings open instead.
+        path = self._path
+        if not path:
+            return
+        target = self._conf_archive_dir
+        if not target or not os.path.isdir(target):
+            dbg("toolbar/_on_archive_clicked: no archive folder set")
+            self._open_settings_aux()
+            return
+        try:
+            dest = self._archive_target_path(path, target)
+            shutil.move(path, dest)
+            dbg("toolbar/_on_archive_clicked: %s -> %s" % (path, dest))
+            # The file is gone – clear the preview; Nemo drops the
+            # row on its own via its file monitor.
+            self.set_selection([], None)
+        except Exception as e:
+            dbg("toolbar/_on_archive_clicked: failed: %s" % e)
+            try:
+                self._clear_content()
+                pack_hint(self._content,
+                          _("Move to archive folder failed."))
+                self._content.show_all()
+            except Exception as e2:
+                dbg("toolbar/_on_archive_clicked hint: suppressed: %s" % e2)
+
+    def _archive_target_path(self, path, target_dir):
+        # F81: never overwrite – numeric suffix when it exists.
+        base = os.path.basename(path)
+        dest = os.path.join(target_dir, base)
+        if not os.path.exists(dest):
+            return dest
+        root, ext = os.path.splitext(base)
+        n = 2
+        while os.path.exists(dest):
+            dest = os.path.join(target_dir,
+                                "%s-%d%s" % (root, n, ext))
+            n += 1
+        return dest
+
+    # → REF TB-ARCHIVE-1
+    def _update_archive_button(self):
+        # F81: same refresh points as the print button – visible
+        # only for a SINGLE office/PDF/EML/Markdown file. Without
+        # a configured folder the click opens the settings.
+        on = False
+        try:
+            if self._path and len(self._names) == 1:
+                ext = os.path.splitext(self._path.lower())[1]
+                if ext in _ARCHIVE_EXTS:
+                    on = True
+        except Exception as e:
+            dbg("toolbar/_update_archive_button: suppressed: %s" % e)
+        if on:
+            self._btn_archive.show()
+        else:
+            self._btn_archive.hide()
+
+
+PREVIEWER_VERSION = "1.10.1"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

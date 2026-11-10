@@ -4,6 +4,178 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.10.1\] – 2026-11-10
+
+### Changed
+
+- The archive button picks its icon via a fallback chain (user wish): archive-insert-symbolic or add-files-to-archive-symbolic when the theme ships one of them (both are app-specific File-Roller names, not standard), otherwise the standard symbolic list-add-symbolic. Checked per has_icon, so the icon stays monochrome and always exists in Mint themes.
+
+## \[1.10.0\] – 2026-11-10
+
+### Added
+
+- New archive button (user wish): for a single Office, PDF, EML or Markdown file the toolbar shows an archive button (folder-move-symbolic) that moves the file to the configured archive folder – for example a Paperless "consume" directory. The folder is chosen in the settings ("Archive") and saved immediately; existing files in the target folder are never overwritten (numeric suffix). Without a configured folder the button opens the settings instead. Five new msgids (pot and de.po).
+
+## \[1.9.0\] – 2026-11-10
+
+### Added
+
+- The print button now also works for PDF files (user wish): a PDF prints directly through the Poppler print path – no LibreOffice conversion hop. The button shows for a single PDF when poppler is available; office documents keep their cached/conversion flow.
+
+## \[1.8.2\] – 2026-11-10
+
+### Fixed
+
+- The Dauerplay row-marker search crashed on Nemo's C list model: `NemoListModel.get_iter_first()` returns the `TreeIter` directly, not the `(ok, iter)` tuple of Gtk built-in models ("cannot unpack non-iterable TreeIter object"). The iteration now accepts both shapes, and the row match falls back to the URI string column (1) when the file object column (0) does not yield a URI (deploy feedback).
+
+## \[1.8.1\] – 2026-11-10
+
+### Fixed
+
+- Dauerplay handover paths were dead on arrival: `previewer_render_media.py` used `Gio` (delete monitor, row-marker URI) without importing it – every such call raised `NameError`, silently swallowed by the guards. The delete-handover monitor never armed and Nemo's row marker never moved. `Gio` is now imported (deploy feedback).
+
+## \[1.8.0\] – 2026-11-10
+
+### Added
+
+- Dauerplay moves Nemo's own selection row along (user wish): when the handover picks the next title (end of song or deleted playing file), the highlighted row in Nemo's file list jumps to that file and is scrolled into view – the playlist position is always visible. Works in list, compact and icon view; views showing another folder stay untouched.
+
+## \[1.7.0\] – 2026-11-10
+
+### Added
+
+- Dauerplay now also advances at the END of a song (user wish): instead of pausing at the start, the end of the track hands over to the next audio file in the folder – same path as the delete-handover (alphabetically after the finished one, wrap-around). With the toggle off, the old pause-at-start behavior stays.
+
+## \[1.6.1\] – 2026-11-10
+
+### Fixed
+
+- Dauerplay toggle crashed the audio preview on build (`TypeError: Button constructor cannot be used to create instances of a subclass ToggleButton`): `Gtk.ToggleButton` has no `new_from_icon_name` constructor in PyGObject. The button is now created with the plain constructor plus `set_image()` (deploy feedback).
+
+## \[1.6.0\] – 2026-11-10
+
+### Added
+
+- Dauerplay for music files (user wish): a latching toggle button (media-playlist-repeat-symbolic) sits LEFT of the play button in the audio play bar. While it is on, every audio file you click in Nemo starts playing by itself – no Play click needed. The state survives re-renders (session-only, default off). If the currently playing file is deleted, a file monitor hands over to the next audio file in the same folder (alphabetically after the deleted one, wrap-around to the first); the handover runs through the normal selection path, so preview, buttons and playback stay in sync. One new string ("Auto-play files on selection").
+
+## \[1.5.2\] – 2026-11-10
+
+### Fixed
+
+- E-mail printing did not WRAP long lines (deploy feedback on 1.5.1): Pango's default wrap mode breaks only at word boundaries, so an EML body line without spaces (typical after HTML conversion) ran off the paper. Both print steps now use WrapMode.WORD\\_CHAR – the drawn layout breaks lines exactly like the pagination step.
+
+## \[1.5.1\] – 2026-11-10
+
+### Fixed
+
+- Markdown/EML printing crashed in the pagination step (deploy feedback on 1.5.1 candidate): the layout iterator method is called `at_last_line` in PyGObject, not `is_last_line` – the AttributeError aborted the print dialog. One-word fix in the text print path.
+
+## \[1.5.0\] – 2026-11-10
+
+### Added
+
+- Print for Markdown and e-mail files (user wish): the toolbar print button now also appears for a single Markdown (`.md`, `.markdown`) or e-mail (`.eml`) file. Markdown prints as formatted Pango text (invalid markup falls back to plain text), e-mails print as header block (From/To/Cc/Date/Subject) plus body – no external converter needed, the pages are paginated and drawn with a Pango layout directly (the configured preview font size applies).
+
+## \[1.4.0\] – 2026-11-10
+
+### Added
+
+- Print button for office documents (user wish): a printer button appears in the preview toolbar whenever a single office file is previewed (OpenDocument, OOXML, binary MS formats, RTF – and only when LibreOffice and Poppler are available). Clicking it prints the document: a cached LibreOffice PDF is used directly, otherwise the file converts in the background first (the same conversion and cache as the sharp office preview, the button dims meanwhile), then the GTK print dialog opens and the Poppler pages render at print resolution onto the paper. Two new strings ("Print document", "Could not convert the document for printing.").
+
+## \[1.3.3\] – 2026-11-10
+
+### Fixed
+
+- The preview font size did not change LIVE (deploy feedback on 1.3.2): the text spin only saved and relied on the CSS reload, but the explicit-font previews carry the size in their font description since 1.3.2, so the open preview kept the old size until the next selection. The spin handler now follows the F25 line-spacing pattern: it debounces (400 ms), then writes the config once and re-renders the open text preview; the info table spin keeps saving only (its CSS rule restyles the tables live). The new quiet timer is initialized in the panel and cancelled at panel teardown like the F25 timer (F71 pattern).
+
+## \[1.3.2\] – 2026-11-10
+
+### Fixed
+
+- The "Preview font size (px)" setting only changed Markdown previews (deploy feedback): every preview that passes an explicit font (plain text files, source code, e-mail bodies, the office text fallback) calls override\\_font, and a widget font override beats the F69 CSS class rule. The configured size is now baked INTO the font description itself (new util helper effective\\_text\\_font, fed by apply\\_font\\_size\\_css via \\_TEXT\\_SIZE\\_PX); the line-number margin measures with the same effective font, so the gutter follows the size as well.
+
+## \[1.3.1\] – 2026-11-10
+
+### Changed
+
+- The secondary column opens 100 px wider by default (user wish): the standard width rises from 420 to 520 px; a manual divider drag still wins over the default, and the 320 px floor stays unchanged.
+
+## \[1.3.0\] – 2026-11-10
+
+### Added
+
+- Audio preview: a bitrate row below the codec shows the kilobit value of the first audio stream; if the codec reports none (e.g. FLAC) the row falls back to file size over the duration as the average. MP3 files additionally state constant (CBR) or variable (VBR) bitrate: the Xing/Info/VBRI frame header proves the mode, and as a fallback the first and the last frame header are compared – the mode only appears where the frame scan proved it, other formats show the plain value.
+
+## \[1.2.6\] – 2026-11-10
+
+### Fixed
+
+- Text based database files (deploy feedback, workman.db – the Workman CD player database is a plain-text keyword format): the dispatch passed EVERY .db/.sqlite/.sqlite3 file to the SQLite renderer, where the magic check failed and text files dead-ended in the "database could not be read" hint. The sqlite branch now requires the real file magic (new module helper \_is\_sqlite with \_SQLITE\_MAGIC) – a text based .db file falls through the normal chain and the B10 sniffer renders it as text, like .pub/.crt files; a binary .db without the magic lands in the generic preview instead of the misleading hint.
+
+## \[1.2.5\] – 2026-11-08
+
+### Fixed
+
+- Opening a view widened the preview column by a few pixels, closing restored it exactly (deploy report on 1.2.4): the outer move accounted the shell's divider handle with the deprecated handle-size style property, which themes no longer write since GTK 3.20 - the legacy read reports the default 5 px while the separator's CSS min-width on themed systems is 1-2 px, so the outer divider moved the difference too far. The handle width now comes from the separator node's CSS min-width (paned path plus a standalone style context), and a one-shot calibration after each open measures the ground truth from the settled allocations (shell = column + handle + preview) and shifts the outer divider by the remaining difference - the preview is exact even when the CSS read fails.
+
+## \[1.2.4\] – 2026-11-08
+
+### Fixed
+
+- Dragging the outer divider made the preview wobble (deploy report on 1.2.3): the shell size-allocate adjustor corrected the column only AFTER the children were allocated, so each drag frame painted the preview stretched before snapping back. The correction now rides the outer paned's notify::position, which fires BEFORE the layout: the column absorbs the delta in the same frame, the preview stays rock solid. Window resizes keep the pre-1.2.1 behavior again (the preview absorbs, the column keeps its width).
+- Enlarging the preview swallowed the secondary column (its divider let the column shrink to zero width): the aux column carries a hard 320 px floor now (size request plus shrink=False), so the inner divider stops and the column always stays visible.
+
+## \[1.2.3\] – 2026-11-08
+
+### Fixed
+
+- The divider interaction around the aux column is rebuilt (deploy report on 1.2.2): dragging the inner divider changed the column in the wrong direction and far too fast - the drag handler moved the outer divider synchronously, the shell origin wandered under the pointer and GTK computed ever growing deltas (runaway feedback). The handler is a pure recorder now: the inner divider is native GTK and only trades width between the column and the preview; no handler ever moves a divider. Dragging the OUTER divider (the left edge of the column) resizes ONLY the column now: a size-allocate adjustor on the shell shifts the column by the shell delta, so the preview keeps its width; programmatic divider moves (open, close, width apply, live panel width) hold the adjustor for exactly one cycle. The manual column width records every real divider change - inner drags and outer-divider resizes - within the session.
+
+## \[1.2.2\] – 2026-11-08
+
+### Fixed
+
+- Nemo crashed as soon as any aux view opened (deploy report on 1.2.1: the settings button and the "more" buttons alike). Cause: since the shell became a Gtk.Paned, the \_host\_paned() walk-up met the shell itself as the panel's direct parent and returned the INNER paned instead of Nemo's outer divider - the "outer" move then set the position of the very paned whose notify::position had just fired, and the first allocation clamp turned that into a synchronous recursion (stack overflow). The walk starts above the shell now; a reentry guard (\_aux\_drag\_busy) keeps nested notifies away from the outer move as well.
+
+## \[1.2.1\] – 2026-11-08
+
+### Added
+
+- The second column is freely width-resizable: the shell is a Gtk.Paned now and its divider drags the column width in both directions. The preview column keeps its width while dragging - the outer divider follows the drag delta synchronously. A manual width survives close/reopen and content refreshes within the session (it overrides the content measurement; the half-screen cap and the handle-size accounting stay).
+
+## \[1.2.0\] – 2026-11-08
+
+The "more" views move into the second column (F66, part 2; development branch: develop).
+
+### Changed
+
+- The EXIF, audio and video "more" views open in the aux column instead of popup windows (F66 part 2): the same two-column tag table with the same distances, live refresh on selection change - and the same click collapses the column again. One view per panel as before; the triggering "more" button mirrors the open state (the buttons are rebuilt per render, so the tint lives until the next selection).
+- The aux framework re-labels its header per file: a refresh callback may return a (title, widget) tuple. Non-media selections close the tags column now (the former window kept the last file's tags); the settings view keeps staying open across selections.
+
+## \[1.1.2\] – 2026-11-08
+
+### Fixed
+
+- The settings column was still narrower than its content and showed horizontal scrollbars (deploy report on 1.1.1; the preview column kept its configured width in every situation now). The pure content measurement (natural width + 32 px) undershot the running content on the user system. The column keeps a standard width of 420 px now - the size rule of the former settings window - and only grows beyond that when the content is wider; the dbg line logs the measured content widths next to the applied column width for verification.
+
+## \[1.1.1\] – 2026-11-08
+
+### Fixed
+
+- Broken aux column layout (deploy report on the first 1.1.0 test: the preview column grew wider instead of keeping its width, the second column was only half visible and its content got a horizontal scrollbar). Cause: a Gtk.Revealer with a slide transition animates the width it reports while the transition runs - the synchronous divider moves of the growth strategy ran against the wrong requisition, the close move was clamped away and the preview column absorbed the freed space. The Revealer is gone; the column is a plain box that is shown and hidden directly, the divider moves while the column is still hidden (open) resp. after hiding it (close) - the layout is deterministic now, in a single allocation cycle.
+
+## \[1.1.0\] – 2026-11-08
+
+Second column instead of popup windows (F66, part 1; development branch: develop).
+
+### Added
+
+- Reusable second column (aux column, F66 – user outline): the settings open in a column LEFT of the preview column instead of a popup window. The preview column keeps its width; the panel grows leftwards by the content-driven column width (never beyond half the screen) and the close restores the exact former position. The same gear click collapses the column again, Escape and the column's close button work too; the gear button mirrors the open state. The column is a generic, reusable framework for the upcoming more views (1.2.0); it refreshes its content live on file change.
+
+### Changed
+
+- All visibility toggles (Ctrl+Alt+P, the Nemo toolbar button, the "show at start" setting) now switch the whole column shell – an open second column can never outlive the hidden preview column. The settings' four frames, their distances and the live saving behaviour are unchanged (1:1 from the former window).
+
 ## \[1.0.0\] – 2026-11-08
 
 First stable release – all deploy tests from 0.65.5 up to 0.66.2 passed on the user system.

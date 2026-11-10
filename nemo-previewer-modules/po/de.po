@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.0.0\n"
+"Project-Id-Version: nemo-previewer 1.10.1\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: 2026-11-07 12:00+0000\n"
@@ -69,6 +69,12 @@ msgstr "Blende"
 msgid "Architecture"
 msgstr "Architektur"
 
+msgid "Archive"
+msgstr "Archiv"
+
+msgid "Archive folder"
+msgstr "Archiv-Ordner"
+
 msgid "Artist"
 msgstr "Interpret"
 
@@ -88,8 +94,14 @@ msgstr "Audio-Tags"
 msgid "Author"
 msgstr "Autor"
 
+msgid "Auto-play files on selection"
+msgstr "Dauerplay – Dateien bei Auswahl automatisch abspielen"
+
 msgid "Birthday"
 msgstr "Geburtstag"
+
+msgid "Bitrate"
+msgstr "Bitrate"
 
 msgid "Book title"
 msgstr "Buchtitel"
@@ -132,6 +144,9 @@ msgstr "Spalten"
 
 msgid "Coordinates"
 msgstr "Koordinaten"
+
+msgid "Could not convert the document for printing."
+msgstr "Dokument konnte nicht zum Drucken konvertiert werden."
 
 msgid "Could not load image: %s"
 msgstr "Bild konnte nicht geladen werden: %s"
@@ -263,6 +278,13 @@ msgid "Folder"
 msgstr "Ordner"
 
 msgid ""
+        "Folder that the archive button moves files to – for "
+        "example a Paperless \"consume\" directory."
+msgstr ""
+        "Ordner, in den der Archiv-Knopf Dateien verschiebt – zum "
+        "Beispiel ein Paperless-„consume“-Verzeichnis."
+
+msgid ""
         "Font preview unavailable – install the python3-cairo and "
         "gir1.2-pango packages."
 msgstr ""
@@ -378,6 +400,12 @@ msgstr ""
 
 msgid "Mobile"
 msgstr "Mobil"
+
+msgid "Move file to archive folder"
+msgstr "Datei in Archiv-Ordner verschieben"
+
+msgid "Move to archive folder failed."
+msgstr "Verschieben in den Archiv-Ordner fehlgeschlagen."
 
 msgid "more"
 msgstr "mehr"
@@ -502,6 +530,9 @@ msgstr "Vorschau gekürzt (max. %d Zeilen)."
 
 msgid "Preview trimmed (max. %d tables)."
 msgstr "Vorschau gekürzt (max. %d Tabellen)."
+
+msgid "Print document"
+msgstr "Dokument drucken"
 
 msgid "Reading media information – one moment …"
 msgstr "Medieninformationen werden gelesen – einen Moment …"

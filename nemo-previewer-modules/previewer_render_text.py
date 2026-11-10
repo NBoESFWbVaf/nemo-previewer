@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.0.0
+previewer_render_text.py – Version 1.10.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -56,6 +56,7 @@ from previewer_util import (
     META_SIZE_CSS_CLASS,
     center_window,
     cover_round_path,
+    effective_text_font,
 )
 
 # --- Optional modules (missing ones just reduce the previews) ---
@@ -2007,6 +2008,12 @@ def _sqlite_data(path):
 
 
 # → REF TXT-DOC-65
+# F78: extensions the print button accepts for the text print path
+# (Markdown and e-mail) – the toolbar shows the button for a single
+# file with one of these endings (plus the office path from docs).
+_PRINT_TEXT_EXTS = (".md", ".markdown", ".eml")
+
+
 class TextRendererMixin:
 
     # --- Shared helpers for text views (audit 0.9.1): TextView building
@@ -2265,6 +2272,137 @@ class TextRendererMixin:
         else:
             pack_hint(self._content, _("Extracted %d attachments to %s")
                       % (saved, folder))
+
+    # → REF TXT-PRINT-1
+    def _print_text_document(self, path):
+        # F78: print button for Markdown and EML – the GTK print
+        # dialog opens for the preview text itself: Markdown as
+        # Pango markup, EML as header block plus body, both paginated
+        # with a Pango layout (no external converter needed).
+        if not HAVE_PANGOCAIRO:
+            dbg("text/_print_text_document: no PangoCairo")
+            return
+        lower = path.lower()
+        if lower.endswith(".eml"):
+            text = self._print_eml_text(path)
+            markup = None
+        else:
+            try:
+                text, _trunc = self._read_text_file(path)
+            except Exception as e:
+                dbg("text/_print_text_document: read failed: %s" % e)
+                return
+            markup = _markdown_to_pango(text)
+            try:
+                # Same validation as the preview: invalid markup
+                # prints as plain text instead of nothing.
+                Pango.parse_markup(markup, -1, "\x00")
+            except Exception as exc:
+                dbg("text/_print_text_document: markup invalid (%s) "
+                    "- printing plain text" % exc)
+                markup = None
+        if not text.strip():
+            dbg("text/_print_text_document: nothing to print")
+            return
+        op = Gtk.PrintOperation()
+        op.set_job_name("nemo-previewer – " + os.path.basename(path))
+        data = (text, markup)
+        op.connect("begin-print", self._print_text_begin, data)
+        op.connect("draw-page", self._print_text_draw_page, data)
+        try:
+            op.run(Gtk.PrintOperationAction.PRINT_DIALOG,
+                   self.get_toplevel())
+        except Exception as exc:
+            dbg("Print dialog failed (%s): %s" % (path, exc))
+
+    # → REF TXT-PRINT-1
+    def _print_eml_text(self, path):
+        # F78: the printed mail mirrors the preview – header rows
+        # first, then the body; plain text only (attachments stay
+        # preview-only, they are files of their own).
+        try:
+            with open(path, "rb") as fh:
+                raw = fh.read()
+            msg = email.message_from_bytes(raw, policy=policy.default)
+        except Exception as e:
+            dbg("text/_print_eml_text: open failed: %s" % e)
+            return ""
+        lines = []
+        for key, label in (("from", _("From")), ("to", _("To")),
+                           ("cc", _("Cc")), ("date", _("Date")),
+                           ("subject", _("Subject"))):
+            try:
+                val = msg.get(key)
+            except Exception:
+                val = None
+            if val:
+                lines.append("%s: %s" % (label, str(val)[:160]))
+        body = self._eml_body(msg)
+        if lines and body.strip():
+            return "\n".join(lines) + "\n\n" + body
+        return "\n".join(lines) if lines else body
+
+    # → REF TXT-PRINT-1
+    def _print_text_begin(self, operation, context, data):
+        # F78: pagination – ONE Pango layout over the whole text,
+        # wrapped to the printable width; a page break before every
+        # line that no longer fits the page height. The line start
+        # offsets (byte indices) are remembered per page.
+        text, markup = data
+        page_h = context.get_height() * Pango.SCALE
+        layout = context.create_pango_layout()
+        # F78/B12: the configured text size applies to the print
+        # too – monospace for plain text and EML, default font for
+        # Markdown (like the preview).
+        fd = effective_text_font("Monospace 9" if markup is None
+                                 else None)
+        if fd is not None:
+            layout.set_font_description(fd)
+        layout.set_width(int(context.get_width() * Pango.SCALE))
+        # 1.5.2: WORD alone cannot break a line without spaces
+        # (typical EML body lines) – it ran off the paper.
+        layout.set_wrap(Pango.WrapMode.WORD_CHAR)
+        if markup is not None:
+            layout.set_markup(markup, -1)
+        else:
+            layout.set_text(text, -1)
+        starts = [0]
+        it = layout.get_iter()
+        while True:
+            _ink, log = it.get_line_extents()
+            if log.y + log.height > len(starts) * page_h:
+                starts.append(it.get_index())
+                # A single line taller than a page still lands on
+                # its own page – it is simply clipped there.
+            if it.at_last_line():
+                break
+            it.next_line()
+        self._print_text_pages = starts
+        operation.set_n_pages(len(starts))
+
+    # → REF TXT-PRINT-1
+    def _print_text_draw_page(self, operation, context, page_nr, data):
+        # F78: the whole layout is drawn once per page, shifted up
+        # by page_nr page heights – the print surface clips to the
+        # page, so only this page's lines appear. No slicing of the
+        # text, so Pango markup stays valid across page breaks.
+        text, markup = data
+        layout = context.create_pango_layout()
+        fd = effective_text_font("Monospace 9" if markup is None
+                                 else None)
+        if fd is not None:
+            layout.set_font_description(fd)
+        layout.set_width(int(context.get_width() * Pango.SCALE))
+        # 1.5.2: same wrap mode as the pagination step – the drawn
+        # layout must break lines EXACTLY like the paginated one.
+        layout.set_wrap(Pango.WrapMode.WORD_CHAR)
+        if markup is not None:
+            layout.set_markup(markup, -1)
+        else:
+            layout.set_text(text, -1)
+        cr = context.get_cairo_context()
+        cr.move_to(0, -page_nr * context.get_height())
+        PangoCairo.show_layout(cr, layout)
 
     # → REF TXT-DOC-70
     def _render_vcard(self, path):
@@ -2827,9 +2965,10 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.0.0"
+PREVIEWER_VERSION = "1.10.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
-    "F54: EML attachments; K4 markdown and read caps stay)"
+    "F54: EML attachments; F78: Markdown/EML print; "
+    "K4 markdown and read caps stay)"
     % PREVIEWER_VERSION)

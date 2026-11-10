@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.0.0
+previewer_panel.py – Version 1.10.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -18,11 +18,12 @@ import zipfile
 
 import gi
 
+gi.require_version('Gdk', '3.0')
 gi.require_version('Gtk', '3.0')
 gi.require_version('Pango', '1.0')
 gi.require_version('GdkPixbuf', '2.0')
 
-from gi.repository import Gtk, GdkPixbuf, Gio, GLib, Pango
+from gi.repository import Gtk, Gdk, GdkPixbuf, Gio, GLib, Pango
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -42,6 +43,7 @@ from previewer_util import (
     build_scaled_image,
     build_text_view,
     apply_font_size_css,
+    effective_text_font,
     system_font_size_px,
 )
 from previewer_render_media import MediaRendererMixin, _ensure_gst
@@ -88,6 +90,9 @@ _SNIFF_BINARY_MIMES = {
     "application/x-ms-dos-executable",
 }
 
+# B11: SQLite dispatch gate – the .db ending alone proves nothing.
+_SQLITE_MAGIC = b"SQLite format 3\x00"
+
 # F12: configuration of the preview column – GLib-native INI
 # format, no extra dependency; created on first save.
 CONF_DIR = os.path.expanduser("~/.config/nemo-previewer")
@@ -127,6 +132,16 @@ def _sniff_is_text(path, probe=4096):
             if high / len(head) >= 0.30:
                 return False
     return True
+
+
+def _is_sqlite(path):
+    # B11: dispatch gate – text based database files (e.g. workman.db)
+    # must fall through to the sniffer instead of dead-ending here.
+    try:
+        with open(path, "rb") as fh:
+            return fh.read(16) == _SQLITE_MAGIC
+    except Exception:
+        return False
 
 
 # → REF PAN-DOC-2
@@ -205,6 +220,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Background conversion for office documents (LibreOffice → PDF)
         self._office_job = None
         self._office_failed = set()
+        # F77: pending print conversion (office print button).
+        self._print_job = None
         # 0.9.1: remember panel teardown – a running LibreOffice
         # child-watch must not render after that.
         self._destroyed = False
@@ -235,6 +252,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F12: waterfall sample text of the font preview – default
         # is the classic sentence, editable in the settings (→ REF TXT-FONT-2).
         self._conf_font_sample_text = _(_FONT_SAMPLE_TEXT)
+        # F81: archive folder for the archive button – set in the
+        # settings ("Archive"); empty means the button opens the
+        # settings instead of moving.
+        self._conf_archive_dir = ""
         # F24: line numbers in the plain text preview – default ON
         # (user request), toggleable in the settings ("Text files").
         self._conf_text_linenumbers = True
@@ -266,12 +287,27 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # Start width: default PANEL_WIDTH (350 px, 0.41.0); the
         # settings spin button is the only place that changes it.
         self._panel_width = PANEL_WIDTH
-        self._settings_win = None
-        self._settings_spin = None
-        self._settings_pages_spin = None
-        self._settings_spacing_spin = None
+        # F66: aux column state - the reusable second column is
+        # built at the end of __init__ (→ REF PAN-AUX-1).
+        self._aux_key = None
+        self._aux_refresh = None
+        self._aux_trigger = None
+        self._aux_width = 0
+        # F66 III: inner divider drag state (1.2.1, → REF PAN-AUX-2).
+        self._aux_pos = 0
+        self._aux_manual_width = 0
+        self._aux_handle = None
+        self._aux_syncing = False
+        # 1.2.4: outer divider hook state (PAN-AUX-2).
+        self._aux_outer_pos = 0
+        self._aux_outer_hold = False
+        self._aux_outer_hid = None
+        # 1.2.5: one-shot handle calibration hook (PAN-AUX-2).
+        self._aux_calib_hid = None
         # F25: pending quiet re-render of the spacing spin.
         self._spacing_render_id = None
+        # B12: pending quiet re-render of the font size spin.
+        self._textsize_render_id = None
         # F2: pending debounced heavy render (selection quiet).
         self._pending_render_id = None
         self._config_load()
@@ -370,6 +406,56 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._build_toolbar(window)
 
         self._show_placeholder()
+
+        # F66: horizontal shell [aux | preview] - since 1.2.1 a
+        # Gtk.Paned: its divider drags the column width (PAN-AUX-2).
+        self._aux_shell = Gtk.Paned(
+            orientation=Gtk.Orientation.HORIZONTAL)
+        self._aux_column = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        # Same name as the panel: the K11 undershoot CSS covers the
+        # aux scroll areas too; the painter mirrors the panel look.
+        self._aux_column.set_name("previewer-panel")
+        self._aux_column.get_style_context().add_class("background")
+        self._aux_column.connect("draw", self._on_aux_draw)
+        self._aux_column.connect("key-press-event", self._on_aux_key)
+        header = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        header.set_border_width(6)
+        self._aux_title_label = Gtk.Label(label="")
+        self._aux_title_label.set_halign(Gtk.Align.START)
+        self._aux_title_label.set_ellipsize(Pango.EllipsizeMode.END)
+        btn_close = Gtk.Button.new_from_icon_name(
+            pick_icon(("window-close-symbolic", "window-close"),
+                      "window-close"),
+            Gtk.IconSize.BUTTON)
+        btn_close.set_tooltip_text(_("Close"))
+        btn_close.set_relief(Gtk.ReliefStyle.NONE)
+        btn_close.connect("clicked", lambda *a: self._close_aux())
+        header.pack_start(self._aux_title_label, True, True, 0)
+        header.pack_start(btn_close, False, False, 0)
+        self._aux_column.pack_start(header, False, False, 0)
+        self._aux_column.pack_start(Gtk.Separator(
+            orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+        self._aux_scroll = Gtk.ScrolledWindow()
+        self._aux_scroll.set_policy(Gtk.PolicyType.AUTOMATIC,
+                                    Gtk.PolicyType.AUTOMATIC)
+        self._aux_column.pack_start(self._aux_scroll, True, True, 0)
+        # Plain show/hide instead of a Revealer: its animated width
+        # reporting derailed the synchronous paned moves (1.1.1).
+        # no_show_all keeps Nemo's window-level show_all from
+        # pulling the hidden column into view (K17/K18 family).
+        self._aux_column.show_all()
+        self._aux_column.set_no_show_all(True)
+        self._aux_column.hide()
+        # 1.2.4: shrink False + the 320 px request give the inner
+        # divider a hard floor - the preview can never swallow
+        # the column (deploy report on 1.2.3).
+        self._aux_column.set_size_request(320, -1)
+        self._aux_shell.pack1(self._aux_column, False, False)
+        self._aux_shell.pack2(self, True, False)
+        self._aux_shell.connect("notify::position",
+                                self._on_aux_dragged)
 
         # B3: on panel teardown, cleanly stop playback and timer
         self.connect("destroy", self._on_panel_destroy)
@@ -559,6 +645,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._show_placeholder()
             # F74: no selection – the x-bit button hides as well.
             self._update_xbit_button()
+            # F77: the print button follows the same rule.
+            self._update_print_button()
+            # F81: the archive button follows the same rule.
+            self._update_archive_button()
             return
 
         self._names = list(names)
@@ -631,6 +721,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._last_textish = False
         # F12 part 3: was it a document page view (PDF/office)?
         self._last_docview = False
+        # F66 II: reset the media "more" title - a non-media
+        # selection must not refresh the tags column (PAN-AUX-3).
+        self._tags_title = None
 
     def _show_placeholder(self):
         # F35: the former header is gone – the placeholder text in
@@ -675,6 +768,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._content.show_all()
         # F74: keep the x-bit button in sync with the previewed file.
         self._update_xbit_button()
+        # F77: keep the print button in sync as well.
+        self._update_print_button()
+        # F81: keep the archive button in sync as well.
+        self._update_archive_button()
+        # F66: keep an open aux view in sync with the new file.
+        self._aux_on_render()
 
     def _render_inner(self):
         path = self._path
@@ -785,8 +884,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                        "application/csv")
               or lower.endswith((".csv", ".tsv", ".tab"))):
             self._render_csv(path)
-        elif (mime in ("application/vnd.sqlite3", "application/x-sqlite3")
-              or lower.endswith((".db", ".sqlite", ".sqlite3"))):
+        # F6/B11: .db and friends only count as SQLite when the
+        # magic matches – text based .db files reach the sniffer.
+        # → REF PAN-SQL-1
+        elif ((mime in ("application/vnd.sqlite3", "application/x-sqlite3")
+               or lower.endswith((".db", ".sqlite", ".sqlite3")))
+              and _is_sqlite(path)):
             self._render_sqlite(path)
         elif (mime in ("font/ttf", "font/otf", "font/collection",
                        "font/woff",
@@ -1009,7 +1112,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # take the base size and scale to 80%, floored at 1 pt.
         try:
             if font is not None:
-                fd = Pango.FontDescription(font)
+                # B12: measure with the effective font – explicit
+                # fonts carry the configured size now.
+                fd = effective_text_font(font)
             else:
                 fd = view.get_pango_context().get_font_description()
             if fd is not None:
@@ -1254,6 +1359,27 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # 0.9.1: mark teardown – the child-watch of a running
         # LibreOffice conversion then drops its result.
         self._destroyed = True
+        # F66: the aux column state goes down with the panel.
+        self._aux_key = None
+        self._aux_refresh = None
+        self._aux_trigger = None
+        # 1.2.4: drop the outer divider hook of the dead shell.
+        if getattr(self, "_aux_outer_hid", None) is not None:
+            try:
+                paned = self._host_paned()
+                if paned is not None:
+                    paned.handler_disconnect(self._aux_outer_hid)
+            except Exception:
+                pass
+            self._aux_outer_hid = None
+        # 1.2.5: drop a pending calibration hook as well.
+        if getattr(self, "_aux_calib_hid", None) is not None:
+            try:
+                self._aux_shell.handler_disconnect(
+                    self._aux_calib_hid)
+            except Exception:
+                pass
+            self._aux_calib_hid = None
         self._stop_playback()
         # F71: drop the queued one-shot timers (F2 render, F25
         # line spacing) so they cannot fire into the dead panel.
@@ -1264,11 +1390,317 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             except Exception as e:
                 dbg("panel/_on_panel_destroy: suppressed: %s" % e)
             self._spacing_render_id = None
+        if getattr(self, "_textsize_render_id", None) is not None:
+            try:
+                GLib.source_remove(self._textsize_render_id)
+            except Exception as e:
+                dbg("panel/_on_panel_destroy: suppressed: %s" % e)
+            self._textsize_render_id = None
         if self._playbin is not None:
             try:
                 self._playbin.get_bus().remove_signal_watch()
             except Exception as e:
                 dbg("panel/_on_panel_destroy: suppressed: %s" % e)
+
+    # --- Aux column (F66) ---------------------------------------------------
+
+    # → REF PAN-AUX-1
+    @property
+    def aux_shell(self):
+        # Public handle: the entry packs this shell into the paned
+        # and toggles its visibility (F66).
+        return self._aux_shell
+
+    def _on_aux_draw(self, widget, cr):
+        # Same painter chain as the panel – no unpainted areas.
+        self._paint_background(widget, cr)
+        return False
+
+    def _on_aux_key(self, widget, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self._close_aux()
+            return True
+        return False
+
+    def _host_paned(self):
+        # 1.2.2: the shell is a Paned itself since 1.2.1 – the
+        # walk starts ABOVE it, else it returns the inner shell.
+        node = self._aux_shell.get_parent()
+        while node is not None and not isinstance(node, Gtk.Paned):
+            node = node.get_parent()
+        return node
+
+    def _aux_max_width(self):
+        # User wish: the column never grows past half the screen
+        # – 600 px fallback when the monitor is unknown.
+        try:
+            win = self.get_window()
+            if win is not None:
+                mon = self.get_display().get_monitor_at_window(win)
+                if mon is not None:
+                    geo = mon.get_geometry()
+                    return max(320, geo.width // 2)
+        except Exception as e:
+            dbg("panel/_aux_max_width: suppressed: %s" % e)
+        return 600
+
+    def _aux_handle_px(self):
+        # 1.2.5: the real handle width is the separator's CSS
+        # min-width - the handle-size style property is
+        # deprecated since GTK 3.20 and the themes stopped
+        # writing it: the legacy read keeps reporting the
+        # default 5 while the separator on themed systems is
+        # only 1-2 px, so every open moved the outer divider
+        # too far and the preview grew by the difference
+        # (deploy report on 1.2.4).  The calibration after
+        # each open measures the ground truth (PAN-AUX-2).
+        if self._aux_handle is None:
+            got = 0
+            try:
+                shell_ctx = self._aux_shell.get_style_context()
+                path = shell_ctx.get_path().copy()
+                path.append_type(Gtk.Separator)
+                ctx = Gtk.StyleContext.new()
+                ctx.set_path(path)
+                ctx.set_screen(shell_ctx.get_screen())
+                got = int(ctx.get_property(
+                    "min-width", Gtk.StateFlags.NORMAL))
+            except Exception as e:
+                dbg("panel/_aux_handle_px: css: %s" % e)
+            if got < 1:
+                try:
+                    got = int(
+                        self._aux_shell.style_get_property(
+                            "handle-size"))
+                except Exception as e:
+                    dbg("panel/_aux_handle_px: suppressed: %s" % e)
+                    got = 5
+            self._aux_handle = got
+            dbg("panel/aux: handle %d px" % got)
+        return self._aux_handle
+
+    def _on_aux_calib_alloc(self, widget, alloc):
+        # 1.2.5: one-shot - the children allocate right after
+        # the shell; measure from the idle so the whole layout
+        # is settled (PAN-AUX-2).
+        hid = self._aux_calib_hid
+        if hid is not None:
+            self._aux_calib_hid = None
+            try:
+                widget.handler_disconnect(hid)
+            except Exception:
+                pass
+        GLib.idle_add(self._aux_calibrate)
+
+    def _aux_calibrate(self):
+        # 1.2.5: ground truth after the open - the allocated
+        # widths reveal the real handle: shell = column +
+        # handle + preview; a wrong prediction shifts the
+        # outer divider by the difference so the preview ends
+        # up exact.
+        if (self._destroyed or self._aux_key is None
+                or not self._aux_column.get_visible()):
+            return False
+        s = self._aux_shell.get_allocation().width
+        c = self._aux_column.get_allocation().width
+        p = self.get_allocation().width
+        if s <= c + p or c < 1 or p < 1:
+            return False
+        real = s - c - p
+        if real == self._aux_handle:
+            return False
+        err = self._aux_handle - real
+        self._aux_handle = real
+        self._aux_width = c + real
+        dbg("panel/aux: handle %d px (was %d px)"
+            % (real, real + err))
+        if err:
+            outer = self._host_paned()
+            if outer is not None:
+                try:
+                    old = outer.get_position()
+                    self._aux_outer_hold = True
+                    outer.set_position(max(0, old + err))
+                    if outer.get_position() == old:
+                        self._aux_outer_hold = False
+                except Exception as e:
+                    dbg("panel/_aux_calibrate: suppressed: %s" % e)
+        return False
+
+    def _on_aux_dragged(self, paned, param):
+        # 1.2.3: pure recorder - the divider is native GTK and
+        # this never moves a divider back (no feedback loops).
+        if self._aux_syncing:
+            return
+        new_pos = paned.get_position()
+        if new_pos == self._aux_pos:
+            return
+        self._aux_pos = new_pos
+        if self._aux_key is not None:
+            self._aux_manual_width = new_pos
+        self._aux_width = new_pos + self._aux_handle_px()
+        dbg("panel/aux: divider at %d px" % new_pos)
+
+    def _on_aux_outer_moved(self, paned, param):
+        # 1.2.4: the outer divider moved - the COLUMN absorbs the
+        # change BEFORE the layout runs, so the preview never
+        # wobbles; programmatic moves hold off one cycle.
+        new_pos = paned.get_position()
+        delta = new_pos - self._aux_outer_pos
+        self._aux_outer_pos = new_pos
+        if delta == 0:
+            return
+        if self._aux_outer_hold:
+            self._aux_outer_hold = False
+            return
+        if self._aux_key is None or not self._aux_column.get_visible():
+            return
+        try:
+            self._aux_shell.set_position(
+                min(self._aux_max_width(),
+                    max(320, self._aux_shell.get_position()
+                        - delta)))
+            dbg("panel/aux: outer delta %d px" % delta)
+        except Exception as e:
+            dbg("panel/_on_aux_outer_moved: suppressed: %s" % e)
+
+    # → REF PAN-AUX-2
+    def _aux_apply_width(self, widget):
+        # Standard 520 px (former window rule 420 plus the 100 px
+        # user wish, 1.3.1) - manual drags win (1.2.1).
+        try:
+            mn, nat = widget.get_preferred_width()
+        except Exception as e:
+            dbg("panel/_aux_apply_width: suppressed: %s" % e)
+            mn = nat = 400
+        manual = self._aux_manual_width
+        if manual:
+            new_w = min(max(manual, 320), self._aux_max_width())
+        else:
+            new_w = min(max(520, mn + 32, nat + 32),
+                        self._aux_max_width())
+        extra = new_w + self._aux_handle_px()
+        paned = self._host_paned()
+        if paned is not None:
+            try:
+                old_pos = paned.get_position()
+                # 1.2.4: the outer hook skips our own move.
+                self._aux_outer_hold = True
+                paned.set_position(
+                    max(0, old_pos + self._aux_width - extra))
+                if paned.get_position() == old_pos:
+                    self._aux_outer_hold = False
+            except Exception as e:
+                dbg("panel/_aux_apply_width: suppressed: %s" % e)
+        # The inner position IS the column width; the guard keeps
+        # the drag handler out of programmatic moves (1.2.1).
+        self._aux_syncing = True
+        try:
+            self._aux_shell.set_position(new_w)
+        except Exception as e:
+            dbg("panel/_aux_apply_width: suppressed: %s" % e)
+        self._aux_syncing = False
+        self._aux_pos = new_w
+        self._aux_width = extra
+        dbg("panel/aux: width %d px (content %d/%d px)"
+            % (new_w, mn, nat))
+
+    def _open_aux(self, key, title, widget, refresh=None, trigger=None):
+        # Generic entry point: open or swap a view; the SAME key
+        # collapses the column again (PAN-AUX-1).
+        if key is not None and key == self._aux_key:
+            self._close_aux()
+            return
+        # 1.2.4: hook the outer divider once - the column absorbs
+        # its drags; programmatic moves hold off (PAN-AUX-2).
+        if self._aux_outer_hid is None:
+            outer = self._host_paned()
+            if outer is not None:
+                self._aux_outer_pos = outer.get_position()
+                self._aux_outer_hid = outer.connect(
+                    "notify::position", self._on_aux_outer_moved)
+        self._mirror_aux_trigger(trigger)
+        self._aux_key = key
+        self._aux_refresh = refresh
+        self._aux_title_label.set_text(title)
+        child = self._aux_scroll.get_child()
+        if child is not None:
+            self._aux_scroll.remove(child)
+        self._aux_scroll.add(widget)
+        # Measure and move the divider while the column is still
+        # hidden - no requisition clamp in the way (PAN-AUX-2).
+        self._aux_apply_width(widget)
+        self._aux_column.show()
+        widget.show_all()
+        # 1.2.5: calibrate the handle width from the real
+        # allocation once this layout settles (PAN-AUX-2).
+        if self._aux_calib_hid is None:
+            self._aux_calib_hid = self._aux_shell.connect(
+                "size-allocate", self._on_aux_calib_alloc)
+        dbg("panel/aux: open %r" % key)
+
+    def _close_aux(self):
+        if self._aux_key is None:
+            return
+        dbg("panel/aux: close %r" % self._aux_key)
+        self._aux_key = None
+        self._aux_refresh = None
+        self._mirror_aux_trigger(None)
+        # Hide FIRST so the requisition drops before the divider
+        # returns - a visible column would clamp the move (1.1.1).
+        self._aux_column.hide()
+        # Restore the position SYNCHRONOUSLY and relative – no
+        # timer races in the crowbar embedding (K17/K18 lessons).
+        paned = self._host_paned()
+        if paned is not None:
+            try:
+                old_pos = paned.get_position()
+                self._aux_outer_hold = True
+                paned.set_position(max(0, old_pos + self._aux_width))
+                if paned.get_position() == old_pos:
+                    self._aux_outer_hold = False
+            except Exception as e:
+                dbg("panel/_close_aux: suppressed: %s" % e)
+        self._aux_width = 0
+
+    # → REF PAN-AUX-3
+    def _aux_on_render(self):
+        # A new selection refreshes an open aux view; None
+        # collapses, a (title, widget) tuple retitles (F66 II).
+        if self._aux_key is None or self._aux_refresh is None:
+            return
+        try:
+            res = self._aux_refresh()
+        except Exception as e:
+            dbg("panel/_aux_on_render: suppressed: %s" % e)
+            res = None
+        if res is None:
+            self._close_aux()
+            return
+        if isinstance(res, tuple):
+            self._aux_title_label.set_text(res[0])
+            widget = res[1]
+        else:
+            widget = res
+        child = self._aux_scroll.get_child()
+        if child is not None:
+            self._aux_scroll.remove(child)
+        self._aux_scroll.add(widget)
+        self._aux_apply_width(widget)
+        widget.show_all()
+
+    def _mirror_aux_trigger(self, btn):
+        # Tint the button whose view is open; clear the previous
+        # one so only ever one button carries the class.
+        old = self._aux_trigger
+        if old is not None and old is not btn:
+            try:
+                old.get_style_context().remove_class("pvw-aux-active")
+            except Exception as e:
+                dbg("panel/_mirror_aux_trigger: suppressed: %s" % e)
+        self._aux_trigger = btn
+        if btn is not None:
+            btn.get_style_context().add_class("pvw-aux-active")
 
     # --- Actions --------------------------------------------------------------
 
@@ -1306,6 +1738,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                 t = kf.get_string("previewer", "font_sample_text")
                 if t and t.strip():
                     self._conf_font_sample_text = t
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
+            # F81: archive folder for the archive button.
+            try:
+                t = kf.get_string("previewer", "archive_dir")
+                if t is not None:
+                    self._conf_archive_dir = t
             except Exception as e:
                 dbg("panel/_config_load: suppressed: %s" % e)
             try:
@@ -1387,6 +1826,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # F12: persist the waterfall sample text.
             kf.set_string("previewer", "font_sample_text",
                           self._conf_font_sample_text)
+            # F81: persist the archive folder.
+            kf.set_string("previewer", "archive_dir",
+                          self._conf_archive_dir)
             kf.set_boolean("previewer", "text_line_numbers",
                            self._conf_text_linenumbers)
             # F44: persist syntax highlighting.
@@ -1420,19 +1862,27 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
     # → REF PAN-DOC-29
     def apply_start_settings(self):
         if not self._conf_show_at_start:
-            self.hide()
+            self._aux_shell.hide()
             dbg("Start setting: preview column stays hidden "
                 "at start")
 
     # → REF PAN-DOC-30
     def _apply_panel_width_live(self):
         try:
-            parent = self.get_parent()
+            parent = self._host_paned()
             if parent is None:
                 return
             total = parent.get_allocated_width()
             if total > self._panel_width + 100:
-                parent.set_position(total - self._panel_width)
+                # F66: an open aux column keeps its width - only
+                # the panel side is reset to the configured width.
+                old_pos = parent.get_position()
+                # 1.2.4: the outer hook skips our own move.
+                self._aux_outer_hold = True
+                parent.set_position(
+                    total - self._panel_width - self._aux_width)
+                if parent.get_position() == old_pos:
+                    self._aux_outer_hold = False
         except Exception as e:
             dbg("panel/_apply_panel_width_live: suppressed: %s" % e)
 
@@ -1441,7 +1891,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F63: back to the CONFIGURED width (spin button/config)
         # – applied live; _panel_width itself stays as is.
         try:
-            parent = self.get_parent()
+            parent = self._host_paned()
             if parent is None:
                 return
             # 0.52.1: compare the LIVE column width, not
@@ -1471,7 +1921,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.0.0"
+PREVIEWER_VERSION = "1.10.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
