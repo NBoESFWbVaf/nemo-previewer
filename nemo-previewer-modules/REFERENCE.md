@@ -1611,6 +1611,26 @@ F74 (0.66.2, deploy feedback "not live"): one Gio file monitor on the previewed 
 F77 (1.4.0, user wish "print button for office documents, print dialog, print the document"): a printer button (document-print-symbolic, tooltip "Print document") sits next to the x-bit button, packed with no_show_all like it. _update_print_button shows it only for a SINGLE office file (len(_names) == 1, extension in _OFFICE_EXTS) and only when the conversion stack exists (SOFFICE and HAVE_POPPLER) – otherwise it hides. The refresh points are the same as the x-bit button's: after every render and on empty selection (both in the panel). _on_print_clicked hands the current path to _print_document (DOC-PRINT-1). The button dims (insensitive) while its conversion runs and comes back in _print_job_done; the visibility refresh never touches sensitivity, so a job for a previous file keeps the button dim until the job ends. F78 (1.5.0, user wish "Markdown and eml files should also be printable"): _update_print_button additionally shows the button for a single file with an extension in _PRINT_TEXT_EXTS (.md/.markdown/.eml) when PangoCairo is available (no office stack needed); _on_print_clicked routes by extension – text extensions go to _print_text_document (TXT-PRINT-1), everything else stays on the office path. F80 (1.9.0, user wish "the print function should also work for PDF files"): _update_print_button additionally shows the button for a single .pdf file when poppler is available (no soffice needed); _on_print_clicked needs no new routing – a PDF falls through to _print_document, which prints it directly (DOC-PRINT-1).
 ```
 
+### TB-ARCHIVE-1 – Archive button (F81)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._btn\_archive` (built in \_build\_toolbar, packed next to the print button), `._on\_archive\_clicked`, `._archive\_target\_path`, `._update\_archive\_button`
+- **Reason:** F81 – user wish for an archive button that moves the previewed file to a configurable folder (e.g. a Paperless "consume" directory).
+
+```text
+F81 (1.10.0, user wish "archive button; settings let the user pick a directory bspw. Paperless/consume; on click the marked file moves to the configured archive folder; the button appears for all Office, PDF, EML and Markdown files"): an archive button (folder-move-symbolic, tooltip "Move file to archive folder") sits next to the print button, packed with no_show_all like it. _ARCHIVE_EXTS (module constant) is _OFFICE_EXTS plus .pdf, .eml, .md and .markdown. _update_archive_button shows it for a SINGLE file (len(_names) == 1) whose extension is in _ARCHIVE_EXTS – independent of whether a folder is configured; the refresh points are the same as the print button's (after every render and on empty selection, both in the panel). _on_archive_clicked reads the folder from _conf_archive_dir (panel config, key previewer/archive_dir): without a configured, existing folder it opens the settings instead of moving. With a folder it computes the destination via _archive_target_path – never overwriting: an existing file gets a numeric suffix (name-2.ext, name-3.ext, ...) – then moves the file with shutil.move and clears the preview via set_selection([], None); Nemo drops the row on its own through its file monitor. Failures stay dbg lines and show the hint "Move to archive folder failed." in the preview.
+```
+
+### TB-ARCHIVE-2 – Docstring: \_settings\_frame\_archive
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._settings\_frame\_archive` (method)
+- **Reason:** Archive section: archive folder chooser (F81, 1.10.0).
+
+```text
+Section "Archive" (F81, 1.10.0): a folder chooser (Gtk.FileChooserButton, SELECT_FOLDER) bound to _conf_archive_dir – it shows the current folder when that path exists and saves immediately via _on_archive_dir_set (file-set signal); the config key is previewer/archive_dir.
+```
+
 ---
 
 ## Media (MED)
