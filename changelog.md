@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.8.2\] – 2026-11-10
+
+### Fixed
+
+- The Dauerplay row-marker search crashed on Nemo's C list model: `NemoListModel.get_iter_first()` returns the `TreeIter` directly, not the `(ok, iter)` tuple of Gtk built-in models ("cannot unpack non-iterable TreeIter object"). The iteration now accepts both shapes, and the row match falls back to the URI string column (1) when the file object column (0) does not yield a URI (deploy feedback).
+
 ## \[1.8.1\] – 2026-11-10
 
 ### Fixed
