@@ -6,7 +6,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.9.0\n"
+"Project-Id-Version: nemo-previewer 1.10.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -69,6 +69,12 @@ msgid "Aperture"
 msgstr ""
 
 msgid "Architecture"
+msgstr ""
+
+msgid "Archive"
+msgstr ""
+
+msgid "Archive folder"
 msgstr ""
 
 msgid "Artist"
@@ -265,6 +271,11 @@ msgid "Folder"
 msgstr ""
 
 msgid ""
+        "Folder that the archive button moves files to – for "
+        "example a Paperless \"consume\" directory."
+msgstr ""
+
+msgid ""
         "Font preview unavailable – install the python3-cairo and "
         "gir1.2-pango packages."
 msgstr ""
@@ -365,6 +376,12 @@ msgid ""
 msgstr ""
 
 msgid "Mobile"
+msgstr ""
+
+msgid "Move file to archive folder"
+msgstr ""
+
+msgid "Move to archive folder failed."
 msgstr ""
 
 msgid "more"

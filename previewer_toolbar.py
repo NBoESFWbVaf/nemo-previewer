@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.9.0
+previewer_toolbar.py – Version 1.10.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -10,6 +10,7 @@ Ctrl+Alt+P shortcut and all preference widgets.
 
 import sys
 import os
+import shutil
 import stat
 
 import gi
@@ -27,11 +28,16 @@ from previewer_util import (
     dbg,
     set_debug_log,
     pick_icon,
+    pack_hint,
     PANEL_MIN_WIDTH,
     TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
 )
 from previewer_render_docs import HAVE_POPPLER, SOFFICE, _OFFICE_EXTS
 from previewer_render_text import HAVE_PANGOCAIRO, _PRINT_TEXT_EXTS
+
+# F81: file types the archive button handles – office documents,
+# PDF, EML and Markdown.
+_ARCHIVE_EXTS = set(_OFFICE_EXTS) | {".pdf", ".eml", ".md", ".markdown"}
 
 
 # =============================== Toolbar ====================================
@@ -74,6 +80,16 @@ class PreviewToolbarMixin:
         self._btn_print.set_no_show_all(True)
         self._btn_print.connect("clicked", self._on_print_clicked)
         self._toolbar.pack_start(self._btn_print)
+        # F81: archive button – moves the previewed file to the
+        # archive folder chosen in the settings.
+        self._btn_archive = Gtk.Button.new_from_icon_name(
+            "folder-move-symbolic", Gtk.IconSize.BUTTON)
+        self._btn_archive.set_tooltip_text(
+            _("Move file to archive folder"))
+        self._btn_archive.set_relief(Gtk.ReliefStyle.NONE)
+        self._btn_archive.set_no_show_all(True)
+        self._btn_archive.connect("clicked", self._on_archive_clicked)
+        self._toolbar.pack_start(self._btn_archive)
         self._btn_settings = Gtk.Button.new_from_icon_name(
             "preferences-system-symbolic", Gtk.IconSize.BUTTON)
         self._btn_settings.set_tooltip_text(_("Settings"))
@@ -114,6 +130,7 @@ class PreviewToolbarMixin:
         box.pack_start(self._settings_frame_text(), False, False, 0)
         box.pack_start(self._settings_frame_docs(), False, False, 0)
         box.pack_start(self._settings_frame_fonts(), False, False, 0)
+        box.pack_start(self._settings_frame_archive(), False, False, 0)
         self._open_aux("settings", _("Nemo-Previewer – Settings"), box,
                        trigger=self._btn_settings)
 
@@ -315,6 +332,35 @@ class PreviewToolbarMixin:
             "changed", self._on_font_sample_changed)
         frow.pack_start(self._settings_font_entry, True, True, 0)
         return frame
+
+    # → REF TB-ARCHIVE-2
+    def _settings_frame_archive(self):
+        frame = Gtk.Frame(label=_("Archive"))
+        frame.set_border_width(8)
+        frow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                       spacing=8)
+        frame.add(frow)
+        alabel = Gtk.Label(label=_("Archive folder"))
+        alabel.set_halign(Gtk.Align.START)
+        frow.pack_start(alabel, False, False, 0)
+        self._settings_archive_chooser = Gtk.FileChooserButton.new(
+            _("Archive folder"), Gtk.FileChooserAction.SELECT_FOLDER)
+        self._settings_archive_chooser.set_tooltip_text(
+            _("Folder that the archive button moves files to – for "
+              "example a Paperless \"consume\" directory."))
+        if self._conf_archive_dir and os.path.isdir(self._conf_archive_dir):
+            self._settings_archive_chooser.set_filename(
+                self._conf_archive_dir)
+        self._settings_archive_chooser.connect(
+            "file-set", self._on_archive_dir_set)
+        frow.pack_start(self._settings_archive_chooser, True, True, 0)
+        return frame
+
+    def _on_archive_dir_set(self, chooser):
+        # Save immediately – no separate save button needed.
+        folder = chooser.get_filename()
+        self._conf_archive_dir = folder or ""
+        self._config_save()
 
     def _on_show_at_start_toggled(self, chk):
         # Save immediately – no separate save button needed.
@@ -592,8 +638,69 @@ class PreviewToolbarMixin:
         else:
             self._btn_print.hide()
 
+    # → REF TB-ARCHIVE-1
+    def _on_archive_clicked(self, button):
+        # F81: move the previewed file to the configured archive
+        # folder; without a folder the settings open instead.
+        path = self._path
+        if not path:
+            return
+        target = self._conf_archive_dir
+        if not target or not os.path.isdir(target):
+            dbg("toolbar/_on_archive_clicked: no archive folder set")
+            self._open_settings_aux()
+            return
+        try:
+            dest = self._archive_target_path(path, target)
+            shutil.move(path, dest)
+            dbg("toolbar/_on_archive_clicked: %s -> %s" % (path, dest))
+            # The file is gone – clear the preview; Nemo drops the
+            # row on its own via its file monitor.
+            self.set_selection([], None)
+        except Exception as e:
+            dbg("toolbar/_on_archive_clicked: failed: %s" % e)
+            try:
+                self._clear_content()
+                pack_hint(self._content,
+                          _("Move to archive folder failed."))
+                self._content.show_all()
+            except Exception as e2:
+                dbg("toolbar/_on_archive_clicked hint: suppressed: %s" % e2)
 
-PREVIEWER_VERSION = "1.9.0"
+    def _archive_target_path(self, path, target_dir):
+        # F81: never overwrite – numeric suffix when it exists.
+        base = os.path.basename(path)
+        dest = os.path.join(target_dir, base)
+        if not os.path.exists(dest):
+            return dest
+        root, ext = os.path.splitext(base)
+        n = 2
+        while os.path.exists(dest):
+            dest = os.path.join(target_dir,
+                                "%s-%d%s" % (root, n, ext))
+            n += 1
+        return dest
+
+    # → REF TB-ARCHIVE-1
+    def _update_archive_button(self):
+        # F81: same refresh points as the print button – visible
+        # only for a SINGLE office/PDF/EML/Markdown file. Without
+        # a configured folder the click opens the settings.
+        on = False
+        try:
+            if self._path and len(self._names) == 1:
+                ext = os.path.splitext(self._path.lower())[1]
+                if ext in _ARCHIVE_EXTS:
+                    on = True
+        except Exception as e:
+            dbg("toolbar/_update_archive_button: suppressed: %s" % e)
+        if on:
+            self._btn_archive.show()
+        else:
+            self._btn_archive.hide()
+
+
+PREVIEWER_VERSION = "1.10.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
