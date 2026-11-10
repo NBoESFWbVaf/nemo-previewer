@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 1.8.2
+previewer_render_docs.py – Version 1.9.0
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -690,8 +690,14 @@ class DocsRendererMixin:
         # else ONE background conversion (own job, respects a
         # running preview conversion – two soffice instances
         # share the user profile).
-        if not HAVE_POPPLER or not SOFFICE:
+        # F80/1.9.0: a PDF file prints directly – poppler only,
+        # no LibreOffice hop.
+        is_pdf = path.lower().endswith(".pdf")
+        if not HAVE_POPPLER or (not is_pdf and not SOFFICE):
             dbg("docs/_print_document: no poppler/soffice")
+            return
+        if is_pdf:
+            self._print_pdf(path, path)
             return
         pdf = self._office_cached_pdf(path)
         if pdf is not None:
@@ -793,7 +799,7 @@ class DocsRendererMixin:
         page.render_for_printing(cr)
 
 
-PREVIEWER_VERSION = "1.8.2"
+PREVIEWER_VERSION = "1.9.0"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)

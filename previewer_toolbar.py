@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.8.2
+previewer_toolbar.py – Version 1.9.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -555,6 +555,8 @@ class PreviewToolbarMixin:
         # F77: print the previewed office document – the docs
         # mixin converts/caches and runs the GTK print dialog.
         # F78: Markdown/EML print directly from the preview text.
+        # F80: a PDF falls through to _print_document and prints
+        # directly (poppler only).
         path = self._path
         if not path:
             return
@@ -570,12 +572,16 @@ class PreviewToolbarMixin:
         # only for a SINGLE office file (and only when the
         # conversion stack exists: soffice + poppler). F78: also
         # for a single Markdown/EML file (text print path, needs
-        # PangoCairo instead of the office stack).
+        # PangoCairo instead of the office stack). F80: also for
+        # a single PDF (direct poppler print, no office stack).
         on = False
         try:
             if self._path and len(self._names) == 1:
                 ext = os.path.splitext(self._path.lower())[1]
                 if ext in _OFFICE_EXTS and SOFFICE and HAVE_POPPLER:
+                    on = True
+                elif ext == ".pdf" and HAVE_POPPLER:
+                    # F80: PDF prints directly (poppler only).
                     on = True
                 elif ext in _PRINT_TEXT_EXTS and HAVE_PANGOCAIRO:
                     on = True
@@ -587,7 +593,7 @@ class PreviewToolbarMixin:
             self._btn_print.hide()
 
 
-PREVIEWER_VERSION = "1.8.2"
+PREVIEWER_VERSION = "1.9.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
