@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 1.3.1
+previewer_util.py – Version 1.3.2
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -408,18 +408,24 @@ def _xml_dtd_rejected(data, source):
 TEXT_SIZE_CSS_CLASS = "pvw-text-size"
 META_SIZE_CSS_CLASS = "pvw-meta-size"
 _SIZE_CSS_PROVIDER = None
+# B12: the last text px handed to apply_font_size_css – the CSS
+# class rule LOSES against override_font, so explicit fonts need
+# the configured size merged into their own description.
+_TEXT_SIZE_PX = 0
 
 
 def apply_font_size_css(text_px, meta_px):
     # F69: one provider on the default screen (K11 pattern); a rule
     # exists only while the size is > 0 – 0 means the theme font.
-    global _SIZE_CSS_PROVIDER
+    global _SIZE_CSS_PROVIDER, _TEXT_SIZE_PX
     try:
         if _SIZE_CSS_PROVIDER is None:
             _SIZE_CSS_PROVIDER = Gtk.CssProvider()
             Gtk.StyleContext.add_provider_for_screen(
                 Gdk.Screen.get_default(), _SIZE_CSS_PROVIDER,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        # B12: remember the text px for effective_text_font.
+        _TEXT_SIZE_PX = int(text_px) if text_px else 0
         rules = []
         if text_px:
             rules.append(".%s { font-size: %dpx; }"
@@ -431,6 +437,24 @@ def apply_font_size_css(text_px, meta_px):
             "\n".join(rules).encode("utf-8"), -1)
     except Exception as e:
         dbg("util/apply_font_size_css: suppressed: %s" % e)
+
+
+# → REF UT-DOC-16
+def effective_text_font(font):
+    # B12: override_font beats the CSS class rule – explicit fonts
+    # (plain text, source code, e-mail body, office text fallback)
+    # carry the configured size themselves now; 0 keeps the
+    # description untouched (theme font / the font's own size).
+    if font is None:
+        return None
+    try:
+        fd = Pango.FontDescription(font)
+        if _TEXT_SIZE_PX:
+            fd.set_absolute_size(_TEXT_SIZE_PX * Pango.SCALE)
+        return fd
+    except Exception as e:
+        dbg("util/effective_text_font: suppressed: %s" % e)
+        return None
 
 
 # → REF UT-DOC-16
@@ -551,7 +575,9 @@ def build_text_view(view, text, font, markup, spacing=0):
     # F69: class carries the configurable text preview font size.
     view.get_style_context().add_class(TEXT_SIZE_CSS_CLASS)
     if font is not None:
-        view.override_font(Pango.FontDescription(font))
+        # B12: the size must ride IN the description – the CSS
+        # class alone loses against override_font.
+        view.override_font(effective_text_font(font))
     # Padding so the text does not stick to the border
     view.set_left_margin(10)
     view.set_right_margin(10)
@@ -598,5 +624,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "1.3.1"
+PREVIEWER_VERSION = "1.3.2"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)

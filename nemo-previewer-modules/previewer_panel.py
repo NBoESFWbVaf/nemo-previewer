@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.3.1
+previewer_panel.py – Version 1.3.2
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -43,6 +43,7 @@ from previewer_util import (
     build_scaled_image,
     build_text_view,
     apply_font_size_css,
+    effective_text_font,
     system_font_size_px,
 )
 from previewer_render_media import MediaRendererMixin, _ensure_gst
@@ -1095,7 +1096,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # take the base size and scale to 80%, floored at 1 pt.
         try:
             if font is not None:
-                fd = Pango.FontDescription(font)
+                # B12: measure with the effective font – explicit
+                # fonts carry the configured size now.
+                fd = effective_text_font(font)
             else:
                 fd = view.get_pango_context().get_font_description()
             if fd is not None:
@@ -1886,7 +1889,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.3.1"
+PREVIEWER_VERSION = "1.3.2"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
