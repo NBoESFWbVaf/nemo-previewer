@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.7.0\] – 2026-11-10
+
+### Added
+
+- Dauerplay now also advances at the END of a song (user wish): instead of pausing at the start, the end of the track hands over to the next audio file in the folder – same path as the delete-handover (alphabetically after the finished one, wrap-around). With the toggle off, the old pause-at-start behavior stays.
+
 ## \[1.6.1\] – 2026-11-10
 
 ### Fixed
