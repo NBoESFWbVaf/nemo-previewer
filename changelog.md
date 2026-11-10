@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.10.1\] – 2026-11-10
+
+### Changed
+
+- The archive button picks its icon via a fallback chain (user wish): archive-insert-symbolic or add-files-to-archive-symbolic when the theme ships one of them (both are app-specific File-Roller names, not standard), otherwise the standard symbolic list-add-symbolic. Checked per has_icon, so the icon stays monochrome and always exists in Mint themes.
+
 ## \[1.10.0\] – 2026-11-10
 
 ### Added
