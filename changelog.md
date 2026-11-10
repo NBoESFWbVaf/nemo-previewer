@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.3.0\] – 2026-11-10
+
+### Added
+
+- Audio preview: a bitrate row below the codec shows the kilobit value of the first audio stream; if the codec reports none (e.g. FLAC) the row falls back to file size over the duration as the average. MP3 files additionally state constant (CBR) or variable (VBR) bitrate: the Xing/Info/VBRI frame header proves the mode, and as a fallback the first and the last frame header are compared – the mode only appears where the frame scan proved it, other formats show the plain value.
+
 ## \[1.2.6\] – 2026-11-10
 
 ### Fixed

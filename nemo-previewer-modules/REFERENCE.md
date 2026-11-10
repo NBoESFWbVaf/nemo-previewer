@@ -2199,6 +2199,14 @@ F61 (user wish 2026-11-03): the "more" button below the audio info table opens a
 
 ```text
 K5 (0.57.0): GStreamer was imported and initialized (Gst.init(None)) at MODULE IMPORT – the panel imports render_media at every Nemo start, so every session paid the GStreamer registry cost although most sessions never preview audio or video. Now HAVE_GST starts as None (undecided) and Gst/GstPbutils as None; _ensure_gst() does the one-shot work on the first call – gi.require_version, import, Gst.init, assign the module globals, cache True/False in HAVE_GST, return it. The panel's render switch calls _ensure_gst() instead of the old HAVE_GST flag (Python binds imported values at import time – an accessor function is the only safe way, same lesson as set_debug_log in 0.54.0); the audio and video branches render only on True, otherwise the install hint / generic preview shows as before. All Gst/GstPbutils uses live inside the audio/video renderers, which the switch only enters after a successful ensure – the None globals can never be touched. The first media preview pays the init (tens of ms with a warm registry); thanks to the F2 debounce that moment is exactly when the user lingers on a file anyway.
+### MED-BITRATE-1 – Bitrate row with CBR/VBR frame scan (F76)
+
+- **Module:** previewer\_render\_media.py
+- **Location:** module level behind \_MEDIA\_STATE (tables and the two frame helpers); bitrate collection in the \_media\_probe\_async worker; row assembly in \_finish\_audio
+- **Reason:** User wish (2026-11-10): the audio preview should show the bitrate and, where determinable, whether the file is constant (CBR) or variable (VBR) bitrate.
+
+```text
+F76 (1.3.0): The audio preview gains a "Bitrate" row below the codec. The worker collects the bitrate of the first audio stream from the Discoverer (GstDiscovererAudioInfo.get_bitrate, bps); when the codec reports nothing (e.g. FLAC) the row falls back to file size * 8 / duration as the average. The CBR/VBR mode is only stated where it is PROVEN – and that means MP3, decided by the file's own frame headers without any external tool. _mp3_frame_at parses one frame header (sync word, version/layer bits, bitrate and samplerate index; only Layer III passes) and returns (kbit/s, frame size); _mp3_bitrate_mode skips the ID3v2 block, finds the first frame and checks its side-info window: "Xing" or "VBRI" marks VBR, LAME's "Info" marks CBR (with that frame's bitrate as the exact value); files without such a header fall back to comparing the first frame with the last one found in the tail (same bitrate = CBR). Other formats never show a mode – Vorbis/FLAC/Opus are variable by nature, but that is an assumption, not a proof. The scan runs in the worker thread (R9: no Gdk), the results travel in the tags dict as "bitrate"/"mp3_mode"/"mp3_bitrate"; a CBR frame bitrate replaces the Discoverer value, VBR keeps the average.
 ```
 
 ---
