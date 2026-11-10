@@ -1,0 +1,702 @@
+# German translations for the nemo-previewer package
+# Copyright (C) 2026 Mirakuli Teebaum
+# This file is distributed under the same license as the nemo-previewer package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: nemo-previewer 1.5.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-07 12:00+0000\n"
+"PO-Revision-Date: 2026-11-07 12:00+0000\n"
+"Last-Translator: Mirakuli Teebaum\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid " (WOFF)"
+msgstr " (WOFF)"
+
+msgid "… and %d more"
+msgstr "… und %d weitere"
+
+msgid "… and %d more events"
+msgstr "… und %d weitere Termine"
+
+msgid "… details in the file"
+msgstr "… weitere Angaben in der Datei"
+
+msgid "(%d more tags – capped)"
+msgstr "(%d weitere Tags – gekappt)"
+
+msgid "(file not found)"
+msgstr "(Datei nicht gefunden)"
+
+msgid "(no name)"
+msgstr "(kein Name)"
+
+msgid "(no summary)"
+msgstr "(keine Zusammenfassung)"
+
+msgid "%d × %d px"
+msgstr "%d × %d px"
+
+msgid "%d items selected"
+msgstr "%d Objekte ausgewählt"
+
+msgid "%d of %d"
+msgstr "%d von %d"
+
+msgid "%d pt"
+msgstr "%d pt"
+
+msgid "%s – Volume %s"
+msgstr "%s – Band %s"
+
+msgid "Address"
+msgstr "Adresse"
+
+msgid "Album"
+msgstr "Album"
+
+msgid "Album artist"
+msgstr "Albuminterpret"
+
+msgid "Aperture"
+msgstr "Blende"
+
+msgid "Architecture"
+msgstr "Architektur"
+
+msgid "Artist"
+msgstr "Interpret"
+
+msgid "Attachments (%d)"
+msgstr "Anhänge (%d)"
+
+msgid ""
+        "Audio preview not available – install package "
+        "gir1.2-gst-plugins-base-1.0."
+msgstr ""
+        "Audiovorschau nicht verfügbar – Paket gir1.2-gst-plugins-base-1.0. "
+        "installieren."
+
+msgid "Audio tags"
+msgstr "Audio-Tags"
+
+msgid "Author"
+msgstr "Autor"
+
+msgid "Birthday"
+msgstr "Geburtstag"
+
+msgid "Bitrate"
+msgstr "Bitrate"
+
+msgid "Book title"
+msgstr "Buchtitel"
+
+msgid "Camera"
+msgstr "Kamera"
+
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgid "Cc"
+msgstr "Cc"
+
+msgid "Choose a folder – existing files get a numbered suffix"
+msgstr "Ordner wählen – vorhandene Dateien erhalten einen nummerierten Zusatz"
+
+msgid "Close"
+msgstr "Schließen"
+
+msgid "Codec"
+msgstr "Codec"
+
+msgid "collecting – one moment …"
+msgstr "wird gesammelt – einen Moment …"
+
+msgid ""
+        "Colour source code (.py, .sh, .c …) in the text preview – requires "
+        "the optional package gir1.2-gtksource-4; when unchecked, the plain "
+        "text always shows."
+msgstr ""
+        "Quellcode (.py, .sh, .c …) in der Textvorschau einfärben – "
+        "erfordert das optionale Paket gir1.2-gtksource-4; ohne Haken zeigt "
+        "immer der einfache Text."
+
+msgid "Column %d"
+msgstr "Spalte %d"
+
+msgid "Columns"
+msgstr "Spalten"
+
+msgid "Coordinates"
+msgstr "Koordinaten"
+
+msgid "Could not convert the document for printing."
+msgstr "Dokument konnte nicht zum Drucken konvertiert werden."
+
+msgid "Could not load image: %s"
+msgstr "Bild konnte nicht geladen werden: %s"
+
+msgid "Could not open the calendar: %s"
+msgstr "Kalender konnte nicht geöffnet werden: %s"
+
+msgid "Could not open the contact card: %s"
+msgstr "Kontaktkarte konnte nicht geöffnet werden: %s"
+
+msgid "Could not open the e-mail: %s"
+msgstr "E-Mail konnte nicht geöffnet werden: %s"
+
+msgid "Could not read SVG: %s"
+msgstr "SVG konnte nicht gelesen werden: %s"
+
+msgid "Could not read the e-book: %s"
+msgstr "E-Book konnte nicht gelesen werden: %s"
+
+msgid "Could not read the file: %s"
+msgstr "Datei konnte nicht gelesen werden: %s"
+
+msgid "Could not read the font: %s"
+msgstr "Schrift konnte nicht gelesen werden: %s"
+
+msgid "Could not read the package: %s"
+msgstr "Paket konnte nicht gelesen werden: %s"
+
+msgid "Date"
+msgstr "Datum"
+
+msgid "Date taken"
+msgstr "Aufnahmedatum"
+
+msgid "Debug logging (write log file)"
+msgstr "Debug-Protokoll (Log-Datei schreiben)"
+
+msgid "Debug logging is active"
+msgstr "Debug-Protokollierung ist aktiv"
+
+msgid "Default width at launch"
+msgstr "Standardbreite beim Start"
+
+msgid "Dependencies"
+msgstr "Abhängigkeiten"
+
+msgid "Description"
+msgstr "Beschreibung"
+
+msgid "Dimensions"
+msgstr "Abmessungen"
+
+msgid "Disc number"
+msgstr "CD-Nummer"
+
+msgid "Docked preview of the selected file"
+msgstr "Angedockte Vorschau der ausgewählten Datei"
+
+msgid "Documents (PDF and Office)"
+msgstr "Dokumente (PDF und Office)"
+
+msgid "E-book format"
+msgstr "E-Book-Format"
+
+msgid "Email"
+msgstr "E-Mail"
+
+msgid "End"
+msgstr "Ende"
+
+msgid "EXIF details"
+msgstr "EXIF-Details"
+
+msgid "Executable – click to remove the executable bit"
+msgstr "Ausführbar – Klick entfernt das Ausführbar-Bit"
+
+msgid "Exposure time"
+msgstr "Belichtungszeit"
+
+msgid ""
+        "Extra space between the lines of a text preview – 0 is the normal "
+        "line height, applies immediately."
+msgstr ""
+        "Zusätzlicher Abstand zwischen den Zeilen einer Textvorschau – 0 ist "
+        "die normale Zeilenhöhe, gilt sofort."
+
+msgid "Extract"
+msgstr "Extrahieren"
+
+msgid "Extract attachments to folder"
+msgstr "Anhänge in Ordner extrahieren"
+
+msgid "Extract selected attachments"
+msgstr "Ausgewählte Anhänge extrahieren"
+
+msgid "Extracted %d attachments to %s"
+msgstr "%d Anhänge nach %s extrahiert"
+
+msgid "Extracted %d of %d selected attachments – %s"
+msgstr "%d von %d ausgewählten Anhängen extrahiert – %s"
+
+msgid "Family"
+msgstr "Familie"
+
+msgid "file"
+msgstr "Datei"
+
+msgid "File"
+msgstr "Datei"
+
+msgid "files"
+msgstr "Dateien"
+
+msgid "First %d of %d fonts – the rest is not shown."
+msgstr "Erste %d von %d Schriften – der Rest wird nicht angezeigt."
+
+msgid "First %d of %d pages – view the whole file via the open button."
+msgstr ""
+        "Erste %d von %d Seiten – die ganze Datei über den Öffnen-Knopf "
+        "ansehen."
+
+msgid "First released"
+msgstr "Erstveröffentlichung"
+
+msgid "Focal length"
+msgstr "Brennweite"
+
+msgid "Folder"
+msgstr "Ordner"
+
+msgid ""
+        "Font preview unavailable – install the python3-cairo and "
+        "gir1.2-pango packages."
+msgstr ""
+        "Schriftvorschau nicht verfügbar – die Pakete python3-cairo und "
+        "gir1.2-pango installieren."
+
+msgid "Font preview unavailable."
+msgstr "Schriftvorschau nicht verfügbar."
+
+msgid ""
+        "Font size of the info tables (file metadata in the preview and the "
+        "tag windows) – 0 keeps the theme's normal size, applies immediately."
+msgstr ""
+        "Schriftgröße der Info-Tabellen (Datei-Metadaten in der Vorschau und "
+        "den Tag-Fenstern) – 0 behält die normale Größe des Themes, gilt "
+        "sofort."
+
+msgid ""
+        "Font size of the text previews (plain text, Markdown, source code) "
+        "– 0 keeps the theme's normal size, applies immediately."
+msgstr ""
+        "Schriftgröße der Textvorschauen (einfacher Text, Markdown, "
+        "Quellcode) – 0 behält die normale Größe des Themes, gilt sofort."
+
+msgid "Fonts"
+msgstr "Schriften"
+
+msgid "Format"
+msgstr "Format"
+
+msgid "From"
+msgstr "Von"
+
+msgid "General"
+msgstr "Allgemein"
+
+msgid "Genre"
+msgstr "Genre"
+
+msgid "Group"
+msgstr "Gruppe"
+
+msgid "Height"
+msgstr "Höhe"
+
+msgid "Home"
+msgstr "Privat"
+
+msgid "Homepage"
+msgstr "Homepage"
+
+msgid "Info table font size (px)"
+msgstr "Schriftgröße der Info-Tabellen (px)"
+
+msgid "Info:"
+msgstr "Info:"
+
+msgid "Installed size"
+msgstr "Installierte Größe"
+
+msgid "ISO"
+msgstr "ISO"
+
+msgid "Language"
+msgstr "Sprache"
+
+msgid "Length"
+msgstr "Länge"
+
+msgid "License"
+msgstr "Lizenz"
+
+msgid "Limit preview pages (performance)"
+msgstr "Vorschauseiten begrenzen (Performance)"
+
+msgid ""
+        "Line numbers in the left margin of the text preview. The numbers "
+        "are drawn outside the text – only the text itself is selected and "
+        "copied."
+msgstr ""
+        "Zeilennummern am linken Rand der Textvorschau. Die Nummern stehen "
+        "außerhalb des Textes – nur der Text selbst wird ausgewählt und "
+        "kopiert."
+
+msgid "Line spacing (px)"
+msgstr "Zeilenabstand (px)"
+
+msgid "Loading image – one moment …"
+msgstr "Bild wird geladen – einen Moment …"
+
+msgid "Location"
+msgstr "Ort"
+
+msgid "Maintainer"
+msgstr "Maintainer"
+
+msgid "Make the file executable"
+msgstr "Datei ausführbar machen"
+
+msgid "Maximum number of pages"
+msgstr "Maximale Seitenzahl"
+
+msgid ""
+        "Mirror the debug output into "
+        "~/.local/state/nemo-previewer/previewer.log – rotates at 512 KB, "
+        "keeps one backup; NEMO_PREVIEWER_DEBUG=1 switches it on without any "
+        "setting"
+msgstr ""
+        "Debug-Ausgabe zusätzlich in "
+        "~/.local/state/nemo-previewer/previewer.log schreiben – rotiert bei "
+        "512 KB, behält ein Backup; NEMO_PREVIEWER_DEBUG=1 schaltet es ohne "
+        "Einstellung ein"
+
+msgid "Mobile"
+msgstr "Mobil"
+
+msgid "more"
+msgstr "mehr"
+
+msgid "More"
+msgstr "Mehr"
+
+msgid "more via exiftool – install package libimage-exiftool-perl"
+msgstr "mehr via exiftool – Paket libimage-exiftool-perl installieren"
+
+msgid "Nemo-Previewer – Settings"
+msgstr "Nemo-Previewer – Einstellungen"
+
+msgid "Nickname"
+msgstr "Spitzname"
+
+msgid "No attachment selected"
+msgstr "Kein Anhang ausgewählt"
+
+msgid "No contact found – open the file via the open button."
+msgstr "Kein Kontakt gefunden – Datei über den Öffnen-Knopf öffnen."
+
+msgid "No cover available – open the file via the open button."
+msgstr "Kein Cover vorhanden – Datei über den Öffnen-Knopf öffnen."
+
+msgid ""
+        "No embedded preview and no text found – view the file via the open "
+        "button."
+msgstr ""
+        "Keine eingebettete Vorschau und kein Text gefunden – Datei über den "
+        "Öffnen-Knopf ansehen."
+
+msgid "No event found – open the file via the open button."
+msgstr "Kein Termin gefunden – Datei über den Öffnen-Knopf öffnen."
+
+msgid "No icon available – open the file via the open button."
+msgstr "Kein Symbol vorhanden – Datei über den Öffnen-Knopf öffnen."
+
+msgid ""
+        "No preview possible – install LibreOffice (package "
+        "libreoffice-core), then the preview converts in sharp quality."
+msgstr ""
+        "Keine Vorschau möglich – LibreOffice installieren (Paket "
+        "libreoffice-core), dann wandelt die Vorschau in scharfer Qualität "
+        "um."
+
+msgid "no records"
+msgstr "keine Datensätze"
+
+msgid "no tags found"
+msgstr "keine Tags gefunden"
+
+msgid "Note"
+msgstr "Notiz"
+
+msgid "Number of pages"
+msgstr "Seitenzahl"
+
+msgid ""
+        "Number of pages that PDF and Office previews show at most – applies "
+        "live, also to the document currently displayed."
+msgstr ""
+        "Seitenzahl, die PDF- und Office-Vorschauen höchstens zeigen – gilt "
+        "live, auch für das gerade angezeigte Dokument."
+
+msgid "Open with the default application"
+msgstr "Mit Standardanwendung öffnen"
+
+msgid "Optional dependencies"
+msgstr "Optionale Abhängigkeiten"
+
+msgid "Package format"
+msgstr "Paketformat"
+
+msgid "Package name"
+msgstr "Paketname"
+
+msgid "Page %d of %d"
+msgstr "Seite %d von %d"
+
+msgid "Page 1 of %d"
+msgstr "Seite 1 von %d"
+
+msgid "PangoCairo not available"
+msgstr "PangoCairo nicht verfügbar"
+
+msgid "Part of a series"
+msgstr "Teil einer Reihe"
+
+msgid "Pause"
+msgstr "Pausieren"
+
+msgid "PDF preview not available – install package gir1.2-poppler-0.18."
+msgstr ""
+        "PDF-Vorschau nicht verfügbar – Paket gir1.2-poppler-0.18. "
+        "installieren."
+
+msgid "Phone"
+msgstr "Telefon"
+
+msgid "Play"
+msgstr "Wiedergeben"
+
+msgid ""
+        "Playback error – view the file via the open button in another "
+        "application."
+msgstr ""
+        "Wiedergabefehler – Datei über den Öffnen-Knopf in einer anderen "
+        "Anwendung ansehen."
+
+msgid "Preview font size (px)"
+msgstr "Vorschau-Schriftgröße (px)"
+
+msgid "Preview side panel (Ctrl+Alt+P)"
+msgstr "Vorschau-Seitenleiste (Ctrl+Alt+P)"
+
+msgid "Preview trimmed (long file)."
+msgstr "Vorschau gekürzt (lange Datei)."
+
+msgid "Preview trimmed (max. %d rows)."
+msgstr "Vorschau gekürzt (max. %d Zeilen)."
+
+msgid "Preview trimmed (max. %d tables)."
+msgstr "Vorschau gekürzt (max. %d Tabellen)."
+
+msgid "Print document"
+msgstr "Dokument drucken"
+
+msgid "Reading media information – one moment …"
+msgstr "Medieninformationen werden gelesen – einen Moment …"
+
+msgid "Recommendations"
+msgstr "Empfehlungen"
+
+msgid "Reset preview column to configured width"
+msgstr "Vorschau-Spalte auf eingestellte Breite zurücksetzen"
+
+msgid "Rows"
+msgstr "Zeilen"
+
+msgid "RPM header larger than the read buffer"
+msgstr "RPM-Header größer als der Lesepuffer"
+
+msgid "RPM header magic missing at offset %d"
+msgstr "RPM-Header-Magic fehlt an Offset %d"
+
+msgid "Section"
+msgstr "Sektion"
+
+msgid "Seek position"
+msgstr "Wiedergabeposition"
+
+msgid "Select a file\nto see a preview."
+msgstr "Wähle eine Datei aus,\num eine Vorschau zu sehen."
+
+msgid "Settings"
+msgstr "Einstellungen"
+
+msgid ""
+        "Sharp preview is being created in the background (LibreOffice) – "
+        "one moment …"
+msgstr ""
+        "Scharfe Vorschau wird im Hintergrund erstellt (LibreOffice) – einen "
+        "Moment …"
+
+msgid "Short description"
+msgstr "Kurzbeschreibung"
+
+msgid "Show folder contents in the preview"
+msgstr "Ordnerinhalte in der Vorschau anzeigen"
+
+msgid "Show line numbers (not copyable)"
+msgstr "Zeilennummern anzeigen (nicht kopierbar)"
+
+msgid "Show preview side panel at launch"
+msgstr "Vorschau-Seitenleiste beim Start anzeigen"
+
+msgid "Start"
+msgstr "Beginn"
+
+msgid "Style"
+msgstr "Stil"
+
+msgid "Subject"
+msgstr "Betreff"
+
+msgid "Summary"
+msgstr "Zusammenfassung"
+
+msgid "SVG preview not available – install package gir1.2-rsvg."
+msgstr "SVG-Vorschau nicht verfügbar – Paket gir1.2-rsvg installieren."
+
+msgid "Syntax highlighting in source code files"
+msgstr "Syntaxhervorhebung in Quellcode-Dateien"
+
+msgid "Table"
+msgstr "Tabelle"
+
+msgid "Text files"
+msgstr "Textdateien"
+
+msgid ""
+        "Text for the font preview – applies live to the font currently "
+        "displayed. Empty text stays unsaved."
+msgstr ""
+        "Text für die Schriftvorschau – gilt live für die gerade angezeigte "
+        "Schrift. Leerer Text bleibt ungespeichert."
+
+msgid "The database contains no tables."
+msgstr "Die Datenbank enthält keine Tabellen."
+
+msgid "The database could not be read: %s"
+msgstr "Die Datenbank konnte nicht gelesen werden: %s"
+
+msgid "The file contains no table rows."
+msgstr "Die Datei enthält keine Tabellenzeilen."
+
+msgid "The folder contains %d %s, %d of them hidden."
+msgstr "Der Ordner enthält %d %s, %d davon verborgen."
+
+msgid "The folder contains %d %s."
+msgstr "Der Ordner enthält %d %s."
+
+msgid "The folder is empty."
+msgstr "Der Ordner ist leer."
+
+msgid ""
+        "The font could not be registered – the waterfall shows the fallback "
+        "font."
+msgstr ""
+        "Die Schrift konnte nicht registriert werden – der Wasserfall zeigt "
+        "die Ersatzschrift."
+
+msgid "The office document could not be opened: %s"
+msgstr "Das Office-Dokument konnte nicht geöffnet werden: %s"
+
+msgid "The PDF contains no pages."
+msgstr "Das PDF enthält keine Seiten."
+
+msgid "The PDF could not be rendered."
+msgstr "Das PDF konnte nicht dargestellt werden."
+
+msgid "The quick brown fox jumps over the lazy dog"
+msgstr "Franz jagt im komplett verwahrlosten Taxi quer durch Bayern"
+
+msgid ""
+        "The sharp preview could not be created – view the file via the open "
+        "button."
+msgstr ""
+        "Die scharfe Vorschau konnte nicht erstellt werden – Datei über den "
+        "Öffnen-Knopf ansehen."
+
+msgid "The table could not be read: %s"
+msgstr "Die Tabelle konnte nicht gelesen werden: %s"
+
+msgid "Title"
+msgstr "Titel"
+
+msgid "To"
+msgstr "An"
+
+msgid "Track number"
+msgstr "Titelnummer"
+
+msgid ""
+        "Uncheck to display PDF and Office documents completely without a "
+        "limit – with very large documents this costs more memory and time."
+msgstr ""
+        "Haken entfernen, um PDF- und Office-Dokumente komplett ohne Limit "
+        "anzuzeigen – bei sehr großen Dokumenten kostet das mehr Speicher "
+        "und Zeit."
+
+msgid ""
+        "Uncheck to keep the preview side panel hidden after Nemo starts "
+        "(Ctrl+Alt+P shows it again at any time)"
+msgstr ""
+        "Haken entfernen, um die Vorschau-Seitenleiste nach dem Nemo-Start "
+        "verborgen zu halten (Ctrl+Alt+P zeigt sie jederzeit wieder)"
+
+msgid ""
+        "Uncheck to show only the plain folder icon with file info instead "
+        "of the contents list"
+msgstr ""
+        "Haken entfernen, um nur das einfache Ordnersymbol mit Datei-Info "
+        "statt der Inhaltsliste zu zeigen"
+
+msgid "unknown"
+msgstr "unbekannt"
+
+msgid "Version"
+msgstr "Version"
+
+msgid "Video tags"
+msgstr "Video-Tags"
+
+msgid "Waterfall sample text"
+msgstr "Wasserfall-Beispieltext"
+
+msgid "Web"
+msgstr "Web"
+
+msgid "Width"
+msgstr "Breite"
+
+msgid ""
+        "Width of the preview side panel Nemo opens with at every start – "
+        "dragging the divider applies only to the current session"
+msgstr ""
+        "Breite der Vorschau-Seitenleiste, mit der Nemo bei jedem Start "
+        "öffnet – Ziehen des Trenners gilt nur für die aktuelle Sitzung"
+
+msgid "WOFF2 is not supported"
+msgstr "WOFF2 wird nicht unterstützt"
+
+msgid "Work"
+msgstr "Geschäftlich"
