@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.4.0\] – 2026-11-10
+
+### Added
+
+- Print button for office documents (user wish): a printer button appears in the preview toolbar whenever a single office file is previewed (OpenDocument, OOXML, binary MS formats, RTF – and only when LibreOffice and Poppler are available). Clicking it prints the document: a cached LibreOffice PDF is used directly, otherwise the file converts in the background first (the same conversion and cache as the sharp office preview, the button dims meanwhile), then the GTK print dialog opens and the Poppler pages render at print resolution onto the paper. Two new strings ("Print document", "Could not convert the document for printing.").
+
 ## \[1.3.3\] – 2026-11-10
 
 ### Fixed

@@ -1601,6 +1601,16 @@ F74 (0.66.0): single refresh point, called at the end of _render and in the empt
 F74 (0.66.2, deploy feedback "not live"): one Gio file monitor on the previewed file. _xbit_watch(path) is the single management point, called from _update_xbit_button with the candidate path (or None): it cancels a pending monitor (self._xbit_mon, getattr-guarded because the panel builds before the first render) and, for a real path, creates a new one via Gio.File.new_for_path(path).monitor_file(Gio.FileMonitorFlags.NONE, None) and connects "changed". The handler _on_xbit_file_changed simply calls _update_xbit_button again – the inotify IN_ATTRIB path (chmod from the properties dialog) reaches the button without re-selecting the file. The refresh inside the callback recreates the monitor safely (cancel of the currently firing monitor is allowed, a fresh monitor fires nothing on creation, so there is no loop); errors stay dbg lines.
 ```
 
+### TB-PRINT-1 – Print button for office documents (F77)
+
+- **Module:** previewer\_toolbar.py
+- **Location:** `PreviewToolbarMixin._btn_print` (built in \_build\_toolbar, packed after the x-bit button), `.\_on\_print\_clicked`, `.\_update\_print\_button` (methods); imports HAVE\_POPPLER, SOFFICE, \_OFFICE\_EXTS from previewer\_render\_docs
+- **Reason:** F77 – user wish for a print button in the preview toolbar for office documents.
+
+```text
+F77 (1.4.0, user wish "print button for office documents, print dialog, print the document"): a printer button (document-print-symbolic, tooltip "Print document") sits next to the x-bit button, packed with no_show_all like it. _update_print_button shows it only for a SINGLE office file (len(_names) == 1, extension in _OFFICE_EXTS) and only when the conversion stack exists (SOFFICE and HAVE_POPPLER) – otherwise it hides. The refresh points are the same as the x-bit button's: after every render and on empty selection (both in the panel). _on_print_clicked hands the current path to _print_document (DOC-PRINT-1). The button dims (insensitive) while its conversion runs and comes back in _print_job_done; the visibility refresh never touches sensitivity, so a job for a previous file keeps the button dim until the job ends.
+```
+
 ---
 
 ## Media (MED)
@@ -2461,6 +2471,16 @@ Conversion finished: cache the result, refresh the preview.
 
 ```text
 K12 (0.60.1): the idler behind _apply_pdf_scale – scales the pages in _pdf_src/_pdf_imgs in packets of 4 per idle cycle to the passed target width, so a column drag never starves the main loop. Stale passes end silently: a newer resize bumps _pdf_scale_gen, a torn-down preview nulls _pdf_box (both checked first). Pages arriving from the R2 feed chain meanwhile are already scaled by _pdf_idle_step and get re-scaled at most once – harmless. K14 (0.65.8, deploy feedback): visible-first – each cycle first scales ALL pages inside the viewport (_pdf_visible_range reads the vertical adjustment of _pdf_scroll and checks the page allocations against top/bottom, so the column fits immediately after a width jump like the reset button), then at most 4 off-screen pages; re-arm only while _pdf_scaled still holds a mismatching width. The scroll hook _on_pdf_scrolled scales newly visible pages on the spot, so the background pass is never felt. K15 (0.65.9, deploy feedback, reset round 2): the pass showed no visible effect after the reset jump, so it now only tops up what _apply_pdf_scale already scaled synchronously (first 6 pages + visible on jumps >= 40 px) – and every cycle leaves dbg breadcrumbs: stale exits log the generation numbers and whether _pdf_box is gone, normal cycles log the scaled page count and the visible range (lo/hi). If a future log shows the pass going stale right after the reset, those numbers identify the invisible gen bumper. K16 (0.65.10): the scroll hook logs a line only when it actually scales (`docs/_on_pdf_scrolled: N page(s) -> W px`) – in a healthy run after a reset neither that line nor any pass line should appear, which separates a pure repaint problem from a scaling problem in one glance. K17 (0.65.11): the hook now logs EVERY scroll event (position, computed page, scaled count, target width) – after a healthy reset it reports `scaled 0` because the view is correct before any scrolling.
+```
+
+### DOC-PRINT-1 – Print machinery for office documents (F77)
+
+- **Module:** previewer\_render\_docs.py
+- **Location:** `DocsRendererMixin._print\_document`, `.\_print\_job\_done`, `.\_print\_pdf`, `.\_print\_draw\_page` (methods, one entry)
+- **Reason:** F77 – the print flow behind the toolbar button: cached LibreOffice PDF or one background conversion, then the GTK print dialog with Poppler pages.
+
+```text
+F77 (1.4.0, user wish): _print_document(path) uses the fresh office-cache PDF when present (_office_cached_pdf, DOC-DOC-16) and opens the print dialog right away; otherwise it starts ONE background conversion of its own (GLib.spawn_async soffice --headless --convert-to pdf, child_watch_add) with the state flag _print_job (panel init) and guards against parallel work: a running preview conversion (_office_job) or another print job just logs and returns – two soffice instances share the user profile. The button dims during the conversion. _print_job_done restores the button, cleans up, and on success moves the PDF into the shared office cache (office_cache_path + office_cache_evict) so preview and print share one conversion per file version; it prints only when the selection is still the same file (self._path == path). A missing result or an unopenable PDF logs and (same file only) appends the hint "Could not convert the document for printing." to the preview. _print_pdf opens the Poppler document (new_from_file + GLib.filename_to_uri, same pattern as _render_pdf), builds a Gtk.PrintOperation (n_pages, job name "nemo-previewer – <file>", draw-page connected) and runs it with PRINT_DIALOG and the Nemo toplevel as parent. _print_draw_page renders one Poppler page per print page via page.render_for_printing (print resolution) after a uniform cr.scale of paper points over document points. Note: the print dialog window is created by GTK itself, so the center_window rule does not apply to it.
 ```
 
 ---
