@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.3.3\] – 2026-11-10
+
+### Fixed
+
+- The preview font size did not change LIVE (deploy feedback on 1.3.2): the text spin only saved and relied on the CSS reload, but the explicit-font previews carry the size in their font description since 1.3.2, so the open preview kept the old size until the next selection. The spin handler now follows the F25 line-spacing pattern: it debounces (400 ms), then writes the config once and re-renders the open text preview; the info table spin keeps saving only (its CSS rule restyles the tables live). The new quiet timer is initialized in the panel and cancelled at panel teardown like the F25 timer (F71 pattern).
+
 ## \[1.3.2\] – 2026-11-10
 
 ### Fixed
