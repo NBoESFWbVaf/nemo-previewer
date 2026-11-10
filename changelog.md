@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.5.0\] – 2026-11-10
+
+### Added
+
+- Print for Markdown and e-mail files (user wish): the toolbar print button now also appears for a single Markdown (`.md`, `.markdown`) or e-mail (`.eml`) file. Markdown prints as formatted Pango text (invalid markup falls back to plain text), e-mails print as header block (From/To/Cc/Date/Subject) plus body – no external converter needed, the pages are paginated and drawn with a Pango layout directly (the configured preview font size applies).
+
 ## \[1.4.0\] – 2026-11-10
 
 ### Added
