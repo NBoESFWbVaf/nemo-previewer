@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.3.2\] – 2026-11-10
+
+### Fixed
+
+- The "Preview font size (px)" setting only changed Markdown previews (deploy feedback): every preview that passes an explicit font (plain text files, source code, e-mail bodies, the office text fallback) calls override\\_font, and a widget font override beats the F69 CSS class rule. The configured size is now baked INTO the font description itself (new util helper effective\\_text\\_font, fed by apply\\_font\\_size\\_css via \\_TEXT\\_SIZE\\_PX); the line-number margin measures with the same effective font, so the gutter follows the size as well.
+
 ## \[1.3.1\] – 2026-11-10
 
 ### Changed
