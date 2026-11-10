@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.3.0
+previewer_panel.py – Version 1.3.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -1541,8 +1541,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     # → REF PAN-AUX-2
     def _aux_apply_width(self, widget):
-        # Standard 420 px (the former window rule, UT-DOC-15) -
-        # a manual drag width wins over the measurement (1.2.1).
+        # Standard 520 px (former window rule 420 plus the 100 px
+        # user wish, 1.3.1) - manual drags win (1.2.1).
         try:
             mn, nat = widget.get_preferred_width()
         except Exception as e:
@@ -1552,7 +1552,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if manual:
             new_w = min(max(manual, 320), self._aux_max_width())
         else:
-            new_w = min(max(420, mn + 32, nat + 32),
+            new_w = min(max(520, mn + 32, nat + 32),
                         self._aux_max_width())
         extra = new_w + self._aux_handle_px()
         paned = self._host_paned()
@@ -1886,7 +1886,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.3.0"
+PREVIEWER_VERSION = "1.3.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
