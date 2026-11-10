@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.9.0\] – 2026-11-10
+
+### Added
+
+- The print button now also works for PDF files (user wish): a PDF prints directly through the Poppler print path – no LibreOffice conversion hop. The button shows for a single PDF when poppler is available; office documents keep their cached/conversion flow.
+
 ## \[1.8.2\] – 2026-11-10
 
 ### Fixed
