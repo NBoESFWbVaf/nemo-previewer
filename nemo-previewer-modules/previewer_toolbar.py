@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.10.0
+previewer_toolbar.py – Version 1.10.1
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -81,9 +81,11 @@ class PreviewToolbarMixin:
         self._btn_print.connect("clicked", self._on_print_clicked)
         self._toolbar.pack_start(self._btn_print)
         # F81: archive button – moves the previewed file to the
-        # archive folder chosen in the settings.
+        # archive folder chosen in the settings; the icon prefers
+        # an archive-specific symbolic name and falls back to the
+        # standard list-add-symbolic (never a colored icon).
         self._btn_archive = Gtk.Button.new_from_icon_name(
-            "folder-move-symbolic", Gtk.IconSize.BUTTON)
+            self._archive_icon_name(), Gtk.IconSize.BUTTON)
         self._btn_archive.set_tooltip_text(
             _("Move file to archive folder"))
         self._btn_archive.set_relief(Gtk.ReliefStyle.NONE)
@@ -638,6 +640,17 @@ class PreviewToolbarMixin:
         else:
             self._btn_print.hide()
 
+    def _archive_icon_name(self):
+        # F81: archive-specific symbolic icon when the theme has
+        # one, else the standard list-add-symbolic – has_icon only
+        # matches real symbolic names, so no colored icon appears.
+        theme = Gtk.IconTheme.get_default()
+        for name in ("archive-insert-symbolic",
+                     "add-files-to-archive-symbolic"):
+            if theme.has_icon(name):
+                return name
+        return "list-add-symbolic"
+
     # → REF TB-ARCHIVE-1
     def _on_archive_clicked(self, button):
         # F81: move the previewed file to the configured archive
@@ -700,7 +713,7 @@ class PreviewToolbarMixin:
             self._btn_archive.hide()
 
 
-PREVIEWER_VERSION = "1.10.0"
+PREVIEWER_VERSION = "1.10.1"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
