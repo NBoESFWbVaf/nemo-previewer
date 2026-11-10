@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.2.6
+previewer_render_media.py – Version 1.3.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -104,6 +104,85 @@ except Exception as e:
 # absolute path goes into the ARGV spawn (no shell, no PATH search).
 # Debian package: libimage-exiftool-perl.
 EXIFTOOL = shutil.which("exiftool")
+
+
+# F76: MP3 frame tables for the audio bitrate row – kbit/s by
+# header bitrate index, keyed by the version bits (3 = MPEG1).
+_MP3_BITRATES = {
+    3: (0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224,
+        256, 320, 0),
+    2: (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144,
+        160, 0),
+    0: (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144,
+        160, 0),
+}
+_MP3_RATES = {3: (44100, 48000, 32000), 2: (22050, 24000, 16000),
+              0: (11025, 12000, 8000)}
+
+
+# → REF MED-BITRATE-1
+def _mp3_frame_at(data, off):
+    # F76: parse one frame header; returns (kbit/s, frame size)
+    # or None when the header is not plausible.
+    if off + 4 > len(data):
+        return None
+    h = data[off:off + 4]
+    if h[0] != 0xFF or h[1] & 0xE0 != 0xE0:
+        return None
+    ver, layer = (h[1] >> 3) & 0x03, (h[1] >> 1) & 0x03
+    bri, sri = h[2] >> 4, (h[2] >> 2) & 0x03
+    if ver == 1 or layer != 1 or bri in (0, 15) or sri == 3:
+        return None
+    kbps = _MP3_BITRATES[ver][bri]
+    rate = _MP3_RATES[ver][sri]
+    per_frame = 144 if ver == 3 else 72
+    size = per_frame * kbps * 1000 // rate + (h[2] & 0x01)
+    return kbps, size
+
+
+def _mp3_bitrate_mode(path):
+    # F76: CBR/VBR detection without a dependency: Xing marks VBR,
+    # LAME writes "Info" for CBR; otherwise the first and the last
+    # frame headers are compared (same bitrate = CBR).
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as fh:
+            head = fh.read(65536)
+        if head[:3] == b"ID3":
+            skip = 6 + (((head[6] & 0x7F) << 21)
+                        | ((head[7] & 0x7F) << 14)
+                        | ((head[8] & 0x7F) << 7)
+                        | (head[9] & 0x7F))
+            head = head[skip:]
+        pos, first = 0, None
+        while pos < len(head) - 4:
+            first = _mp3_frame_at(head, pos)
+            if first:
+                break
+            pos += 1
+        if not first:
+            return None, None
+        win = head[pos + 4:pos + 4 + 96]
+        if win.find(b"Xing") >= 0 or win.find(b"VBRI") >= 0:
+            return "VBR", None
+        if win.find(b"Info") >= 0:
+            return "CBR", first[0]
+        with open(path, "rb") as fh:
+            fh.seek(max(0, size - 131072))
+            tail = fh.read(131072)
+        if tail[-128:-125] == b"TAG":
+            tail = tail[:-128]
+        tpos = len(tail) - 4
+        while tpos >= 0:
+            last = _mp3_frame_at(tail, tpos)
+            if last:
+                return ("CBR", first[0]) if last[0] == first[0] else (
+                    "VBR", None)
+            tpos -= 1
+        return None, first[0]
+    except Exception as e:
+        dbg("media/_mp3_bitrate_mode: suppressed: %s" % e)
+        return None, None
 
 
 # Process state for media probing (convention: module dict, no
@@ -960,6 +1039,17 @@ class MediaRendererMixin:
                             image_bytes = buf.extract_dup(
                                 0, min(buf.get_size(), _MEDIA_IMAGE_CAP))
                             break
+                # F76: bitrate of the first audio stream (bps);
+                # MP3 files also get their CBR/VBR mode scanned.
+                try:
+                    streams = info.get_audio_streams()
+                    if streams:
+                        tags["bitrate"] = streams[0].get_bitrate()
+                except Exception as e:
+                    dbg("Audio bitrate unavailable: %s" % e)
+                if not video and path.lower().endswith(".mp3"):
+                    tags["mp3_mode"], tags["mp3_bitrate"] = (
+                        _mp3_bitrate_mode(path))
             except Exception as e:
                 dbg("Discoverer error: %s" % e)
             GLib.idle_add(self._media_probe_done, path, uri, finish,
@@ -1223,6 +1313,21 @@ class MediaRendererMixin:
                  tags.get("disc_total"))
         if "codec" in tags:
             rows.append((_("Codec"), tags["codec"]))
+        # F76: bitrate row below the codec – the mode only shows
+        # where the frame scan proved it (MP3).
+        bps = tags.get("bitrate") or 0
+        if tags.get("mp3_mode") == "CBR" and tags.get("mp3_bitrate"):
+            bps = tags["mp3_bitrate"] * 1000
+        if bps <= 0 and duration > 0:
+            try:
+                bps = os.path.getsize(path) * 8 // duration
+            except OSError:
+                bps = 0
+        if bps > 0:
+            val = "%d kbit/s" % max(1, int(round(bps / 1000.0)))
+            if tags.get("mp3_mode"):
+                val = "%s (%s)" % (val, tags["mp3_mode"])
+            rows.append((_("Bitrate"), val))
         # F35: genre – only show the row if the tag exists.
         if "genre" in tags:
             rows.append((_("Genre"), tags["genre"]))
@@ -1569,7 +1674,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "1.2.6"
+PREVIEWER_VERSION = "1.3.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
