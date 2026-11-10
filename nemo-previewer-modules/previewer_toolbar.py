@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.4.0
+previewer_toolbar.py – Version 1.5.1
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -31,6 +31,7 @@ from previewer_util import (
     TOGGLE_ACCEL_KEY, TOGGLE_ACCEL_MODS,
 )
 from previewer_render_docs import HAVE_POPPLER, SOFFICE, _OFFICE_EXTS
+from previewer_render_text import HAVE_PANGOCAIRO, _PRINT_TEXT_EXTS
 
 
 # =============================== Toolbar ====================================
@@ -553,22 +554,31 @@ class PreviewToolbarMixin:
     def _on_print_clicked(self, button):
         # F77: print the previewed office document – the docs
         # mixin converts/caches and runs the GTK print dialog.
+        # F78: Markdown/EML print directly from the preview text.
         path = self._path
-        if path:
+        if not path:
+            return
+        ext = os.path.splitext(path.lower())[1]
+        if ext in _PRINT_TEXT_EXTS:
+            self._print_text_document(path)
+        else:
             self._print_document(path)
 
     # → REF TB-PRINT-1
     def _update_print_button(self):
         # F77: same refresh points as the x-bit button – visible
         # only for a SINGLE office file (and only when the
-        # conversion stack exists: soffice + poppler).
+        # conversion stack exists: soffice + poppler). F78: also
+        # for a single Markdown/EML file (text print path, needs
+        # PangoCairo instead of the office stack).
         on = False
         try:
-            if (self._path and len(self._names) == 1
-                    and SOFFICE and HAVE_POPPLER
-                    and os.path.splitext(self._path.lower())[1]
-                    in _OFFICE_EXTS):
-                on = True
+            if self._path and len(self._names) == 1:
+                ext = os.path.splitext(self._path.lower())[1]
+                if ext in _OFFICE_EXTS and SOFFICE and HAVE_POPPLER:
+                    on = True
+                elif ext in _PRINT_TEXT_EXTS and HAVE_PANGOCAIRO:
+                    on = True
         except Exception as e:
             dbg("toolbar/_update_print_button: suppressed: %s" % e)
         if on:
@@ -577,7 +587,7 @@ class PreviewToolbarMixin:
             self._btn_print.hide()
 
 
-PREVIEWER_VERSION = "1.4.0"
+PREVIEWER_VERSION = "1.5.1"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

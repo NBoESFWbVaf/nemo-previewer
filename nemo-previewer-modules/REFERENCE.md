@@ -739,7 +739,7 @@ F63 (user wish 2026-11-04): the new header button right next to "Open with the d
 ### PAN-DOC-32 – Docstring: \_update\_rec\_dot (F65, 0.54.0)
 
 - **Module:** previewer\_panel.py
-- **Location:** `PreviewPanel.\_update\_rec\_dot` (method) and the recording dot construction in `\\_\\_init\\_\\_`
+- **Location:** `PreviewPanel.\_update\_rec\_dot` (method) and the recording dot construction in `__init__`
 - **Reason:** F65 – make active debug logging visible in the header, live in both directions.
 
 ```text
@@ -1601,14 +1601,14 @@ F74 (0.66.0): single refresh point, called at the end of _render and in the empt
 F74 (0.66.2, deploy feedback "not live"): one Gio file monitor on the previewed file. _xbit_watch(path) is the single management point, called from _update_xbit_button with the candidate path (or None): it cancels a pending monitor (self._xbit_mon, getattr-guarded because the panel builds before the first render) and, for a real path, creates a new one via Gio.File.new_for_path(path).monitor_file(Gio.FileMonitorFlags.NONE, None) and connects "changed". The handler _on_xbit_file_changed simply calls _update_xbit_button again – the inotify IN_ATTRIB path (chmod from the properties dialog) reaches the button without re-selecting the file. The refresh inside the callback recreates the monitor safely (cancel of the currently firing monitor is allowed, a fresh monitor fires nothing on creation, so there is no loop); errors stay dbg lines.
 ```
 
-### TB-PRINT-1 – Print button for office documents (F77)
+### TB-PRINT-1 – Print button for office and text documents (F77/F78)
 
 - **Module:** previewer\_toolbar.py
-- **Location:** `PreviewToolbarMixin._btn_print` (built in \_build\_toolbar, packed after the x-bit button), `.\_on\_print\_clicked`, `.\_update\_print\_button` (methods); imports HAVE\_POPPLER, SOFFICE, \_OFFICE\_EXTS from previewer\_render\_docs
-- **Reason:** F77 – user wish for a print button in the preview toolbar for office documents.
+- **Location:** `PreviewToolbarMixin._btn_print` (built in \_build\_toolbar, packed after the x-bit button), `.\_on\_print\_clicked`, `.\_update\_print\_button` (methods); imports HAVE\_POPPLER, SOFFICE, \_OFFICE\_EXTS from previewer\_render\_docs and HAVE\_PANGOCAIRO, \_PRINT\_TEXT\_EXTS from previewer\_render\_text
+- **Reason:** F77 – user wish for a print button in the preview toolbar for office documents; F78 – the same button for Markdown and e-mail files.
 
 ```text
-F77 (1.4.0, user wish "print button for office documents, print dialog, print the document"): a printer button (document-print-symbolic, tooltip "Print document") sits next to the x-bit button, packed with no_show_all like it. _update_print_button shows it only for a SINGLE office file (len(_names) == 1, extension in _OFFICE_EXTS) and only when the conversion stack exists (SOFFICE and HAVE_POPPLER) – otherwise it hides. The refresh points are the same as the x-bit button's: after every render and on empty selection (both in the panel). _on_print_clicked hands the current path to _print_document (DOC-PRINT-1). The button dims (insensitive) while its conversion runs and comes back in _print_job_done; the visibility refresh never touches sensitivity, so a job for a previous file keeps the button dim until the job ends.
+F77 (1.4.0, user wish "print button for office documents, print dialog, print the document"): a printer button (document-print-symbolic, tooltip "Print document") sits next to the x-bit button, packed with no_show_all like it. _update_print_button shows it only for a SINGLE office file (len(_names) == 1, extension in _OFFICE_EXTS) and only when the conversion stack exists (SOFFICE and HAVE_POPPLER) – otherwise it hides. The refresh points are the same as the x-bit button's: after every render and on empty selection (both in the panel). _on_print_clicked hands the current path to _print_document (DOC-PRINT-1). The button dims (insensitive) while its conversion runs and comes back in _print_job_done; the visibility refresh never touches sensitivity, so a job for a previous file keeps the button dim until the job ends. F78 (1.5.0, user wish "Markdown and eml files should also be printable"): _update_print_button additionally shows the button for a single file with an extension in _PRINT_TEXT_EXTS (.md/.markdown/.eml) when PangoCairo is available (no office stack needed); _on_print_clicked routes by extension – text extensions go to _print_text_document (TXT-PRINT-1), everything else stays on the office path.
 ```
 
 ---
@@ -3641,6 +3641,16 @@ WOFF1 (wOFF) rebuild: the 20-byte directory entries (tag, offset, compLength, or
 
 ```text
 Reads family and style from the name table of ONE sfnt face at the given offset (pure byte work): walks the face's table directory for the name table, decodes the name records (platform 0/3 as UTF-16BE, else roughly Latin-1), prefers name IDs 1/16/4 for the family and 2/17 for the style, and returns (family, style). Extracted from the former \_font\_info so collections can parse EVERY face at its own offset.
+```
+
+### TXT-PRINT-1 – Print for Markdown and EML (F78)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_PRINT\_TEXT\_EXTS` (module level); `TextRendererMixin.\_print\_text\_document`, `.\_print\_eml\_text`, `.\_print\_text\_begin`, `.\_print\_text\_draw\_page` (methods)
+- **Reason:** F78 – user wish to print Markdown and e-mail files like the office documents.
+
+```text
+F78 (1.5.0, user wish "Markdown and eml files should also be printable"): the text mixin gets its own print path – no external converter, the preview text itself prints. _print_text_document builds the content: EML as a header block (From/To/Cc/Date/Subject, same labels as the preview) plus the _eml_body text, Markdown as Pango markup from _markdown_to_pango with the same parse_markup validation as the preview (invalid markup falls back to plain text). Pagination happens in _print_text_begin: ONE Pango layout from the print context, wrapped to the printable width; walking its lines, a page starts before every line whose bottom no longer fits the page height, the byte offsets are kept in _print_text_pages and set_n_pages follows. _print_text_draw_page draws the WHOLE layout per page, shifted up by page_nr page heights – the print surface clips to the page, so markup stays valid across page breaks (no text slicing). The configured preview font size applies via effective_text_font (B12): "Monospace 9" for plain text and EML, default font for Markdown, like the preview. Needs PangoCairo (HAVE_PANGOCAIRO) for the drawing; attachments stay preview-only. The dialog window is created by GTK itself – the center_window rule does not apply to it.
 ```
 ---
 
