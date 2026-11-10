@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.8.1\] – 2026-11-10
+
+### Fixed
+
+- Dauerplay handover paths were dead on arrival: `previewer_render_media.py` used `Gio` (delete monitor, row-marker URI) without importing it – every such call raised `NameError`, silently swallowed by the guards. The delete-handover monitor never armed and Nemo's row marker never moved. `Gio` is now imported (deploy feedback).
+
 ## \[1.8.0\] – 2026-11-10
 
 ### Added
