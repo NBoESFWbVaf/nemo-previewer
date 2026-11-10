@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.7.0
+previewer_render_media.py – Version 1.8.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -1712,9 +1712,90 @@ class MediaRendererMixin:
                 return False
             dbg("media/_dauerplay_advance: %s -> %s" % (old_name, nxt))
             self.set_selection([nxt], folder)
+            # 1.8.0: move Nemo's own row marker too, so the user
+            # always sees where the playlist stands.
+            self._nemo_select_row(nxt, folder)
         except Exception as e:
             dbg("media/_dauerplay_advance: suppressed: %s" % e)
         return False        # idle: run once
+
+    # → REF MED-DAUERPLAY-1
+    def _nemo_select_row(self, name, folder):
+        # 1.8.0: move Nemo's OWN selection row to the advanced-to
+        # file – the user watches the playlist position in the file
+        # list, not only in the preview. The extension runs inside
+        # the Nemo process, so its widgets are reachable: walk the
+        # visible Nemo toplevels, collect tree/icon views, match the
+        # row by file URI and move the selection there.
+        try:
+            want = Gio.File.new_for_path(
+                os.path.join(folder, name)).get_uri()
+            for toplevel in Gtk.Window.list_toplevels():
+                if not isinstance(toplevel, Gtk.Window):
+                    continue
+                if not toplevel.get_visible():
+                    continue
+                if "Nemo" not in type(toplevel).__name__:
+                    continue
+                views = []
+                self._nemo_collect_views(toplevel, views)
+                for view, kind in views:
+                    self._nemo_move_row_selection(view, kind, want)
+        except Exception as e:
+            dbg("media/_nemo_select_row: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _nemo_collect_views(self, widget, out):
+        # 1.8.0 helper: recursive walk (list/compact = GtkTreeView,
+        # icon = GtkIconView); non-containers just end the branch.
+        try:
+            if isinstance(widget, Gtk.TreeView):
+                out.append((widget, "tree"))
+            elif isinstance(widget, Gtk.IconView):
+                out.append((widget, "icon"))
+            if isinstance(widget, Gtk.Container):
+                for child in widget.get_children():
+                    self._nemo_collect_views(child, out)
+        except Exception as e:
+            dbg("media/_nemo_collect_views: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _nemo_move_row_selection(self, view, kind, want):
+        # 1.8.0 helper: unselect all, select the matching row
+        # (NemoListModel column 0 holds the Nemo.File) and scroll
+        # it into view, centered. No match -> no change.
+        try:
+            model = view.get_model()
+            if model is None:
+                return
+            ok, it = model.get_iter_first()
+            while ok and it is not None:
+                if self._nemo_row_uri(model, it) == want:
+                    path = model.get_path(it)
+                    if kind == "tree":
+                        sel = view.get_selection()
+                        sel.unselect_all()
+                        sel.select_iter(it)
+                        view.scroll_to_cell(path, None, True, 0.5, 0.0)
+                    else:
+                        view.unselect_all()
+                        view.select_path(path)
+                        view.scroll_to_path(path, True, 0.5, 0.5)
+                    return
+                it = model.iter_next(it)
+                ok = it is not None
+        except Exception as e:
+            dbg("media/_nemo_move_row_selection: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _nemo_row_uri(self, model, it):
+        # 1.8.0 helper: the row's file URI (column 0 = Nemo.File);
+        # rows without a file object (headers etc.) yield None.
+        try:
+            val = model.get_value(it, 0)
+            return val.get_uri() if val is not None else None
+        except Exception:
+            return None
 
     # → REF MED-DAUERPLAY-1
     def _on_dauerplay_toggled(self, btn):
@@ -1812,7 +1893,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "1.7.0"
+PREVIEWER_VERSION = "1.8.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; F79: Dauerplay toggle; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
