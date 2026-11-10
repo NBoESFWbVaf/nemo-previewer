@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.3.1\] – 2026-11-10
+
+### Changed
+
+- The secondary column opens 100 px wider by default (user wish): the standard width rises from 420 to 520 px; a manual divider drag still wins over the default, and the 320 px floor stays unchanged.
+
 ## \[1.3.0\] – 2026-11-10
 
 ### Added
