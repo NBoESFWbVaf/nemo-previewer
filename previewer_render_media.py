@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.6.0
+previewer_render_media.py – Version 1.6.1
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -1377,8 +1377,13 @@ class MediaRendererMixin:
         # deleted file hands over to the next one in the folder.
         # The state lives on self (the bar is rebuilt per render).
         self._dauerplay = getattr(self, "_dauerplay", False)
-        self._btn_dplay = Gtk.ToggleButton.new_from_icon_name(
-            "media-playlist-repeat-symbolic", Gtk.IconSize.BUTTON)
+        # 1.6.1: Gtk.ToggleButton has NO new_from_icon_name
+        # constructor in PyGObject ("Button constructor cannot be
+        # used to create instances of a subclass") – plain
+        # constructor + set_image instead.
+        self._btn_dplay = Gtk.ToggleButton()
+        self._btn_dplay.set_image(Gtk.Image.new_from_icon_name(
+            "media-playlist-repeat-symbolic", Gtk.IconSize.BUTTON))
         self._btn_dplay.set_active(self._dauerplay)
         self._btn_dplay.connect("toggled", self._on_dauerplay_toggled)
         self._btn_dplay.set_tooltip_text(_("Auto-play files on selection"))
@@ -1799,7 +1804,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "1.6.0"
+PREVIEWER_VERSION = "1.6.1"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; F79: Dauerplay toggle; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
