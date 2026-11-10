@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.8.0\] – 2026-11-10
+
+### Added
+
+- Dauerplay moves Nemo's own selection row along (user wish): when the handover picks the next title (end of song or deleted playing file), the highlighted row in Nemo's file list jumps to that file and is scrolled into view – the playlist position is always visible. Works in list, compact and icon view; views showing another folder stay untouched.
+
 ## \[1.7.0\] – 2026-11-10
 
 ### Added
