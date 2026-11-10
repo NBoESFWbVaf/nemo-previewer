@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.5.2\] – 2026-11-10
+
+### Fixed
+
+- E-mail printing did not WRAP long lines (deploy feedback on 1.5.1): Pango's default wrap mode breaks only at word boundaries, so an EML body line without spaces (typical after HTML conversion) ran off the paper. Both print steps now use WrapMode.WORD\\_CHAR – the drawn layout breaks lines exactly like the pagination step.
+
 ## \[1.5.1\] – 2026-11-10
 
 ### Fixed
