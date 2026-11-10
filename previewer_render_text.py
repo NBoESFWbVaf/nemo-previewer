@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.5.1
+previewer_render_text.py – Version 1.5.2
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -2359,6 +2359,9 @@ class TextRendererMixin:
         if fd is not None:
             layout.set_font_description(fd)
         layout.set_width(int(context.get_width() * Pango.SCALE))
+        # 1.5.2: WORD alone cannot break a line without spaces
+        # (typical EML body lines) – it ran off the paper.
+        layout.set_wrap(Pango.WrapMode.WORD_CHAR)
         if markup is not None:
             layout.set_markup(markup, -1)
         else:
@@ -2390,6 +2393,9 @@ class TextRendererMixin:
         if fd is not None:
             layout.set_font_description(fd)
         layout.set_width(int(context.get_width() * Pango.SCALE))
+        # 1.5.2: same wrap mode as the pagination step – the drawn
+        # layout must break lines EXACTLY like the paginated one.
+        layout.set_wrap(Pango.WrapMode.WORD_CHAR)
         if markup is not None:
             layout.set_markup(markup, -1)
         else:
@@ -2959,7 +2965,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.5.1"
+PREVIEWER_VERSION = "1.5.2"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
