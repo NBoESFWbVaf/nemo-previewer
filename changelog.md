@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.5.1\] – 2026-11-10
+
+### Fixed
+
+- Markdown/EML printing crashed in the pagination step (deploy feedback on 1.5.1 candidate): the layout iterator method is called `at_last_line` in PyGObject, not `is_last_line` – the AttributeError aborted the print dialog. One-word fix in the text print path.
+
 ## \[1.5.0\] – 2026-11-10
 
 ### Added
