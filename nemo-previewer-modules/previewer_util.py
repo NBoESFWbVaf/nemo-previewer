@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_util.py – Version 1.2.5
+previewer_util.py – Version 1.2.6
 
 Shared helpers and constants: logging and diagnostics, step
 trace, type helpers, pixbuf and byte-reading helpers.
@@ -598,5 +598,5 @@ def center_window(win, width):
         dbg("util/center_window: suppressed: %s" % e)
 
 # Version: checked at load time by the entry point (previewer.py).
-PREVIEWER_VERSION = "1.2.5"
+PREVIEWER_VERSION = "1.2.6"
 dbg("previewer_util %s loaded" % PREVIEWER_VERSION)

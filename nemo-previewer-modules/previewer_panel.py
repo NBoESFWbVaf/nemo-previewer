@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.2.5
+previewer_panel.py – Version 1.2.6
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -89,6 +89,9 @@ _SNIFF_BINARY_MIMES = {
     "application/x-ms-dos-executable",
 }
 
+# B11: SQLite dispatch gate – the .db ending alone proves nothing.
+_SQLITE_MAGIC = b"SQLite format 3\x00"
+
 # F12: configuration of the preview column – GLib-native INI
 # format, no extra dependency; created on first save.
 CONF_DIR = os.path.expanduser("~/.config/nemo-previewer")
@@ -128,6 +131,16 @@ def _sniff_is_text(path, probe=4096):
             if high / len(head) >= 0.30:
                 return False
     return True
+
+
+def _is_sqlite(path):
+    # B11: dispatch gate – text based database files (e.g. workman.db)
+    # must fall through to the sniffer instead of dead-ending here.
+    try:
+        with open(path, "rb") as fh:
+            return fh.read(16) == _SQLITE_MAGIC
+    except Exception:
+        return False
 
 
 # → REF PAN-DOC-2
@@ -854,8 +867,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                        "application/csv")
               or lower.endswith((".csv", ".tsv", ".tab"))):
             self._render_csv(path)
-        elif (mime in ("application/vnd.sqlite3", "application/x-sqlite3")
-              or lower.endswith((".db", ".sqlite", ".sqlite3"))):
+        # F6/B11: .db and friends only count as SQLite when the
+        # magic matches – text based .db files reach the sniffer.
+        # → REF PAN-SQL-1
+        elif ((mime in ("application/vnd.sqlite3", "application/x-sqlite3")
+               or lower.endswith((".db", ".sqlite", ".sqlite3")))
+              and _is_sqlite(path)):
             self._render_sqlite(path)
         elif (mime in ("font/ttf", "font/otf", "font/collection",
                        "font/woff",
@@ -1869,7 +1886,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.2.5"
+PREVIEWER_VERSION = "1.2.6"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
