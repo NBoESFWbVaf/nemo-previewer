@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.8.1
+previewer_render_media.py – Version 1.8.2
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -1768,7 +1768,15 @@ class MediaRendererMixin:
             model = view.get_model()
             if model is None:
                 return
-            ok, it = model.get_iter_first()
+            # 1.8.2: PyGObject quirk - Gtk built-in models return
+            # (ok, iter) from get_iter_first/iter_next, C models
+            # like NemoListModel return the iter directly (deploy
+            # feedback: "cannot unpack non-iterable TreeIter").
+            first = model.get_iter_first()
+            if isinstance(first, tuple):
+                ok, it = first
+            else:
+                ok, it = first is not None, first
             while ok and it is not None:
                 if self._nemo_row_uri(model, it) == want:
                     path = model.get_path(it)
@@ -1782,8 +1790,11 @@ class MediaRendererMixin:
                         view.select_path(path)
                         view.scroll_to_path(path, True, 0.5, 0.5)
                     return
-                it = model.iter_next(it)
-                ok = it is not None
+                nxt = model.iter_next(it)
+                if isinstance(nxt, tuple):
+                    ok, it = nxt
+                else:
+                    ok, it = nxt is not None, nxt
         except Exception as e:
             dbg("media/_nemo_move_row_selection: suppressed: %s" % e)
 
@@ -1791,11 +1802,21 @@ class MediaRendererMixin:
     def _nemo_row_uri(self, model, it):
         # 1.8.0 helper: the row's file URI (column 0 = Nemo.File);
         # rows without a file object (headers etc.) yield None.
+        # 1.8.2: fallback to the URI string column (1) - column
+        # layouts differ between Nemo versions.
         try:
             val = model.get_value(it, 0)
-            return val.get_uri() if val is not None else None
+            if val is not None:
+                return val.get_uri()
         except Exception:
-            return None
+            pass
+        try:
+            val = model.get_value(it, 1)
+            if isinstance(val, str):
+                return val
+        except Exception:
+            pass
+        return None
 
     # → REF MED-DAUERPLAY-1
     def _on_dauerplay_toggled(self, btn):
@@ -1893,7 +1914,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "1.8.1"
+PREVIEWER_VERSION = "1.8.2"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; F79: Dauerplay toggle; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
