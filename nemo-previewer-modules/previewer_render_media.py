@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.10.0
+previewer_render_media.py – Version 1.10.1
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -1914,7 +1914,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "1.10.0"
+PREVIEWER_VERSION = "1.10.1"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; F79: Dauerplay toggle; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
