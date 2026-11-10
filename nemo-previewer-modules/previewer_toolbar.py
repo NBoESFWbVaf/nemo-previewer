@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.3.2
+previewer_toolbar.py – Version 1.3.3
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -370,12 +370,32 @@ class PreviewToolbarMixin:
 
     # → REF TB-DOC-18
     def _on_text_size_changed(self, spin):
-        # F69: save immediately – the reloaded CSS rule restyles
-        # the open previews live (no re-render needed).
-        self._conf_text_font_size = int(spin.get_value())
+        # B12 (1.3.2): the text size also rides IN the font
+        # descriptions of explicit fonts – the CSS reload alone no
+        # longer restyles the open text preview. F25 pattern:
+        # render once after the spin went QUIET (400 ms).
+        value = int(spin.get_value())
+        if value == self._conf_text_font_size:
+            return
+        self._conf_text_font_size = value
+        if self._textsize_render_id is not None:
+            GLib.source_remove(self._textsize_render_id)
+        self._textsize_render_id = GLib.timeout_add(
+            400, self._on_text_size_quiet)
+
+    # → REF TB-DOC-18
+    def _on_text_size_quiet(self):
+        # B12: fires once after the spin is quiet – one config
+        # write and ONE re-render of the open text preview.
+        self._textsize_render_id = None
         self._config_save()
+        if self._last_textish and self._path:
+            self._render()
+        return False
 
     def _on_meta_size_changed(self, spin):
+        # F69: save only – the reloaded CSS rule restyles the
+        # open info tables live (no re-render needed).
         self._conf_meta_font_size = int(spin.get_value())
         self._config_save()
 
@@ -520,7 +540,7 @@ class PreviewToolbarMixin:
         self._update_xbit_button()
 
 
-PREVIEWER_VERSION = "1.3.2"
+PREVIEWER_VERSION = "1.3.3"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

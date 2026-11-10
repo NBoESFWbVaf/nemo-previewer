@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.3.2
+previewer_panel.py – Version 1.3.3
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -300,6 +300,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._aux_calib_hid = None
         # F25: pending quiet re-render of the spacing spin.
         self._spacing_render_id = None
+        # B12: pending quiet re-render of the font size spin.
+        self._textsize_render_id = None
         # F2: pending debounced heavy render (selection quiet).
         self._pending_render_id = None
         self._config_load()
@@ -1374,6 +1376,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             except Exception as e:
                 dbg("panel/_on_panel_destroy: suppressed: %s" % e)
             self._spacing_render_id = None
+        if getattr(self, "_textsize_render_id", None) is not None:
+            try:
+                GLib.source_remove(self._textsize_render_id)
+            except Exception as e:
+                dbg("panel/_on_panel_destroy: suppressed: %s" % e)
+            self._textsize_render_id = None
         if self._playbin is not None:
             try:
                 self._playbin.get_bus().remove_signal_watch()
@@ -1889,7 +1897,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.3.2"
+PREVIEWER_VERSION = "1.3.3"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
