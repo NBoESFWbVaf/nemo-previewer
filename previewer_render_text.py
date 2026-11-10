@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.5.0
+previewer_render_text.py – Version 1.5.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -2371,7 +2371,7 @@ class TextRendererMixin:
                 starts.append(it.get_index())
                 # A single line taller than a page still lands on
                 # its own page – it is simply clipped there.
-            if it.is_last_line():
+            if it.at_last_line():
                 break
             it.next_line()
         self._print_text_pages = starts
@@ -2959,7 +2959,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.5.0"
+PREVIEWER_VERSION = "1.5.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
