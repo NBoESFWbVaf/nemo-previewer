@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.5.2
+previewer_render_media.py – Version 1.6.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -1285,6 +1285,12 @@ class MediaRendererMixin:
         # --- Play bar (F33: between cover and information) ---
         self._playbin_set_uri(uri)
         self._player_bar(duration)
+        # F79: Dauerplay – auto-start when the toggle is on, and
+        # watch the file so deleting it advances to the next one.
+        self._audio_path = path
+        if self._dauerplay:
+            self._dauerplay_start()
+        self._dauerplay_watch(path)
 
         def _num_row(label, num, total):
             # F33: "x of y" – the total count first, else just the number.
@@ -1366,6 +1372,17 @@ class MediaRendererMixin:
     # → REF MED-DOC-32
     def _player_bar(self, duration):
         player_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        # F79: Dauerplay toggle LEFT of the play button – while it
+        # is on, every selected audio file starts by itself and a
+        # deleted file hands over to the next one in the folder.
+        # The state lives on self (the bar is rebuilt per render).
+        self._dauerplay = getattr(self, "_dauerplay", False)
+        self._btn_dplay = Gtk.ToggleButton.new_from_icon_name(
+            "media-playlist-repeat-symbolic", Gtk.IconSize.BUTTON)
+        self._btn_dplay.set_active(self._dauerplay)
+        self._btn_dplay.connect("toggled", self._on_dauerplay_toggled)
+        self._btn_dplay.set_tooltip_text(_("Auto-play files on selection"))
+        player_box.pack_start(self._btn_dplay, False, False, 0)
         self._btn_play = Gtk.Button.new_from_icon_name(
             "media-playback-start-symbolic", Gtk.IconSize.BUTTON)
         self._btn_play.connect("clicked", self._on_play_pause)
@@ -1453,6 +1470,9 @@ class MediaRendererMixin:
 
     # → REF MED-DOC-37
     def _finish_video(self, path, uri, tags, duration, image):
+        # F79: no audio preview active – the Dauerplay toggle must
+        # not auto-start a PREVIOUS file's playbin here.
+        self._audio_path = None
         # F22: without an embedded preview image show the generic
         # tile – play triangle and film perforation instead of notes.
         if image is None:
@@ -1586,6 +1606,9 @@ class MediaRendererMixin:
     def _stop_playback(self):
         # B3: tear down the timer (it otherwise runs forever, even
         # after window destruction) and cleanly NULL the player.
+        # F79: the deletion monitor of the old file goes with it –
+        # the new render re-arms it in _finish_audio.
+        self._dauerplay_watch(None)
         if self._progress_timer:
             GLib.source_remove(self._progress_timer)
             self._progress_timer = 0
@@ -1594,6 +1617,108 @@ class MediaRendererMixin:
                 self._playbin.set_state(Gst.State.NULL)
             except Exception as e:
                 dbg("media/_stop_playback: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _dauerplay_start(self):
+        # F79: auto-start the just-rendered audio file – the toggle
+        # wins, no manual Play click needed. _on_play_pause toggles
+        # by state, and after _stop_playback the state is NULL.
+        if self._playbin is None:
+            return
+        try:
+            ok, state, pending = self._playbin.get_state(0)
+            if (state != Gst.State.PLAYING
+                    and pending != Gst.State.PLAYING):
+                self._on_play_pause()
+        except Exception as e:
+            dbg("media/_dauerplay_start: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _dauerplay_watch(self, path):
+        # F79: one Gio file monitor on the PLAYING audio file –
+        # deleting it (from Nemo or outside) advances to the next
+        # audio file in the folder while Dauerplay is on. Same
+        # pattern as the x-bit monitor (F74).
+        try:
+            if getattr(self, "_dauerplay_mon", None) is not None:
+                self._dauerplay_mon.cancel()
+                self._dauerplay_mon = None
+            if not path or not getattr(self, "_dauerplay", False):
+                return
+            mon = Gio.File.new_for_path(path).monitor_file(
+                Gio.FileMonitorFlags.NONE, None)
+            mon.connect("changed", self._on_dauerplay_file_changed)
+            self._dauerplay_mon = mon
+        except Exception as e:
+            dbg("media/_dauerplay_watch: suppressed: %s" % e)
+
+    # → REF MED-DAUERPLAY-1
+    def _on_dauerplay_file_changed(self, mon, gfile, other, event):
+        # F79: only a real deletion of the previewed file counts;
+        # the idle hop lets the panel clear its preview first
+        # (set_selection of the advance cancels this very monitor –
+        # allowed, F74 lore).
+        if event != Gio.FileMonitorEvent.DELETED:
+            return
+        if not getattr(self, "_dauerplay", False):
+            return
+        path = getattr(self, "_path", None)
+        try:
+            gpath = gfile.get_path() if gfile else None
+        except Exception:
+            gpath = None
+        if not path or not gpath or gpath != path:
+            return
+        GLib.idle_add(self._dauerplay_advance, path)
+
+    # → REF MED-DAUERPLAY-1
+    def _dauerplay_advance(self, deleted):
+        # F79: the next audio file ALPHABETICALLY after the deleted
+        # one (wrap-around to the first when it was the last) –
+        # rendered through the normal set_selection path, so
+        # preview, x-bit/print buttons and auto-play stay in sync.
+        try:
+            folder = os.path.dirname(deleted) or "."
+            try:
+                entries = sorted(os.listdir(folder))
+            except Exception as e:
+                dbg("media/_dauerplay_advance: listdir failed: %s" % e)
+                return False
+            exts = (".mp3", ".flac", ".ogg", ".opus",
+                    ".m4a", ".wav", ".wma")
+            old_name = os.path.basename(deleted)
+            audio = [f for f in entries if f.lower().endswith(exts)]
+            nxt = None
+            after = [f for f in audio if f > old_name]
+            if after:
+                nxt = after[0]
+            elif audio:
+                nxt = audio[0]      # wrap-around: deleted was last
+            if not nxt:
+                dbg("media/_dauerplay_advance: no audio file left")
+                return False
+            dbg("media/_dauerplay_advance: %s -> %s" % (old_name, nxt))
+            self.set_selection([nxt], folder)
+        except Exception as e:
+            dbg("media/_dauerplay_advance: suppressed: %s" % e)
+        return False        # idle: run once
+
+    # → REF MED-DAUERPLAY-1
+    def _on_dauerplay_toggled(self, btn):
+        # F79: the toggle survives re-renders (state on self, the
+        # button is rebuilt per audio preview). Switching it on
+        # while an audio file is open starts it right away; for
+        # non-audio previews nothing starts (no stale playbin).
+        self._dauerplay = btn.get_active()
+        dbg("media/dauerplay: %s" % self._dauerplay)
+        if not self._dauerplay:
+            self._dauerplay_watch(None)
+            return
+        cur = getattr(self, "_path", None)
+        if getattr(self, "_audio_path", None) \
+                and self._audio_path == cur:
+            self._dauerplay_start()
+            self._dauerplay_watch(cur)
 
     # → REF MED-DOC-41
     def _on_exif_more(self, *a):
@@ -1674,7 +1799,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "1.5.2"
+PREVIEWER_VERSION = "1.6.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
-    "renderer; R9/B7 discipline and caps stay)"
+    "renderer; F79: Dauerplay toggle; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)

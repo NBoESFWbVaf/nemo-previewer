@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.5.2\n"
+"Project-Id-Version: nemo-previewer 1.6.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: 2026-11-07 12:00+0000\n"
@@ -87,6 +87,9 @@ msgstr "Audio-Tags"
 
 msgid "Author"
 msgstr "Autor"
+
+msgid "Auto-play files on selection"
+msgstr "Dauerplay – Dateien bei Auswahl automatisch abspielen"
 
 msgid "Birthday"
 msgstr "Geburtstag"
