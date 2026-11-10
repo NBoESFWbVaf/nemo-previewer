@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.8.1
+previewer_toolbar.py – Version 1.8.2
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -587,7 +587,7 @@ class PreviewToolbarMixin:
             self._btn_print.hide()
 
 
-PREVIEWER_VERSION = "1.8.1"
+PREVIEWER_VERSION = "1.8.2"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
