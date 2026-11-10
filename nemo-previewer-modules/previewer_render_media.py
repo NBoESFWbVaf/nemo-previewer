@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.8.0
+previewer_render_media.py – Version 1.8.1
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -25,7 +25,7 @@ gi.require_version('Gdk', '3.0')
 gi.require_version('Pango', '1.0')
 gi.require_version('GdkPixbuf', '2.0')
 
-from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Gio, Pango
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -1893,7 +1893,7 @@ class MediaRendererMixin:
         threading.Thread(target=worker, daemon=True).start()
 
 
-PREVIEWER_VERSION = "1.8.0"
+PREVIEWER_VERSION = "1.8.1"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; F79: Dauerplay toggle; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)
