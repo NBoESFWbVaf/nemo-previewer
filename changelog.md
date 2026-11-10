@@ -690,6 +690,314 @@ First stable release – all deploy tests from 0.65.5 up to 0.66.2 passed on the
 
 ### Added
 
+- Step trace for all functions (F45, user request): A central sys.settrace hook (install\_step\_trace, installed in the entry) logs every call with arguments, every return and every exception across all eight modules – without touching a single existing function. Activation via the environment variable NEMO\_PREVIEWER\_TRACE when starting Nemo: 1/call logs calls, line additionally every executed line; without the variable no hook runs (zero overhead)
+
+## \[0.30.1\] – 2026-10-31
+
+### Fixed
+
+- Folder preview: icons strictly symbolic (F43 fix, user finding): GTK secretly loaded the colored full icon when the icon theme lacked a -symbolic variant – in dark mode dark slabs with black rim showed, sometimes on folders, sometimes on file types without symbol variant (such as SVG, archives). The symbol candidates are now checked against Gtk.IconTheme.has\_icon; if the theme variant is missing, the generic symbols step in (folder-symbolic respectively text-x-generic-symbolic) – never the full icon
+
+## \[0.30.0\] – 2026-10-31
+
+### Changed
+
+- Folder preview: icons follow the system theme (F43 polish II, user request): Symbolic icons instead of fixed symbols – bright in dark mode, dark in light mode. Folders stay ahead of files as before (F43), hidden entries only appear in the list if Nemo shows them (Ctrl+H, org.nemo.preferences show-hidden-files) – otherwise the header hint counts them out (K1)
+
+## \[0.29.0\] – 2026-10-31
+
+### Changed
+
+- Folder preview with icons and padding (F43 polish, user request): Every entry is preceded by the type icon from the icon theme – folder symbol or Gio-guessed file symbol in menu size, with fallback – and the list carries the same padding as the text previews (10/10/8/8 px)
+- INSTALL.md: Installation switched to git clone (user rework adopted): git in the required packages, own sections "Change directory and clone git" and "Create the needed directory …", combined line "All packages at once" with all packages in one go; three blemishes fixed along the way: cd continuation with && instead of backslash (produced broken bash), step numbering 1./2./3. instead of 2./3./4., heading extended by "directory"; log example in the Install section brought from 0.3.1 to 0.29.0
+- INSTALL.md: gir1.2-gtksource-4 (syntax highlighting in the text preview, new since 0.28.0) added to the optional packages block – Mint 22 virtually always ships it via xed, Debian 13 carries the same name; plus the note that audio playback (autoaudiosink) needs the plugin set gstreamer1.0-plugins-good, which Mint/Cinnamon brings along and minimal Debian does not
+
+## \[0.28.1\] – 2026-10-30
+
+### Added
+
+- Syntax highlighting as a setting (F44 follow-up, user request): Toggleable in the "Text files" section (key text\_syntax), default on – unchecked, source code files always show the plain text; the toggle applies to the running preview immediately
+
+## \[0.28.0\] – 2026-10-30
+
+### Added
+
+- Syntax highlighting in the text preview (F44, user request): Source code files (.py, .sh, .c, .js, .json, .xml …) appear colored as in an editor – GtkSourceView (optional package gir1.2-gtksource-4, the same module as xed) guesses the language from the file name; without the binding or without a recognized language the preview stays unchanged. Dark GTK themes get a dark color scheme (oblivion), light ones the classic; line numbers (F24) remain margin drawing and are not copyable
+
+## \[0.27.0\] – 2026-10-30
+
+### Added
+
+- Configurable document cap (F12 part 3, user request): In the new "Documents" section of the settings dialog choose whether PDF and office previews are capped (performance) or show all pages unlimited; the maximum page count is freely selectable (1–999, default 20 as before), changes apply immediately – also to the currently displayed document
+- Page indicator above every document (F14, user request): Even single-page PDF and office documents show "Page 1 of 1"
+
+### Changed
+
+- Page indicator unified as "Page X of Y" (previously "Page X/Y")
+## \[0.26.0\] – 2026-10-30
+
+### Added
+
+- LDIF address books and Windows contacts as contact cards (F7, user request): .ldif files (Thunderbird/Mozilla/Outlook exports, RFC 2849 with Base64 values and jpegPhoto) and .contact files (Windows XML, namespace-agnostic) render the same contact card as .vcf/.vcard
+
+### Changed
+
+- Contact cards without quantity limit (F7, user request): The 50-card cap is gone – all contacts of the file are built and shown scrollable; with a single contact no scrollbar appears
+
+## \[0.25.1\] – 2026-10-30
+
+### Changed
+
+- Contact cards without card background (F7, user request): The card frame stays transparent – in dark mode a white tile hurts the eyes; shadow and hairline border remain
+- More subtle corner radius (user request): Reduced by a third – contact cards like music covers (placeholder tile and cover frame with shadow) now round with 56/960 instead of 56/640 of the smaller edge
+
+## \[0.25.0\] – 2026-10-30
+
+### Changed
+
+- vCard polish (F7, user request): Every contact card carries a rectangular frame with the corner radius of the embedded music covers (F34 formula) and the same drop shadow; files with several contacts now show ALL cards stacked, scrollable – no longer only the first (50-card cap with remainder hint)
+
+## \[0.24.0\] – 2026-10-30
+
+### Added
+
+- vCard contact card (F7, part 1, user request): .vcf/.vcard files (vCard 2.1, 3.0, 4.0) appear as a real contact card – the contact photo circular (inline Base64 or local URI), without photo a circular placeholder; below name, position/company and the contact data (phone, e-mail, web, address, birthday) as a table. If the file contains several contacts, the first is shown; ICS (events as table) remains open
+
+## \[0.23.0\] – 2026-10-30
+
+### Added
+
+- Folder preview as content list (F43, user request): Instead of the folder icon the panel shows the content – folders first (bold), then files with size, each alphabetically; hidden entries dimmed alongside, giant folders the first 300 rows with remainder hint
+
+## \[0.22.0\] – 2026-10-30
+
+### Added
+
+- Preview toggle in Nemo's toolbar (F40, user request): Next to the view selector sits a button that shows and hides the preview sidebar – with CSD in the title bar, classically as a toggle right behind the view buttons of the Nemo toolbar; the icon is builder-view-right-pane-symbolic (icon helper with theme fallbacks), and the state stays in sync via Ctrl+Alt+P
+- Photo information for RAW files (F42, user request): NEF, CR2, CR3, ARW, ORF, DNG & Co. usually cannot be decoded by Gdk-Pixbuf – the panel now shows the photo table (camera, date, aperture & Co.) below the icon view when EXIF sits in the buffer
+- Old MS Office formats in the preview (F39, user request): Binary .doc, .xls and .ppt files as well as RTF files run through the LibreOffice background conversion into sharp PDF like the OOXML formats; since they are no ZIP archives there is no embedded thumbnail – the transitional view shows hints about conversion, missing LibreOffice or failed conversion
+- "Location" and custom fields in the image info table (F38, user request): If present, the table shows the XMP "location" (IPTC Core, right after the shooting location) as well as arbitrary XMP fields from non-standardized namespaces ("prefix:name") – parsed with Python built-ins in the worker thread, at most ten extra rows, each only with an existing value
+
+### Changed
+
+- Image preview in a 60/40 split (F38, user request): The column splits into a 60 % area for the image (centered vertically and horizontally, across the full column width) and a 40 % area for the image information; the EXIF/size table (F36) runs in there, the split survives window resizing via a live follow-up. SVG previews use the same split, their size row sits in the info area
+- New icon for the open button (F40, user request): Opening the file in the default application now carries the pencil icon (document-edit), no longer the document-open icon; if it is missing in the icon theme, the previous name steps in as fallback
+
+### Removed
+
+- Hide button in the panel header (F40, user request): The toggle has moved into Nemo's toolbar as the preview toggle (see Added) – Ctrl+Alt+P keeps working unchanged
+
+### Fixed
+
+- Photo information from HEIC/HEIF (F41/F42, user report): The EXIF sits there as an "Exif" item in the middle of the container – sometimes with, sometimes without APP1 prefix, sometimes only at the end of the file. An accidental early "Exif" hit in the meta box aborted the old single search; the parser now collects validated candidates across the whole buffer and takes the first with EXIF
+- Broken office files show an icon (K2): Instead of a bare hint line the generic icon view sits as a visual anchor above the error message
+- SVG preview via the Cairo route (K3): Intrinsically small SVGs now fill the panel width (DPI rendering, vector stays sharp), and the call uses the current librsvg API instead of the deprecated get\_pixbuf(); without pycairo or with an old librsvg the previous path steps in as fallback
+## \[0.21.0\] – 2026-10-30
+
+### Added
+
+- Photo info table with EXIF data (F36, user request): Below image previews sits a table with height, width, shooting date, shooting location (GPS in decimal degrees), camera model, exposure time, focal length with 35-mm equivalent, aperture and ISO – each row only if the value exists; height/width follow the EXIF rotation. The EXIF parser runs with Python built-ins in the worker thread (no new dependency); vendor differences are caught by standard fallbacks: exposure time/aperture from APEX values if needed, date as a cascade original → digitized → file, camera model without vendor duplication. The previous size label has been absorbed into the table
+
+## \[0.20.0\] – 2026-10-29
+
+### Added
+
+- Genre in the music preview (F35, user request): The Discoverer reads the genre tag along; the row appears only if the tag exists
+
+### Changed
+
+- Cover shadow re-aligned (F35, user request): The drop shadow of the covers now sits right and bottom, extends 3 px further there and is more transparent overall (4 % opacity per step instead of 5.5 %)
+- Music info rearranged (F35, user request): The year no longer sits in the album row but as its own row below – label "First released"
+- Colons (F35, user request): All labels of the info tables (music, video, EML, e-book, font) end with a colon – set centrally in the table helper
+- Header thinned out (F35, user request): Icon, file name, type, size and modification date are removed from the header area of the preview column – Nemo's list shows all of that already. What remains are the open and hide buttons; the hint "(file not found)" now sits in the content area
+
+## \[0.19.0\] – 2026-10-29
+
+### Added
+
+- Cover frame in the music preview (F34, user request): Embedded covers get the same rounded corners as the placeholder tile (56/640 of the edge length – the radius scales with the display), and every cover – embedded or placeholder – carries a small drop shadow. The shadow is built stacked in Cairo from six semi-transparent tiles, without blur filter; without PangoCairo the cover stays unframed. Video tiles and image previews are untouched
+
+## \[0.18.0\] – 2026-10-29
+
+### Added
+
+- Extended music information (F33, user request): The audio preview now determines title, artist, duration, track number ("x of y"), album with year, album artist, disc number ("x of y") and codec and shows each row only if available. For the year the original release wins (original-date), otherwise the date tag is read as year. Peculiarities of the tag formats are caught defensively: ID3 (MP3) and MP4 report track/disc numbers as number pairs, Vorbis comments (FLAC, Ogg) partly as string "n/m" – both are understood; the codec comes from the audio codec tag, if needed from the container format
+
+### Changed
+
+- Audio preview rearranged: The playback bar (play/pause, slider, position) sits with some distance UNDER the cover, the information follows below. The previous file row is gone – Nemo shows the file name right next door anyway
+
+## \[0.17.0\] – 2026-10-29
+
+### Changed
+
+- Image preview with height cap (F32, construction stage 1, user request): Image previews – raster images as well as SVG – fill at most 60 % of the column height. The display height couples live to the current column height: On window resize the live scaling pulls the cap along (new height tracking in size-allocate plus \_preview\_height). The image is no longer packed expanded; the container holds exactly the (capped) image height via keep\_height. Directly below the image sits a horizontal separator with 8 px distance top and bottom – the area below is reserved for additional image information and stays empty for now; the existing size label ("W × H px") now sits below the separator. Embedded images (audio covers, office thumbnails, video frames) and all other previews are untouched. Implemented in the media renderer with the new pack helper \_pack\_image\_capped; the \_scaled\_image extension by frac\_h sits in the panel core and is thus available to all renderers
+## \[0.16.3\] – 2026-10-29
+
+### Changed
+
+- F24 look (user request "for better distinguishability"): The line numbers now appear slightly darker and smaller. Opacity rises from 60 % to 75 % of the theme text color – on light ground the numbers were too washed out –, and the number font scales to 80 % of the text font size (with a floor at 1 pt so tiny sizes do not slip to 0). The same scaled probe measures the margin width so margin and number font match; copy behavior and all other F24 properties (margin drawing outside the buffer, only visible lines, live toggle) remain unchanged
+
+## \[0.16.2\] – 2026-10-28
+
+### Fixed
+
+- F24 field fix 2, first finding (test field 0.16.1): The space for the line numbers was there, but the numbers stayed invisible. "draw" is a RUN\_LAST signal – the handler registered via connect() ran BEFORE the TextView standard drawing, which afterwards fills the background and paints over the margin. The handler is now registered via connect\_after() and draws ON TOP of the standard drawing (classic overlay order)
+- F24 field fix 2, second finding: Deactivated line numbers in the settings took effect immediately (the text moved up), but re-activating did nothing. The marker \_last\_textish stored the linenumbers toggle instead of "current preview is TextView-based" – after deactivating it sat at False, so the toggle did not re-render on re-activation. The marker now marks TextView-based previews in general; the toggle thus works live in both directions. Expensive renderers (PDF, office, audio, video, image, folder) remain untouched as before
+- Hardening: If the line number drawing ever fails (future Nemo/GTK changes), the draw handler now reports the error once via dbg instead of silently – draw fires often, a closure flag prevents log spam
+
+## \[0.16.1\] – 2026-10-28
+
+### Fixed
+
+- F24 field fix (test field 0.16.0): The line number margin crashed with an AttributeError on the first click onto a text file – the GI binding of Pango.Layout does not offer get\_pixel\_width(). The margin width measurement now uses get\_pixel\_size(); the fallback onto the generic tile had caught the crash, but the text preview itself stayed empty. With the fix the line numbers appear as intended in 0.16.0
+
+## \[0.16.0\] – 2026-10-28
+
+### Added
+
+- Line numbers in the plain text preview (F24, user request): Text files and extensionless text files show their line numbers in the left margin. The numbers are a margin drawing OUTSIDE the text buffer – selection and copy (Ctrl+C) capture only the text itself, the numbers are never copied along. Wrapped lines keep their number on the first visual line; only the visible lines are drawn
+- New "Text files" section in the settings dialog: CheckButton "Show line numbers (not copyable)" – active by default, saved immediately (key text\_line\_numbers in the conf) and applied live to the currently shown text preview. Only plain text previews are rebuilt on toggling; markdown, e-mail, e-book and font waterfall stay without numbers and untouched
+- Deliberately built without GtkSourceView (no new package): The numbers are drawn in the draw handler of the existing TextView
+
+## \[0.15.0\] – 2026-10-28
+
+### Changed
+
+- Structure release (F28/F29/F31): The extension consists of eight modules – the panel core (previewer\_panel.py) remains the heart, but the renderers for media (previewer\_render\_media.py), documents (previewer\_render\_docs.py) and text (previewer\_render\_text.py) are outsourced as mixin classes, likewise the toolbar including the settings dialog (previewer\_toolbar.py). Two shared base helpers (\_pixbuf\_from\_bytes, \_zf\_read\_capped) now live in previewer\_util.py, where they are available to all renderers
+- The entry (previewer.py) now checks at load time that all eight modules carry the identical PREVIEWER\_VERSION – if an old copy sits in the extension folder, the terminal warns immediately
+- F29: The toolbar is – as the user asked, "considered useful: implemented" – its own mixin module; the action bar, the settings dialog (F12) and the shortcut Ctrl+Alt+P behave unchanged
+- F28: Long comment and history blocks are moved out of the code into the new REFERENZ.md; the code carries markers of the form `# → REF PAN-R9-1` (module prefix + topic + number) in their place. REFERENZ.md is a living project document in the repository and is deliberately NOT deployed – the deployment copies only the \*.py files
+- Behavior unchanged: There are no new features and no bug fix – all renderers, caps (0.9.2), thread disciplines (R1/B7) and settings (F12) work exactly as in 0.14.1
+
+## \[0.14.1\] – 2026-10-28
+
+### Fixed
+
+- Markdown tables were as wide as their longest cell and then fell apart into wild wrapping in the TextView (field test 0.14.0 with the schedule table of planned.md): Tables now keep an overall budget in display columns – laid out for the 300-px default panel –, narrow columns keep their full width, and overlong cells wrap multi-line INSIDE their column, as in the browser. The columns stay flush, header and gray separator line run across all lines of the logical table row. Cell markup spanning a cell wrap is deliberately not glued together – valid markup wins, the raw text fallback must never kick in because of a table
+- Emoji width: 🔴 ✅ ☑ and similar symbols occupy two display columns in the TextView – the width measurement of the tables now counts them twice (and the variation selector FE0F not at all), otherwise emoji cells visibly stuck out
+- Backslash escapes per CommonMark (\[ becomes \[) – 0.14.0 showed them as raw text, e.g. in headings like $$ 0.14.0 $$
+- Masked bars in tables: `\\|` is a literal bar in GFM, not a column separator
+
+## \[0.14.0\] – 2026-10-28
+
+### Changed
+
+- Markdown preview much more browser-like (K4): The converter now covers the widespread markdown variants (GitHub Flavored) instead of only the standard core. New: GFM tables (bold header, gray separator line with box characters, columns flush in monospace, right alignment with `---:`), task lists (`[x]`/`[ ]` become ☑/☐, checked items appear struck through as in the browser), ordered lists (1./1)), indented and nested lists with level characters (•/◦/▪), Setext headings (`===`/`---` below the line), bold+italic (`***…***`), `~~strikethrough~~`, multiply nested quotes (`> >`), autolinks in angle brackets, separator lines also with spaces (`- - -`) and links with parentheses in the URL (previously broke the regex). Headings of levels 1 and 2 get an underline (approximates the colored bar of the browser rendering), and headings, rules and tables get air above – documents like planned.md or changelog.md thus appear as structured as in the browser. Deliberately unchanged: no webview, no new package dependencies; wide tables wrap in the panel instead of scrolling horizontally; 4-space code blocks stay unconsidered (collides with list indentation). The existing safety line remains: invalid markup leads to the dbg message and to showing the raw text
+## \[0.13.0\] – 2026-10-28
+
+### Added
+
+- Setting "Default width at startup" (F12, part 2): Under "General" in the settings dialog the width can be set with which the preview column opens after Nemo starts. The SpinButton carries the CURRENT value in advance (at least 260 px, the smallest allowed value); next to it a subtle line names the default (300 px) and marks the actual state as "current". If the user drags the preview column at the divider, the chosen width automatically becomes the future start width: it lands – debounced, only once the divider stands still – in the configuration file and is applied exactly like that on the next start. Changes in the settings dialog apply immediately: the panel pulls to the new width live, without saving or restarting. If the settings dialog is open while the divider is dragged, the SpinButton follows along (unless the user is typing in it right then)
+
+### Changed
+
+- Default start width of the panel changed from 340 px to 300 px (user request); without a configuration file 300 px now applies
+
+## \[0.12.1\] – 2026-10-28
+
+### Fixed
+
+- Settings were not saved (B8, reported from the test field): 0.12.0 accessed Gio.Keyfile for the configuration file – but PyGObject binds GKeyFile as GLib.KeyFile (GKeyFile is a GLib class, not a Gio class). The error was caught by the defensive blocks ("configuration not saveable" in the terminal log), the settings dialog stayed usable, only the persistence was ineffective. The file now runs via GLib.KeyFile with a compatibility resolution for the old alias GLib.Keyfile (same pattern as with the Discoverer in the media preview); if the class is missing in the binding, the panel reports it via dbg and stays on the defaults instead of failing silently
+
+## \[0.12.0\] – 2026-10-28
+
+### Added
+
+- Settings dialog (F12, part 1): The gear button of the toolbar now opens the configuration window "Nemo Previewer – Settings" – ALL settings of the preview column will gather here. First working setting: "Show preview column at startup" (unchecked, the column stays invisible after Nemo starts; Ctrl+Alt+P shows it again at any time). Every change is saved immediately to \\~/.config/nemo-previewer/nemo-previewer.conf (GLib-native INI format via Gio.Keyfile, no new dependency, directory created if needed) and applied on every start of Nemo – the entry applies the configuration only AFTER showing the panel, otherwise a requested invisibility would be overridden immediately. Broken or half-written configurations fall back to the defaults silently and never keep Nemo from starting. A repeated gear click brings the existing window to the front instead of opening a second one
+
+### Changed
+
+- Preview toolbar \\~5 px slimmer (user request): The inner padding top/bottom of the ActionBar sits at 3+4 px, below the Adwaita default of 6+6 px; if a theme cannot apply the rule, it stays with the theme default without error
+
+## \[0.11.0\] – 2026-10-28
+
+### Added
+
+- Preview toolbar (F19, part 1): At the bottom edge of the preview column a static toolbar (Gtk.ActionBar) with its own separator line above the content area now runs – always visible while the panel is active (user decision: no show/hide per renderer; the renderer actions F13/F20/F21/F24–F27 will register here later). On the far right sits a fixed settings button with a gear from the system icons (preferences-system-symbolic, tooltip "Settings"); in the first construction stage deliberately without function – the configuration (F12) will dock there; until then the button only acknowledges clicks in the terminal log
+
+## \[0.10.4\] – 2026-10-28
+
+### Fixed
+
+- Image preview still did not appear even after the R9 fix 0.10.3 (B7, second part): The image widgets packed in the idle callback lie temporally AFTER the show\_all() of the render pass and were therefore never shown – GTK3 does not display unshown widgets. The R1 media preview therefore carries an explicit own show\_all at the end of \_media\_probe\_done (with comment); exactly this had been overlooked in the R9 image rework of 0.10.2. The image callback now shows its result on both exit paths (preview AND error fallback) with its own show\_all. The "Loading image" note that previously stayed forever is thus truly replaced for the first time. Also new are dbg diagnostics lines so the terminal log can now trace the image path: "Image read … (bytes)", "Image decoded … (dimensions)" and "Image result discarded, selection moved on …" on fast clicking through
+
+## \[0.10.3\] – 2026-10-28
+
+### Fixed
+
+- R9 regression from 0.10.2 (B7): In the field test no image previews appeared at all. Cause: 0.10.2 decoded the images in the background thread and thereby created Gdk objects (PixbufLoader) outside the GTK thread – against the proven R1 pattern of the media preview ("no Gdk objects in the worker"); the worker failed silently, without traceback or error hint, and the "Loading image" note stayed. The background thread now only reads the file (pure Python I/O); decoding, EXIF rotation and scaling run back in the GTK thread – the same discipline as with the media covers. The unnecessary GI warm-up for the image decoding (it created a PixbufLoader that nobody closed – source of the GdkPixbuf warning "finalized without calling gdk\_pixbuf\_loader\_close()" in the terminal log) is gone completely. All acceleration levers from 0.10.2 remain: "Loading image" hint immediately, decode cap max(2 × panel width, 1024), original dimensions in the info label, stale discard on fast clicking through
+## \[0.10.2\] – 2026-10-27
+
+### Changed
+
+- Image preview accelerated (R9 from planned.md): Large images (typically 20-MB JPEGs with 50–100 megapixels) previously blocked the whole UI because reading, decoding and EXIF rotation ran synchronously in the GTK main loop. Two-stage as with the media preview: a "Loading image" hint appears immediately, the decoding runs in a background thread, and the finished pixbuf is handed into the panel via idle callback (silently discarded if the selection moved on). Additionally the size-prepared cap decodes to max(2 × panel width, 1024) instead of stubbornly at 4096 px – decoding becomes many times cheaper, the live scaling at divider dragging loses nothing. The info label now shows the ORIGINAL dimensions from the file header instead of the capped decode size. The bomb protection from 0.9.2 remains fully intact; if the thread path ever fails, the previous synchronous path steps in as a lifeline
+
+## \[0.10.1\] – 2026-10-27
+
+### Fixed
+
+- Markdown preview (B6): The body was overridden with a hardcoded default font at 9 pt via override\_font and thus appeared smaller than the rest of the interface – the text preview (monospace) in contrast acts like the system font size. The markdown preview no longer overrides the font at all and uses the system font of the GTK theme (i.e. the system's font size); headings scale along since their size specs are relative to the base font. EML and e-book preview stay at 9 pt for now
+
+## \[0.10.0\] – 2026-10-27
+
+### Added
+
+- Text preview for extensionless files (F23 from planned.md): Freely named files (e.g. notes, todo, dotfiles like .bashrc) landed on application/octet-stream via the MIME type guesser and showed only icon and file info. Files without extension are now checked by content sniffing: the first 4 KB must contain no NULL bytes and at most 5 % control characters – only then does the dispatcher show the normal text preview. Extensionless binary files (executables, core dumps) stay with the generic view; the usual caps of the text preview (256 KB / 2000 lines) apply unchanged
+
+## \[0.9.2\] – 2026-10-27
+
+Hardening package from the second security audit (focus buffer overflow/OOM): Classic overflows are ruled out at the Python level; a doctored image, PDF, EPUB, DOCX or EML could however shoot Nemo down via giant allocations. No new functions, normal files behave unchanged.
+
+### Fixed
+
+- Image preview: GdkPixbuf decoded the FULL resolution before the cap kicked in – a PNG declaring only 30000×30000 in its header allocated \\~3.6 GB (OOM crash). `_pixbuf_from_bytes` now uses the size-prepared cap (shrink at decode time) and is now also the primary route of the image preview (raw data cap 64 MB, fallback `new_from_file_at_scale`)
+- PDF preview: The lower scale clamp (0.2) forced rendering at 20000×20000 px ≈ 1.6 GB per page for pathologically giant pages (\\~100000 pt) – an additional pixel budget (4096²) per page now applies, recalculating area-true only in the extreme case
+- EML preview: The parser read the ENTIRE file – multi-GB .eml ate Nemo's memory; only the first 2 MB are read now (headers sit at the top anyway)
+- EPUB preview: `META-INF/container.xml` and the OPF file were read uncapped (decompression bomb gap next to the existing R4 caps for chapters and covers) – both now via `_zf_read_capped`
+- Office preview: Embedded thumbnail (16-MB cap) and content.xml/word/document.xml (2-MB cap) are no longer read uncapped; media covers from tags with a 32-MB byte cap
+
+### Changed
+
+- Selection detection (previewer\_select.py): Wildcall protection – the function pointers read via the computed vtable offset (peek\_selection, get\_name, get\_uri) are checked against the executable address ranges of the Nemo libraries before the call (`/proc/self/maps`); a Nemo update with a shifted class layout thus leads to a cleanly disabled route instead of a wildcall that would kill Nemo
+
+## \[0.9.1\] – 2026-10-27
+
+Security and redundancy audit across all four modules; no new functions, preview behavior unchanged.
+
+### Fixed
+
+- Crowbar race in the entry (previewer.py): An outdated location widget crowbar could still be placed after a folder change and overwrite the current folder path with the old path; the path is now set exclusively synchronously in `get_widget`
+- Poll timer leak in the entry (previewer.py): The 500-ms safety timer kept running as a zombie after the Nemo window closed; it is now cleaned up on the window's "destroy" signal
+- Office conversion after panel teardown (previewer\_panel.py): The child watch on the LibreOffice conversion could still hit the already dismantled panel; the result is now discarded and only the temp folder cleaned up
+
+### Changed
+
+- Redundancy cleanup (previewer\_panel.py, behavior unchanged): The TextView building (previously five times identical: text, markdown, EML body, e-book, office text excerpt), the capped text file reading (text + markdown) and the info table (previously inline in the EML header, audio and video next to `_meta_grid`) now use the shared helpers `_text_view`, `_read_text_file` and `_meta_grid`
+- Redundancy cleanup (previewer\_select.py, behavior unchanged): The vtable loop and the TreeView fallback now read the file name via the shared helper `_iface_file_ name`; the basename from a URI via `_name_from_uri` (previously each implemented identically several times)
+- Entry module header updated: Video shows a tile with an open button since 0.7.0/0.8.0 (no longer "first frame as still image") and Poppler renders all pages scrollable (no longer "the first page sharp")
+
+## \[0.9.0\] – 2026-10-27
+
+### Added
+
+- PDF preview: Page indicator "Page X/Y" above the scrollable area (F14 from planned.md) – while scrolling it counts up to the page whose bottom edge crosses the top edge of the viewport, i.e. the page you are over. Single-page PDFs show no indicator; for multi-page PDFs with more than MAX\_PDF\_PAGES pages the existing hint "First X of Y pages" remains in addition
+
+### Changed
+
+- PDF preview: The hint "N pages – scroll down for the preview." is gone – the new page indicator conveys the number by now
+
+## \[0.8.0\] – 2026-10-27
+
+### Removed
+
+- Video playback in the panel (0.7.0–0.7.2): Fully dismantled. In the test field the picture could not be bound stably into the preview column – without the package gstreamer1.0-gtk3 gtksink is missing (the playbin then opened its own window), and the custom appsink build showed no picture in the field despite window and redraw fixes (0.7.1, 0.7.2). The video preview shows the generic tile as before (dark petrol gradient, play triangle, film perforation) along with the file information; playback runs via the open button in the media program of choice. The player bar remains exclusively for music, the central building blocks (\_playbin\_set\_uri/\_player\_bar) remain preserved for a later retry
+
+## \[0.7.2\] – 2026-10-27
+
+### Fixed
+
+- Video preview (custom sink output): Sound ran but the picture stayed at the placeholder tile – the DrawingArea was never prompted to redraw after its first (empty) draw. The frame timer now explicitly calls the redraw (queue\_draw) after each pulled frame
 
 ## \[0.7.1\] – 2026-10-27
 
