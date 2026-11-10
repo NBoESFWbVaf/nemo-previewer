@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.6.0\] – 2026-11-10
+
+### Added
+
+- Dauerplay for music files (user wish): a latching toggle button (media-playlist-repeat-symbolic) sits LEFT of the play button in the audio play bar. While it is on, every audio file you click in Nemo starts playing by itself – no Play click needed. The state survives re-renders (session-only, default off). If the currently playing file is deleted, a file monitor hands over to the next audio file in the same folder (alphabetically after the deleted one, wrap-around to the first); the handover runs through the normal selection path, so preview, buttons and playback stay in sync. One new string ("Auto-play files on selection").
+
 ## \[1.5.2\] – 2026-11-10
 
 ### Fixed
