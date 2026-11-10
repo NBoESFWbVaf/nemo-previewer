@@ -753,6 +753,251 @@ F65 (0.54.0, user wish): a red recording dot at the left of the header signals a
 - **Reason:** F2 – heavy renders start only after selection quiet (debounce).
 
 ```text
+F2 (0.56.0): heavy renderers (PDF, Office, audio, video) start only after _RENDER_QUIET_MS (400 ms) of selection quiet – fast browsing over many files no longer fires renders whose result is dropped immediately. Mechanism: set_selection ALWAYS cancels a pending render first (_cancel_pending_render via GLib.source_remove), then _is_heavy decides: light formats (text, images, folder …) render immediately as before, heavy ones arm GLib.timeout_add(_RENDER_QUIET_MS, _on_pending_render). The handler returns False (self-removing source) and re-checks self._path – a selection cleared in between renders nothing. _is_heavy classifies by extension (.pdf, _OFFICE_EXTS from the render switch, the audio endings) and by mime prefix (audio/, video/) via query_file_info. The timer id lives in _pending_render_id (None default in __init). During the quiet window the previous preview stays visible. Debounce cousins already in the code: the size-allocate re-render and the panel-width config save. 0.56.1 (deploy feedback: TypeError "can only concatenate tuple (not set) to tuple" on EVERY selection): _OFFICE_EXTS is a SET (built for the "in" lookups of the render switch), but _is_heavy concatenated it with a tuple – the tuple-plus-set expression was evaluated on every call, so every single selection raised and the preview died. Fix: tuple(_OFFICE_EXTS).
+```
+
+### PAN-SELFTEST-1 – Parser selftest (F1)
+
+- **Module:** previewer\_panel.py
+- **Location:** module level, after the PREVIEWER\_VERSION dbg line: the \_st\_\* fixture builders and tests, run\_selftest and the \_\_main\_\_ guard; the parsers come in via the import line
+- **Reason:** F1 – regression tests for the file parsers without Nemo, called with `python3 previewer\_panel.py --selftest`.
+
+```text
+F1 (0.61.0): four synthetic fixtures are built in a tempfile dir and checked against the pure parsers: a Markdown file (bold/italic/strike/inline code, h1 heading, two bullet items, one link) against _markdown_to_pango, a minimal EPUB (one content.opf with dc:title/dc:creator/dc:language, manifest and spine; found via the .opf fallback) against _epub_data, a 94-byte MOBI (PalmDB header BOOKMOBI, one 4-byte record offset entry, record 0 with MOBI magic, header length 232, encoding 65001 and an EXTH author entry of type 100) against _mobi_data, and a minimal sfnt (one name table, family and subfamily records in UTF-16BE) against _font_faces. Each check prints PASS or FAIL (with the detail on FAIL), the summary line counts, the exit code is 0 or 1; the fixture dir is removed afterwards. Building the first MOBI fixture exposed a real bug in _mobi_records (TXT-DOC-23) – the Palm record offsets were read as three bytes although the PDB entry stores four, so on real files record 0 started at offset>>8 and the EXTH author was never parsed (unnoticed because the title comes from the PalmDB name field).
+```
+
+### PAN-F69-1 – Font size keys in the config (F69)
+
+- **Module:** previewer\_panel.py
+- **Location:** `__init__` (defaults), `\_config\_load`, `\_config\_save` (both behind the F25 block), the apply call after `self.\_config\_load()`
+- **Reason:** F69 – the two font size keys follow the F12 config pattern (defaults first, then load, then save).
+
+```text
+F69 (0.62.0): two new conf keys, both integers with a 0–28 guard on load: text_font_size and meta_font_size. Defaults sit next to the F25 spacing default; load next to the F25 block; _config_save persists both and then calls apply_font_size_css(self._conf_text_font_size, self._conf_meta_font_size) after save_to_file – so every settings save (also from other spins) reloads the CSS rules live. The same call runs once at panel startup behind _config_load. 0.62.1 (user finding before deploy): both defaults are the DETECTED system font size now (system_font_size_px, one call for both keys), not 0 – the spins start at the system value; a stored 0 keeps its meaning (explicit theme font).
+```
+
+### PAN-K6-1 – Multi-selection shows only the count (K6)
+
+- **Module:** previewer\_panel.py
+- **Location:** `\_render\_inner`, first block after the content margin reset
+- **Reason:** K6 – user decision (2026-11-07): multi-selection renders no preview, the column only shows the count.
+
+```text
+K6 (0.63.0): _render_inner returns early when the selection holds more than one item – no renderer runs, the column shows only a centered dim label "N items selected" (N = number of selected items). The old behavior (preview of the first selected file plus "... and N more selected") is removed. A dbg line logs the count for deploy tests; single and empty selection behave as before.
+```
+
+### PAN-AUX-1 – Aux column: shell and construction (F66)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_\_init\_\_` (aux shell block), `aux\_shell` (property)
+- **Reason:** F66 part 1 (1.1.0): settings and later the more views open in a second column LEFT of the preview instead of popup windows (user outline 2026-11-08).
+
+```text
+F66 (1.1.0): the panel moves itself into a horizontal shell [aux | preview] at the end of __init__; the entry packs the SHELL into the Gtk.Paned (pack2 at both injection sites) and every visibility toggle (Ctrl+Alt+P, Nemo toolbar button, show_at_start setting) switches the shell - an open aux view can never outlive the hidden preview column. Aux column: a plain Gtk.Box with no_show_all, shown and hidden directly (1.1.0 used a Gtk.Revealer with slide-left 250 ms; a Revealer animates its reported width, which derailed the synchronous paned moves - removed in 1.1.1), so Nemo's window-level show_all cannot pull the hidden column into view; inside header (title label with ellipsize + close button, border 6) plus separator plus ScrolledWindow (AUTO/AUTO). The column carries the panel's widget name "previewer-panel" (K11 undershoot CSS applies too), the style class "background" and the same painter chain (_paint_background). The public property aux_shell hands the shell to entry and toolbar. State: _aux_key/_aux_refresh/_aux_trigger/_aux_width; _open_aux(key, title, widget, refresh, trigger) opens or swaps - the SAME key collapses again (user wish); Escape and the column's X close too. 1.2.1 (user wish): the shell is a Gtk.Paned now - panel pack2(resize True, shrink False) - so the shell's own divider trades width between the column and the preview natively; since 1.2.4 the column is pack1(resize False, shrink False) with set_size_request(320, -1): the divider stops at 320 px, the preview can never swallow the column. 1.2.2 (deploy crash fix): the shell being a Paned makes it the panel's DIRECT parent - _host_paned() must start its walk ABOVE the shell (see PAN-AUX-2). 1.2.3/1.2.4 (deploy reports): the notify handler only RECORDS - it never moves a divider; the outer paned's notify::position makes the OUTER divider resize the column BEFORE the layout runs (see PAN-AUX-2).
+```
+
+### PAN-AUX-2 – Aux column: content width, grow and restore (F66)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_host\_paned`, `PreviewPanel.\_aux\_max\_width`, `PreviewPanel.\_aux\_handle\_px`, `PreviewPanel.\_on\_aux\_dragged`, `PreviewPanel.\_aux\_apply\_width`, `PreviewPanel.\_close\_aux`
+- **Reason:** F66 part 1 (1.1.0): the preview column keeps its width; the panel grows leftwards by the aux width, and the close restores the exact position (user outline).
+
+```text
+The panel no longer sits directly in the Gtk.Paned, so _host_paned() walks up to the Paned that carries the shell (same for _apply_panel_width_live and _on_reset_width_clicked; the reset keeps an open aux column at its width via - _aux_width). 1.2.2 (deploy crash fix): the walk starts at the shell's PARENT - since the shell became a Paned itself (1.2.1), walking up from the panel returned the INNER shell, so every "outer" divider move hit the very paned whose notify::position had fired and the first such notify turned into a synchronous position ping-pong (stack overflow - Nemo crashed on EVERY aux open, settings and "more" alike). Width course: the column keeps the STANDARD width of 420 px - the size rule of the former popup windows (→ REF UT-DOC-15); only content WIDER than that grows it (minimum and natural width, each + 32 px slack for the vertical scrollbar), clamped by _aux_max_width (half the monitor via get_monitor_at_window, 600 px fallback, floor 320). 1.1.2: the first course measured the natural width alone; on the user system it undershot the running content and the settings got a horizontal scrollbar - the 420 floor replaces it, and the dbg line logs the measured values ("panel/aux: width N px (content min/nat px)"). Growth and restore run through the paned POSITION, synchronously and relative: open/swap sets position = pos + old_width - new_width while the column is still hidden (no requisition clamp in the way), close hides the column FIRST and then sets position = pos + aux_width - so a divider drag while the column is open survives the close, and there are no timer races in the crowbar embedding (K17/K18 lessons; the hide-first ordering is the 1.1.1 fix). The Paned clamps at the children's minimum sizes, so small windows squeeze the column safely. 1.2.1 (user wish): the column width is the INNER Paned position - _aux_handle_px reads the handle-size style property (fallback 5), because the shell occupies position + handle while the column is open (every outer move accounts the handle); a manual drag records _aux_manual_width, which then OVERRIDES the content measurement on every later open and refresh (clamped 320 .. half-monitor) - the user decision wins for the session, it is not persisted, and it belongs to the COLUMN (settings and tags share it). _aux_apply_width sets the inner position behind a _aux_syncing guard so the drag handler stays out of programmatic moves; the drag itself moves the outer position synchronously and relative, like open and close. 1.2.3 (deploy report on 1.2.2): the compensating drag handler is GONE - moving the outer divider from inside the inner paned's notify let the shell origin wander under the pointer and the drag ran away (wrong direction, far too fast). _on_aux_dragged is a pure recorder: it tracks _aux_pos, the manual width and _aux_width (guarded against synced programmatic sets) but never moves a divider - the inner divider is native GTK and only trades width between the column and the preview. A size-allocate adjustor (_on_aux_shell_alloc) made the COLUMN absorb shell width changes (outer divider drags, window resizes): position += delta while the column was visible, so the preview kept its width; programmatic shell moves (open, close, apply, live panel width) set _aux_alloc_hold for exactly one adjustor cycle - the flag was only set when the outer position really changed, and the adjustor consumed it on the next width change. 1.2.4 (deploy report on 1.2.3): that adjustor ran AFTER the children were allocated, so every outer divider drag painted one stretched preview frame before snapping back (wobble). The outer paned's notify::position fires BEFORE the layout: _on_aux_outer_moved (hooked once at the first open) shifts the column by the outer delta before any allocation - clamped 320 .. _aux_max_width - so only the column changes and the preview never wobbles; window resizes keep the pre-1.2.1 behavior (the panel absorbs, the column stays). Programmatic outer moves (open, close, apply, live panel width) set _aux_outer_hold before set_position and the hook consumes it synchronously; the flag is cleared again when the position did not change. The column also got a hard floor: set_size_request(320, -1) plus shrink=False in pack1 give the inner divider a min_position of 320 - the preview can never drag the column away. 1.2.5 (deploy report on 1.2.4): every open moved the outer divider a few pixels too far and the preview grew by the difference (the close restored exactly - it sums the same values). Cause: the handle accounting read the handle-size style property, DEPRECATED since GTK 3.20 - the themes stopped writing it (they set the separator's CSS min-width instead, 1-2 px on themed systems), so the legacy read kept reporting the default 5. _aux_handle_px now reads the separator node's CSS min-width first (copies the shell's widget path, appends Gtk.Separator, queries a standalone style context with the shell's screen; gtk_style_context_get_property can fetch min-width), with the legacy property and 5 as the fallback chain. A one-shot calibration measures the ground truth after each open: _on_aux_calib_alloc hooks the shell's size-allocate once, the idle _aux_calibrate reads the settled allocations - the real handle is shell - column - preview, exact under any clamping - corrects the cache and _aux_width and, if the prediction was off, shifts the outer divider by the difference behind the _aux_outer_hold flag, so the preview ends up exact even when the CSS read fails; the hook drops in _on_panel_destroy together with the outer hook.
+```
+
+### PAN-AUX-3 – Aux column: live refresh and teardown (F66)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_aux\_on\_render`, `PreviewPanel.\_mirror\_aux\_trigger`, `PreviewPanel.\_on\_panel\_destroy`
+- **Reason:** F66 part 1 (1.1.0): the column offers the same content and live updates as the former windows; the framework is reusable for the more views of 1.2.0.
+
+```text
+_render() calls _aux_on_render() after the x-bit update: an open view with a refresh callback is rebuilt on file change (callback builds the widget anew, width re-measured); a callback returning None means the view cannot exist for the new file - the column collapses. Views without a callback (the settings) stay open across selections. The trigger button mirrors the open state with the CSS class pvw-aux-active (rgba(128,128,128,0.30)); _mirror_aux_trigger clears the previous button so only ever one carries the class. Teardown: _on_panel_destroy drops key, callback and trigger - the column itself dies with the widget tree. The dbg lines log open/close/width for deploy tests ("panel/aux:"). 1.2.0 (F66 part 2): a refresh callback may also return a (title, widget) tuple - the hook re-labels the header before the swap, so the tags view retitles per file; the settings keep their None callback and stay open.
+```
+
+### PAN-SQL-1 – SQLite dispatch: magic gate (F6/B11)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_render\_inner` (sqlite branch) with the module helper `\_is\_sqlite` and the `\_SQLITE\_MAGIC` constant
+- **Reason:** F6 (0.46.0) – the SQLite renderer; B11 (1.2.6) – text based database files must not dead-end in it.
+
+```text
+F6 (0.46.0): files ending in .db/.sqlite/.sqlite3 (or typed as application/vnd.sqlite3) went to the sqlite renderer unconditionally. B11 (1.2.6, deploy feedback workman.db – the Workman CD player database is a plain-text keyword format, readable in any text editor): the branch now requires the real file magic first – the new module helper _is_sqlite (with _SQLITE_MAGIC, the 16-byte "SQLite format 3" header) gates the dispatch, so only actual SQLite databases render as a table; a text based .db file falls through the normal chain into the B10 sniffer (PAN-B10-1) and previews as text, exactly like .pub/.crt files. A binary .db without the magic lands in the generic preview instead of the misleading "database could not be read" hint; genuine but unreadable SQLite files keep that hint from _render_sqlite.
+```
+
+---
+
+## Selection (SEL)
+
+### SEL-VTABLE-1 – Class vtable peek\_selection
+
+- **Module:** previewer\_select.py
+- **Location:** module level, below the section title “Native selection via the class vtable of NemoView (peek\_selection)”
+- **Reason:** libnemo-private is static on Mint 22 – peek\_selection is read as a function pointer from the NemoView class vtable, indices verified against nemo-view.h. Since 0.39.0 (slimming round) the dlopen fallback (libnemo-private.so, fundamentally unsuccessful on Nemo 6) and the GI cascade (route 2) are removed – the class vtable is the only Nemo source, GTK/ATK fallbacks follow.
+
+```text
+# On Linux Mint 22 libnemo-private is a STATIC library – there is no .so whose symbols one could load (the dlopen attempt above stays as a fallback for older systems). Nemo's selection is still reachable: NemoView holds 'peek_selection' as a function pointer in the class vtable (nemo-view.h, NemoViewClass: index 12 after GtkScrolledWindowClass), and NemoFile implements the NemoFileInfo interface, whose vtable contains 'get_name' (index 1) and 'get_uri' (index 2) per nemo-file-info.h. The size of the parent class is queried AT RUNTIME via GObject.type_query() from the actually linked GTK – nothing is guessed. The indices are verified against the Mint 22 and master branches of nemo-view.h.
+# ----------------------------------------------------------------------------
+```
+
+### SEL-GTYPE-1 – GType IDs via libgobject
+
+- **Module:** previewer\_select.py
+- **Location:** `_native_vtable_api`, above the CDLL access
+- **Reason:** PyGObject returns a GType OBJECT from type\_from\_name() that ctypes does not accept – hence g\_type\_from\_name from libgobject.
+
+```text
+        # Get GType IDs DIRECTLY via libgobject: PyGObject lately returns a GType OBJECT from type_from_name() which ctypes does not accept as an argument ('cannot be interpreted as an integer' – an ArgumentError that silently killed the whole route). The way over g_type_from_name from libgobject guarantees the raw numeric ID from the same GLib runtime.
+```
+
+### SEL-WILDCALL-1 – Wildcall guard (0.9.2)
+
+- **Module:** previewer\_select.py
+- **Location:** module level, below the section title “Wildcall guard (0.9.2, audit “buffer overflow/OOM”)”, above `_NEMO_TEXT_RANGES`
+- **Reason:** vtable function pointers may only be called when they lie inside a Nemo library; otherwise the route is switched off fail-closed.
+
+```text
+# The ctypes routes read function pointers from calculated vtable offsets (peek_selection, get_name, get_uri) and call them. If a Nemo update shifts the class/interface layout, a slot could point to a wrong but non-NULL pointer – calling it would be a wildcall and would kill Nemo instantly (try/except does not help against segfaults). Every call target must therefore lie inside a Nemo library before it is called; otherwise the route is switched off (fail-closed – the other selection strategies take over).
+```
+
+### SEL-DOC-1 – Docstring: \_gobject\_pointer
+
+- **Module:** previewer\_select.py
+- **Location:** `\_gobject\_pointer` (module level)
+- **Reason:** Raw GObject pointer extraction for ctypes access (capsule or int).
+
+```text
+Determine the GObject pointer of a PyGObject wrapper. PyGObject usually stores it as a PyCapsule in __gpointer__; some builds return an integer directly. Both variants are supported, including nameless capsules (PyCapsule_GetPointer demands an exact name match – on a name mismatch the old path silently returned None).
+```
+
+### SEL-DOC-2 – Docstring: \_read\_cptr
+
+- **Module:** previewer\_select.py
+- **Location:** `\_read\_cptr` (module level)
+- **Reason:** Memory read helper for the vtable route.
+
+```text
+Read a pointer from process memory (address addr + offset).
+```
+
+### SEL-DOC-3 – Docstring: \_native\_vtable\_api
+
+- **Module:** previewer\_select.py
+- **Location:** `\_native\_vtable\_api` (module level)
+- **Reason:** One-time preparation of the native vtable API.
+
+```text
+Prepare vtable access to NemoView.peek_selection (once).
+```
+
+### SEL-DOC-4 – Docstring: \_nemo\_addr\_ranges
+
+- **Module:** previewer\_select.py
+- **Location:** `\_nemo\_addr\_ranges` (module level)
+- **Reason:** Fail-closed address ranges for wild-call protection.
+
+```text
+Address ranges of all executable mappings of Nemo libraries (read once from /proc/self/maps). Returns None if the maps are not readable – callers treat that as fail-closed: rather switch off one route too many than risk a possible wild call.
+```
+
+### SEL-DOC-5 – Docstring: \_ptr\_in\_nemo
+
+- **Module:** previewer\_select.py
+- **Location:** `\_ptr\_in\_nemo` (module level)
+- **Reason:** Pointer range check against the Nemo mappings.
+
+```text
+True if ptr lies within one of the Nemo address ranges.
+```
+
+### SEL-DOC-6 – Docstring: \_name\_from\_uri
+
+- **Module:** previewer\_select.py
+- **Location:** `\_name\_from\_uri` (module level)
+- **Reason:** Central URI-to-basename conversion.
+
+```text
+File name (basename) from a Nemo URI – one place, one truth.
+```
+
+### SEL-DOC-7 – Docstring: \_iface\_file\_name
+
+- **Module:** previewer\_select.py
+- **Location:** `\_iface\_file\_name` (module level)
+- **Reason:** File name via the NemoFileInfo interface with 0.9.2 wild-call protection.
+
+```text
+File name of a raw NemoFile pointer via the NemoFileInfo interface: get_name if the pointer is present; otherwise get_uri with basename fallback. Returns "" if there is nothing to fetch. The caller must have validated file_ptr against the NemoFile GType beforehand (api["is_a"]). 0.9.2: the function pointers are checked against the Nemo address ranges before the call (wild-call protection) – if a Nemo update shifts the interface layout, the wrong pointer is never called; "" is returned silently instead.
+```
+
+### SEL-DOC-8 – Docstring: \_vtable\_selection\_names
+
+- **Module:** previewer\_select.py
+- **Location:** `\_vtable\_selection\_names` (module level)
+- **Reason:** Vtable selection read, returns (names, supported).
+
+```text
+Read the selection via NemoView.peek_selection. Returns (names, supported); supported=False means the strategy is not usable. names=[] is a valid, empty selection.
+```
+
+### SEL-DOC-9 – Docstring: \_nemo\_file\_name\_from\_ptr
+
+- **Module:** previewer\_select.py
+- **Location:** `\_nemo\_file\_name\_from\_ptr` (module level)
+- **Reason:** File name of a raw NemoFile pointer via ctypes.
+
+```text
+Determine the file name of a raw NemoFile pointer (ctypes via the NemoFileInfo interface). Returns "" if the pointer is invalid or the vtable API is not ready. Validates the instance against the NemoFile GType beforehand – a wrong pointer is never followed. 0.9.1: the interface read logic lives in the shared helper _iface_file_name (previously identical in _vtable_selection_names).
+```
+
+### SEL-DOC-10 – Docstring: \_dump\_widget\_tree
+
+- **Module:** previewer\_select.py
+- **Location:** `\_dump\_widget\_tree` (module level)
+- **Reason:** Verbose diagnostics – widget tree with selection methods.
+
+```text
+Diagnose actual GTK descendants and their selection-related methods.
+```
+
+### SEL-DOC-11 – Docstring: \_signals\_of\_gtype
+
+- **Module:** previewer\_select.py
+- **Location:** `\_signals\_of\_gtype` (module level)
+- **Reason:** Own void signals with 'select' in the name.
+
+```text
+Void signals of this GType with 'select' in the name (without inherited ones).
+```
+
+### SEL-DOC-12 – Docstring: selection\_signals
+
+- **Module:** previewer\_select.py
+- **Location:** `selection\_signals` (module level)
+- **Reason:** All selection signals including inherited and interface signals.
+
+```text
+All 'selection' signals of a GObject – including inherited ones by walking the GType hierarchy upwards; additionally the signals of implemented interfaces (ATK reports selection changes e.g. via an interface signal of AtkSelection). Nemo does not guarantee uniform signal naming (hyphens vs. underscores); nothing is guessed here – the actual name is read at runtime. Sorted list, possibly empty.
+```
+
+### SEL-DOC-13 – Docstring: \_atk\_children
+
+- **Module:** previewer\_select.py
+- **Location:** `\_atk\_children` (module level)
+- **Reason:** Defensive ATK children enumeration (get\_n\_children may lie).
+
+```text
+Determine the children of an ATK object defensively. get_n_children() fails on some systems (Nemo views reported -1, the a11y tree seemed empty); therefore, on exception or nonsense, ref_child() is tried blindly for the first indices until ref_child itself fails. Returns a (possibly empty) list – never None.
+```
+
+### SEL-DOC-14 – Docstring: \_a11y\_root
+
+- **Module:** previewer\_select.py
+- **Location:** `\_a11y\_root` (module level)
+- **Reason:** Mapped a11y root, None for unusable views.
+
+```text
 Mapped a11y root of the view (None if the view is unusable).
 
 Never call ATK on a view that is hidden or being torn down.
@@ -1594,6 +1839,165 @@ F36: core EXIF information from JPEG/TIFF bytes – with Python on-board tools, 
 S8 (0.42.0): byte order of the TIFF head – None if head or magic do not fit (MM/II; 42 magic, Olympus ORF carries “RO”).
 ```
 
+### MED-DOC-13 – Docstring: \_exif\_camera
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_camera` (module level)
+- **Reason:** F36 camera model with vendor prefix shortening.
+
+```text
+F36: camera model – many models repeat the vendor in the model name (“Canon” + “Canon EOS …”): shorten only then.
+```
+
+### MED-DOC-14 – Docstring: \_exif\_parse\_at
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_parse\_at` (module level)
+- **Reason:** F42/S8 EXIF at one TIFF base offset, per topic helper.
+
+```text
+F42: EXIF at ONE TIFF base offset – the formatting part of the F36 logic, called per candidate by the candidate loop. S8 (0.42.0): decomposed – _exif_bo checks the head, a small helper fills the dict per topic block (camera, date, exposure, aperture, focal length, ISO/dimensions, location); everything stays in a try against broken files.
+```
+
+### MED-DOC-15 – Docstring: \_exif\_rows
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `\_exif\_rows` (module level)
+- **Reason:** F42 photo rows from EXIF/XMP for image view and RAW fallback.
+
+```text
+F42: photo rows from EXIF/XMP – shared by the image view (below height/width) and the RAW fallback (below the icon). Only present values, order as in the image table. F50 (user wish 2026-11-02): the table ends at ISO – the XMP custom fields leave the table; ALL contained details show in the "more" window via exiftool.
+```
+
+### MED-DOC-16 – Docstring: MediaRendererMixin (class)
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin` (class)
+- **Reason:** Class marker – image/SVG/audio/video renderers.
+
+```text
+Mixin: renderers for image (including EXIF), SVG, audio and video.
+```
+
+### MED-DOC-17 – Docstring: \_pack\_image\_capped
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_pack\_image\_capped` (method)
+- **Reason:** F38 60/40 column split for image previews.
+
+```text
+F38 (user wish): for image previews the column is split into a 60 % area for the image (centered vertically and horizontally) and a 40 % area for the image information; between the two a separator. The height of the image area is kept live at 60 % of the column height.
+```
+
+### MED-DOC-18 – Docstring: \_image\_split\_sync
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_image\_split\_sync` (method)
+- **Reason:** F38 live follow-up of the 60 % image area.
+
+```text
+F38: pull the image area to 60 % of the column height.
+```
+
+### MED-DOC-19 – Docstring: \_rsvg\_cairo\_pb
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_rsvg\_cairo\_pb` (method)
+- **Reason:** K3 Cairo route – SVG rendered DPI-like at panel width.
+
+```text
+K3 (2026-10-30): render SVG over the Cairo route (render_document) DPI-like at the panel width – intrinsically small SVGs stayed tiny so far, and get_pixbuf() is deprecated in newer librsvg. The return is (pixbuf, (width, height)) in INTRINSIC pixels or None – the caller then falls back to the previous get_pixbuf() path.
+```
+
+### MED-DOC-20 – Docstring: \_render\_svg
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_render\_svg` (method)
+- **Reason:** SVG preview via librsvg with K3 Cairo route and old-path fallback.
+
+```text
+SVG preview via librsvg: GdkPixbuf cannot load SVG. K3 (2026-10-30): prefers the Cairo route (_rsvg_cairo_pb – DPI-like at panel width, render_document instead of the deprecated get_pixbuf()); if it fails (no pycairo, old librsvg, no intrinsic size), the old path takes over. The dimensions label shows the INTRINSIC size.
+```
+
+### MED-DOC-21 – Docstring: \_render\_image
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_render\_image` (method)
+- **Reason:** R9 two-stage image loading without UI blockade.
+
+```text
+R9 (0.10.2) with field fix (0.10.3): large images (typically 20 MB JPEGs with 50–100 megapixels) blocked the GTK main loop – reading, decoding and EXIF rotation ran synchronously in one go on selection, the UI stood still. Two-stage like the media (R1): (1) show a hint immediately, the UI stays usable; (2) the daemon thread reads ONLY the file (pure Python I/O) and passes the bytes back via GLib.idle_add. Decoding, EXIF rotation and scaling run back in the GTK thread – the 0.10.2 field test showed: Gdk objects (PixbufLoader) in the worker fail silently, the R1 pattern “no Gdk objects in the worker” applies here too. The speed lever stays the decode cap max(2 × panel width, 1024): decoding becomes many times cheaper, the live scaling loses nothing (the source stays wider than any panel width, as with PDF R2 at 2-fold width). The bomb protection from 0.9.2 stays fully intact. If the thread start exceptionally fails, the old synchronous path runs as a lifeline.
+```
+
+### MED-DOC-22 – Docstring: \_image\_probe\_done
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_image\_probe\_done` (method)
+- **Reason:** R9 return of the worker bytes into the GTK thread.
+
+```text
+R9 return (0.10.3/0.10.4): decode the bytes read in the worker HERE in the GTK thread (same discipline as the media covers in _media_probe_done – Gdk objects are only created in the GTK thread). Decode cap target_w; if the selection has moved on, the result is silently discarded. If decoding fails, the synchronous at_scale fallback takes over (it caps the decoding internally and is therefore also bomb-proof); only when that fails too does the generic error hint appear. 0.10.4: all widgets packed here sit AFTER the show_all() of the render pass – exactly as in _media_probe_done, the callback therefore needs its OWN show_all, otherwise the preview stays invisible (the field cause of the B7 regression, overlooked in 0.10.2/0.10.3).
+```
+
+### MED-DOC-23 – Docstring: \_render\_audio
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_render\_audio` (method)
+- **Reason:** Audio preview – cover, tags and player bar.
+
+```text
+Audio preview: cover, tags and player bar. R1: tags, duration and cover are detected in the background thread (see _media_probe_async) – the panel appears immediately with a reading hint and stays usable, instead of freezing on the spot when the medium is slow to reach.
+```
+
+### MED-DOC-24 – Docstring: \_media\_probe\_async
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_media\_probe\_async` (method)
+- **Reason:** R1 media discovery in a daemon thread (discover_uri fix).
+
+```text
+R1: media discovery without UI blockade. The GStreamer discoverer runs in a daemon thread (tags, duration, image bytes – NO pixbuf, Gdk objects are only created back in the GTK thread) and swings the result into the main loop via GLib.idle_add; finish is the continuation (_finish_audio/_finish_video).
+
+R1 fix (0.5.0 test result): the synchronous discovery is called discover_uri() in the Python binding – the C name gst_discoverer_discover_uri is bound WITHOUT “_sync”; a discover_uri_sync does not exist (AttributeError). The tags/duration/cover discovery had therefore NEVER worked – the placeholder cover (F18) exposed the old bug for the first time. Additionally, the GI classes are warmed up once HERE in the GTK thread (PyGObject resolves method tables lazily) and the discovery runs in the worker as a fully resolved callable.
+```
+
+### MED-DOC-25 – Docstring: \_media\_probe\_done
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_media\_probe\_done` (method)
+- **Reason:** R1 return of the background discovery into the GTK main loop.
+
+```text
+R1: return of the background discovery into the GTK main loop.
+```
+
+### MED-DOC-26 – Docstring: \_media\_cover\_placeholder
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_media\_cover\_placeholder` (method)
+- **Reason:** F18/F22 generic tile for media without an embedded image.
+
+```text
+Generic tile for media without an embedded image: dark tile with a diagonal color gradient, a semi-transparent symbol and rounded corners – drawn at double resolution (640 px for a 320 px display) so the tile stays sharp on HiDPI screens too. Music without a cover (F18) shows the note symbol, video without an embedded preview image (F22) the play triangle with film perforation at the top and bottom edge. Without PangoCairo (or on drawing errors) an icon fallback on a dark background takes over.
+```
+
+### MED-DOC-27 – Docstring: \_tag\_number\_pair
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_tag\_number\_pair` (method)
+- **Reason:** F33 (number, total) from the tag list, codec-dependent.
+
+```text
+F33: read (number, total) from the tag list – track number and disc number are packaged differently depending on the codec.
+```
+
+### MED-DOC-28 – Docstring: \_tag\_year
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_tag\_year` (method)
+- **Reason:** F33 release year over three date shapes.
+
+```text
 F33: release year – the original release takes precedence, otherwise the date tag is read as the year.
 ```
 
@@ -2528,6 +2932,72 @@ F60 (0.45.0): Info rows from the control file – only set fields; the descripti
 - **Reason:** F60/F60.1 – app icon from data.tar with probe read.
 
 ```text
+F60: App icon from data.tar – best effort with a budget. 0.45.1: compression from magic bytes (6-byte probe read, see _tar_sniff_mode), not from the member name.
+```
+
+### TXT-DOC-33 – Docstring: \_deb\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_deb\_data` (module level)
+- **Reason:** F60 – Debian package loader (ar archive).
+
+```text
+F60 (0.45.0): Debian package (.deb) – ar archive: control.tar.<gz|xz> carries the control file (on-board tools), data.tar.<gz|xz> the payload, from which the first app icon is fished best effort (budget, else a drawn placeholder). Returns (rows, icon).
+```
+
+### TXT-DOC-34 – Docstring: \_rpm\_section
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_rpm\_section` (module level)
+- **Reason:** F60 – RPM header section parsing.
+
+```text
+F60 (0.45.0): RPM header section from pos – magic 8E AD E8, 16-byte header (index count + store size), 16-byte index entries each (tag, type, offset, count) and the data store. Returns (index, store, end).
+```
+
+### TXT-DOC-35 – Docstring: \_rpm\_value
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_rpm\_value` (module level)
+- **Reason:** F60 – RPM tag value decoding by type.
+
+```text
+F60: First value of an RPM tag – STRING (7) and I18NSTRING (9) as str, STRING_ARRAY (6) as list, INT32 (4) as int; else None.
+```
+
+### TXT-DOC-36 – Docstring: \_rpm\_rows
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_rpm\_rows` (module level)
+- **Reason:** F60 – RPM info rows via \_meta\_rows.
+
+```text
+F60: Info rows from the RPM header – only set tags.
+```
+
+### TXT-DOC-37 – Docstring: \_rpm\_data
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_rpm\_data` (module level)
+- **Reason:** F60 – RPM loader, cpio payload deliberately out.
+
+```text
+F60 (0.45.0): RPM – lead (96 B), signature header and main header sit at the file start (on-board tools: struct); the cpio payload stays out (usually zstd) – the preview shows the drawn placeholder. Returns (rows, None).
+```
+
+### TXT-DOC-38 – Docstring: \_pkginfo\_fields
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_pkginfo\_fields` (module level)
+- **Reason:** F60 – .PKGINFO single/multi field split.
+
+```text
+F60 (0.45.0): .PKGINFO ('key = value' per line) – collect multi lines (depend, optdepend, makedepend, license, group); for single fields the first value wins. Returns (single, multi).
+```
+
+### TXT-DOC-39 – Docstring: \_pkg\_rows
+
+- **Module:** previewer\_render\_text.py
 - **Location:** `\_pkg\_rows` (module level)
 - **Reason:** F60 – Pacman info rows via \_meta\_rows.
 
@@ -3483,6 +3953,51 @@ Labels carry their text in the widget everywhere (no painted-only text); info ta
 - **Reason:** F58 (5) – the one gap of the scan.
 
 ```text
+The player bar is the ONLY unsupplied area: the module has zero set_tooltip_text calls. The play/pause button is icon-only (media-playback-start-symbolic, swaps its icon per state) and has NEITHER a tooltip NOR an accessible name/description; the seek scale has no label/tooltip either. For a keyboard/screen-reader user the bar reads as two nameless controls; the icon swap also means the accessible name should follow the state (play vs. pause). Recommendation (planned item): tooltip + accessible description on _btn_play that follows the state (_("Play")/_("Pause")), a tooltip on _seek_scale (_("Seek position")), and the duration label already exists as text. One small, isolated fix – the rest of the widget inventory is supplied. → FIXED in 0.65.5 (F72): state-following tooltips on _btn_play (_("Play")/_("Pause")), tooltip on _seek_scale (_("Seek position")); three new msgids in pot and de.po.
+```
+
+### AUDIT-A11Y-4 – Verdict (F58/5)
+
+- **Module:** –
+- **Location:** this audit section
+- **Reason:** F58 (5) – summary.
+
+```text
+Verdict: the supply side is in good shape for a preview tool – text lives in widgets, tooltips carry full content where the display truncates, settings and toolbar are completely named, and state rides on widget states. ONE finding goes into planned: the media player bar needs tooltips and state-following accessible names for play/pause and seek. Deploy-side check for the release notes: run orca (or any AT-SPI client) over a preview with an image, a text file and an audio file – everything except the player bar should announce sensibly.
+```
+
+## Umgebungs-Matrix-Audit (F58)
+
+### AUDIT-ENV-1 – Method (F58)
+
+- **Module:** all eight Python modules
+- **Location:** this REFERENCE section (after the Barrierefreiheits-Audit)
+- **Reason:** F58 (7) environment matrix – Nemo versions, Python minimum, Wayland vs. X11.
+
+```text
+F58 (2026-11-07, audit round WITHOUT code changes): static determination of the supported environment from the code side (API pins, language features, windowing dependencies) plus the tested matrix from INSTALL.md; the runtime matrix cells (older Nemo, older Python distros, Wayland session) are deploy-side checks, listed at the end.
+```
+
+### AUDIT-ENV-2 – Nemo and the host API
+
+- **Module:** previewer.py, previewer_select.py
+- **Location:** gi.require_version Nemo 3.0, NameAndDescProvider hasattr guard
+- **Reason:** F58 (7) – which Nemo versions does the extension support?
+
+```text
+The Nemo API pin is require_version('Nemo', '3.0') – the Nemo 3.x GIR that Mint ships since the Cinnamon 3.x era. The provider set is defensive: the NameAndDescProvider base is only added when hasattr(Nemo, 'NameAndDescProvider') – an older Nemo without it still loads the extension (it then simply reports no name/description); the LocationWidgetProvider/ColumnProvider bases are as old as the Nemo-python binding itself. The crowbar and the selection reader walk the widget tree of whatever Nemo builds – no version-specific widget paths (the view scan is structural, not version-pinned), and the reader carries multiple strategies (vtable/ATK/GTK) precisely because the view zoo varies. Tested: Nemo on Linux Mint 22 and Debian 13 (INSTALL.md). Caja (MATE) is NOT supported – the extension targets Nemo only (AUDIT-GTK4-10). Verdict: Nemo 3.x line; concrete older-version cells are a deploy-side check.
+```
+
+### AUDIT-ENV-3 – Python minimum
+
+- **Module:** all eight Python modules
+- **Location:** language feature scan (syntax floor), stdlib usage
+- **Reason:** F58 (7) – the oldest Python that runs the code.
+
+```text
+Syntax floor: the code base uses %-formatting throughout – NO f-strings, no walrus, no match statements (the grep hits for "f\"" are the aperture string "f/%.1f" and a variation-selector escape). The newest stdlib features in use: os.scandir (3.5), email.policy (3.3+), sqlite3, subprocess, csv.Sniffer, xml.etree – so the SYNTAX floor is about 3.5. Realistic floor: every distro that ships Nemo 3.x also ships at least Python 3.9 (Debian 11-era), and the tested cells are 3.12 (Mint 22) and 3.13 (Debian 13); gettext/GLib bindings need PyGObject, which the distro pairs anyway. Recommendation for the README/INSTALL: declare "Python 3.8+" (comfortably below every realistic Nemo 3.x distro, far above the syntax floor) and drop the vaguer wording. → DONE in 0.65.5 (F73): INSTALL.md declares "Python 3.8 or newer".
+```
+
 ### AUDIT-ENV-4 – Wayland vs. X11
 
 - **Module:** all eight Python modules
