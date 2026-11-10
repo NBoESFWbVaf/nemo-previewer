@@ -4,6 +4,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 ## \[Unreleased\]
 
+## \[1.6.1\] – 2026-11-10
+
+### Fixed
+
+- Dauerplay toggle crashed the audio preview on build (`TypeError: Button constructor cannot be used to create instances of a subclass ToggleButton`): `Gtk.ToggleButton` has no `new_from_icon_name` constructor in PyGObject. The button is now created with the plain constructor plus `set_image()` (deploy feedback).
+
 ## \[1.6.0\] – 2026-11-10
 
 ### Added
