@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.9.0
+previewer_panel.py – Version 1.10.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -252,6 +252,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F12: waterfall sample text of the font preview – default
         # is the classic sentence, editable in the settings (→ REF TXT-FONT-2).
         self._conf_font_sample_text = _(_FONT_SAMPLE_TEXT)
+        # F81: archive folder for the archive button – set in the
+        # settings ("Archive"); empty means the button opens the
+        # settings instead of moving.
+        self._conf_archive_dir = ""
         # F24: line numbers in the plain text preview – default ON
         # (user request), toggleable in the settings ("Text files").
         self._conf_text_linenumbers = True
@@ -643,6 +647,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             self._update_xbit_button()
             # F77: the print button follows the same rule.
             self._update_print_button()
+            # F81: the archive button follows the same rule.
+            self._update_archive_button()
             return
 
         self._names = list(names)
@@ -764,6 +770,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         self._update_xbit_button()
         # F77: keep the print button in sync as well.
         self._update_print_button()
+        # F81: keep the archive button in sync as well.
+        self._update_archive_button()
         # F66: keep an open aux view in sync with the new file.
         self._aux_on_render()
 
@@ -1732,6 +1740,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     self._conf_font_sample_text = t
             except Exception as e:
                 dbg("panel/_config_load: suppressed: %s" % e)
+            # F81: archive folder for the archive button.
+            try:
+                t = kf.get_string("previewer", "archive_dir")
+                if t is not None:
+                    self._conf_archive_dir = t
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             try:
                 self._conf_text_linenumbers = kf.get_boolean(
                     "previewer", "text_line_numbers")
@@ -1811,6 +1826,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # F12: persist the waterfall sample text.
             kf.set_string("previewer", "font_sample_text",
                           self._conf_font_sample_text)
+            # F81: persist the archive folder.
+            kf.set_string("previewer", "archive_dir",
+                          self._conf_archive_dir)
             kf.set_boolean("previewer", "text_line_numbers",
                            self._conf_text_linenumbers)
             # F44: persist syntax highlighting.
@@ -1903,7 +1921,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.9.0"
+PREVIEWER_VERSION = "1.10.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
