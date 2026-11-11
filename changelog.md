@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.15.5\] – 2026-11-11
+
+### Fixed
+
+- B24 (deploy feedback, follow-up to B23): the new document page setup was silently SUPPRESSED – the log showed `docs/_print_pdf: page setup suppressed: object of type 'GtkPrintOperation' does not have property 'page-setup'`, so office/PDF prints kept the wide default margins. `Gtk.PrintOperation` has NO `page-setup` property – that is the property name of the WebKit2 print operation; the documented GTK3 API is `set_default_page_setup()`. Both affected paths (office/PDF print in `previewer_render_docs.py`, EML/Markdown-Pango print in `previewer_render_text.py`) now use it; the `print-settings` property is valid on `Gtk.PrintOperation` and stays.
+
 ## \[1.15.4\] – 2026-11-11
 
 ### Fixed
