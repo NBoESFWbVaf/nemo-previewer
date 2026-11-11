@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.14.0\] – 2026-11-11
+
+### Changed
+
+- F84 (security, user request): Links that lead outside the preview are now DEAD links — globally for all file types. In the WebKit HTML preview (F83) the navigation policy allows ONLY the preview's own document: the programmatic `load_html` load and same-document anchor jumps proceed, EVERY other navigation is ignored — link clicks included, user gesture or not (e.g. a `meta refresh` in raw HTML). The external-opening path (`show_uri_on_window`/`xdg-open` via `_open_uri_externally`) is removed entirely; blocked navigations are logged (`blocked:` line). Links stay recognizable — theme link styling in the HTML preview, the Pango fallback keeps showing the URL as small grey text — but have no function. No other renderer ever opened links (PDF, EML and e-books render them as plain text), so the extension now has no path out of the preview at all.
+
 ## \[1.13.2\] – 2026-11-11
 
 ### Fixed
