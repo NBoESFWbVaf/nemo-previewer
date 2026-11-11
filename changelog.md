@@ -8,6 +8,13 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.15.2\] – 2026-11-11
+
+### Fixed
+
+- B19 (deploy feedback, Markdown print): the print still came out in whatever paper format the print dialog started with, and text ran past the sheet edge with letters clipped at the border. The `Gtk.PageSetup` preset now carries an EXPLICIT paper size – A4 portrait (a bare `Gtk.PageSetup` inherits the platform/printer default, and the dialog's page setup REPLACES the preset completely, so anything left unset is decided by the system) – plus the 15 mm margins from 1.15.1. Two dbg lines make the geometry visible: the preset right after setting it (`page setup A4, 210 x 297 mm, margins 15 mm`) and the setup the dialog actually chose when printing starts (`printing A4, 210 x 297 mm`). The dialog response is now compared against the enum instead of a truthiness check – `WEBKIT_PRINT_OPERATION_RESPONSE_PRINT` has the value 0, so `bool()` read a confirmed print as cancelled and dropped the view/operation references right after OK instead of keeping them until `finished`.
+- B20 (deploy feedback, Markdown print + preview): content wider than the printable area was simply CLIPPED at the sheet edge – images rendered at their intrinsic pixel size, long words/inline code and wide tables overflowed. The preview CSS now caps `img` at `max-width: 100%; height: auto;` and lets inline `code` wrap (`overflow-wrap: anywhere`) – oversized images shrink instead of forcing a horizontal scrollbar; the print document additionally caps `table` at `max-width: 100%` and lets paragraphs, list items, table cells and definition terms wrap (`overflow-wrap: anywhere`), so nothing grows past the paper edge.
+
 ## \[1.15.1\] – 2026-11-11
 
 ### Fixed
