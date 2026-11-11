@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.13.1\] – 2026-11-11
+
+### Fixed
+
+- B15 (deploy feedback, WebKit HTML preview): the settings and the navigation policy used GIR method names that do not exist on all WebKit builds — `set_javascript_enabled` is now the `enable-javascript` property (plugins likewise, in its own guard), so JavaScript and plugins are really disabled. The link URI is read from the navigation action's REQUEST (`get_request().get_uri()`); `decision.ignore()` runs unconditionally, so a failed URI extraction can never let the preview navigate away. VirtualBox guests hit a known WebKit2GTK rendering bug (the page paints once, scrolling never repaints): the preview now sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` and `WEBKIT_DISABLE_COMPOSITING_MODE=1` via `setdefault` — a user-set value wins.
+
 ## \[1.13.0\] – 2026-11-11
 
 ### Added
