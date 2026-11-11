@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.13.0
+previewer_render_text.py – Version 1.13.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -114,6 +114,14 @@ try:
 except Exception as e:
     dbg("text/module-level: WebKit2 missing (%s) - Markdown "
         "preview stays Pango text" % e)
+
+# 1.13.1 (B15, deploy feedback): VirtualBox guests hit a known
+# WebKit2GTK rendering bug – the page paints once and scrolling
+# never repaints (stale DMABUF frames). The switches force the
+# classic painting path; setdefault keeps a user override possible.
+if HAVE_WEBKIT:
+    os.environ.setdefault("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
+    os.environ.setdefault("WEBKIT_DISABLE_COMPOSITING_MODE", "1")
 
 # F83: Pygments colors the fenced code blocks in the HTML preview
 # (optional – without it the blocks stay plain).
@@ -2920,13 +2928,21 @@ class TextRendererMixin:
         doc = _markdown_html(text, base_dir=base_dir, bg=bg, fg=fg,
                              dark=dark, size_px=size_px)
         view = WebKit2.WebView()
+        # 1.13.1 (B15): set_property instead of the setter methods –
+        # the GIR names differ between WebKit builds (deploy
+        # feedback: 'Settings' object has no attribute
+        # 'set_javascript_enabled').
         try:
-            settings = view.get_settings()
-            settings.set_javascript_enabled(False)
-            settings.set_enable_plugins(False)
+            view.get_settings().set_property("enable-javascript",
+                                             False)
         except Exception as e:
             dbg("text/_render_markdown_html: settings suppressed:"
                 " %s" % e)
+        try:
+            view.get_settings().set_property("enable-plugins", False)
+        except Exception as e:
+            dbg("text/_render_markdown_html: plugins property "
+                "gone: %s" % e)
         view.connect("decide-policy", self._md_webview_policy)
         view.set_hexpand(True)
         view.set_vexpand(True)
@@ -2950,8 +2966,22 @@ class TextRendererMixin:
             if decision_type in (
                     WebKit2.PolicyDecisionType.NAVIGATION_ACTION,
                     WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION):
-                uri = decision.get_navigation_action().get_uri()
-                decision.ignore()
+                # 1.13.1 (B15): the URI lives on the REQUEST –
+                # NavigationAction has no get_uri (deploy feedback);
+                # ignore() runs UNCONDITIONALLY, so a failed URI
+                # extraction can never let the preview navigate.
+                uri = None
+                try:
+                    uri = (decision.get_navigation_action()
+                           .get_request().get_uri())
+                except Exception as e:
+                    dbg("text/_md_webview_policy: uri suppressed:"
+                        " %s" % e)
+                try:
+                    decision.ignore()
+                except Exception as e:
+                    dbg("text/_md_webview_policy: ignore "
+                        "suppressed: %s" % e)
                 if uri and not uri.startswith(("about:", "data:")):
                     self._open_uri_externally(uri)
                 return True
@@ -3872,7 +3902,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.13.0"
+PREVIEWER_VERSION = "1.13.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
