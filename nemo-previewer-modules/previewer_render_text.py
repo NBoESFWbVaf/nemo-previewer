@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.15.5
+previewer_render_text.py – Version 1.16.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1287,6 +1287,115 @@ def _html_to_text(text):
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
+
+
+# → REF TXT-EML-HTML-1
+# F86: EML HTML body – sanitizing and CID resolution. Mail HTML is
+# UNTRUSTED: every remote reference (http/https in src/href/...,
+# CSS url(), meta refresh, <base>, <script>) is neutralized BEFORE
+# the document reaches WebKit – no network request can even start
+# (tracking pixels render as empty space). Inline images ride as
+# data: URIs resolved from the cid: map.
+
+_EML_CID_TOTAL_CAP = 24 * 1024 * 1024   # R4: cap for all inline parts together
+
+
+def _eml_cid_map(msg):
+    cidmap = {}
+    total = 0
+    try:
+        for part in msg.walk():
+            cid = part.get("Content-ID")
+            if not cid:
+                continue
+            cid = str(cid).strip().strip("<>").strip()
+            if not cid:
+                continue
+            try:
+                payload = part.get_payload(decode=True)
+            except Exception:
+                payload = None
+            if not payload:
+                continue
+            total += len(payload)
+            if total > _EML_CID_TOTAL_CAP:
+                dbg("text/_eml_cid_map: inline cap reached")
+                break
+            try:
+                mime = part.get_content_type() or "application/octet-stream"
+            except Exception:
+                mime = "application/octet-stream"
+            cidmap[cid.lower()] = (mime, payload)
+    except Exception as e:
+        dbg("text/_eml_cid_map: suppressed: %s" % e)
+    return cidmap
+
+
+def _eml_cid_sub(match, cidmap):
+    attr = match.group(1)
+    quote = match.group(2)
+    cid = match.group(3)
+    entry = cidmap.get(cid.strip().lower())
+    if entry is None:
+        # Unknown inline part: a transparent placeholder instead of
+        # a broken-image icon.
+        return (attr + "=" + quote + "data:image/gif;base64,"
+                "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                + quote)
+    mime, payload = entry
+    return (attr + "=" + quote + "data:" + mime + ";base64,"
+            + base64.b64encode(payload).decode("ascii") + quote)
+
+
+def _eml_html_sanitize(html, cidmap=None):
+    # 1) dead markup first: scripts, meta refresh, <base>.
+    text = re.sub(r"(?is)<(script)\b[^>]*>.*?</\1>", " ", html)
+    text = re.sub(r"(?is)<meta[^>]+http-equiv\s*=\s*[\"']?refresh"
+                  r"[^>]*>", " ", text)
+    text = re.sub(r"(?is)<base\b[^>]*>", " ", text)
+    # 2) inline images: cid: -> data: URIs (before the remote pass,
+    # both go over the same attribute pattern).
+    if cidmap:
+        text = re.sub(
+            r"(?is)\b(src|href|background|poster|srcset)\s*=\s*"
+            r"([\"'])cid:([^\"']+)\2",
+            lambda m: _eml_cid_sub(m, cidmap), text)
+    # 3) remote references: quoted and bare attribute values.
+    text = re.sub(
+        r"(?is)\b(src|href|background|poster|srcset|action|formaction)"
+        r"\s*=\s*([\"'])\s*https?:[^\"']*\2", r"\1=\2\2", text)
+    text = re.sub(
+        r"(?is)\b(src|href|background|poster|srcset|action|formaction)"
+        r"\s*=\s*https?:[^\s>]+", r'\1=""', text)
+    # 4) remote CSS references inside <style> blocks and style
+    # attributes.
+    text = re.sub(r"(?i)url\(\s*[\"']?\s*https?:[^)\"']*[\"']?\s*\)",
+                  "url()", text)
+    return text
+
+
+def _eml_html_doc(html, extra_css=""):
+    # F86: the mail HTML renders AS THE MAIL built it – on white
+    # ground (mails are designed for a light background), with the
+    # sanitized body embedded in a minimal shell. A full-document
+    # mail keeps its own <html>/<head>; the shell CSS is injected
+    # before </head> in that case.
+    css = ("body{background:#ffffff;color:#000000;}"
+           "img,table{max-width:100%;height:auto;}"
+           "p,li,td,th,dd,dt{overflow-wrap:anywhere;}"
+           "pre{white-space:pre-wrap;overflow-wrap:anywhere;}")
+    if extra_css:
+        css += extra_css
+    style = "<style>" + css + "</style>"
+    if re.search(r"(?i)<html[\s>]", html):
+        if re.search(r"(?i)</head\s*>", html):
+            return re.sub(r"(?i)</head\s*>", style + "</head>",
+                          html, count=1)
+        return re.sub(r"(?i)(<html[^>]*>)",
+                      lambda m: m.group(1) + style, html, count=1)
+    return ("<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
+            + style + "</head><body>" + html + "</body></html>")
+
 
 # --- E-books: EPUB, FictionBook, MOBI (stdlib only) -------------------------
 
@@ -3087,10 +3196,21 @@ class TextRendererMixin:
         pack_meta_grid(rows, self._content, bold_keys=True,
                        italic_values=True)
 
-        body = self._eml_body(msg)
-        # F54: mails WITHOUT text render like a mail with text (user
-        # request) – the body area is always built.
-        self._text_view(body)
+        # F86: HTML mails render through the WebKit pipeline
+        # (sanitized, cid: images inline); plain mails keep the
+        # text view (→ REF TXT-EML-HTML-1).
+        html = None
+        if HAVE_WEBKIT:
+            html = self._eml_html_body(msg)
+        if html is not None:
+            cidmap = _eml_cid_map(msg)
+            doc = _eml_html_doc(_eml_html_sanitize(html, cidmap))
+            self._eml_render_html(doc)
+        else:
+            body = self._eml_body(msg)
+            # F54: mails WITHOUT text render like a mail with text (user
+            # request) – the body area is always built.
+            self._text_view(body)
         att_rows = _eml_attachment_rows(msg)
         if att_rows:
             # F54: attachments with name and size plus an
@@ -3135,6 +3255,129 @@ class TextRendererMixin:
             except Exception:
                 text = ""
         return text[:MAX_TEXT_BYTES]
+
+    # → REF TXT-EML-HTML-1
+    def _eml_html_body(self, msg):
+        # F86: the best HTML body part, decoded – None when the
+        # mail has no HTML body.
+        part = None
+        try:
+            part = msg.get_body(preferencelist=("html",))
+        except Exception:
+            part = None
+        if part is None:
+            return None
+        try:
+            ctype = (part.get_content_type() or "").lower()
+            text = part.get_content()
+        except Exception:
+            try:
+                raw = part.get_payload(decode=True)
+                text = raw.decode(part.get_content_charset() or "utf-8",
+                                  "replace") if raw else ""
+            except Exception as e:
+                dbg("text/_eml_html_body: decode failed: %s" % e)
+                return None
+        if "html" not in ctype or not text.strip():
+            return None
+        return text
+
+    # → REF TXT-EML-HTML-1
+    def _eml_render_html(self, doc):
+        # F86: the sanitized mail HTML in a webview – same rules as
+        # the markdown preview (F83): JavaScript/plugins off, own
+        # policy handler (F84: NOTHING navigates), no base_uri
+        # (about:blank) – remote references are already gone from
+        # the markup, so nothing can load from the network.
+        view = WebKit2.WebView()
+        try:
+            view.get_settings().set_property("enable-javascript", False)
+            view.get_settings().set_property("enable-plugins", False)
+        except Exception as e:
+            dbg("text/_eml_render_html: settings suppressed: %s" % e)
+        view.connect("decide-policy", self._eml_webview_policy)
+        view.set_hexpand(True)
+        view.set_vexpand(True)
+        self._content.pack_start(view, True, True, 0)
+        view.load_html(doc, None)
+        dbg("text/_eml_render_html: %d bytes html" % len(doc))
+
+    # → REF TXT-EML-HTML-1
+    def _eml_webview_policy(self, view, decision, decision_type):
+        # F86: mail HTML is untrusted – ONLY the programmatic load
+        # and same-document anchor jumps (about:blank) proceed;
+        # EVERY other navigation (link click, meta refresh, form)
+        # is ignored (F84: dead links, no way out).
+        try:
+            if decision_type in (
+                    WebKit2.PolicyDecisionType.NAVIGATION_ACTION,
+                    WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION):
+                uri = ""
+                try:
+                    uri = (decision.get_navigation_action()
+                           .get_request().get_uri()) or ""
+                except Exception:
+                    uri = ""
+                if uri.startswith("about:blank"):
+                    try:
+                        decision.use()
+                    except Exception as e:
+                        dbg("text/_eml_webview_policy: use"
+                            " suppressed: %s" % e)
+                else:
+                    dbg("text/_eml_webview_policy: blocked: %s"
+                        % (uri or "?"))
+                    try:
+                        decision.ignore()
+                    except Exception as e:
+                        dbg("text/_eml_webview_policy: ignore"
+                            " suppressed: %s" % e)
+                return True
+        except Exception as e:
+            dbg("text/_eml_webview_policy: suppressed: %s" % e)
+        return False
+
+    # → REF TXT-EML-HTML-1
+    def _eml_print_html(self, path):
+        # F86: print an HTML mail through the SAME WebKit pipeline
+        # as the Markdown print (TXT-PRINT-2) – sanitized mail HTML
+        # (no remote references, cid: images as data: URIs) in
+        # print clothing; the shared _md_print_loaded opens the
+        # print dialog with the A4/15 mm preset (B19/B23/B24).
+        # Returns True when this path took over, False to fall back
+        # to the Pango text print.
+        try:
+            with open(path, "rb") as fh:
+                raw = fh.read()
+            msg = email.message_from_bytes(raw, policy=policy.default)
+        except Exception as e:
+            dbg("text/_eml_print_html: open failed: %s" % e)
+            return False
+        html = self._eml_html_body(msg)
+        if html is None or not html.strip():
+            return False
+        cidmap = _eml_cid_map(msg)
+        body = _eml_html_sanitize(html, cidmap)
+        doc = _eml_html_doc(
+            body,
+            extra_css="body{margin:0;padding:0;}"
+                      "h1,h2,h3,h4,h5,h6{break-after:avoid;}"
+                      "p,li,pre,table,blockquote,img{break-inside:avoid;}"
+                      "p{orphans:3;widows:3;}")
+        view = WebKit2.WebView()
+        view.set_size_request(800, 600)
+        try:
+            view.get_settings().set_property("enable-javascript", False)
+            view.get_settings().set_property("enable-plugins", False)
+        except Exception as e:
+            dbg("text/_eml_print_html: settings suppressed: %s" % e)
+        self._md_print_view = view
+        self._md_print_op = None
+        view.connect("load-changed", self._md_print_loaded)
+        view.connect("decide-policy", self._eml_webview_policy)
+        view.load_html(doc, None)
+        dbg("text/_eml_print_html: %d bytes html" % len(doc))
+        return True
 
     # → REF TXT-DOC-93
     def _pack_eml_attachments(self, path, rows):
@@ -3277,6 +3520,12 @@ class TextRendererMixin:
             return
         lower = path.lower()
         if lower.endswith(".eml"):
+            # F86: an HTML mail prints through the WebKit pipeline
+            # (same as Markdown, TXT-PRINT-2); the Pango text print
+            # below stays the fallback (plain mails, no WebKit, or
+            # any error).
+            if HAVE_WEBKIT and self._eml_print_html(path):
+                return
             text = self._print_eml_text(path)
             markup = None
         else:
@@ -4153,7 +4402,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.15.5"
+PREVIEWER_VERSION = "1.16.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
