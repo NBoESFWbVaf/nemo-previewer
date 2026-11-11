@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.10.1
+previewer_render_text.py – Version 1.14.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -72,6 +72,89 @@ try:
 except Exception as e:
     dbg("text/module-level: suppressed: %s" % e)
 
+# F67: markdown-it-py – CommonMark/GFM engine for the Markdown
+# preview (→ REF TXT-DOC-101). Pure Python; missing packages keep
+# the built-in line parser below as the fallback.
+HAVE_MDIT = False
+try:
+    from markdown_it import MarkdownIt
+    from mdit_py_plugins.dollarmath import dollarmath_plugin
+    from mdit_py_plugins.footnote import footnote_plugin
+    from mdit_py_plugins.front_matter import front_matter_plugin
+    HAVE_MDIT = True
+except Exception as e:
+    dbg("text/module-level: markdown-it-py missing (%s) - "
+        "legacy Markdown parser stays" % e)
+
+HAVE_LINKIFY = False
+try:
+    from linkify_it import LinkifyIt
+    HAVE_LINKIFY = True
+except Exception:
+    pass
+
+# Isolated import: a missing single plugin may not kill the whole
+# engine (1.12.1 – definitions lists via the deflist plugin).
+HAVE_DEFLIST = False
+try:
+    from mdit_py_plugins.deflist import deflist_plugin
+    HAVE_DEFLIST = True
+except Exception:
+    pass
+
+# F83: WebKit2 (GTK3, API 4.1) renders the Markdown preview as a
+# real HTML document – a missing GIR keeps the Pango text
+# approximation below (→ REF TXT-DOC-110).
+HAVE_WEBKIT = False
+try:
+    gi.require_version('WebKit2', '4.1')
+    from gi.repository import WebKit2
+    HAVE_WEBKIT = True
+except Exception as e:
+    dbg("text/module-level: WebKit2 missing (%s) - Markdown "
+        "preview stays Pango text" % e)
+
+# 1.13.1 (B15, deploy feedback): VirtualBox guests hit a known
+# WebKit2GTK rendering bug – the page paints once and scrolling
+# never repaints (stale DMABUF frames). The switches force the
+# classic painting path; setdefault keeps a user override possible.
+if HAVE_WEBKIT:
+    os.environ.setdefault("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
+    os.environ.setdefault("WEBKIT_DISABLE_COMPOSITING_MODE", "1")
+
+# F83: Pygments colors the fenced code blocks in the HTML preview
+# (optional – without it the blocks stay plain).
+HAVE_PYGMENTS = False
+try:
+    from pygments import highlight as _pyg_highlight
+    from pygments.lexers import get_lexer_by_name as _pyg_lexer
+    from pygments.formatters import HtmlFormatter as _PygFormatter
+    HAVE_PYGMENTS = True
+except Exception as e:
+    dbg("text/module-level: pygments missing (%s) - code blocks "
+        "stay plain" % e)
+
+# Built once per process. The "gfm-like" preset needs linkify-it-py;
+# without it the commonmark preset plus the built-in table and
+# strikethrough rules cover the same ground minus link detection.
+_MDIT = None
+if HAVE_MDIT:
+    try:
+        if HAVE_LINKIFY:
+            _MDIT = MarkdownIt("gfm-like")
+        else:
+            _MDIT = MarkdownIt("commonmark")
+            _MDIT.enable(["table", "strikethrough"])
+        _MDIT.use(front_matter_plugin)
+        _MDIT.use(footnote_plugin)
+        _MDIT.use(dollarmath_plugin)
+        if HAVE_DEFLIST:
+            _MDIT.use(deflist_plugin)
+    except Exception as e:
+        dbg("text/module-level: markdown-it init failed (%s) - "
+            "legacy Markdown parser stays" % e)
+        _MDIT = None
+
 # 0.9.2 (audit "buffer overflow/OOM"): caps against decompression
 # and decoding bombs – crafted files must never blow up Nemo.
 # The .eml caps are GONE (user request: a big mail stays big) –
@@ -121,7 +204,7 @@ def _md_inline(t):
 
 
 # → REF TXT-DOC-3
-def _md_heading(depth, text):
+def _md_heading_markup(depth, markup):
     if depth == 1:
         tag = ("<span size='x-large' weight='bold' "
                "underline='single'>", "</span>")
@@ -130,7 +213,11 @@ def _md_heading(depth, text):
                "underline='single'>", "</span>")
     else:
         tag = "<span weight='bold'>", "</span>"
-    return tag[0] + _md_inline(_pango_escape(text)) + tag[1]
+    return tag[0] + markup + tag[1]
+
+
+def _md_heading(depth, text):
+    return _md_heading_markup(depth, _md_inline(_pango_escape(text)))
 
 
 def _md_hr():
@@ -312,6 +399,425 @@ def _md_table(lines, i):
     return rows, j
 
 
+# → REF TXT-DOC-102
+def _mdit_tree(tokens):
+    # Flat token stream -> node tree: {"open": tok, "children":
+    # [...]} for containers, {"tok": tok} for atoms.
+    root = []
+    stack = [root]
+    for tok in tokens:
+        if tok.nesting == 1:
+            node = {"open": tok, "children": []}
+            stack[-1].append(node)
+            stack.append(node["children"])
+        elif tok.nesting == -1:
+            if len(stack) > 1:
+                stack.pop()
+        else:
+            stack[-1].append({"tok": tok})
+    return root
+
+
+# → REF TXT-DOC-103
+def _mdit_text(t):
+    # Obsidian dialect on plain text runs: wikilinks, embeds,
+    # ==highlight== and %%comments%%. Code spans arrive as their
+    # own token type and are never touched.
+    t = _pango_escape(t)
+    t = re.sub(r"!\[\[([^\]|]+)(?:\|([^\]]*))?\]\]",
+               lambda m: "<span size='small'>[Embed: %s]</span>"
+               % (m.group(2) or m.group(1)), t)
+    t = re.sub(r"(?!!)\[\[([^\]|]+)(?:\|([^\]]*))?\]\]",
+               lambda m: ("%s <span size='small' foreground='grey'>%s</span>"
+                          % (m.group(2), m.group(1))) if m.group(2)
+               else m.group(1), t)
+    t = re.sub(r"==([^=\n]+)==",
+               r"<span background='yellow'>\1</span>", t)
+    t = re.sub(r"%%(.+?)%%", "", t)
+    # Extended dialect: subscript/superscript (H~2~O, X^2^) –
+    # double tildes/carets are strikethrough territory and never
+    # reach this function as text (1.12.1).
+    t = re.sub(r"(?<!~)~([^~\n]+)~(?!~)", r"<sub>\1</sub>", t)
+    t = re.sub(r"(?<!\^)\^([^\^\n]+)\^(?!\^)", r"<sup>\1</sup>", t)
+    return t
+
+
+# → REF TXT-DOC-104
+def _mdit_inline(children):
+    # Inline token children -> Pango markup, same look as the
+    # legacy parser: link targets in small grey after the text,
+    # images as "[Image: alt]" placeholders.
+    out = []
+    links = []
+    for tok in children:
+        t = tok.type
+        if t == "text":
+            out.append(_mdit_text(tok.content))
+        elif t == "code_inline":
+            out.append("<tt>%s</tt>" % _pango_escape(tok.content))
+        elif t == "strong_open":
+            out.append("<b>")
+        elif t == "strong_close":
+            out.append("</b>")
+        elif t == "em_open":
+            out.append("<i>")
+        elif t == "em_close":
+            out.append("</i>")
+        elif t == "s_open":
+            out.append("<s>")
+        elif t == "s_close":
+            out.append("</s>")
+        elif t == "link_open":
+            href = ""
+            try:
+                href = str(tok.attrs.get("href") or "")
+            except Exception:
+                pass
+            links.append(href)
+        elif t == "link_close":
+            if links:
+                href = links.pop()
+                if href:
+                    out.append(" <span size='small' foreground='grey'>%s</span>"
+                               % _pango_escape(href))
+        elif t == "image":
+            if tok.children:
+                alt = _mdit_inline(tok.children)
+            else:
+                alt = _pango_escape(tok.content or "")
+            out.append("<span size='small'>[Image: %s]</span>" % alt)
+        elif t in ("softbreak", "hardbreak"):
+            out.append("\n")
+        elif t == "math_inline":
+            out.append("<tt>%s</tt>" % _pango_escape(tok.content.strip()))
+        elif t == "footnote_ref":
+            n = 1
+            try:
+                n = int(tok.meta.get("id", 0)) + 1
+            except Exception:
+                pass
+            out.append("[%d]" % n)
+        elif t == "html_inline":
+            m = re.fullmatch(r"<kbd>(.*?)</kbd>", tok.content.strip())
+            if m:
+                out.append("<tt>%s</tt>" % _pango_escape(m.group(1)))
+            elif re.fullmatch(r"<br\s*/?>", tok.content.strip()):
+                out.append("\n")
+            else:
+                out.append(_pango_escape(re.sub(r"<[^>]*>", "",
+                                                tok.content)))
+        elif t == "footnote_anchor":
+            # Backref arrow of a footnote definition – noise in the
+            # text preview; the "[n]" label comes from the block
+            # renderer (1.12.1).
+            pass
+        else:
+            # Unknown token shape: render children or content, so
+            # plugin output degrades instead of vanishing.
+            if tok.children:
+                out.append(_mdit_inline(tok.children))
+            elif tok.content:
+                out.append(_pango_escape(tok.content))
+    return "".join(out)
+
+
+# → REF TXT-DOC-105
+def _mdit_strip_task(children):
+    # GFM task list: "[ ] "/"[x] " at the start of the item's
+    # first paragraph -> checkbox symbol, done items struck
+    # through. Returns None when the item is no task.
+    for node in children:
+        if "open" in node:
+            if node["open"].type != "paragraph_open":
+                return None
+            if not node["children"]:
+                return None
+            inline = node["children"][0].get("tok")
+            if inline is None:
+                return None
+            m = re.match(r"^\[([ xX])\]\s+", inline.content)
+            if not m:
+                return None
+            done = m.group(1).lower() == "x"
+            inline.content = inline.content[m.end():]
+            if inline.children and inline.children[0].type == "text":
+                c0 = inline.children[0]
+                m2 = re.match(r"^\[([ xX])\]\s+", c0.content)
+                if m2:
+                    c0.content = c0.content[m2.end():]
+            return done
+        return None
+    return None
+
+
+# → REF TXT-DOC-106
+def _mdit_table_lines(node):
+    # Rebuild raw GFM table lines from the tokens and hand them to
+    # the legacy ASCII table renderer (_md_table) - the column
+    # budget, cell wrapping and alignment logic stay unchanged.
+    head = None
+    styles = []
+    rows = []
+    for sec in node["children"]:
+        for tr in sec["children"]:
+            cells = []
+            aligns = []
+            for cell in tr["children"]:
+                st = ""
+                op = cell.get("open")
+                if op is not None and op.attrs:
+                    st = str(op.attrs.get("style") or "")
+                aligns.append(st)
+                inline = (cell["children"][0].get("tok")
+                          if cell["children"] else None)
+                raw = inline.content if inline is not None else ""
+                cells.append(raw.replace("|", "\\|"))
+            if head is None:
+                head = cells
+                styles = aligns
+            else:
+                rows.append(cells)
+    if head is None:
+        return None
+    sep = []
+    for k in range(len(head)):
+        st = styles[k] if k < len(styles) else ""
+        if "center" in st:
+            sep.append(":---:")
+        elif "right" in st:
+            sep.append("---:")
+        else:
+            sep.append("---")
+    lines = ["| " + " | ".join(head) + " |",
+             "| " + " | ".join(sep) + " |"]
+    for r in rows:
+        lines.append("| " + " | ".join(r) + " |")
+    return lines
+
+
+# → REF TXT-DOC-107
+def _md_gap(out):
+    if out and out[-1] != "":
+        out.append("")
+
+
+def _mdit_para_empty(node):
+    if "open" not in node or node["open"].type != "paragraph_open":
+        return False
+    ch = node["children"]
+    return (not ch or ch[0].get("tok") is None
+            or not ch[0]["tok"].content.strip())
+
+
+def _mdit_footnote_id(children):
+    # Definition paragraphs end with a footnote_anchor token – its
+    # id becomes the "[n]" label of the definition line (1.12.1).
+    for tok in children or []:
+        if tok.type == "footnote_anchor":
+            try:
+                return int(tok.meta.get("id", 0)) + 1
+            except Exception:
+                return None
+    return None
+
+
+def _mdit_blocks(nodes, out, lvl=0, quote=0, tight=False):
+    # Block token tree -> Pango lines. tight=True (list items)
+    # suppresses the blank line between blocks; quote>0 indents
+    # and italicizes the lines like the legacy quote rendering.
+    for node in nodes:
+        seg = []
+        if "tok" in node:
+            tok = node["tok"]
+            t = tok.type
+            if t in ("fence", "code_block", "math_block"):
+                if not tight:
+                    _md_gap(seg)
+                lines = tok.content.replace("\t", "    ").split("\n")
+                if lines and lines[-1] == "":
+                    lines.pop()
+                for ln in lines:
+                    seg.append("<tt>%s</tt>" % _pango_escape(ln))
+            elif t == "hr":
+                if not tight:
+                    _md_gap(seg)
+                seg.append(_md_hr())
+            elif t == "front_matter":
+                if not tight:
+                    _md_gap(seg)
+                for ln in tok.content.rstrip("\n").split("\n"):
+                    seg.append("<tt><span foreground='grey'>%s</span></tt>"
+                               % _pango_escape(ln))
+            elif t == "html_block":
+                # Raw HTML blocks (e.g. <details>): the summary line
+                # renders bold, other tags are stripped (1.12.1).
+                if not tight:
+                    _md_gap(seg)
+                content = tok.content or ""
+                m = re.search(r"<summary>(.*?)</summary>", content,
+                              re.DOTALL)
+                if m:
+                    seg.append("<b>%s</b>" % _pango_escape(m.group(1)))
+                rest = re.sub(r"<[^>]*>", "", content).strip()
+                for ln in rest.split("\n"):
+                    if ln.strip():
+                        seg.append(_pango_escape(ln))
+            elif t == "inline":
+                if not tight:
+                    _md_gap(seg)
+                seg.append(_mdit_inline(tok.children or []))
+            else:
+                # Unknown atom: keep the raw text visible.
+                if tok.content:
+                    seg.append(_pango_escape(tok.content))
+        else:
+            op = node["open"]
+            ot = op.type
+            if ot in ("bullet_list_open", "ordered_list_open"):
+                ordered = ot == "ordered_list_open"
+                num = 1
+                if ordered and op.attrs:
+                    try:
+                        num = int(op.attrs.get("start", 1))
+                    except Exception:
+                        num = 1
+                if not tight:
+                    _md_gap(seg)
+                for item in node["children"]:
+                    done = _mdit_strip_task(item["children"])
+                    body = []
+                    _mdit_blocks(item["children"], body, lvl + 1,
+                                 quote, tight=True)
+                    if body:
+                        if done is None:
+                            if ordered:
+                                mark = "%d." % num
+                            else:
+                                mark = _MD_BULLETS[lvl % len(_MD_BULLETS)]
+                            body[0] = ("    " * lvl + mark + " "
+                                       + body[0])
+                        else:
+                            sym = "\u2611" if done else "\u2610"
+                            if done:
+                                body[0] = ("    " * lvl + sym
+                                           + " <s>" + body[0] + "</s>")
+                            else:
+                                body[0] = ("    " * lvl + sym + " "
+                                           + body[0])
+                    if ordered:
+                        num += 1
+                    seg.extend(body)
+            elif ot == "blockquote_open":
+                if not tight:
+                    _md_gap(seg)
+                kids = node["children"]
+                body = []
+                if kids and "open" in kids[0] \
+                        and kids[0]["open"].type == "paragraph_open" \
+                        and kids[0]["children"]:
+                    inline = kids[0]["children"][0].get("tok")
+                    if inline is not None:
+                        m = re.match(r"^\[!(\w+)\]\s*([^\n]*)",
+                                     inline.content)
+                        if m:
+                            # Obsidian callout: [!note] Title ->
+                            # bold marker line, rest as quote body.
+                            line = "<b>" + _pango_escape(m.group(1))
+                            if m.group(2).strip():
+                                line += ": " + _mdit_text(m.group(2).strip())
+                            body.append(line + "</b>")
+                            inline.content = inline.content[m.end():]
+                            if inline.children \
+                                    and inline.children[0].type == "text":
+                                c0 = inline.children[0]
+                                m2 = re.match(r"^\[!\w+\]\s*([^\n]*)",
+                                              c0.content)
+                                if m2:
+                                    c0.content = c0.content[m2.end():]
+                            if _mdit_para_empty(kids[0]):
+                                kids = kids[1:]
+                _mdit_blocks(kids, body, lvl, quote + 1, tight=tight)
+                for ln in body:
+                    if ln == "":
+                        seg.append("")
+                    else:
+                        seg.append("    " * quote + "<i>%s</i>" % ln)
+            elif ot == "heading_open":
+                if not tight:
+                    _md_gap(seg)
+                depth = 6
+                try:
+                    depth = int(op.tag[-1])
+                except Exception:
+                    pass
+                inline = (node["children"][0].get("tok")
+                          if node["children"] else None)
+                markup = (_mdit_inline(inline.children or [])
+                          if inline is not None else "")
+                seg.append(_md_heading_markup(depth, markup))
+            elif ot == "paragraph_open":
+                inline = (node["children"][0].get("tok")
+                          if node["children"] else None)
+                if inline is not None:
+                    if not tight:
+                        _md_gap(seg)
+                    line = _mdit_inline(inline.children or [])
+                    fid = _mdit_footnote_id(inline.children)
+                    if fid is not None:
+                        line = "[%d] %s" % (fid, line)
+                    seg.append(line)
+            elif ot == "table_open":
+                if not tight:
+                    _md_gap(seg)
+                lines = _mdit_table_lines(node)
+                if lines is not None:
+                    tbl = _md_table(lines, 0)
+                    if tbl is not None:
+                        seg.extend(tbl[0])
+            elif ot in ("deflist_open", "dl_open"):
+                # Definitions list (1.12.1): the term renders bold,
+                # the description indented; unknown token shapes
+                # degrade to indented blocks.
+                if not tight:
+                    _md_gap(seg)
+                for item in node["children"]:
+                    for part in item["children"]:
+                        pt = part["open"].type if "open" in part else ""
+                        inline = (part["children"][0].get("tok")
+                                  if part["children"] else None)
+                        if inline is not None and (
+                                pt in ("dt_open", "deflist_title_open")
+                                or "title" in pt):
+                            seg.append("<b>%s</b>" % _mdit_inline(
+                                inline.children or []))
+                        else:
+                            body = []
+                            _mdit_blocks(part["children"], body,
+                                         lvl + 1, quote, tight=True)
+                            for ln in body:
+                                if ln == "":
+                                    seg.append("")
+                                else:
+                                    seg.append("    " + ln)
+            else:
+                # Unknown container (e.g. the footnote block):
+                # render the children like plain blocks.
+                if not tight:
+                    _md_gap(seg)
+                _mdit_blocks(node["children"], seg, lvl, quote,
+                             tight=tight)
+        out.extend(seg)
+    return out
+
+
+# → REF TXT-DOC-108
+def _markdown_mdit_to_pango(text):
+    tree = _mdit_tree(_MDIT.parse(text))
+    out = []
+    _mdit_blocks(tree, out)
+    return "\n".join(out)
+
+
 # → REF TXT-DOC-10
 def _markdown_to_pango(text):
     lines = text.split("\n")
@@ -426,6 +932,317 @@ def _markdown_to_pango(text):
         out.append(_md_inline(_pango_escape(line)))
         i += 1
     return "\n".join(out)
+
+
+# --- F83: HTML preview via WebKit2 (→ REF TXT-DOC-110) ---
+
+
+# → REF TXT-DOC-110
+def _md_html_render_front_matter(self, tokens, idx, options, env):
+    # The front matter shows as a small monospace block – the
+    # plugin alone renders nothing visible.
+    return ("<pre class='md-frontmatter'>%s</pre>\n"
+            % _pango_escape(tokens[idx].content))
+
+
+# → REF TXT-DOC-110
+def _md_html_render_math_inline(self, tokens, idx, options, env):
+    # dollarmath ships no HTML render rules – without these the
+    # built-in renderer would die on the token type.
+    return "<code>%s</code>" % _pango_escape(
+        tokens[idx].content.strip())
+
+
+# → REF TXT-DOC-110
+def _md_html_render_math_block(self, tokens, idx, options, env):
+    return ("<pre><code>%s</code></pre>\n"
+            % _pango_escape(tokens[idx].content.strip()))
+
+
+# → REF TXT-DOC-110
+_MD_HTML_CODE_RE = re.compile(
+    r"(<pre[\s\S]*?</pre>|<code[\s\S]*?</code>)")
+_MDIT_CALLOUT_RE = re.compile(r"\[!(\w+)\]\s*")
+_MD_HTML_FENCE_RE = re.compile(
+    r"<pre><code class=\"language-([\w#+.-]+)\">([\s\S]*?)"
+    r"</code></pre>")
+_MD_EMBED_IMG_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp",
+                      ".svg", ".bmp", ".avif")
+
+
+# → REF TXT-DOC-110
+def _md_html_file_uri(path):
+    try:
+        return GLib.filename_to_uri(path)
+    except Exception:
+        return None
+
+
+# → REF TXT-DOC-110
+def _md_html_wikilink(m):
+    target = m.group(1).strip()
+    label = m.group(2)
+    if label is None:
+        label = target
+    return ("<span class='md-wikilink' title='%s'>%s</span>"
+            % (target.replace("'", ""), label))
+
+
+# → REF TXT-DOC-110
+def _md_html_extras(markup, base_dir=None):
+    # Obsidian dialect and Pandoc sub/sup on the RENDERED html –
+    # the code-split keeps <pre>/<code> segments untouched.
+    parts = _MD_HTML_CODE_RE.split(markup)
+
+    def _embed(m):
+        target = m.group(1).strip()
+        if base_dir:
+            full = os.path.join(base_dir, target)
+            if (target.lower().endswith(_MD_EMBED_IMG_EXTS)
+                    and os.path.exists(full)):
+                uri = _md_html_file_uri(full)
+                if uri:
+                    return ("<img src='%s' alt='%s'>"
+                            % (uri, target.replace("'", "")))
+        return "<span class='md-embed'>%s</span>" % target
+
+    def _local_img(m):
+        src = m.group(1)
+        if "://" in src or src.startswith(("data:", "#", "/")):
+            return m.group(0)
+        if not base_dir:
+            return m.group(0)
+        full = os.path.join(base_dir, src)
+        if not os.path.exists(full):
+            return m.group(0)
+        uri = _md_html_file_uri(full)
+        if not uri:
+            return m.group(0)
+        return "<img src=\"%s\"" % uri
+
+    for i in range(0, len(parts), 2):
+        seg = parts[i]
+        seg = re.sub(r"!\[\[([^\]|]+)\]\]", _embed, seg)
+        seg = re.sub(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]",
+                     _md_html_wikilink, seg)
+        if base_dir:
+            seg = re.sub(r"<img src=\"([^\"]+)\"", _local_img, seg)
+        seg = re.sub(r"==([^=\n]+)==", r"<mark>\1</mark>", seg)
+        seg = re.sub(r"%%[\s\S]*?%%", "", seg)
+        seg = re.sub(r"(?<!~)~([^~\n]+)~(?!~)", r"<sub>\1</sub>", seg)
+        seg = re.sub(r"(?<!\^)\^([^\^\n]+)\^(?!\^)",
+                     r"<sup>\1</sup>", seg)
+        parts[i] = seg
+    return "".join(parts)
+
+
+# → REF TXT-DOC-110
+def _md_html_callouts(tokens):
+    # GitHub/Obsidian alerts: a blockquote whose first OWN paragraph
+    # starts with [!type] gets a class – the title comes from the
+    # CSS ::before rule (no extra tokens needed).
+    for i, tok in enumerate(tokens):
+        if tok.type != "blockquote_open":
+            continue
+        depth = 0
+        for j in range(i + 1, len(tokens)):
+            t = tokens[j]
+            if t.type == "blockquote_open":
+                depth += 1
+            elif t.type == "blockquote_close":
+                if depth == 0:
+                    break
+                depth -= 1
+            elif t.type == "inline":
+                if depth:
+                    continue
+                m = _MDIT_CALLOUT_RE.match(t.content or "")
+                if m and m.group(1).lower() in (
+                        "note", "tip", "important", "warning",
+                        "caution"):
+                    tokens[i].attrSet(
+                        "class",
+                        "md-callout md-callout-"
+                        + m.group(1).lower())
+                    if t.children:
+                        c0 = t.children[0]
+                        if c0.type == "text":
+                            c0.content = _MDIT_CALLOUT_RE.sub(
+                                "", c0.content, count=1).lstrip()
+                        if (len(t.children) > 1
+                                and t.children[0].content == ""
+                                and t.children[1].type == "softbreak"):
+                            del t.children[1]
+                break
+    return tokens
+
+
+# → REF TXT-DOC-110
+def _md_html_highlight(body, dark):
+    # Fenced code with a language gets Pygments colors (inline
+    # styles, no external css); unknown languages stay as they are.
+    if not HAVE_PYGMENTS:
+        return body
+
+    def _sub(m):
+        code = html.unescape(m.group(2))
+        try:
+            lexer = _pyg_lexer(m.group(1), stripall=False)
+            fmt = _PygFormatter(noclasses=True,
+                                style="monokai" if dark
+                                else "default")
+            return _pyg_highlight(code, lexer, fmt)
+        except Exception as e:
+            dbg("text/_md_html_highlight: suppressed: %s" % e)
+            return m.group(0)
+
+    return _MD_HTML_FENCE_RE.sub(_sub, body)
+
+
+# → REF TXT-DOC-110
+_MD_HTML_CSS = (
+    "body{margin:12px;line-height:1.45;}"
+    "h1,h2{border-bottom:1px solid %(border)s;padding-bottom:3px;}"
+    "a{color:%(link)s;}"
+    "code,pre,kbd{font-family:monospace;}"
+    "code{background:%(codebg)s;border-radius:3px;padding:1px 4px;}"
+    "pre{background:%(codebg)s;border-radius:6px;padding:8px;"
+    "overflow-x:auto;}"
+    "pre code{background:none;padding:0;}"
+    "kbd{border:1px solid %(border)s;border-radius:3px;"
+    "padding:0 4px;background:%(codebg)s;}"
+    "blockquote{border-left:3px solid %(border)s;margin-left:0;"
+    "margin-right:0;padding-left:10px;}"
+    "table{border-collapse:collapse;}"
+    "th,td{border:1px solid %(border)s;padding:4px 10px;}"
+    "th{background:%(codebg)s;}"
+    "li.task-list-item{list-style:none;}"
+    "summary{font-weight:600;cursor:pointer;}"
+    "mark{background:%(mark)s;}"
+    ".md-frontmatter{font-size:0.85em;}"
+    ".md-wikilink{color:%(link)s;}"
+    ".md-embed{font-family:monospace;font-size:0.85em;"
+    "background:%(codebg)s;border-radius:3px;padding:1px 4px;}"
+    ".md-callout{border-left-width:4px;}"
+    ".md-callout::before{display:block;font-weight:600;"
+    "margin-bottom:2px;}"
+    ".md-callout-note{border-left-color:#4493f8;}"
+    ".md-callout-note::before{content:'NOTE';color:#4493f8;}"
+    ".md-callout-tip{border-left-color:#3fb950;}"
+    ".md-callout-tip::before{content:'TIP';color:#3fb950;}"
+    ".md-callout-important{border-left-color:#ab7df8;}"
+    ".md-callout-important::before{content:'IMPORTANT';"
+    "color:#ab7df8;}"
+    ".md-callout-warning{border-left-color:#d29922;}"
+    ".md-callout-warning::before{content:'WARNING';"
+    "color:#d29922;}"
+    ".md-callout-caution{border-left-color:#f85149;}"
+    ".md-callout-caution::before{content:'CAUTION';"
+    "color:#f85149;}"
+)
+
+
+# → REF TXT-DOC-110
+def _md_html_color(c):
+    # Gdk.RGBA to #rrggbb for the css body rule.
+    return "#%02x%02x%02x" % (int(round(c.red * 255)),
+                              int(round(c.green * 255)),
+                              int(round(c.blue * 255)))
+
+
+# → REF TXT-DOC-110
+def _md_html_shell(body, bg, fg, dark, size_px):
+    fgc = "%d,%d,%d" % (int(round(fg.red * 255)),
+                        int(round(fg.green * 255)),
+                        int(round(fg.blue * 255)))
+    css = _MD_HTML_CSS % {
+        "border": "rgba(%s,0.35)" % fgc,
+        "codebg": "rgba(%s,0.07)" % fgc,
+        "mark": "rgba(255,210,0,0.45)" if dark
+                else "rgba(255,220,0,0.6)",
+        "link": "#6ea8fe" if dark else "#0645ad",
+    }
+    css += "body{background:%s;color:%s;}" % (_md_html_color(bg),
+                                              _md_html_color(fg))
+    if size_px:
+        css += "body{font-size:%dpx;}" % size_px
+    return ("<!DOCTYPE html><html><head>"
+            "<meta charset='utf-8'>"
+            "<style>%s</style></head><body>%s</body></html>"
+            % (css, body))
+
+
+# → REF TXT-DOC-110
+def _markdown_html(text, base_dir=None, bg=None, fg=None, dark=False,
+                   size_px=0):
+    # F83: markdown-it-py renders the document to HTML, the Obsidian
+    # dialect, local images, code colors and the theme land on top –
+    # WebKit only displays the result.
+    if _MDIT_HTML is None:
+        raise RuntimeError("markdown-it-py missing")
+    env = {}
+    tokens = _MDIT_HTML.parse(text)
+    _md_html_callouts(tokens)
+    body = _MDIT_HTML.renderer.render(tokens, _MDIT_HTML.options,
+                                      env)
+    body = _md_html_extras(body, base_dir)
+    body = _md_html_highlight(body, dark)
+    return _md_html_shell(body, bg, fg, dark, size_px)
+
+
+# F83: a SECOND engine for the HTML preview – html=True passes the
+# raw HTML of the document through (kbd, br, details), tasklists
+# renders the checkboxes. The Pango engine above stays untouched.
+_MDIT_HTML = None
+if HAVE_MDIT:
+    tasklists_plugin = None
+    try:
+        from mdit_py_plugins.tasklists import tasklists_plugin
+    except Exception as e:
+        dbg("text/module-level: tasklists missing (%s)" % e)
+    try:
+        if HAVE_LINKIFY:
+            _MDIT_HTML = MarkdownIt("gfm-like", {"html": True})
+        else:
+            _MDIT_HTML = MarkdownIt("commonmark", {"html": True})
+            _MDIT_HTML.enable(["table", "strikethrough"])
+        _MDIT_HTML.use(front_matter_plugin)
+        _MDIT_HTML.use(footnote_plugin)
+        _MDIT_HTML.use(dollarmath_plugin)
+        if HAVE_DEFLIST:
+            _MDIT_HTML.use(deflist_plugin)
+        if tasklists_plugin is not None:
+            _MDIT_HTML.use(tasklists_plugin)
+        _MDIT_HTML.add_render_rule("front_matter",
+                                   _md_html_render_front_matter)
+        _MDIT_HTML.add_render_rule("math_inline",
+                                   _md_html_render_math_inline)
+        _MDIT_HTML.add_render_rule("math_block",
+                                   _md_html_render_math_block)
+    except Exception as e:
+        dbg("text/module-level: markdown-it HTML init failed (%s) "
+            "- Pango renderer stays" % e)
+        _MDIT_HTML = None
+
+
+# → REF TXT-DOC-109
+def _markdown_markup(owner, text):
+    # F67: markdown-it-py engine with the legacy line parser as
+    # the fallback - on missing packages, the "legacy" config
+    # switch (previewer/markdown_engine) or any render error.
+    engine = "markdown-it"
+    try:
+        engine = getattr(owner, "_conf_markdown_engine",
+                         "markdown-it") or "markdown-it"
+    except Exception:
+        pass
+    if engine != "legacy" and _MDIT is not None:
+        try:
+            return _markdown_mdit_to_pango(text)
+        except Exception as e:
+            dbg("text/markdown-it: render failed (%s) - legacy "
+                "parser" % e)
+    return _markdown_to_pango(text)
 
 
 # → REF TXT-DOC-11
@@ -2054,7 +2871,23 @@ class TextRendererMixin:
         except Exception as e:
             self._hint(_("Could not read the file: %s") % e)
             return
-        markup = _markdown_to_pango(text)
+        # F83: WebKit renders a real HTML document when available –
+        # the Pango adapter stays for missing WebKit, the "legacy"
+        # engine switch and any HTML failure (graceful degradation).
+        engine = "markdown-it"
+        try:
+            engine = getattr(self, "_conf_markdown_engine",
+                             "markdown-it") or "markdown-it"
+        except Exception:
+            pass
+        if engine != "legacy" and HAVE_WEBKIT and _MDIT_HTML is not None:
+            try:
+                self._render_markdown_html(path, text, truncated)
+                return
+            except Exception as e:
+                dbg("text/_render_markdown: HTML preview failed "
+                    "(%s) - Pango adapter" % e)
+        markup = _markdown_markup(self, text)
         valid = True
         try:
             # Validate markup BEFORE inserting: GTK silently bails
@@ -2067,6 +2900,116 @@ class TextRendererMixin:
         self._text_view(text, font=None, markup=(markup if valid else None))
         if truncated:
             pack_hint(self._content, _("Preview trimmed (long file)."))
+
+    # → REF TXT-DOC-110
+    def _render_markdown_html(self, path, text, truncated):
+        # F83: real HTML preview – the webview scrolls itself, links
+        # stay DEAD (F84: decide-policy blocks every navigation
+        # away from the own document), the theme colors come from
+        # this widget's style context.
+        ctx = self.get_style_context()
+        bg = ctx.get_background_color(Gtk.StateFlags.NORMAL)
+        fg = ctx.get_color(Gtk.StateFlags.NORMAL)
+        dark = (0.299 * bg.red + 0.587 * bg.green
+                + 0.114 * bg.blue) < 0.5
+        size_px = 0
+        try:
+            fd = effective_text_font("9")
+            # B12: only an EXPLICIT configured size (absolute) may
+            # override the theme font in the HTML preview.
+            if fd is not None and fd.get_size_is_absolute():
+                size = fd.get_size()
+                if size > 0:
+                    size_px = int(round(float(size) / Pango.SCALE))
+        except Exception as e:
+            dbg("text/_render_markdown_html: font size suppressed:"
+                " %s" % e)
+        base_dir = os.path.dirname(path) or "."
+        doc = _markdown_html(text, base_dir=base_dir, bg=bg, fg=fg,
+                             dark=dark, size_px=size_px)
+        view = WebKit2.WebView()
+        # 1.13.1 (B15): set_property instead of the setter methods –
+        # the GIR names differ between WebKit builds (deploy
+        # feedback: 'Settings' object has no attribute
+        # 'set_javascript_enabled').
+        try:
+            view.get_settings().set_property("enable-javascript",
+                                             False)
+        except Exception as e:
+            dbg("text/_render_markdown_html: settings suppressed:"
+                " %s" % e)
+        try:
+            view.get_settings().set_property("enable-plugins", False)
+        except Exception as e:
+            dbg("text/_render_markdown_html: plugins property "
+                "gone: %s" % e)
+        view.connect("decide-policy", self._md_webview_policy)
+        view.set_hexpand(True)
+        view.set_vexpand(True)
+        self._content.pack_start(view, True, True, 0)
+        base_uri = None
+        try:
+            base_uri = GLib.filename_to_uri(base_dir) + "/"
+        except Exception:
+            base_uri = None
+        # B16/F84: the policy handler must recognize the OWN
+        # document (programmatic load + same-document anchors)
+        # against this base – everything else is blocked.
+        self._md_base_uri = base_uri
+        view.load_html(doc, base_uri)
+        if truncated:
+            pack_hint(self._content, _("Preview trimmed (long file)."))
+        dbg("text/_render_markdown_html: %d bytes html%s"
+            % (len(doc), " (trimmed)" if truncated else ""))
+
+    # → REF TXT-DOC-110
+    def _md_webview_policy(self, view, decision, decision_type):
+        # F83/B16/F84: the preview never navigates away and never
+        # opens anything outside itself (F84 security, all file
+        # types): links stay visible but DEAD. Only the OWN document
+        # proceeds – the programmatic load of the preview html
+        # (WebKit fires a navigation decision for load_html with a
+        # base_uri, its URI IS the base) and same-document anchor
+        # jumps. Everything else – link clicks included, gesture or
+        # not (e.g. a meta refresh in raw HTML) – is ignored: no
+        # browser, no xdg-open. B15 ignored EVERYTHING, which
+        # cancelled the own load (blank preview).
+        try:
+            if decision_type in (
+                    WebKit2.PolicyDecisionType.NAVIGATION_ACTION,
+                    WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION):
+                uri = None
+                gesture = False
+                try:
+                    act = decision.get_navigation_action()
+                    uri = act.get_request().get_uri()
+                    gesture = act.is_user_gesture()
+                except Exception as e:
+                    dbg("text/_md_webview_policy: action "
+                        "suppressed: %s" % e)
+                base = getattr(self, "_md_base_uri", None) or ""
+                own = (bool(base) and uri is not None
+                       and uri.split("#", 1)[0].rstrip("/")
+                       == base.rstrip("/"))
+                if own or (not base and not gesture):
+                    try:
+                        decision.use()
+                    except Exception as e:
+                        dbg("text/_md_webview_policy: use "
+                            "suppressed: %s" % e)
+                else:
+                    if uri:
+                        dbg("text/_md_webview_policy: blocked:"
+                            " %s" % uri)
+                    try:
+                        decision.ignore()
+                    except Exception as e:
+                        dbg("text/_md_webview_policy: ignore "
+                            "suppressed: %s" % e)
+                return True
+        except Exception as e:
+            dbg("text/_md_webview_policy: suppressed: %s" % e)
+        return False
 
     # → REF TXT-DOC-68
     def _render_eml(self, path):
@@ -2292,7 +3235,7 @@ class TextRendererMixin:
             except Exception as e:
                 dbg("text/_print_text_document: read failed: %s" % e)
                 return
-            markup = _markdown_to_pango(text)
+            markup = _markdown_markup(self, text)
             try:
                 # Same validation as the preview: invalid markup
                 # prints as plain text instead of nothing.
@@ -2965,7 +3908,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.10.1"
+PREVIEWER_VERSION = "1.14.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "

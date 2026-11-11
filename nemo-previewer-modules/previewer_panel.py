@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.10.1
+previewer_panel.py – Version 1.14.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -88,6 +88,15 @@ _SNIFF_BINARY_MIMES = {
     "application/x-7z-compressed", "application/x-rar",
     "application/x-executable", "application/x-sharedlib",
     "application/x-ms-dos-executable",
+}
+
+# B13: files without a matching ending can still name their
+# language in the shebang line (#!/bin/bash without .sh).
+_SHEBANG_LANGS = {
+    "sh": "sh", "bash": "sh", "dash": "sh", "ash": "sh",
+    "python": "python3", "python3": "python3", "python2": "python",
+    "perl": "perl", "ruby": "ruby", "lua": "lua", "awk": "awk",
+    "tclsh": "tcl", "node": "js", "php": "php", "Rscript": "r",
 }
 
 # B11: SQLite dispatch gate – the .db ending alone proves nothing.
@@ -262,6 +271,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F44: syntax highlighting as a SETTING – "Text files"
         # section, default on; applies live via _last_textish.
         self._conf_text_syntax = True
+        # F67: Markdown engine – "markdown-it" (CommonMark/GFM via
+        # markdown-it-py, default) or "legacy" (built-in line
+        # parser); missing packages keep the legacy parser anyway.
+        self._conf_markdown_engine = "markdown-it"
         # F25: extra line spacing in text previews – default 0 (the
         # normal look), configurable in the settings, applied live.
         self._conf_text_line_spacing = 0
@@ -1036,9 +1049,36 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
     # → REF PAN-DOC-18
     def _source_language(self, path):
         try:
-            return GtkSource.LanguageManager.get_default().guess_language(
+            lang = GtkSource.LanguageManager.get_default().guess_language(
                 os.path.basename(path), None)
-        except Exception:
+            if lang is not None:
+                return lang
+        except Exception as e:
+            dbg("panel/_source_language: suppressed: %s" % e)
+        # B13: no ending hit - a shebang still names the language.
+        # Read ONE line (256-byte cap), resolve env indirection,
+        # map the interpreter basename to a GtkSource language id.
+        try:
+            with open(path, "rb") as f:
+                head = f.readline(256)
+            if not head.startswith(b"#!"):
+                return None
+            words = head[2:].decode("utf-8", "replace").strip().split()
+            if words and os.path.basename(words[0]) == "env":
+                words = words[1:]
+            lid = _SHEBANG_LANGS.get(
+                os.path.basename(words[0]) if words else "")
+            if lid is None:
+                return None
+            mgr = GtkSource.LanguageManager.get_default()
+            lang = mgr.get_language(lid)
+            if lang is None and lid == "python3":
+                lang = mgr.get_language("python")
+            if lang is None and lid == "js":
+                lang = mgr.get_language("javascript")
+            return lang
+        except Exception as e:
+            dbg("panel/_source_language: suppressed: %s" % e)
             return None
 
     # → REF PAN-DOC-19
@@ -1691,16 +1731,35 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     def _mirror_aux_trigger(self, btn):
         # Tint the button whose view is open; clear the previous
-        # one so only ever one button carries the class.
+        # one so only ever one button carries the class.  F82:
+        # "more" buttons flip their label with the column state.
         old = self._aux_trigger
         if old is not None and old is not btn:
             try:
                 old.get_style_context().remove_class("pvw-aux-active")
+                self._flip_more_label(old, False)
             except Exception as e:
                 dbg("panel/_mirror_aux_trigger: suppressed: %s" % e)
         self._aux_trigger = btn
         if btn is not None:
             btn.get_style_context().add_class("pvw-aux-active")
+            self._flip_more_label(btn, True)
+
+    # → REF PAN-AUX-4
+    def _flip_more_label(self, btn, active):
+        # The media "more" buttons read "less" while their view
+        # is open; icon triggers (gear, close) have no label.
+        try:
+            cur = btn.get_label()
+            if active and cur == _("more"):
+                btn.set_label(_("less"))
+                btn.set_tooltip_text(_("Hide the second column"))
+            elif not active and cur == _("less"):
+                btn.set_label(_("more"))
+                btn.set_tooltip_text(
+                    _("Show all details in a second column"))
+        except Exception as e:
+            dbg("panel/_flip_more_label: suppressed: %s" % e)
 
     # --- Actions --------------------------------------------------------------
 
@@ -1756,6 +1815,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             try:
                 self._conf_text_syntax = kf.get_boolean(
                     "previewer", "text_syntax")
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
+            # F67: Markdown engine switch ("markdown-it"/"legacy").
+            try:
+                t = kf.get_string("previewer", "markdown_engine")
+                if t in ("markdown-it", "legacy"):
+                    self._conf_markdown_engine = t
             except Exception as e:
                 dbg("panel/_config_load: suppressed: %s" % e)
             # F25: extra line spacing in text previews (px, 0–12).
@@ -1834,6 +1900,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # F44: persist syntax highlighting.
             kf.set_boolean("previewer", "text_syntax",
                            self._conf_text_syntax)
+            # F67: persist the Markdown engine switch.
+            kf.set_string("previewer", "markdown_engine",
+                          self._conf_markdown_engine)
             # F25: persist the line spacing.
             kf.set_integer("previewer", "text_line_spacing",
                            int(self._conf_text_line_spacing))
@@ -1921,7 +1990,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.10.1"
+PREVIEWER_VERSION = "1.14.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)

@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.10.1\n"
+"Project-Id-Version: nemo-previewer 1.14.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: 2026-11-07 12:00+0000\n"
@@ -330,6 +330,9 @@ msgstr "Gruppe"
 msgid "Height"
 msgstr "Höhe"
 
+msgid "Hide the second column"
+msgstr "Zweite Spalte ausblenden"
+
 msgid "Home"
 msgstr "Privat"
 
@@ -353,6 +356,9 @@ msgstr "Sprache"
 
 msgid "Length"
 msgstr "Länge"
+
+msgid "less"
+msgstr "weniger"
 
 msgid "License"
 msgstr "Lizenz"
@@ -573,6 +579,9 @@ msgstr ""
 
 msgid "Short description"
 msgstr "Kurzbeschreibung"
+
+msgid "Show all details in a second column"
+msgstr "Alle Details in einer zweiten Spalte anzeigen"
 
 msgid "Show folder contents in the preview"
 msgstr "Ordnerinhalte in der Vorschau anzeigen"
