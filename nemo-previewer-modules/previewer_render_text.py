@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.13.1
+previewer_render_text.py – Version 1.13.2
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -2952,6 +2952,9 @@ class TextRendererMixin:
             base_uri = GLib.filename_to_uri(base_dir) + "/"
         except Exception:
             base_uri = None
+        # B16: the policy handler must recognize the programmatic
+        # load and same-document anchors against this base.
+        self._md_base_uri = base_uri
         view.load_html(doc, base_uri)
         if truncated:
             pack_hint(self._content, _("Preview trimmed (long file)."))
@@ -2960,30 +2963,46 @@ class TextRendererMixin:
 
     # → REF TXT-DOC-110
     def _md_webview_policy(self, view, decision, decision_type):
-        # F83: the preview never navigates – link clicks go to the
-        # desktop browser instead.
+        # F83/B16: the preview never navigates away – REAL link
+        # clicks (user gesture) go to the desktop browser, while the
+        # programmatic load of the preview html (WebKit fires a
+        # navigation decision for load_html with a base_uri!) and
+        # same-document anchor jumps proceed untouched. B15 ignored
+        # EVERYTHING, which cancelled the own load (blank preview)
+        # and opened the folder in a new Nemo window.
         try:
             if decision_type in (
                     WebKit2.PolicyDecisionType.NAVIGATION_ACTION,
                     WebKit2.PolicyDecisionType.NEW_WINDOW_ACTION):
-                # 1.13.1 (B15): the URI lives on the REQUEST –
-                # NavigationAction has no get_uri (deploy feedback);
-                # ignore() runs UNCONDITIONALLY, so a failed URI
-                # extraction can never let the preview navigate.
                 uri = None
+                gesture = False
                 try:
-                    uri = (decision.get_navigation_action()
-                           .get_request().get_uri())
+                    act = decision.get_navigation_action()
+                    uri = act.get_request().get_uri()
+                    gesture = act.is_user_gesture()
                 except Exception as e:
-                    dbg("text/_md_webview_policy: uri suppressed:"
-                        " %s" % e)
-                try:
-                    decision.ignore()
-                except Exception as e:
-                    dbg("text/_md_webview_policy: ignore "
+                    dbg("text/_md_webview_policy: action "
                         "suppressed: %s" % e)
-                if uri and not uri.startswith(("about:", "data:")):
-                    self._open_uri_externally(uri)
+                base = getattr(self, "_md_base_uri", None) or ""
+                same_doc = (uri is not None and base
+                            and "#" in uri
+                            and uri.split("#", 1)[0].rstrip("/")
+                            == base.rstrip("/"))
+                if gesture and not same_doc:
+                    try:
+                        decision.ignore()
+                    except Exception as e:
+                        dbg("text/_md_webview_policy: ignore "
+                            "suppressed: %s" % e)
+                    if uri and not uri.startswith(("about:",
+                                                   "data:")):
+                        self._open_uri_externally(uri)
+                else:
+                    try:
+                        decision.use()
+                    except Exception as e:
+                        dbg("text/_md_webview_policy: use "
+                            "suppressed: %s" % e)
                 return True
         except Exception as e:
             dbg("text/_md_webview_policy: suppressed: %s" % e)
@@ -3902,7 +3921,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.13.1"
+PREVIEWER_VERSION = "1.13.2"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
