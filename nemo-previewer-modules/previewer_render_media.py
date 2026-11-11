@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_media.py – Version 1.10.1
+previewer_render_media.py – Version 1.11.0
 
 Media renderers: images and SVG (EXIF-aware), audio with player
 and seek bar, video info tiles.
@@ -931,11 +931,7 @@ class MediaRendererMixin:
             # tags column with ALL EXIF details via exiftool; without
             # exiftool an install hint appears instead of the button.
             if EXIFTOOL:
-                btn = Gtk.Button(label=_("more"))
-                btn.set_halign(Gtk.Align.START)
-                btn.set_margin_top(10)
-                btn.set_margin_start(10)
-                btn.connect("clicked", self._on_exif_more)
+                btn = self._more_button(self._on_exif_more)
                 self._image_info_box.pack_start(btn, False, False, 0)
             else:
                 hint = Gtk.Label(
@@ -1345,11 +1341,7 @@ class MediaRendererMixin:
         # F61 (user wish): "more" button below the info table –
         # same pattern as the photo EXIF view (F50; F66 II column).
         if EXIFTOOL:
-            btn = Gtk.Button(label=_("more"))
-            btn.set_halign(Gtk.Align.START)
-            btn.set_margin_top(10)
-            btn.set_margin_start(10)
-            btn.connect("clicked", self._on_id3_more)
+            btn = self._more_button(self._on_id3_more)
             self._content.pack_start(btn, False, False, 0)
         else:
             hint = Gtk.Label(
@@ -1509,11 +1501,7 @@ class MediaRendererMixin:
         # F62 (user wish): "more" button below the info table –
         # same pattern as photo and audio (F50/F61).
         if EXIFTOOL:
-            btn = Gtk.Button(label=_("more"))
-            btn.set_halign(Gtk.Align.START)
-            btn.set_margin_top(10)
-            btn.set_margin_start(10)
-            btn.connect("clicked", self._on_video_more)
+            btn = self._more_button(self._on_video_more)
             self._content.pack_start(btn, False, False, 0)
         else:
             hint = Gtk.Label(
@@ -1913,8 +1901,28 @@ class MediaRendererMixin:
 
         threading.Thread(target=worker, daemon=True).start()
 
+    # → REF MED-DOC-49
+    def _more_button(self, handler):
+        # F82: one builder for the three media "more" buttons –
+        # the label mirrors the column state (open reads "less").
+        open_ = self._aux_key == "tags"
+        btn = Gtk.Button(label=_("less") if open_ else _("more"))
+        btn.set_halign(Gtk.Align.START)
+        btn.set_margin_top(10)
+        btn.set_margin_start(10)
+        btn.set_tooltip_text(
+            _("Hide the second column") if open_
+            else _("Show all details in a second column"))
+        btn.connect("clicked", handler)
+        if open_:
+            # A button rebuilt while the view is open becomes the
+            # registered trigger – the close flip must reach THIS
+            # button, not a stale one from the last open.
+            self._aux_trigger = btn
+        return btn
 
-PREVIEWER_VERSION = "1.10.1"
+
+PREVIEWER_VERSION = "1.11.0"
 dbg("previewer_render_media %s loaded (F31: image/SVG/audio/video "
     "renderer; F79: Dauerplay toggle; R9/B7 discipline and caps stay)"
     % PREVIEWER_VERSION)

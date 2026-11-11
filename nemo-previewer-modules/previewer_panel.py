@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.10.1
+previewer_panel.py – Version 1.11.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -1691,16 +1691,35 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     def _mirror_aux_trigger(self, btn):
         # Tint the button whose view is open; clear the previous
-        # one so only ever one button carries the class.
+        # one so only ever one button carries the class.  F82:
+        # "more" buttons flip their label with the column state.
         old = self._aux_trigger
         if old is not None and old is not btn:
             try:
                 old.get_style_context().remove_class("pvw-aux-active")
+                self._flip_more_label(old, False)
             except Exception as e:
                 dbg("panel/_mirror_aux_trigger: suppressed: %s" % e)
         self._aux_trigger = btn
         if btn is not None:
             btn.get_style_context().add_class("pvw-aux-active")
+            self._flip_more_label(btn, True)
+
+    # → REF PAN-AUX-4
+    def _flip_more_label(self, btn, active):
+        # The media "more" buttons read "less" while their view
+        # is open; icon triggers (gear, close) have no label.
+        try:
+            cur = btn.get_label()
+            if active and cur == _("more"):
+                btn.set_label(_("less"))
+                btn.set_tooltip_text(_("Hide the second column"))
+            elif not active and cur == _("less"):
+                btn.set_label(_("more"))
+                btn.set_tooltip_text(
+                    _("Show all details in a second column"))
+        except Exception as e:
+            dbg("panel/_flip_more_label: suppressed: %s" % e)
 
     # --- Actions --------------------------------------------------------------
 
@@ -1921,7 +1940,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.10.1"
+PREVIEWER_VERSION = "1.11.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
