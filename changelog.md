@@ -8,6 +8,13 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.15.1\] – 2026-11-11
+
+### Fixed
+
+- B17 (deploy feedback, Markdown print): the print used WebKit's default SERIF font and wrong margins with no usable page breaks. The print document now carries the GTK theme font family (read from `gtk-font-name`, sans-serif fallback — the same family the preview uses since B17), the `@page` margin rule is GONE (it stacked on top of the print dialog's own margins — the cause of the wrong spacing); sane default margins of 15 mm on all sides come from a `Gtk.PageSetup` on the print operation (changeable in the dialog), and CSS break rules keep headings with their text (`break-after: avoid`) and stop paragraphs, list items, code blocks, tables, blockquotes, images and callouts from being cut mid-block (`break-inside: avoid`, `orphans`/`widows` on paragraphs).
+- B18 (deploy feedback, WebKit HTML preview): rendered code blocks did not wrap — long lines produced a horizontal scrollbar in the preview. `pre` now uses `white-space: pre-wrap; overflow-wrap: anywhere;`, so code wraps within the pane instead of scrolling.
+
 ## \[1.15.0\] – 2026-11-11
 
 ### Added
