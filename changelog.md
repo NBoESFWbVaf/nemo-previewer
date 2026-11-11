@@ -8,6 +8,42 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.14.0\] – 2026-11-11
+
+### Changed
+
+- F84 (security, user request): Links that lead outside the preview are now DEAD links — globally for all file types. In the WebKit HTML preview (F83) the navigation policy allows ONLY the preview's own document: the programmatic `load_html` load and same-document anchor jumps proceed, EVERY other navigation is ignored — link clicks included, user gesture or not (e.g. a `meta refresh` in raw HTML). The external-opening path (`show_uri_on_window`/`xdg-open` via `_open_uri_externally`) is removed entirely; blocked navigations are logged (`blocked:` line). Links stay recognizable — theme link styling in the HTML preview, the Pango fallback keeps showing the URL as small grey text — but have no function. No other renderer ever opened links (PDF, EML and e-books render them as plain text), so the extension now has no path out of the preview at all.
+
+## \[1.13.2\] – 2026-11-11
+
+### Fixed
+
+- B16 (deploy feedback, WebKit HTML preview): WebKit fires a navigation policy decision for the programmatic `load_html` load itself (base URI = the file's folder). B15's handler ignored EVERY decision — that cancelled the preview's own load (blank preview) and handed the folder URI to the desktop opener, which opened a new Nemo window. The handler now distinguishes: only REAL link clicks (`is_user_gesture()`) are ignored and opened externally; the programmatic load and same-document anchor jumps (URI = base URI + `#fragment`) proceed via `decision.use()`.
+
+## \[1.13.1\] – 2026-11-11
+
+### Fixed
+
+- B15 (deploy feedback, WebKit HTML preview): the settings and the navigation policy used GIR method names that do not exist on all WebKit builds — `set_javascript_enabled` is now the `enable-javascript` property (plugins likewise, in its own guard), so JavaScript and plugins are really disabled. The link URI is read from the navigation action's REQUEST (`get_request().get_uri()`); `decision.ignore()` runs unconditionally, so a failed URI extraction can never let the preview navigate away. VirtualBox guests hit a known WebKit2GTK rendering bug (the page paints once, scrolling never repaints): the preview now sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` and `WEBKIT_DISABLE_COMPOSITING_MODE=1` via `setdefault` — a user-set value wins.
+
+## \[1.13.0\] – 2026-11-11
+
+### Added
+
+- F83: The Markdown preview renders as a real HTML document in a WebKit2 view (`gir1.2-webkit2-4.1`, optional): markdown-it-py produces the HTML (raw HTML like `kbd`/`br`/`details` passes through, task-list checkboxes, footnotes and definition lists as real structures), the Obsidian dialect (wikilinks, embeds, `==highlight==`, `%%comments%%`) and Pandoc sub/superscript land on the rendered markup, fenced code blocks get Pygments colors when `python3-pygments` is installed, and the CSS follows the GTK theme (background, foreground and the configured preview font size). Local images and `![[embeds]]` resolve relative to the Markdown file's folder. Links open in the default browser — the preview itself never navigates, JavaScript and plugins stay disabled. Without WebKit, with `markdown_engine = legacy` or on any rendering error the Pango text preview from F67 stays (graceful degradation); the print path keeps the Pango rendering.
+
+## \[1.12.1\] – 2026-11-11
+
+### Fixed
+
+- Markdown adapter gaps found with a comprehensive test document (F67 field test): subscript and superscript (`H~2~O`, `X^2^`) now render as smaller raised/sunken text; definitions lists (term + `: description`) render through the deflist plugin (isolated import – a missing plugin cannot kill the engine) with the term bold and the description indented; `<kbd>Strg</kbd>` renders as keys in code style and `<br>` as line break; `<details>/<summary>` HTML blocks show their summary line bold instead of raw tags; a wikilink without label (`[[Index]]`) no longer prints its target twice; footnote definitions carry their `[n]` label and the backref arrow is dropped.
+
+## \[1.12.0\] – 2026-11-11
+
+### Added
+
+- The Markdown preview now renders through markdown-it-py (F67, own branch `feature/markdown-it`): a token adapter translates the CommonMark-conform engine output into the same Pango look as before – headings, lists, quotes, code, tables (the ASCII table renderer stays), task checkboxes, footnotes, math as code, link targets in small grey. On top of CommonMark/GFM it covers Obsidian dialect features: footnotes, `$…$`/`$$…$$` math, callouts (`[!note] …`), wikilinks (`[[target|label]]`) and embeds, `==highlight==` and `%%comments%%`; link auto-detection via linkify-it-py when installed. The packages (`python3-markdown-it`, `python3-mdit-py-plugins`, `python3-linkify-it`) are optional – without them, on the new `markdown_engine = legacy` config switch, or on any render error the built-in line parser takes over (graceful degradation, nothing breaks). Front matter renders as a grey code block; Mermaid blocks stay visible as code (no webview).
+
 ## \[1.11.1\] – 2026-11-11
 
 ### Fixed

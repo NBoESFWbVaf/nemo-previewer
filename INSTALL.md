@@ -61,12 +61,18 @@ sudo apt install libimage-exiftool-perl
 # "Error: source file could not be loaded"; the components pull
 # libreoffice-core in automatically.
 sudo apt install libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw libreoffice-math
+
+# Markdown preview via markdown-it-py (CommonMark/GFM plus
+# Obsidian dialect features: footnotes, math, callouts, wikilinks,
+# highlight, link detection) — without these packages the built-in
+# fallback parser renders the preview instead
+sudo apt install python3-markdown-it python3-mdit-py-plugins python3-linkify-it
 ```
 
 **All packages at once**
 
 ```bash
-sudo apt install nemo-python python3-gi git gir1.2-poppler-0.18 python3-cairo gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-good gir1.2-rsvg-2.0 gir1.2-gtksource-4 libimage-exiftool-perl libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw libreoffice-math
+sudo apt install nemo-python python3-gi git gir1.2-poppler-0.18 python3-cairo gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-good gir1.2-rsvg-2.0 gir1.2-gtksource-4 libimage-exiftool-perl libreoffice-writer libreoffice-calc libreoffice-impress libreoffice-draw libreoffice-math python3-markdown-it python3-mdit-py-plugins python3-linkify-it
 ```
 
 
@@ -77,6 +83,8 @@ The extension itself needs **Python 3.8 or newer** – every distribution that s
 - There is **no `python-gi` package on Debian** — the Python 3 GObject bindings are called `python3-gi`. Installing `nemo-python` pulls in `python3-gi` and the Nemo GIR bindings automatically
 - Cinnamon on Debian does **not** preinstall `nemo-python`. Without it, extensions in `~/.local/share/nemo-python/extensions/` are silently ignored — the panel never appears
 - The SVG package is named `gir1.2-rsvg-2.0` on both Debian and Mint (Debian has no `gir1.2-rsvg` alias). PDF (`gir1.2-poppler-0.18`), `python3-cairo`, GStreamer, `gir1.2-gtksource-4`, `libimage-exiftool-perl` and the `libreoffice-writer/calc/impress/draw/math` component packages carry the same names on both distributions
+- The Markdown packages are `python3-markdown-it`, `python3-mdit-py-plugins` and `python3-linkify-it` on both Debian and Mint (pure Python, no compiler needed). They are optional — without them the Markdown preview falls back to the built-in parser; the engine can also be forced with `markdown_engine = legacy` in the `[previewer]` group of `~/.config/nemo-previewer/nemo-previewer.conf`
+- The **HTML rendering** of the Markdown preview additionally needs `gir1.2-webkit2-4.1` (same name on Debian and Mint; optional). Without it — or with `markdown_engine = legacy` — the preview falls back to the plain-text rendering of the Markdown packages alone. Optional and equally named: `python3-pygments` colors the fenced code blocks in the HTML preview. Links in the HTML preview open in the default browser; JavaScript and plugins stay disabled
 
 ## Install
 
@@ -101,14 +109,14 @@ nemo -q && nemo
 ```
 2. Check the log. Each module reports its version on load:
 ```text
-[previewer] previewer_util 1.11.1 loaded
-[previewer] previewer_select 1.11.1 loaded
-[previewer] previewer_render_media 1.11.1 loaded (...)
-[previewer] previewer_render_docs 1.11.1 loaded (...)
-[previewer] previewer_render_text 1.11.1 loaded (...)
-[previewer] previewer_toolbar 1.11.1 loaded (...)
-[previewer] previewer_panel 1.11.1 loaded (...)
-[previewer] previewer (entry) v1.11.1 ready
+[previewer] previewer_util 1.14.0 loaded
+[previewer] previewer_select 1.14.0 loaded
+[previewer] previewer_render_media 1.14.0 loaded (...)
+[previewer] previewer_render_docs 1.14.0 loaded (...)
+[previewer] previewer_render_text 1.14.0 loaded (...)
+[previewer] previewer_toolbar 1.14.0 loaded (...)
+[previewer] previewer_panel 1.14.0 loaded (...)
+[previewer] previewer (entry) v1.14.0 ready
 ```
 
    Eight lines with the same version number — anything else means an old file is still in one of the two folders.

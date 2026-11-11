@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.11.1
+previewer_panel.py – Version 1.14.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -271,6 +271,10 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F44: syntax highlighting as a SETTING – "Text files"
         # section, default on; applies live via _last_textish.
         self._conf_text_syntax = True
+        # F67: Markdown engine – "markdown-it" (CommonMark/GFM via
+        # markdown-it-py, default) or "legacy" (built-in line
+        # parser); missing packages keep the legacy parser anyway.
+        self._conf_markdown_engine = "markdown-it"
         # F25: extra line spacing in text previews – default 0 (the
         # normal look), configurable in the settings, applied live.
         self._conf_text_line_spacing = 0
@@ -1813,6 +1817,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     "previewer", "text_syntax")
             except Exception as e:
                 dbg("panel/_config_load: suppressed: %s" % e)
+            # F67: Markdown engine switch ("markdown-it"/"legacy").
+            try:
+                t = kf.get_string("previewer", "markdown_engine")
+                if t in ("markdown-it", "legacy"):
+                    self._conf_markdown_engine = t
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             # F25: extra line spacing in text previews (px, 0–12).
             try:
                 ls = kf.get_integer("previewer", "text_line_spacing")
@@ -1889,6 +1900,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # F44: persist syntax highlighting.
             kf.set_boolean("previewer", "text_syntax",
                            self._conf_text_syntax)
+            # F67: persist the Markdown engine switch.
+            kf.set_string("previewer", "markdown_engine",
+                          self._conf_markdown_engine)
             # F25: persist the line spacing.
             kf.set_integer("previewer", "text_line_spacing",
                            int(self._conf_text_line_spacing))
@@ -1976,7 +1990,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.11.1"
+PREVIEWER_VERSION = "1.14.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
