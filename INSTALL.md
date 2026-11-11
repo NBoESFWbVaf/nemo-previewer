@@ -90,8 +90,8 @@ git clone https://github.com/NBoESFWbVaf/nemo-previewer.git
 ```bash
 mkdir -p ~/.local/share/nemo-python/extensions/nemo-previewer-modules/po
 cp /tmp/nemo-previewer/previewer.py ~/.local/share/nemo-python/extensions/
-cp /tmp/nemo-previewer/previewer_*.py ~/.local/share/nemo-python/extensions/nemo-previewer-modules/
-cp /tmp/nemo-previewer/po/de.po ~/.local/share/nemo-python/extensions/nemo-previewer-modules/po/
+cp /tmp/nemo-previewer/nemo-previewer-modules/previewer_*.py ~/.local/share/nemo-python/extensions/nemo-previewer-modules/
+cp /tmp/nemo-previewer/nemo-previewer-modules/po/de.po ~/.local/share/nemo-python/extensions/nemo-previewer-modules/po/
 ```
 
 

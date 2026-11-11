@@ -392,6 +392,10 @@ Legende: 🔴 echter Bug · 🟡 Risiko (situationsabhängig) · ⚪ Kosmetik ·
   ✅ 1.10.0 – umgesetzt, Minor-Bump auf 1.10.0.  
   ✅ 1.10.1 – Icon-Fallback (Nutzer-Wunsch „archive-insert oder add-files-to-archive, kein farbiges Symbol, muss in Mint-Themes vorhanden sein“): \_archive\_icon\_name wählt archive-insert-symbolic / add-files-to-archive-symbolic (File-Roller-App-spezifisch, keine Spec-Standards), sonst das Standard-symbolische list-add-symbolic — has\_icon-Check matcht nur echte symbolische Namen, nie farbig.
 
+- [x] **Repo-Bereinigung: flache Modul-Kopien aus dem Repo-Root entfernt** (Nutzer-Beschluss 2026-11-10 „Wenn Du das Release prüfst … waren diese Module im Unterordner! Also bereinige.“)
+
+  Der 1.0.0-Release-Baum (main d4ced521) hatte im Root NUR den Einstieg previewer.py + Docs + pot; die 7 Module, REFERENCE.md und po/de.po lagen ausschließlich im Unterordner nemo-previewer-modules — die flachen Root-Kopien waren beim Weiterentwickeln nach 1.0.0 wieder reingerutscht. Gelöscht im Root: previewer\_panel/-select/-util/-toolbar/-render\_media/-render\_docs/-render\_text.py, REFERENCE.md, po/de.po; INSTALL-Kopierschritte auf Unterordner-Quellen umgestellt (die Schritte referenzierten Root-Pfade, die es schon zum 1.0.0-Stand nicht mehr gab). Kein Code-/Versions-Bump (Deployment unverändert, cp -a des Nutzers funktioniert mit beiden Layouts). NEUE PUSH-KONVENTION: Modul-Canvases pushen NUR NOCH in den Unterordner; REFERENCE-Canvas → nemo-previewer-modules/REFERENCE.md; po-de-Canvas → nemo-previewer-modules/po/de.po; Root nur noch previewer.py + INSTALL.md + nemo-previewer.pot + changelog.md + planned.md.
+
 ### Internationalisierung &amp; Release-Vorbereitung
 
 - [x] **F49 – Alle Dateien ins Englische übersetzen** (Nutzer-Entscheid 2026-11-01)
