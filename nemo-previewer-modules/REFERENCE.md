@@ -3362,7 +3362,7 @@ Read a file capped: (text, truncated) – text and Markdown.
 - **Reason:** Markdown with visible formatting, raw text on markup failure.
 
 ```text
-Markdown with visible formatting: headings, bold/italic, code, lists, quotes and links render via Pango markup (no webview, no new packages). If markup generation ever fails, the raw text appears.
+Markdown with visible formatting: headings, bold/italic, code, lists, quotes and links render via Pango markup (no webview, no new packages). If markup generation ever fails, the raw text appears. Since 1.13.0 (F83) the method dispatches to the WebKit HTML preview first (TXT-DOC-110) – the Pango markup stays the fallback and renders the print path.
 ```
 
 ### TXT-DOC-68 – Docstring: \_render\_eml
@@ -3702,7 +3702,7 @@ Reads family and style from the name table of ONE sfnt face at the given offset 
 - **Reason:** F67 – CommonMark/GFM/Obsidian engine with graceful degradation.
 
 ```text
-F67 (1.12.0): optional import of markdown-it-py plus the mdit-py-plugins footnote, dollarmath and front_matter plugins; missing packages only log and keep HAVE_MDIT False – the preview stays on the legacy parser (TXT-DOC-10). The engine is built ONCE per process into _MDIT: the "gfm-like" preset (tables, strikethrough, linkify) when linkify-it-py is importable, otherwise the commonmark preset with the built-in table and strikethrough rules enabled. A failed build logs and resets _MDIT to None. Pure Python packages (python3-markdown-it, python3-mdit-py-plugins, python3-linkify-it), no webview, no HTML detour. 1.12.1: the deflist plugin imports ISOLATED in its own try/except (HAVE_DEFLIST) and is only .use()d when present – a missing single plugin must never kill the whole engine.
+F67 (1.12.0): optional import of markdown-it-py plus the mdit-py-plugins footnote, dollarmath and front_matter plugins; missing packages only log and keep HAVE_MDIT False – the preview stays on the legacy parser (TXT-DOC-10). The engine is built ONCE per process into _MDIT: the "gfm-like" preset (tables, strikethrough, linkify) when linkify-it-py is importable, otherwise the commonmark preset with the built-in table and strikethrough rules enabled. A failed build logs and resets _MDIT to None. Pure Python packages (python3-markdown-it, python3-mdit-py-plugins, python3-linkify-it), no webview, no HTML detour. 1.12.1: the deflist plugin imports ISOLATED in its own try/except (HAVE_DEFLIST) and is only .use()d when present – a missing single plugin must never kill the whole engine. 1.13.0 (F83): a SECOND engine _MDIT_HTML builds alongside with html=True plus the tasklists plugin for the WebKit preview (TXT-DOC-110) – the Pango engine stays untouched.
 ```
 
 ### TXT-DOC-102 – Token tree from the markdown-it stream (F67)
@@ -3782,7 +3782,17 @@ _markdown_mdit_to_pango parses the source with the shared _MDIT engine (TXT-DOC-
 - **Reason:** F67 – adapter with legacy fallback behind a config switch.
 
 ```text
-_markdown_markup replaces the direct _markdown_to_pango calls in the preview and the print path: engine "markdown-it" (default, from the panel config markdown_engine) with a present _MDIT renders through the adapter; the legacy parser takes over on the "legacy" switch, missing packages or ANY adapter error (dbg line, graceful degradation – a broken preview must never cost the file its preview). Both call sites pass self, so the mixin reads the panel's _conf_markdown_engine attribute.
+_markdown_markup replaces the direct _markdown_to_pango calls in the preview and the print path: engine "markdown-it" (default, from the panel config markdown_engine) with a present _MDIT renders through the adapter; the legacy parser takes over on the "legacy" switch, missing packages or ANY adapter error (dbg line, graceful degradation – a broken preview must never cost the file its preview). Both call sites pass self, so the mixin reads the panel's _conf_markdown_engine attribute. 1.13.0 (F83): the PREVIEW dispatches to the WebKit HTML path (TXT-DOC-110) before this chooser is consulted; this Pango chooser remains for the print path and as the preview fallback.
+```
+
+### TXT-DOC-110 – WebKit HTML preview (F83)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `HAVE\_WEBKIT`, `HAVE\_PYGMENTS`, `\_MDIT\_HTML` (module level); `\_md\_html\_render\_front\_matter`, `\_md\_html\_render\_math\_inline`, `\_md\_html\_render\_math\_block`, `\_md\_html\_wikilink`, `\_md\_html\_file\_uri`, `\_md\_html\_extras`, `\_md\_html\_callouts`, `\_md\_html\_highlight`, `\_md\_html\_color`, `\_md\_html\_shell`, `\_markdown\_html` (module level); `TextRendererMixin.\_render\_markdown\_html`, `.\_md\_webview\_policy`, `.\_open\_uri\_externally` (methods)
+- **Reason:** F83 – user decision after the 1.12.1 field test: the Markdown preview must render as a real HTML document (WebKit), not as a Pango text approximation.
+
+```text
+F83 (1.13.0, branch feature/markdown-it): _render_markdown dispatches to the WebKit path when HAVE_WEBKIT and the second engine _MDIT_HTML are present and markdown_engine is not "legacy" – any failure falls back to the Pango adapter (TXT-DOC-109), which also stays responsible for the print path. _MDIT_HTML is a second per-process markdown-it build with html=True (raw HTML like <kbd>, <br>, <details>/<summary> passes through) plus the tasklists plugin (real checkboxes) and its own render rules for front matter and math tokens (dollarmath ships no HTML rules – without them the built-in renderer would die on the token type). _markdown_html parses, runs _md_html_callouts (a blockquote whose first own paragraph starts with [!type] gets the class md-callout-<type>, the marker is stripped from the first text child, the title comes from a CSS ::before rule), renders, then applies the Obsidian dialect and Pandoc sub/sup to the RENDERED markup (_md_html_extras – a code-split regex keeps <pre>/<code> segments untouched: wikilinks with and without label, ![[embeds]] as an image when the target exists next to the file, ==mark==, %%comments%% removed, ~sub~ / ^sup^). Relative <img src> targets resolve against the file's folder to file:// URIs (the _local_img closure inside _md_html_extras, URIs via _md_html_file_uri); load_html gets the same folder as base_uri. _md_html_highlight recolors <pre><code class="language-…"> blocks via Pygments (inline styles, style monokai on a dark theme) when python3-pygments is installed. _md_html_shell wraps everything in a minimal document whose CSS derives border/code/mark colors from the widget's foreground color and takes background/foreground from the style context (dark detection via luminance) plus the B12 font size (effective_text_font). The WebView disables JavaScript and plugins and never navigates: decide-policy (TXT-DOC-110, _md_webview_policy) ignores navigation/new-window decisions and hands the URI to _open_uri_externally (show_uri_on_window, xdg-open fallback).
 ```
 
 ### TXT-PRINT-1 – Print for Markdown and EML (F78)

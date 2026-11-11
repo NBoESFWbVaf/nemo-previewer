@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.13.0\] – 2026-11-11
+
+### Added
+
+- F83: The Markdown preview renders as a real HTML document in a WebKit2 view (`gir1.2-webkit2-4.1`, optional): markdown-it-py produces the HTML (raw HTML like `kbd`/`br`/`details` passes through, task-list checkboxes, footnotes and definition lists as real structures), the Obsidian dialect (wikilinks, embeds, `==highlight==`, `%%comments%%`) and Pandoc sub/superscript land on the rendered markup, fenced code blocks get Pygments colors when `python3-pygments` is installed, and the CSS follows the GTK theme (background, foreground and the configured preview font size). Local images and `![[embeds]]` resolve relative to the Markdown file's folder. Links open in the default browser — the preview itself never navigates, JavaScript and plugins stay disabled. Without WebKit, with `markdown_engine = legacy` or on any rendering error the Pango text preview from F67 stays (graceful degradation); the print path keeps the Pango rendering.
+
 ## \[1.12.1\] – 2026-11-11
 
 ### Fixed
