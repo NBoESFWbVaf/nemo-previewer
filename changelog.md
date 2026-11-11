@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.16.0\] – 2026-11-11
+
+### Added
+
+- F86 (user report: EML files that contain HTML still rendered as plain text): mails with an HTML body now render in the preview AND print as rendered HTML, through the same WebKit pipeline as Markdown. Mail HTML is treated as untrusted content: every remote reference is neutralized before the markup reaches WebKit (`<script>`, meta refresh and `<base>` removed, all `http(s)` references in `src`/`href`/`background`/`poster`/`srcset`/`action`/`formaction` emptied, remote CSS `url()` targets blanked) – no network request can even start, tracking pixels render as empty space, links stay dead (consistent with F84). Inline images (`cid:`) resolve against the mail's own MIME parts and ride as `data:` URIs (24 MB total cap), unknown inline parts become a transparent placeholder. The preview webview runs JavaScript/plugins off and its own policy handler that only lets the programmatic load and same-document anchors through. Printing reuses the F85 WebKit print machinery with the A4/15 mm preset (B19/B23/B24); plain mails, a missing WebKit or any error keep the Pango text print as the fallback.
+
 ## \[1.15.5\] – 2026-11-11
 
 ### Fixed
