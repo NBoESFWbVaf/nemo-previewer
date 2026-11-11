@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.12.0
+previewer_render_text.py – Version 1.12.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -93,6 +93,15 @@ try:
 except Exception:
     pass
 
+# Isolated import: a missing single plugin may not kill the whole
+# engine (1.12.1 – definitions lists via the deflist plugin).
+HAVE_DEFLIST = False
+try:
+    from mdit_py_plugins.deflist import deflist_plugin
+    HAVE_DEFLIST = True
+except Exception:
+    pass
+
 # Built once per process. The "gfm-like" preset needs linkify-it-py;
 # without it the commonmark preset plus the built-in table and
 # strikethrough rules cover the same ground minus link detection.
@@ -107,6 +116,8 @@ if HAVE_MDIT:
         _MDIT.use(front_matter_plugin)
         _MDIT.use(footnote_plugin)
         _MDIT.use(dollarmath_plugin)
+        if HAVE_DEFLIST:
+            _MDIT.use(deflist_plugin)
     except Exception as e:
         dbg("text/module-level: markdown-it init failed (%s) - "
             "legacy Markdown parser stays" % e)
@@ -385,11 +396,17 @@ def _mdit_text(t):
                lambda m: "<span size='small'>[Embed: %s]</span>"
                % (m.group(2) or m.group(1)), t)
     t = re.sub(r"(?!!)\[\[([^\]|]+)(?:\|([^\]]*))?\]\]",
-               lambda m: "%s <span size='small' foreground='grey'>%s</span>"
-               % (m.group(2) or m.group(1), m.group(1)), t)
+               lambda m: ("%s <span size='small' foreground='grey'>%s</span>"
+                          % (m.group(2), m.group(1))) if m.group(2)
+               else m.group(1), t)
     t = re.sub(r"==([^=\n]+)==",
                r"<span background='yellow'>\1</span>", t)
     t = re.sub(r"%%(.+?)%%", "", t)
+    # Extended dialect: subscript/superscript (H~2~O, X^2^) –
+    # double tildes/carets are strikethrough territory and never
+    # reach this function as text (1.12.1).
+    t = re.sub(r"(?<!~)~([^~\n]+)~(?!~)", r"<sub>\1</sub>", t)
+    t = re.sub(r"(?<!\^)\^([^\^\n]+)\^(?!\^)", r"<sup>\1</sup>", t)
     return t
 
 
@@ -449,8 +466,19 @@ def _mdit_inline(children):
                 pass
             out.append("[%d]" % n)
         elif t == "html_inline":
-            out.append(_pango_escape(re.sub(r"<[^>]*>", "",
-                                            tok.content)))
+            m = re.fullmatch(r"<kbd>(.*?)</kbd>", tok.content.strip())
+            if m:
+                out.append("<tt>%s</tt>" % _pango_escape(m.group(1)))
+            elif re.fullmatch(r"<br\s*/?>", tok.content.strip()):
+                out.append("\n")
+            else:
+                out.append(_pango_escape(re.sub(r"<[^>]*>", "",
+                                                tok.content)))
+        elif t == "footnote_anchor":
+            # Backref arrow of a footnote definition – noise in the
+            # text preview; the "[n]" label comes from the block
+            # renderer (1.12.1).
+            pass
         else:
             # Unknown token shape: render children or content, so
             # plugin output degrades instead of vanishing.
@@ -549,6 +577,18 @@ def _mdit_para_empty(node):
             or not ch[0]["tok"].content.strip())
 
 
+def _mdit_footnote_id(children):
+    # Definition paragraphs end with a footnote_anchor token – its
+    # id becomes the "[n]" label of the definition line (1.12.1).
+    for tok in children or []:
+        if tok.type == "footnote_anchor":
+            try:
+                return int(tok.meta.get("id", 0)) + 1
+            except Exception:
+                return None
+    return None
+
+
 def _mdit_blocks(nodes, out, lvl=0, quote=0, tight=False):
     # Block token tree -> Pango lines. tight=True (list items)
     # suppresses the blank line between blocks; quote>0 indents
@@ -576,6 +616,20 @@ def _mdit_blocks(nodes, out, lvl=0, quote=0, tight=False):
                 for ln in tok.content.rstrip("\n").split("\n"):
                     seg.append("<tt><span foreground='grey'>%s</span></tt>"
                                % _pango_escape(ln))
+            elif t == "html_block":
+                # Raw HTML blocks (e.g. <details>): the summary line
+                # renders bold, other tags are stripped (1.12.1).
+                if not tight:
+                    _md_gap(seg)
+                content = tok.content or ""
+                m = re.search(r"<summary>(.*?)</summary>", content,
+                              re.DOTALL)
+                if m:
+                    seg.append("<b>%s</b>" % _pango_escape(m.group(1)))
+                rest = re.sub(r"<[^>]*>", "", content).strip()
+                for ln in rest.split("\n"):
+                    if ln.strip():
+                        seg.append(_pango_escape(ln))
             elif t == "inline":
                 if not tight:
                     _md_gap(seg)
@@ -675,7 +729,11 @@ def _mdit_blocks(nodes, out, lvl=0, quote=0, tight=False):
                 if inline is not None:
                     if not tight:
                         _md_gap(seg)
-                    seg.append(_mdit_inline(inline.children or []))
+                    line = _mdit_inline(inline.children or [])
+                    fid = _mdit_footnote_id(inline.children)
+                    if fid is not None:
+                        line = "[%d] %s" % (fid, line)
+                    seg.append(line)
             elif ot == "table_open":
                 if not tight:
                     _md_gap(seg)
@@ -684,6 +742,31 @@ def _mdit_blocks(nodes, out, lvl=0, quote=0, tight=False):
                     tbl = _md_table(lines, 0)
                     if tbl is not None:
                         seg.extend(tbl[0])
+            elif ot in ("deflist_open", "dl_open"):
+                # Definitions list (1.12.1): the term renders bold,
+                # the description indented; unknown token shapes
+                # degrade to indented blocks.
+                if not tight:
+                    _md_gap(seg)
+                for item in node["children"]:
+                    for part in item["children"]:
+                        pt = part["open"].type if "open" in part else ""
+                        inline = (part["children"][0].get("tok")
+                                  if part["children"] else None)
+                        if inline is not None and (
+                                pt in ("dt_open", "deflist_title_open")
+                                or "title" in pt):
+                            seg.append("<b>%s</b>" % _mdit_inline(
+                                inline.children or []))
+                        else:
+                            body = []
+                            _mdit_blocks(part["children"], body,
+                                         lvl + 1, quote, tight=True)
+                            for ln in body:
+                                if ln == "":
+                                    seg.append("")
+                                else:
+                                    seg.append("    " + ln)
             else:
                 # Unknown container (e.g. the footnote block):
                 # render the children like plain blocks.
@@ -3376,7 +3459,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.12.0"
+PREVIEWER_VERSION = "1.12.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
