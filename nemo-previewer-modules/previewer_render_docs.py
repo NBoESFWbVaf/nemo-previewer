@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 1.15.4
+previewer_render_docs.py – Version 1.15.5
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -802,7 +802,7 @@ class DocsRendererMixin:
                 ps.set_bottom_margin(0, Gtk.Unit.POINTS)
                 ps.set_left_margin(0, Gtk.Unit.POINTS)
                 ps.set_right_margin(0, Gtk.Unit.POINTS)
-                op.set_property("page-setup", ps)
+                op.set_default_page_setup(ps)
                 op.set_property("print-settings", Gtk.PrintSettings())
                 dbg("docs/_print_pdf: page setup %s, %.0f x %.0f pt,"
                     " margins 0" % (os.path.basename(path), w_pt, h_pt))
@@ -830,7 +830,7 @@ class DocsRendererMixin:
         page.render_for_printing(cr)
 
 
-PREVIEWER_VERSION = "1.15.4"
+PREVIEWER_VERSION = "1.15.5"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)

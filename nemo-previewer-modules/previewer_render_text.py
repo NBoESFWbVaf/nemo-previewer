@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.15.4
+previewer_render_text.py – Version 1.15.5
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -3319,7 +3319,10 @@ class TextRendererMixin:
         # instead of the platform defaults.
         try:
             ps = _print_page_setup_a4()
-            op.set_property("page-setup", ps)
+            # B24: Gtk.PrintOperation has NO page-setup property
+            # (that is the WebKit2.PrintOperation name) – the
+            # documented GTK3 API is set_default_page_setup().
+            op.set_default_page_setup(ps)
             op.set_property("print-settings", Gtk.PrintSettings())
             dbg("text/_print_text_document: page setup %s,"
                 " %.0f x %.0f mm, margins 15 mm"
@@ -4150,7 +4153,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.15.4"
+PREVIEWER_VERSION = "1.15.5"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
