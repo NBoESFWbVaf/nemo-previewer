@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.11.1\] – 2026-11-11
+
+### Fixed
+
+- Script files without a matching file name extension get syntax highlighting now (B13, user report): when the name-based guess finds no language, one line of the file is read and a shebang maps the interpreter to a GtkSource language – #!/bin/bash or #!/bin/sh without the .sh ending highlights as shell script, #!/usr/bin/env indirection is resolved and arguments are ignored. The mapping table covers sh/bash/dash/ash, python, perl, ruby, lua, awk, tcl, node, php and Rscript; without a shebang the plain text preview stays.
+
 ## \[1.11.0\] – 2026-11-11
 
 ### Added

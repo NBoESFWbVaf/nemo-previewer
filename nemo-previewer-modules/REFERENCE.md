@@ -597,11 +597,11 @@ Width available to the preview objects. Live from the current area of the conten
 ### PAN-DOC-18 – Docstring: \_source\_language
 
 - **Module:** previewer\_panel.py
-- **Location:** `PreviewPanel.\_source\_language` (method)
-- **Reason:** GtkSource language guess from the file name (F44).
+- **Location:** `PreviewPanel.\_source\_language` (method); the module table `\_SHEBANG\_LANGS`
+- **Reason:** GtkSource language guess from the file name (F44); shebang fallback (B13).
 
 ```text
-F44 (0.28.0): guess the file's language via the GtkSource LanguageManager (from the name). None means: no language recognized – the normal text preview stays in place.
+F44 (0.28.0): guess the file's language via the GtkSource LanguageManager (from the name). None means: no language recognized – the normal text preview stays in place. 1.11.1 (B13, user report): the name guess alone left shebang scripts without a matching ending (#!/bin/bash, #!/bin/sh – no .sh) as plain text. When the guess finds nothing, ONE line of the file is read (256-byte cap) and must start with #!; the interpreter basename is mapped via _SHEBANG_LANGS (sh/bash/dash/ash → sh, python/python3 → python3 with a python fallback, perl, ruby, lua, awk, tclsh → tcl, node → js with a javascript fallback, php, Rscript → r), #!/usr/bin/env indirection is resolved and arguments (#!/bin/bash -e) are ignored. No shebang or an unknown interpreter keeps the plain text preview; every step is guarded, a read error only logs.
 ```
 
 ### PAN-DOC-19 – Docstring: \_source\_scheme
