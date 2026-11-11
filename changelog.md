@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.15.4\] – 2026-11-11
+
+### Fixed
+
+- B23 (deploy feedback, office/PDF print): printing an office document (or a PDF) to PDF produced visibly WIDER margins than the document itself. The print path scaled the Poppler page into the printable area of the DEFAULT page setup (paper minus the platform default margins), so the document shrank and the white border grew. The print operation now receives an explicit `Gtk.PageSetup` built from the document: paper size and orientation from the first Poppler page, margins 0 – the document already carries its own margins. The page therefore prints 1:1 with exactly the document's margins; the uniform scale stays as a fallback for mixed page sizes. EML (and the Markdown Pango fallback) now print with the same A4/15 mm preset as the WebKit path (shared `_print_page_setup_a4()` helper) instead of the platform default margins.
+
 ## \[1.15.3\] – 2026-11-11
 
 ### Fixed
