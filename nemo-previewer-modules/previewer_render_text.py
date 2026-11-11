@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.15.1
+previewer_render_text.py – Version 1.15.2
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1105,10 +1105,12 @@ _MD_HTML_CSS = (
     "h1,h2{border-bottom:1px solid %(border)s;padding-bottom:3px;}"
     "a{color:%(link)s;}"
     "code,pre,kbd{font-family:monospace;}"
-    "code{background:%(codebg)s;border-radius:3px;padding:1px 4px;}"
+    "code{background:%(codebg)s;border-radius:3px;padding:1px 4px;"
+    "overflow-wrap:anywhere;}"
     "pre{background:%(codebg)s;border-radius:6px;padding:8px;"
     "white-space:pre-wrap;overflow-wrap:anywhere;}"
     "pre code{background:none;padding:0;}"
+    "img{max-width:100%;height:auto;}"
     "kbd{border:1px solid %(border)s;border-radius:3px;"
     "padding:0 4px;background:%(codebg)s;}"
     "blockquote{border-left:3px solid %(border)s;margin-left:0;"
@@ -3415,7 +3417,9 @@ class TextRendererMixin:
         # B17: the page margins come ONLY from the print dialog's
         # page setup (set in _md_print_loaded) – no @page rule, it
         # would stack on top. Break rules keep headings with their
-        # text and stop elements from being cut mid-block.
+        # text and stop elements from being cut mid-block. B20:
+        # tables and long words never grow past the sheet edge –
+        # overflowing content is simply clipped when printed.
         return _markdown_html(text, base_dir=base_dir, bg=bg, fg=fg,
                               dark=False, size_px=size_px,
                               extra_css="body{margin:0;padding:0;}"
@@ -3424,7 +3428,10 @@ class TextRendererMixin:
                                         "p,li,pre,table,blockquote,img,"
                                         ".md-callout{break-inside:avoid;"
                                         "page-break-inside:avoid;}"
-                                        "p{orphans:3;widows:3;}")
+                                        "p{orphans:3;widows:3;}"
+                                        "table{max-width:100%;}"
+                                        "p,li,td,th,dd,dt{overflow-wrap:"
+                                        "anywhere;}")
 
     # → REF TXT-PRINT-2
     def _md_print_html(self, path):
@@ -3486,17 +3493,29 @@ class TextRendererMixin:
             return
         self._md_print_op = op
         op.connect("finished", self._md_print_finished)
-        # B17: sane DEFAULT page margins (15 mm all around) – the
-        # user can change them in the dialog; without a page setup
-        # WebKit printed with wrong margins.
+        # B19: explicit paper size and orientation – a bare page
+        # setup carries the platform default paper (locale and
+        # printer dependent) and the dialog then printed in
+        # whatever format it started with. A4 portrait with 15 mm
+        # margins all around is the preset; the user can change
+        # everything in the dialog.
         try:
             ps = Gtk.PageSetup()
+            # GTK_PAPER_NAME_A4 is "iso_a4"; getattr because the
+            # constant is not guaranteed to be exported to Python.
+            ps.set_paper_size(Gtk.PaperSize.new(
+                getattr(Gtk, "PAPER_NAME_A4", "iso_a4")))
+            ps.set_orientation(Gtk.PageOrientation.PORTRAIT)
             ps.set_top_margin(15, Gtk.Unit.MM)
             ps.set_bottom_margin(15, Gtk.Unit.MM)
             ps.set_left_margin(15, Gtk.Unit.MM)
             ps.set_right_margin(15, Gtk.Unit.MM)
             op.set_property("page-setup", ps)
             op.set_property("print-settings", Gtk.PrintSettings())
+            dbg("text/_md_print_loaded: page setup %s, %.0f x %.0f mm,"
+                " margins 15 mm" % (ps.get_paper_size().get_display_name(),
+                                    ps.get_paper_width(Gtk.Unit.MM),
+                                    ps.get_paper_height(Gtk.Unit.MM)))
         except Exception as e:
             dbg("text/_md_print_loaded: page setup suppressed:"
                 " %s" % e)
@@ -3510,7 +3529,24 @@ class TextRendererMixin:
         try:
             top = self.get_toplevel()
             parent = top if isinstance(top, Gtk.Window) else None
-            ok = bool(op.run_dialog(parent))
+            # B19: compare against the enum instead of bool() –
+            # PRINT has the value 0, bool() would read it as
+            # cancelled and drop the references mid-print.
+            resp = op.run_dialog(parent)
+            ok = resp == WebKit2.PrintOperationResponse.PRINT
+            if ok:
+                # B19: log the setup the dialog actually chose –
+                # it replaces the preset and decides paper and
+                # margins for the whole print.
+                try:
+                    eff = op.get_property("page-setup")
+                    dbg("text/_md_print_run: printing %s, "
+                        "%.0f x %.0f mm"
+                        % (eff.get_paper_size().get_display_name(),
+                           eff.get_paper_width(Gtk.Unit.MM),
+                           eff.get_paper_height(Gtk.Unit.MM)))
+                except Exception:
+                    pass
         except Exception as e:
             dbg("text/_md_print_run: failed: %s" % e)
         if not ok:
@@ -4086,7 +4122,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.15.1"
+PREVIEWER_VERSION = "1.15.2"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
