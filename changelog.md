@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.15.3\] – 2026-11-11
+
+### Fixed
+
+- B21 (deploy feedback, regression from 1.15.2): the Markdown HTML preview AND the WebKit print were dead – every file fell back (`HTML preview failed (not enough arguments for format string)`), the print dropped through to the Pango path and showed raw markdown again. Cause: 1.15.2's new `img{max-width:100%; height: auto;}` rule put a RAW `%` into `_MD_HTML_CSS`, which is assembled through `%`-string formatting (border/codebg/mark/link). CPython fetches the next format argument BEFORE validating the conversion character, and the argument pointer is only reset by `%(key)s` conversions – so the stray `%;` after the last mapping lookup raised exactly that TypeError. The rule now escapes the percent sign (`max-width:100%%`, which renders as a literal `100%` after formatting). The print `extra_css` is NOT `%`-formatted (it is concatenated after the mapping step), so its raw `100%` stays untouched.
+
 ## \[1.15.2\] – 2026-11-11
 
 ### Fixed
