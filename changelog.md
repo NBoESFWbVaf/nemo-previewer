@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.13.2\] – 2026-11-11
+
+### Fixed
+
+- B16 (deploy feedback, WebKit HTML preview): WebKit fires a navigation policy decision for the programmatic `load_html` load itself (base URI = the file's folder). B15's handler ignored EVERY decision — that cancelled the preview's own load (blank preview) and handed the folder URI to the desktop opener, which opened a new Nemo window. The handler now distinguishes: only REAL link clicks (`is_user_gesture()`) are ignored and opened externally; the programmatic load and same-document anchor jumps (URI = base URI + `#fragment`) proceed via `decision.use()`.
+
 ## \[1.13.1\] – 2026-11-11
 
 ### Fixed
