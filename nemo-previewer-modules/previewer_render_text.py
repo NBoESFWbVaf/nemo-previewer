@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.11.1
+previewer_render_text.py – Version 1.12.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -72,6 +72,46 @@ try:
 except Exception as e:
     dbg("text/module-level: suppressed: %s" % e)
 
+# F67: markdown-it-py – CommonMark/GFM engine for the Markdown
+# preview (→ REF TXT-DOC-101). Pure Python; missing packages keep
+# the built-in line parser below as the fallback.
+HAVE_MDIT = False
+try:
+    from markdown_it import MarkdownIt
+    from mdit_py_plugins.dollarmath import dollarmath_plugin
+    from mdit_py_plugins.footnote import footnote_plugin
+    from mdit_py_plugins.front_matter import front_matter_plugin
+    HAVE_MDIT = True
+except Exception as e:
+    dbg("text/module-level: markdown-it-py missing (%s) - "
+        "legacy Markdown parser stays" % e)
+
+HAVE_LINKIFY = False
+try:
+    from linkify_it import LinkifyIt
+    HAVE_LINKIFY = True
+except Exception:
+    pass
+
+# Built once per process. The "gfm-like" preset needs linkify-it-py;
+# without it the commonmark preset plus the built-in table and
+# strikethrough rules cover the same ground minus link detection.
+_MDIT = None
+if HAVE_MDIT:
+    try:
+        if HAVE_LINKIFY:
+            _MDIT = MarkdownIt("gfm-like")
+        else:
+            _MDIT = MarkdownIt("commonmark")
+            _MDIT.enable(["table", "strikethrough"])
+        _MDIT.use(front_matter_plugin)
+        _MDIT.use(footnote_plugin)
+        _MDIT.use(dollarmath_plugin)
+    except Exception as e:
+        dbg("text/module-level: markdown-it init failed (%s) - "
+            "legacy Markdown parser stays" % e)
+        _MDIT = None
+
 # 0.9.2 (audit "buffer overflow/OOM"): caps against decompression
 # and decoding bombs – crafted files must never blow up Nemo.
 # The .eml caps are GONE (user request: a big mail stays big) –
@@ -121,7 +161,7 @@ def _md_inline(t):
 
 
 # → REF TXT-DOC-3
-def _md_heading(depth, text):
+def _md_heading_markup(depth, markup):
     if depth == 1:
         tag = ("<span size='x-large' weight='bold' "
                "underline='single'>", "</span>")
@@ -130,7 +170,11 @@ def _md_heading(depth, text):
                "underline='single'>", "</span>")
     else:
         tag = "<span weight='bold'>", "</span>"
-    return tag[0] + _md_inline(_pango_escape(text)) + tag[1]
+    return tag[0] + markup + tag[1]
+
+
+def _md_heading(depth, text):
+    return _md_heading_markup(depth, _md_inline(_pango_escape(text)))
 
 
 def _md_hr():
@@ -312,6 +356,353 @@ def _md_table(lines, i):
     return rows, j
 
 
+# → REF TXT-DOC-102
+def _mdit_tree(tokens):
+    # Flat token stream -> node tree: {"open": tok, "children":
+    # [...]} for containers, {"tok": tok} for atoms.
+    root = []
+    stack = [root]
+    for tok in tokens:
+        if tok.nesting == 1:
+            node = {"open": tok, "children": []}
+            stack[-1].append(node)
+            stack.append(node["children"])
+        elif tok.nesting == -1:
+            if len(stack) > 1:
+                stack.pop()
+        else:
+            stack[-1].append({"tok": tok})
+    return root
+
+
+# → REF TXT-DOC-103
+def _mdit_text(t):
+    # Obsidian dialect on plain text runs: wikilinks, embeds,
+    # ==highlight== and %%comments%%. Code spans arrive as their
+    # own token type and are never touched.
+    t = _pango_escape(t)
+    t = re.sub(r"!\[\[([^\]|]+)(?:\|([^\]]*))?\]\]",
+               lambda m: "<span size='small'>[Embed: %s]</span>"
+               % (m.group(2) or m.group(1)), t)
+    t = re.sub(r"(?!!)\[\[([^\]|]+)(?:\|([^\]]*))?\]\]",
+               lambda m: "%s <span size='small' foreground='grey'>%s</span>"
+               % (m.group(2) or m.group(1), m.group(1)), t)
+    t = re.sub(r"==([^=\n]+)==",
+               r"<span background='yellow'>\1</span>", t)
+    t = re.sub(r"%%(.+?)%%", "", t)
+    return t
+
+
+# → REF TXT-DOC-104
+def _mdit_inline(children):
+    # Inline token children -> Pango markup, same look as the
+    # legacy parser: link targets in small grey after the text,
+    # images as "[Image: alt]" placeholders.
+    out = []
+    links = []
+    for tok in children:
+        t = tok.type
+        if t == "text":
+            out.append(_mdit_text(tok.content))
+        elif t == "code_inline":
+            out.append("<tt>%s</tt>" % _pango_escape(tok.content))
+        elif t == "strong_open":
+            out.append("<b>")
+        elif t == "strong_close":
+            out.append("</b>")
+        elif t == "em_open":
+            out.append("<i>")
+        elif t == "em_close":
+            out.append("</i>")
+        elif t == "s_open":
+            out.append("<s>")
+        elif t == "s_close":
+            out.append("</s>")
+        elif t == "link_open":
+            href = ""
+            try:
+                href = str(tok.attrs.get("href") or "")
+            except Exception:
+                pass
+            links.append(href)
+        elif t == "link_close":
+            if links:
+                href = links.pop()
+                if href:
+                    out.append(" <span size='small' foreground='grey'>%s</span>"
+                               % _pango_escape(href))
+        elif t == "image":
+            if tok.children:
+                alt = _mdit_inline(tok.children)
+            else:
+                alt = _pango_escape(tok.content or "")
+            out.append("<span size='small'>[Image: %s]</span>" % alt)
+        elif t in ("softbreak", "hardbreak"):
+            out.append("\n")
+        elif t == "math_inline":
+            out.append("<tt>%s</tt>" % _pango_escape(tok.content.strip()))
+        elif t == "footnote_ref":
+            n = 1
+            try:
+                n = int(tok.meta.get("id", 0)) + 1
+            except Exception:
+                pass
+            out.append("[%d]" % n)
+        elif t == "html_inline":
+            out.append(_pango_escape(re.sub(r"<[^>]*>", "",
+                                            tok.content)))
+        else:
+            # Unknown token shape: render children or content, so
+            # plugin output degrades instead of vanishing.
+            if tok.children:
+                out.append(_mdit_inline(tok.children))
+            elif tok.content:
+                out.append(_pango_escape(tok.content))
+    return "".join(out)
+
+
+# → REF TXT-DOC-105
+def _mdit_strip_task(children):
+    # GFM task list: "[ ] "/"[x] " at the start of the item's
+    # first paragraph -> checkbox symbol, done items struck
+    # through. Returns None when the item is no task.
+    for node in children:
+        if "open" in node:
+            if node["open"].type != "paragraph_open":
+                return None
+            if not node["children"]:
+                return None
+            inline = node["children"][0].get("tok")
+            if inline is None:
+                return None
+            m = re.match(r"^\[([ xX])\]\s+", inline.content)
+            if not m:
+                return None
+            done = m.group(1).lower() == "x"
+            inline.content = inline.content[m.end():]
+            if inline.children and inline.children[0].type == "text":
+                c0 = inline.children[0]
+                m2 = re.match(r"^\[([ xX])\]\s+", c0.content)
+                if m2:
+                    c0.content = c0.content[m2.end():]
+            return done
+        return None
+    return None
+
+
+# → REF TXT-DOC-106
+def _mdit_table_lines(node):
+    # Rebuild raw GFM table lines from the tokens and hand them to
+    # the legacy ASCII table renderer (_md_table) - the column
+    # budget, cell wrapping and alignment logic stay unchanged.
+    head = None
+    styles = []
+    rows = []
+    for sec in node["children"]:
+        for tr in sec["children"]:
+            cells = []
+            aligns = []
+            for cell in tr["children"]:
+                st = ""
+                op = cell.get("open")
+                if op is not None and op.attrs:
+                    st = str(op.attrs.get("style") or "")
+                aligns.append(st)
+                inline = (cell["children"][0].get("tok")
+                          if cell["children"] else None)
+                raw = inline.content if inline is not None else ""
+                cells.append(raw.replace("|", "\\|"))
+            if head is None:
+                head = cells
+                styles = aligns
+            else:
+                rows.append(cells)
+    if head is None:
+        return None
+    sep = []
+    for k in range(len(head)):
+        st = styles[k] if k < len(styles) else ""
+        if "center" in st:
+            sep.append(":---:")
+        elif "right" in st:
+            sep.append("---:")
+        else:
+            sep.append("---")
+    lines = ["| " + " | ".join(head) + " |",
+             "| " + " | ".join(sep) + " |"]
+    for r in rows:
+        lines.append("| " + " | ".join(r) + " |")
+    return lines
+
+
+# → REF TXT-DOC-107
+def _md_gap(out):
+    if out and out[-1] != "":
+        out.append("")
+
+
+def _mdit_para_empty(node):
+    if "open" not in node or node["open"].type != "paragraph_open":
+        return False
+    ch = node["children"]
+    return (not ch or ch[0].get("tok") is None
+            or not ch[0]["tok"].content.strip())
+
+
+def _mdit_blocks(nodes, out, lvl=0, quote=0, tight=False):
+    # Block token tree -> Pango lines. tight=True (list items)
+    # suppresses the blank line between blocks; quote>0 indents
+    # and italicizes the lines like the legacy quote rendering.
+    for node in nodes:
+        seg = []
+        if "tok" in node:
+            tok = node["tok"]
+            t = tok.type
+            if t in ("fence", "code_block", "math_block"):
+                if not tight:
+                    _md_gap(seg)
+                lines = tok.content.replace("\t", "    ").split("\n")
+                if lines and lines[-1] == "":
+                    lines.pop()
+                for ln in lines:
+                    seg.append("<tt>%s</tt>" % _pango_escape(ln))
+            elif t == "hr":
+                if not tight:
+                    _md_gap(seg)
+                seg.append(_md_hr())
+            elif t == "front_matter":
+                if not tight:
+                    _md_gap(seg)
+                for ln in tok.content.rstrip("\n").split("\n"):
+                    seg.append("<tt><span foreground='grey'>%s</span></tt>"
+                               % _pango_escape(ln))
+            elif t == "inline":
+                if not tight:
+                    _md_gap(seg)
+                seg.append(_mdit_inline(tok.children or []))
+            else:
+                # Unknown atom: keep the raw text visible.
+                if tok.content:
+                    seg.append(_pango_escape(tok.content))
+        else:
+            op = node["open"]
+            ot = op.type
+            if ot in ("bullet_list_open", "ordered_list_open"):
+                ordered = ot == "ordered_list_open"
+                num = 1
+                if ordered and op.attrs:
+                    try:
+                        num = int(op.attrs.get("start", 1))
+                    except Exception:
+                        num = 1
+                if not tight:
+                    _md_gap(seg)
+                for item in node["children"]:
+                    done = _mdit_strip_task(item["children"])
+                    body = []
+                    _mdit_blocks(item["children"], body, lvl + 1,
+                                 quote, tight=True)
+                    if body:
+                        if done is None:
+                            if ordered:
+                                mark = "%d." % num
+                            else:
+                                mark = _MD_BULLETS[lvl % len(_MD_BULLETS)]
+                            body[0] = ("    " * lvl + mark + " "
+                                       + body[0])
+                        else:
+                            sym = "\u2611" if done else "\u2610"
+                            if done:
+                                body[0] = ("    " * lvl + sym
+                                           + " <s>" + body[0] + "</s>")
+                            else:
+                                body[0] = ("    " * lvl + sym + " "
+                                           + body[0])
+                    if ordered:
+                        num += 1
+                    seg.extend(body)
+            elif ot == "blockquote_open":
+                if not tight:
+                    _md_gap(seg)
+                kids = node["children"]
+                body = []
+                if kids and "open" in kids[0] \
+                        and kids[0]["open"].type == "paragraph_open" \
+                        and kids[0]["children"]:
+                    inline = kids[0]["children"][0].get("tok")
+                    if inline is not None:
+                        m = re.match(r"^\[!(\w+)\]\s*([^\n]*)",
+                                     inline.content)
+                        if m:
+                            # Obsidian callout: [!note] Title ->
+                            # bold marker line, rest as quote body.
+                            line = "<b>" + _pango_escape(m.group(1))
+                            if m.group(2).strip():
+                                line += ": " + _mdit_text(m.group(2).strip())
+                            body.append(line + "</b>")
+                            inline.content = inline.content[m.end():]
+                            if inline.children \
+                                    and inline.children[0].type == "text":
+                                c0 = inline.children[0]
+                                m2 = re.match(r"^\[!\w+\]\s*([^\n]*)",
+                                              c0.content)
+                                if m2:
+                                    c0.content = c0.content[m2.end():]
+                            if _mdit_para_empty(kids[0]):
+                                kids = kids[1:]
+                _mdit_blocks(kids, body, lvl, quote + 1, tight=tight)
+                for ln in body:
+                    if ln == "":
+                        seg.append("")
+                    else:
+                        seg.append("    " * quote + "<i>%s</i>" % ln)
+            elif ot == "heading_open":
+                if not tight:
+                    _md_gap(seg)
+                depth = 6
+                try:
+                    depth = int(op.tag[-1])
+                except Exception:
+                    pass
+                inline = (node["children"][0].get("tok")
+                          if node["children"] else None)
+                markup = (_mdit_inline(inline.children or [])
+                          if inline is not None else "")
+                seg.append(_md_heading_markup(depth, markup))
+            elif ot == "paragraph_open":
+                inline = (node["children"][0].get("tok")
+                          if node["children"] else None)
+                if inline is not None:
+                    if not tight:
+                        _md_gap(seg)
+                    seg.append(_mdit_inline(inline.children or []))
+            elif ot == "table_open":
+                if not tight:
+                    _md_gap(seg)
+                lines = _mdit_table_lines(node)
+                if lines is not None:
+                    tbl = _md_table(lines, 0)
+                    if tbl is not None:
+                        seg.extend(tbl[0])
+            else:
+                # Unknown container (e.g. the footnote block):
+                # render the children like plain blocks.
+                if not tight:
+                    _md_gap(seg)
+                _mdit_blocks(node["children"], seg, lvl, quote,
+                             tight=tight)
+        out.extend(seg)
+    return out
+
+
+# → REF TXT-DOC-108
+def _markdown_mdit_to_pango(text):
+    tree = _mdit_tree(_MDIT.parse(text))
+    out = []
+    _mdit_blocks(tree, out)
+    return "\n".join(out)
+
+
 # → REF TXT-DOC-10
 def _markdown_to_pango(text):
     lines = text.split("\n")
@@ -426,6 +817,26 @@ def _markdown_to_pango(text):
         out.append(_md_inline(_pango_escape(line)))
         i += 1
     return "\n".join(out)
+
+
+# → REF TXT-DOC-109
+def _markdown_markup(owner, text):
+    # F67: markdown-it-py engine with the legacy line parser as
+    # the fallback - on missing packages, the "legacy" config
+    # switch (previewer/markdown_engine) or any render error.
+    engine = "markdown-it"
+    try:
+        engine = getattr(owner, "_conf_markdown_engine",
+                         "markdown-it") or "markdown-it"
+    except Exception:
+        pass
+    if engine != "legacy" and _MDIT is not None:
+        try:
+            return _markdown_mdit_to_pango(text)
+        except Exception as e:
+            dbg("text/markdown-it: render failed (%s) - legacy "
+                "parser" % e)
+    return _markdown_to_pango(text)
 
 
 # → REF TXT-DOC-11
@@ -2054,7 +2465,7 @@ class TextRendererMixin:
         except Exception as e:
             self._hint(_("Could not read the file: %s") % e)
             return
-        markup = _markdown_to_pango(text)
+        markup = _markdown_markup(self, text)
         valid = True
         try:
             # Validate markup BEFORE inserting: GTK silently bails
@@ -2292,7 +2703,7 @@ class TextRendererMixin:
             except Exception as e:
                 dbg("text/_print_text_document: read failed: %s" % e)
                 return
-            markup = _markdown_to_pango(text)
+            markup = _markdown_markup(self, text)
             try:
                 # Same validation as the preview: invalid markup
                 # prints as plain text instead of nothing.
@@ -2965,7 +3376,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.11.1"
+PREVIEWER_VERSION = "1.12.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
