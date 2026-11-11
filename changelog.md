@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.15.0\] – 2026-11-11
+
+### Added
+
+- F85 (user report with a sample PDF): Markdown prints beautifully again — the print runs through the SAME WebKit HTML pipeline as the preview. Since the markdown-it switch (1.12.0) the print path rendered Pango markup only, and when its validation failed it fell back to raw markdown text (the sample PDF shows literal `#` headings and the mid-sentence page break of the Pango clip pagination). Now a print-styled document (white paper, black text, light code colors, `@page` margins, the configured preview font size when absolute, otherwise 13 px) loads into an offscreen WebKit view; once loaded, the WebKit print operation opens the GTK print dialog and paginates the rendered HTML itself — the print looks like the preview. The view and operation stay referenced until the print job finishes. With `markdown_engine = legacy`, without WebKit, or on any error the Pango print path stays as the fallback.
+
 ## \[1.14.0\] – 2026-11-11
 
 ### Changed
