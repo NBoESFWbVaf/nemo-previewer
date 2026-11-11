@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.11.0
+previewer_panel.py – Version 1.11.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -88,6 +88,15 @@ _SNIFF_BINARY_MIMES = {
     "application/x-7z-compressed", "application/x-rar",
     "application/x-executable", "application/x-sharedlib",
     "application/x-ms-dos-executable",
+}
+
+# B13: files without a matching ending can still name their
+# language in the shebang line (#!/bin/bash without .sh).
+_SHEBANG_LANGS = {
+    "sh": "sh", "bash": "sh", "dash": "sh", "ash": "sh",
+    "python": "python3", "python3": "python3", "python2": "python",
+    "perl": "perl", "ruby": "ruby", "lua": "lua", "awk": "awk",
+    "tclsh": "tcl", "node": "js", "php": "php", "Rscript": "r",
 }
 
 # B11: SQLite dispatch gate – the .db ending alone proves nothing.
@@ -1036,9 +1045,36 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
     # → REF PAN-DOC-18
     def _source_language(self, path):
         try:
-            return GtkSource.LanguageManager.get_default().guess_language(
+            lang = GtkSource.LanguageManager.get_default().guess_language(
                 os.path.basename(path), None)
-        except Exception:
+            if lang is not None:
+                return lang
+        except Exception as e:
+            dbg("panel/_source_language: suppressed: %s" % e)
+        # B13: no ending hit - a shebang still names the language.
+        # Read ONE line (256-byte cap), resolve env indirection,
+        # map the interpreter basename to a GtkSource language id.
+        try:
+            with open(path, "rb") as f:
+                head = f.readline(256)
+            if not head.startswith(b"#!"):
+                return None
+            words = head[2:].decode("utf-8", "replace").strip().split()
+            if words and os.path.basename(words[0]) == "env":
+                words = words[1:]
+            lid = _SHEBANG_LANGS.get(
+                os.path.basename(words[0]) if words else "")
+            if lid is None:
+                return None
+            mgr = GtkSource.LanguageManager.get_default()
+            lang = mgr.get_language(lid)
+            if lang is None and lid == "python3":
+                lang = mgr.get_language("python")
+            if lang is None and lid == "js":
+                lang = mgr.get_language("javascript")
+            return lang
+        except Exception as e:
+            dbg("panel/_source_language: suppressed: %s" % e)
             return None
 
     # → REF PAN-DOC-19
@@ -1940,7 +1976,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.11.0"
+PREVIEWER_VERSION = "1.11.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
