@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.13.2
+previewer_render_text.py – Version 1.14.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -21,7 +21,6 @@ import io
 import shutil
 import sqlite3
 import struct
-import subprocess
 import tarfile
 import tempfile
 import zipfile
@@ -2905,8 +2904,9 @@ class TextRendererMixin:
     # → REF TXT-DOC-110
     def _render_markdown_html(self, path, text, truncated):
         # F83: real HTML preview – the webview scrolls itself, links
-        # open externally (decide-policy), the theme colors come
-        # from this widget's style context.
+        # stay DEAD (F84: decide-policy blocks every navigation
+        # away from the own document), the theme colors come from
+        # this widget's style context.
         ctx = self.get_style_context()
         bg = ctx.get_background_color(Gtk.StateFlags.NORMAL)
         fg = ctx.get_color(Gtk.StateFlags.NORMAL)
@@ -2952,8 +2952,9 @@ class TextRendererMixin:
             base_uri = GLib.filename_to_uri(base_dir) + "/"
         except Exception:
             base_uri = None
-        # B16: the policy handler must recognize the programmatic
-        # load and same-document anchors against this base.
+        # B16/F84: the policy handler must recognize the OWN
+        # document (programmatic load + same-document anchors)
+        # against this base – everything else is blocked.
         self._md_base_uri = base_uri
         view.load_html(doc, base_uri)
         if truncated:
@@ -2963,13 +2964,16 @@ class TextRendererMixin:
 
     # → REF TXT-DOC-110
     def _md_webview_policy(self, view, decision, decision_type):
-        # F83/B16: the preview never navigates away – REAL link
-        # clicks (user gesture) go to the desktop browser, while the
-        # programmatic load of the preview html (WebKit fires a
-        # navigation decision for load_html with a base_uri!) and
-        # same-document anchor jumps proceed untouched. B15 ignored
-        # EVERYTHING, which cancelled the own load (blank preview)
-        # and opened the folder in a new Nemo window.
+        # F83/B16/F84: the preview never navigates away and never
+        # opens anything outside itself (F84 security, all file
+        # types): links stay visible but DEAD. Only the OWN document
+        # proceeds – the programmatic load of the preview html
+        # (WebKit fires a navigation decision for load_html with a
+        # base_uri, its URI IS the base) and same-document anchor
+        # jumps. Everything else – link clicks included, gesture or
+        # not (e.g. a meta refresh in raw HTML) – is ignored: no
+        # browser, no xdg-open. B15 ignored EVERYTHING, which
+        # cancelled the own load (blank preview).
         try:
             if decision_type in (
                     WebKit2.PolicyDecisionType.NAVIGATION_ACTION,
@@ -2984,45 +2988,28 @@ class TextRendererMixin:
                     dbg("text/_md_webview_policy: action "
                         "suppressed: %s" % e)
                 base = getattr(self, "_md_base_uri", None) or ""
-                same_doc = (uri is not None and base
-                            and "#" in uri
-                            and uri.split("#", 1)[0].rstrip("/")
-                            == base.rstrip("/"))
-                if gesture and not same_doc:
-                    try:
-                        decision.ignore()
-                    except Exception as e:
-                        dbg("text/_md_webview_policy: ignore "
-                            "suppressed: %s" % e)
-                    if uri and not uri.startswith(("about:",
-                                                   "data:")):
-                        self._open_uri_externally(uri)
-                else:
+                own = (bool(base) and uri is not None
+                       and uri.split("#", 1)[0].rstrip("/")
+                       == base.rstrip("/"))
+                if own or (not base and not gesture):
                     try:
                         decision.use()
                     except Exception as e:
                         dbg("text/_md_webview_policy: use "
                             "suppressed: %s" % e)
+                else:
+                    if uri:
+                        dbg("text/_md_webview_policy: blocked:"
+                            " %s" % uri)
+                    try:
+                        decision.ignore()
+                    except Exception as e:
+                        dbg("text/_md_webview_policy: ignore "
+                            "suppressed: %s" % e)
                 return True
         except Exception as e:
             dbg("text/_md_webview_policy: suppressed: %s" % e)
         return False
-
-    # → REF TXT-DOC-110
-    def _open_uri_externally(self, uri):
-        try:
-            top = self.get_toplevel()
-            parent = top if isinstance(top, Gtk.Window) else None
-            Gtk.show_uri_on_window(parent, uri,
-                                   Gtk.get_current_event_time())
-        except Exception as e:
-            dbg("text/_open_uri_externally: show_uri failed (%s)"
-                % e)
-            try:
-                subprocess.Popen(["xdg-open", uri])
-            except Exception as e2:
-                dbg("text/_open_uri_externally: xdg-open failed:"
-                    " %s" % e2)
 
     # → REF TXT-DOC-68
     def _render_eml(self, path):
@@ -3921,7 +3908,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.13.2"
+PREVIEWER_VERSION = "1.14.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
