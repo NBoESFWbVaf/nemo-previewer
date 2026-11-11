@@ -3702,7 +3702,7 @@ Reads family and style from the name table of ONE sfnt face at the given offset 
 - **Reason:** F67 – CommonMark/GFM/Obsidian engine with graceful degradation.
 
 ```text
-F67 (1.12.0): optional import of markdown-it-py plus the mdit-py-plugins footnote, dollarmath and front_matter plugins; missing packages only log and keep HAVE_MDIT False – the preview stays on the legacy parser (TXT-DOC-10). The engine is built ONCE per process into _MDIT: the "gfm-like" preset (tables, strikethrough, linkify) when linkify-it-py is importable, otherwise the commonmark preset with the built-in table and strikethrough rules enabled. A failed build logs and resets _MDIT to None. Pure Python packages (python3-markdown-it, python3-mdit-py-plugins, python3-linkify-it), no webview, no HTML detour.
+F67 (1.12.0): optional import of markdown-it-py plus the mdit-py-plugins footnote, dollarmath and front_matter plugins; missing packages only log and keep HAVE_MDIT False – the preview stays on the legacy parser (TXT-DOC-10). The engine is built ONCE per process into _MDIT: the "gfm-like" preset (tables, strikethrough, linkify) when linkify-it-py is importable, otherwise the commonmark preset with the built-in table and strikethrough rules enabled. A failed build logs and resets _MDIT to None. Pure Python packages (python3-markdown-it, python3-mdit-py-plugins, python3-linkify-it), no webview, no HTML detour. 1.12.1: the deflist plugin imports ISOLATED in its own try/except (HAVE_DEFLIST) and is only .use()d when present – a missing single plugin must never kill the whole engine.
 ```
 
 ### TXT-DOC-102 – Token tree from the markdown-it stream (F67)
@@ -3722,7 +3722,7 @@ _mdit_tree converts the flat markdown-it token list into a node tree: a nesting=
 - **Reason:** F67 – wikilinks, embeds, highlight, comments on plain text runs.
 
 ```text
-_mdit_text post-processes plain text token runs with the Obsidian dialect: [[wikilinks]] render as text with the target in small grey behind it, ![[embeds]] as "[Embed: name]" placeholders, ==highlight== on a yellow background and %%comments%% removed. Runs on ESCAPED text and never sees code spans (they arrive as their own token type), so formatting characters inside code stay literal.
+_mdit_text post-processes plain text token runs with the Obsidian dialect: [[wikilinks]] render as text with the target in small grey behind it (since 1.12.1 ONLY with a label – without one the target prints once, the former version duplicated it), ![[embeds]] as "[Embed: name]" placeholders, ==highlight== on a yellow background and %%comments%% removed. 1.12.1 adds the extended dialect: single-tilde subscript and single-caret superscript (H~2~O, X^2^) render as <sub>/<sup> – double tildes/carets are strikethrough territory and never reach this function as text, lookbehind/ahead guards keep broken pairs literal. Runs on ESCAPED text and never sees code spans (they arrive as their own token type), so formatting characters inside code stay literal.
 ```
 
 ### TXT-DOC-104 – Inline tokens to Pango (F67)
@@ -3732,7 +3732,7 @@ _mdit_text post-processes plain text token runs with the Obsidian dialect: [[wik
 - **Reason:** F67 – same inline look as the legacy parser.
 
 ```text
-_mdit_inline maps the inline children to Pango markup with the legacy look: strong/em/strikethrough as b/i/s, code_inline as tt, link targets collected on a stack and appended in small grey AFTER the text at link_close, images as "[Image: alt]" placeholders (alt from the child tokens), soft/hardbreaks as line breaks, math_inline as tt, footnote refs as "[n]". Unknown token types render their children or escaped content, so plugin output degrades instead of vanishing.
+_mdit_inline maps the inline children to Pango markup with the legacy look: strong/em/strikethrough as b/i/s, code_inline as tt, link targets collected on a stack and appended in small grey AFTER the text at link_close, images as "[Image: alt]" placeholders (alt from the child tokens), soft/hardbreaks as line breaks, math_inline as tt, footnote refs as "[n]". 1.12.1: html_inline special-cases <kbd>text</kbd> as keys in tt style and <br> as a line break, other tags are stripped; footnote_anchor tokens (the definition backref arrow) render nothing – their id feeds the "[n]" label of the definition line (TXT-DOC-107). Unknown token types render their children or escaped content, so plugin output degrades instead of vanishing.
 ```
 
 ### TXT-DOC-105 – Task list detection in list items (F67)
@@ -3758,11 +3758,11 @@ _mdit_table_lines rebuilds raw GFM table lines from the token tree: header and b
 ### TXT-DOC-107 – Block tokens to Pango (F67)
 
 - **Module:** previewer\_render\_text.py
-- **Location:** `\_md\_gap`, `\_mdit\_para\_empty`, `\_mdit\_blocks` (module level)
+- **Location:** `\_md\_gap`, `\_mdit\_para\_empty`, `\_mdit\_footnote\_id`, `\_mdit\_blocks` (module level)
 - **Reason:** F67 – block walk with the legacy layout style.
 
 ```text
-_mdit_blocks walks the node tree: headings via _md_heading_markup, paragraphs as single lines (softbreaks inside become line breaks), fences/code blocks/math as tt lines, front matter as a grey tt block, hr via _md_hr. Lists keep the legacy indent (4 spaces per level, bullets •/◦/▪, ordered "N." from the start attribute, task items via TXT-DOC-105); tight=True (list items) suppresses blank lines between blocks. Blockquotes indent and italicize every line like the legacy parser; a quote whose first paragraph starts with [!type] renders as an Obsidian callout – bold marker line ("note: Title"), rest as quote body. Unknown containers render their children like plain blocks (e.g. the footnote block). _md_gap inserts the blank line before blocks, _mdit_para_empty drops the leftover callout marker paragraph.
+_mdit_blocks walks the node tree: headings via _md_heading_markup, paragraphs as single lines (softbreaks inside become line breaks), fences/code blocks/math as tt lines, front matter as a grey tt block, hr via _md_hr. Lists keep the legacy indent (4 spaces per level, bullets •/◦/▪, ordered "N." from the start attribute, task items via TXT-DOC-105); tight=True (list items) suppresses blank lines between blocks. Blockquotes indent and italicize every line like the legacy parser; a quote whose first paragraph starts with [!type] renders as an Obsidian callout – bold marker line ("note: Title"), rest as quote body. 1.12.1: definitions lists (deflist/dl tokens) render the term bold and the description indented, unknown token shapes degrade to indented blocks; html_block atoms (e.g. <details>) show a bold summary line and strip the other tags; paragraphs containing a footnote_anchor get the "[n]" definition label from _mdit_footnote_id. Unknown containers render their children like plain blocks (e.g. the footnote block). _md_gap inserts the blank line before blocks, _mdit_para_empty drops the leftover callout marker paragraph.
 ```
 
 ### TXT-DOC-108 – markdown-it render entry (F67)

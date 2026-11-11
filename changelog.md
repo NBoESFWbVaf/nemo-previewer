@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.12.1\] – 2026-11-11
+
+### Fixed
+
+- Markdown adapter gaps found with a comprehensive test document (F67 field test): subscript and superscript (`H~2~O`, `X^2^`) now render as smaller raised/sunken text; definitions lists (term + `: description`) render through the deflist plugin (isolated import – a missing plugin cannot kill the engine) with the term bold and the description indented; `<kbd>Strg</kbd>` renders as keys in code style and `<br>` as line break; `<details>/<summary>` HTML blocks show their summary line bold instead of raw tags; a wikilink without label (`[[Index]]`) no longer prints its target twice; footnote definitions carry their `[n]` label and the backref arrow is dropped.
+
 ## \[1.12.0\] – 2026-11-11
 
 ### Added
