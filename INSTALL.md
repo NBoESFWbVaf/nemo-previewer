@@ -109,14 +109,14 @@ nemo -q && nemo
 ```
 2. Check the log. Each module reports its version on load:
 ```text
-[previewer] previewer_util 1.15.2 loaded
-[previewer] previewer_select 1.15.2 loaded
-[previewer] previewer_render_media 1.15.2 loaded (...)
-[previewer] previewer_render_docs 1.15.2 loaded (...)
-[previewer] previewer_render_text 1.15.2 loaded (...)
-[previewer] previewer_toolbar 1.15.2 loaded (...)
-[previewer] previewer_panel 1.15.2 loaded (...)
-[previewer] previewer (entry) v1.15.2 ready
+[previewer] previewer_util 1.15.3 loaded
+[previewer] previewer_select 1.15.3 loaded
+[previewer] previewer_render_media 1.15.3 loaded (...)
+[previewer] previewer_render_docs 1.15.3 loaded (...)
+[previewer] previewer_render_text 1.15.3 loaded (...)
+[previewer] previewer_toolbar 1.15.3 loaded (...)
+[previewer] previewer_panel 1.15.3 loaded (...)
+[previewer] previewer (entry) v1.15.3 ready
 ```
 
    Eight lines with the same version number — anything else means an old file is still in one of the two folders.

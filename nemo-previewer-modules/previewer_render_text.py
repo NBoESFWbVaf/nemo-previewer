@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.15.2
+previewer_render_text.py – Version 1.15.3
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1100,6 +1100,9 @@ def _md_html_highlight(body, dark):
 
 
 # → REF TXT-DOC-110
+# B21: this CSS goes through %-string formatting (border, codebg,
+# mark, link) – a literal percent sign must be escaped as %% (the
+# img max-width rule); raw % killed preview AND print in 1.15.2.
 _MD_HTML_CSS = (
     "body{margin:12px;line-height:1.45;}"
     "h1,h2{border-bottom:1px solid %(border)s;padding-bottom:3px;}"
@@ -1110,7 +1113,7 @@ _MD_HTML_CSS = (
     "pre{background:%(codebg)s;border-radius:6px;padding:8px;"
     "white-space:pre-wrap;overflow-wrap:anywhere;}"
     "pre code{background:none;padding:0;}"
-    "img{max-width:100%;height:auto;}"
+    "img{max-width:100%%;height:auto;}"
     "kbd{border:1px solid %(border)s;border-radius:3px;"
     "padding:0 4px;background:%(codebg)s;}"
     "blockquote{border-left:3px solid %(border)s;margin-left:0;"
@@ -4122,7 +4125,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.15.2"
+PREVIEWER_VERSION = "1.15.3"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
