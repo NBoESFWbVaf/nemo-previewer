@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 1.15.3
+previewer_render_docs.py – Version 1.15.4
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -779,6 +779,35 @@ class DocsRendererMixin:
         op.set_n_pages(doc.get_n_pages())
         op.set_job_name("nemo-previewer – " + os.path.basename(path))
         op.connect("draw-page", self._print_draw_page, doc)
+        # B23: the document carries its own page geometry – print it
+        # 1:1. Paper size and orientation come from the first page,
+        # margins stay 0 (the document already has its own); the
+        # default printable area shrank the page into wide borders.
+        try:
+            w_pt, h_pt = doc.get_page(0).get_size()
+            if w_pt > 0 and h_pt > 0:
+                if w_pt > h_pt:
+                    pw, ph = h_pt, w_pt
+                    orient = Gtk.PageOrientation.LANDSCAPE
+                else:
+                    pw, ph = w_pt, h_pt
+                    orient = Gtk.PageOrientation.PORTRAIT
+                size = Gtk.PaperSize.new_custom(
+                    "previewer-doc", os.path.basename(path),
+                    pw, ph, Gtk.Unit.POINTS)
+                ps = Gtk.PageSetup()
+                ps.set_paper_size(size)
+                ps.set_orientation(orient)
+                ps.set_top_margin(0, Gtk.Unit.POINTS)
+                ps.set_bottom_margin(0, Gtk.Unit.POINTS)
+                ps.set_left_margin(0, Gtk.Unit.POINTS)
+                ps.set_right_margin(0, Gtk.Unit.POINTS)
+                op.set_property("page-setup", ps)
+                op.set_property("print-settings", Gtk.PrintSettings())
+                dbg("docs/_print_pdf: page setup %s, %.0f x %.0f pt,"
+                    " margins 0" % (os.path.basename(path), w_pt, h_pt))
+        except Exception as exc:
+            dbg("docs/_print_pdf: page setup suppressed: %s" % exc)
         try:
             op.run(Gtk.PrintOperationAction.PRINT_DIALOG,
                    self.get_toplevel())
@@ -788,7 +817,9 @@ class DocsRendererMixin:
     # → REF DOC-PRINT-1
     def _print_draw_page(self, operation, context, page_nr, doc):
         # F77: one Poppler page per print page – points on both
-        # sides, so the uniform scale fits the paper.
+        # sides, so the uniform scale fits the paper. B23: with the
+        # document page setup the scale is 1.0; the min() stays as
+        # the fallback for mixed page sizes.
         page = doc.get_page(page_nr)
         cr = context.get_cairo_context()
         pw, ph = context.get_width(), context.get_height()
@@ -799,7 +830,7 @@ class DocsRendererMixin:
         page.render_for_printing(cr)
 
 
-PREVIEWER_VERSION = "1.15.3"
+PREVIEWER_VERSION = "1.15.4"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)

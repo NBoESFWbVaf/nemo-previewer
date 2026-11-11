@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.15.3
+previewer_render_text.py – Version 1.15.4
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -2863,6 +2863,23 @@ def _sqlite_data(path):
 _PRINT_TEXT_EXTS = (".md", ".markdown", ".eml")
 
 
+def _print_page_setup_a4():
+    # B23: shared A4 preset for BOTH text print paths (WebKit and
+    # Pango) – explicit paper and 15 mm margins instead of the
+    # platform defaults (B19, now defined in one place).
+    ps = Gtk.PageSetup()
+    # GTK_PAPER_NAME_A4 is "iso_a4"; getattr because the constant
+    # is not guaranteed to be exported to Python.
+    ps.set_paper_size(Gtk.PaperSize.new(
+        getattr(Gtk, "PAPER_NAME_A4", "iso_a4")))
+    ps.set_orientation(Gtk.PageOrientation.PORTRAIT)
+    ps.set_top_margin(15, Gtk.Unit.MM)
+    ps.set_bottom_margin(15, Gtk.Unit.MM)
+    ps.set_left_margin(15, Gtk.Unit.MM)
+    ps.set_right_margin(15, Gtk.Unit.MM)
+    return ps
+
+
 class TextRendererMixin:
 
     # --- Shared helpers for text views (audit 0.9.1): TextView building
@@ -3297,6 +3314,21 @@ class TextRendererMixin:
             return
         op = Gtk.PrintOperation()
         op.set_job_name("nemo-previewer – " + os.path.basename(path))
+        # B23: EML (and the Markdown fallback) print with the same
+        # A4/15 mm preset as the WebKit path – defined margins
+        # instead of the platform defaults.
+        try:
+            ps = _print_page_setup_a4()
+            op.set_property("page-setup", ps)
+            op.set_property("print-settings", Gtk.PrintSettings())
+            dbg("text/_print_text_document: page setup %s,"
+                " %.0f x %.0f mm, margins 15 mm"
+                % (ps.get_paper_size().get_display_name(),
+                   ps.get_paper_width(Gtk.Unit.MM),
+                   ps.get_paper_height(Gtk.Unit.MM)))
+        except Exception as e:
+            dbg("text/_print_text_document: page setup suppressed:"
+                " %s" % e)
         data = (text, markup)
         op.connect("begin-print", self._print_text_begin, data)
         op.connect("draw-page", self._print_text_draw_page, data)
@@ -3501,18 +3533,11 @@ class TextRendererMixin:
         # printer dependent) and the dialog then printed in
         # whatever format it started with. A4 portrait with 15 mm
         # margins all around is the preset; the user can change
-        # everything in the dialog.
+        # everything in the dialog. B23: the preset lives in the
+        # shared _print_page_setup_a4() – the Pango print uses it
+        # too.
         try:
-            ps = Gtk.PageSetup()
-            # GTK_PAPER_NAME_A4 is "iso_a4"; getattr because the
-            # constant is not guaranteed to be exported to Python.
-            ps.set_paper_size(Gtk.PaperSize.new(
-                getattr(Gtk, "PAPER_NAME_A4", "iso_a4")))
-            ps.set_orientation(Gtk.PageOrientation.PORTRAIT)
-            ps.set_top_margin(15, Gtk.Unit.MM)
-            ps.set_bottom_margin(15, Gtk.Unit.MM)
-            ps.set_left_margin(15, Gtk.Unit.MM)
-            ps.set_right_margin(15, Gtk.Unit.MM)
+            ps = _print_page_setup_a4()
             op.set_property("page-setup", ps)
             op.set_property("print-settings", Gtk.PrintSettings())
             dbg("text/_md_print_loaded: page setup %s, %.0f x %.0f mm,"
@@ -4125,7 +4150,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.15.3"
+PREVIEWER_VERSION = "1.15.4"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
