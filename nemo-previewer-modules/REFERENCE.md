@@ -691,7 +691,7 @@ Panel is torn down: stop playback and timers (B3). 0.65.5 (F71): the F2 pending-
 - **Reason:** Read the settings; defaults on any failure (F12).
 
 ```text
-F12 (0.12.0): read the settings from CONF_FILE. Without a file or on ANY failure the defaults apply – a broken or half-written configuration must never stop Nemo from starting. New settings dock here as get_boolean/get_string with try/except. 0.53.0 (F65): the debug_log boolean docks here like every setting; on True the panel calls set_debug_log(True) right after loading – late enough for the config, early enough for all runtime dbg lines (the module-load lines of the other modules may be missing from the log when only the toggle is on; NEMO_PREVIEWER_DEBUG=1 catches them too). 0.55.0 (F25): the integer text_line_spacing docks here with a range check (0–12, values outside are ignored).
+F12 (0.12.0): read the settings from CONF_FILE. Without a file or on ANY failure the defaults apply – a broken or half-written configuration must never stop Nemo from starting. New settings dock here as get_boolean/get_string with try/except. 0.53.0 (F65): the debug_log boolean docks here like every setting; on True the panel calls set_debug_log(True) right after loading – late enough for the config, early enough for all runtime dbg lines (the module-load lines of the other modules may be missing from the log when only the toggle is on; NEMO_PREVIEWER_DEBUG=1 catches them too). 0.55.0 (F25): the integer text_line_spacing docks here with a range check (0–12, values outside are ignored). 1.12.0 (F67): the string markdown_engine docks here ("markdown-it"/"legacy", anything else keeps the default) – the Markdown preview reads it via the panel attribute (TXT-DOC-109).
 ```
 
 ### PAN-DOC-28 – Docstring: \_config\_save
@@ -701,7 +701,7 @@ F12 (0.12.0): read the settings from CONF_FILE. Without a file or on ANY failure
 - **Reason:** Write the settings immediately after every change (F12).
 
 ```text
-F12 (0.12.0): write the settings to CONF_FILE immediately (creating the directory if needed). Called after every change in the settings window – a separate save button is therefore unnecessary. 0.53.0 (F65): persists the debug_log boolean like every other setting. 0.55.0 (F25): persists the integer text_line_spacing.
+F12 (0.12.0): write the settings to CONF_FILE immediately (creating the directory if needed). Called after every change in the settings window – a separate save button is therefore unnecessary. 0.53.0 (F65): persists the debug_log boolean like every other setting. 0.55.0 (F25): persists the integer text_line_spacing. 1.12.0 (F67): persists the string markdown_engine ("markdown-it"/"legacy").
 ```
 
 ### PAN-DOC-29 – Docstring: apply\_start\_settings
@@ -2722,7 +2722,7 @@ Inline formatting: ***bold+italic***, **bold**, __bold__, *italic*, _italic_, ~~
 - **Reason:** Headings with browser-like look, no extra widgets.
 
 ```text
-Heading (ATX or Setext): size by depth, H1/H2 with an underline – approximates the colored bar of the browser rendering, without extra widgets.
+Heading (ATX or Setext): size by depth, H1/H2 with an underline – approximates the colored bar of the browser rendering, without extra widgets. Since 1.12.0 (F67) the tag selection lives in _md_heading_markup (takes pre-rendered inline markup) and _md_heading is a thin wrapper that runs the legacy inline pass – the markdown-it adapter (TXT-DOC-104) renders headings through the markup variant.
 ```
 
 ### TXT-DOC-4 – Docstring: \_md\_w
@@ -2792,7 +2792,7 @@ Read a GFM table starting at line i: header line, separator line with :--/--:/:-
 - **Reason:** Markdown preview without a webview (deliberate partial parser).
 
 ```text
-Translate Markdown to Pango markup – deliberately not a full parser, but with the widespread variants (GitHub Flavored Markdown): ATX (#) and Setext headings (===/---) with an underline at H1/H2, bold/italic/bold+italic, ~~strike~~, inline and block code, unordered lists with level markers (•/◦/▪), ordered (1./1)), task lists ([x] → ☑ with strikethrough as in the browser, [ ] → ☐), indented lists, multiply nested quotes, horizontal rules (spaces allowed: - - -), links (parentheses in the URL included), autolinks and GFM tables. Headings, rules and tables get air above – that reads like in the browser. No webview, no new package dependencies; deliberately left out: 4-space code blocks (collides with list indentation).
+Translate Markdown to Pango markup – deliberately not a full parser, but with the widespread variants (GitHub Flavored Markdown): ATX (#) and Setext headings (===/---) with an underline at H1/H2, bold/italic/bold+italic, ~~strike~~, inline and block code, unordered lists with level markers (•/◦/▪), ordered (1./1)), task lists ([x] → ☑ with strikethrough as in the browser, [ ] → ☐), indented lists, multiply nested quotes, horizontal rules (spaces allowed: - - -), links (parentheses in the URL included), autolinks and GFM tables. Headings, rules and tables get air above – that reads like in the browser. No webview, no new package dependencies; deliberately left out: 4-space code blocks (collides with list indentation). Since 1.12.0 (F67) this is the FALLBACK parser: the markdown-it-py adapter (TXT-DOC-101–109) renders when the packages are installed and the markdown_engine config is not "legacy" – this line parser stays for missing packages, the "legacy" switch and adapter errors (graceful degradation, nothing breaks).
 ```
 
 ### TXT-DOC-11 – Docstring: \_html\_to\_text
@@ -3695,6 +3695,96 @@ WOFF1 (wOFF) rebuild: the 20-byte directory entries (tag, offset, compLength, or
 Reads family and style from the name table of ONE sfnt face at the given offset (pure byte work): walks the face's table directory for the name table, decodes the name records (platform 0/3 as UTF-16BE, else roughly Latin-1), prefers name IDs 1/16/4 for the family and 2/17 for the style, and returns (family, style). Extracted from the former \_font\_info so collections can parse EVERY face at its own offset.
 ```
 
+### TXT-DOC-101 – markdown-it-py engine build (F67)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `HAVE\_MDIT`, `HAVE\_LINKIFY`, `\_MDIT` (module level)
+- **Reason:** F67 – CommonMark/GFM/Obsidian engine with graceful degradation.
+
+```text
+F67 (1.12.0): optional import of markdown-it-py plus the mdit-py-plugins footnote, dollarmath and front_matter plugins; missing packages only log and keep HAVE_MDIT False – the preview stays on the legacy parser (TXT-DOC-10). The engine is built ONCE per process into _MDIT: the "gfm-like" preset (tables, strikethrough, linkify) when linkify-it-py is importable, otherwise the commonmark preset with the built-in table and strikethrough rules enabled. A failed build logs and resets _MDIT to None. Pure Python packages (python3-markdown-it, python3-mdit-py-plugins, python3-linkify-it), no webview, no HTML detour.
+```
+
+### TXT-DOC-102 – Token tree from the markdown-it stream (F67)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_mdit\_tree` (module level)
+- **Reason:** F67 – flatten the flat token stream into a walkable tree.
+
+```text
+_mdit_tree converts the flat markdown-it token list into a node tree: a nesting=1 token opens an {"open": tok, "children": [...]} node, nesting=-1 pops the stack, atoms (nesting=0) append {"tok": tok}. The block renderer (TXT-DOC-107) walks this tree; mutating a node's token content (task markers TXT-DOC-105, callout markers TXT-DOC-107) is safe because the tree is freshly built per render.
+```
+
+### TXT-DOC-103 – Obsidian text decorations (F67)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_mdit\_text` (module level)
+- **Reason:** F67 – wikilinks, embeds, highlight, comments on plain text runs.
+
+```text
+_mdit_text post-processes plain text token runs with the Obsidian dialect: [[wikilinks]] render as text with the target in small grey behind it, ![[embeds]] as "[Embed: name]" placeholders, ==highlight== on a yellow background and %%comments%% removed. Runs on ESCAPED text and never sees code spans (they arrive as their own token type), so formatting characters inside code stay literal.
+```
+
+### TXT-DOC-104 – Inline tokens to Pango (F67)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_mdit\_inline` (module level)
+- **Reason:** F67 – same inline look as the legacy parser.
+
+```text
+_mdit_inline maps the inline children to Pango markup with the legacy look: strong/em/strikethrough as b/i/s, code_inline as tt, link targets collected on a stack and appended in small grey AFTER the text at link_close, images as "[Image: alt]" placeholders (alt from the child tokens), soft/hardbreaks as line breaks, math_inline as tt, footnote refs as "[n]". Unknown token types render their children or escaped content, so plugin output degrades instead of vanishing.
+```
+
+### TXT-DOC-105 – Task list detection in list items (F67)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_mdit\_strip\_task` (module level)
+- **Reason:** F67 – GFM checkboxes without a plugin token dependency.
+
+```text
+_mdit_strip_task inspects the item's first paragraph: a "[ ] "/"[x] " prefix marks a task – the marker is stripped from the raw content AND from the first text child, the return value says done (True), open (False) or no task (None). The renderer then draws the ☑/☐ symbol with the legacy indent and strikes done items through; deliberately no tasklists plugin, so the token shapes stay vanilla.
+```
+
+### TXT-DOC-106 – Table lines from tokens (F67)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_mdit\_table\_lines` (module level)
+- **Reason:** F67 – reuse the legacy ASCII table renderer unchanged.
+
+```text
+_mdit_table_lines rebuilds raw GFM table lines from the token tree: header and body cells from the inline tokens' raw content (bare "|" re-escaped to \\|), the separator line's colons from the th/td style attribute (text-align:center/right). The result feeds the legacy _md_table renderer – column budget, cell wrapping, grey cross line and the whole look stay byte-identical to the old parser.
+```
+
+### TXT-DOC-107 – Block tokens to Pango (F67)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_md\_gap`, `\_mdit\_para\_empty`, `\_mdit\_blocks` (module level)
+- **Reason:** F67 – block walk with the legacy layout style.
+
+```text
+_mdit_blocks walks the node tree: headings via _md_heading_markup, paragraphs as single lines (softbreaks inside become line breaks), fences/code blocks/math as tt lines, front matter as a grey tt block, hr via _md_hr. Lists keep the legacy indent (4 spaces per level, bullets •/◦/▪, ordered "N." from the start attribute, task items via TXT-DOC-105); tight=True (list items) suppresses blank lines between blocks. Blockquotes indent and italicize every line like the legacy parser; a quote whose first paragraph starts with [!type] renders as an Obsidian callout – bold marker line ("note: Title"), rest as quote body. Unknown containers render their children like plain blocks (e.g. the footnote block). _md_gap inserts the blank line before blocks, _mdit_para_empty drops the leftover callout marker paragraph.
+```
+
+### TXT-DOC-108 – markdown-it render entry (F67)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_markdown\_mdit\_to\_pango` (module level)
+- **Reason:** F67 – parse and render in one call.
+
+```text
+_markdown_mdit_to_pango parses the source with the shared _MDIT engine (TXT-DOC-101), builds the tree (TXT-DOC-102) and joins the block renderer's lines (TXT-DOC-107) with newlines – the same output shape as the legacy parser, so the parse_markup validation and the text view code stay untouched.
+```
+
+### TXT-DOC-109 – Markdown engine chooser (F67)
+
+- **Module:** previewer\_render\_text.py
+- **Location:** `\_markdown\_markup` (module level)
+- **Reason:** F67 – adapter with legacy fallback behind a config switch.
+
+```text
+_markdown_markup replaces the direct _markdown_to_pango calls in the preview and the print path: engine "markdown-it" (default, from the panel config markdown_engine) with a present _MDIT renders through the adapter; the legacy parser takes over on the "legacy" switch, missing packages or ANY adapter error (dbg line, graceful degradation – a broken preview must never cost the file its preview). Both call sites pass self, so the mixin reads the panel's _conf_markdown_engine attribute.
+```
+
 ### TXT-PRINT-1 – Print for Markdown and EML (F78)
 
 - **Module:** previewer\_render\_text.py
@@ -3702,7 +3792,7 @@ Reads family and style from the name table of ONE sfnt face at the given offset 
 - **Reason:** F78 – user wish to print Markdown and e-mail files like the office documents.
 
 ```text
-F78 (1.5.0, user wish "Markdown and eml files should also be printable"): the text mixin gets its own print path – no external converter, the preview text itself prints. _print_text_document builds the content: EML as a header block (From/To/Cc/Date/Subject, same labels as the preview) plus the _eml_body text, Markdown as Pango markup from _markdown_to_pango with the same parse_markup validation as the preview (invalid markup falls back to plain text). Pagination happens in _print_text_begin: ONE Pango layout from the print context, wrapped to the printable width; walking its lines, a page starts before every line whose bottom no longer fits the page height, the byte offsets are kept in _print_text_pages and set_n_pages follows. _print_text_draw_page draws the WHOLE layout per page, shifted up by page_nr page heights – the print surface clips to the page, so markup stays valid across page breaks (no text slicing). The configured preview font size applies via effective_text_font (B12): "Monospace 9" for plain text and EML, default font for Markdown, like the preview. Both print steps set WrapMode.WORD_CHAR (1.5.2, deploy feedback: EML lines without spaces ran off the paper with the default WORD wrap) – the drawn layout breaks lines exactly like the paginated one. Needs PangoCairo (HAVE_PANGOCAIRO) for the drawing; attachments stay preview-only. The dialog window is created by GTK itself – the center_window rule does not apply to it.
+F78 (1.5.0, user wish "Markdown and eml files should also be printable"): the text mixin gets its own print path – no external converter, the preview text itself prints. _print_text_document builds the content: EML as a header block (From/To/Cc/Date/Subject, same labels as the preview) plus the _eml_body text, Markdown as Pango markup from _markdown_markup (since 1.12.0/F67 the chooser behind the markdown-it adapter, TXT-DOC-109) with the same parse_markup validation as the preview (invalid markup falls back to plain text). Pagination happens in _print_text_begin: ONE Pango layout from the print context, wrapped to the printable width; walking its lines, a page starts before every line whose bottom no longer fits the page height, the byte offsets are kept in _print_text_pages and set_n_pages follows. _print_text_draw_page draws the WHOLE layout per page, shifted up by page_nr page heights – the print surface clips to the page, so markup stays valid across page breaks (no text slicing). The configured preview font size applies via effective_text_font (B12): "Monospace 9" for plain text and EML, default font for Markdown, like the preview. Both print steps set WrapMode.WORD_CHAR (1.5.2, deploy feedback: EML lines without spaces ran off the paper with the default WORD wrap) – the drawn layout breaks lines exactly like the paginated one. Needs PangoCairo (HAVE_PANGOCAIRO) for the drawing; attachments stay preview-only. The dialog window is created by GTK itself – the center_window rule does not apply to it.
 ```
 ---
 

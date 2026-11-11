@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.12.0\] – 2026-11-11
+
+### Added
+
+- The Markdown preview now renders through markdown-it-py (F67, own branch `feature/markdown-it`): a token adapter translates the CommonMark-conform engine output into the same Pango look as before – headings, lists, quotes, code, tables (the ASCII table renderer stays), task checkboxes, footnotes, math as code, link targets in small grey. On top of CommonMark/GFM it covers Obsidian dialect features: footnotes, `$…$`/`$$…$$` math, callouts (`[!note] …`), wikilinks (`[[target|label]]`) and embeds, `==highlight==` and `%%comments%%`; link auto-detection via linkify-it-py when installed. The packages (`python3-markdown-it`, `python3-mdit-py-plugins`, `python3-linkify-it`) are optional – without them, on the new `markdown_engine = legacy` config switch, or on any render error the built-in line parser takes over (graceful degradation, nothing breaks). Front matter renders as a grey code block; Mermaid blocks stay visible as code (no webview).
+
 ## \[1.11.1\] – 2026-11-11
 
 ### Fixed
