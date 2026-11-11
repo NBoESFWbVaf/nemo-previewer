@@ -816,6 +816,16 @@ The panel no longer sits directly in the Gtk.Paned, so _host_paned() walks up to
 _render() calls _aux_on_render() after the x-bit update: an open view with a refresh callback is rebuilt on file change (callback builds the widget anew, width re-measured); a callback returning None means the view cannot exist for the new file - the column collapses. Views without a callback (the settings) stay open across selections. The trigger button mirrors the open state with the CSS class pvw-aux-active (rgba(128,128,128,0.30)); _mirror_aux_trigger clears the previous button so only ever one carries the class. Teardown: _on_panel_destroy drops key, callback and trigger - the column itself dies with the widget tree. The dbg lines log open/close/width for deploy tests ("panel/aux:"). 1.2.0 (F66 part 2): a refresh callback may also return a (title, widget) tuple - the hook re-labels the header before the swap, so the tags view retitles per file; the settings keep their None callback and stay open.
 ```
 
+### PAN-AUX-4 – Aux column: trigger label flip (F82)
+
+- **Module:** previewer\_panel.py
+- **Location:** `PreviewPanel.\_mirror\_aux\_trigger`, `PreviewPanel.\_flip\_more\_label`
+- **Reason:** F82 – user wish: the "more" button should read "less" while its view is open and carry a tooltip.
+
+```text
+1.11.0 (F82): _mirror_aux_trigger now also flips the trigger's label and tooltip with the column state via _flip_more_label - on open a button labeled "more" becomes "less" with the tooltip "Hide the second column"; on close (toggle click, Escape, the column's X, a collapsing refresh) the registered trigger is flipped back to "more" with the tooltip "Show all details in a second column". The flip matches the CURRENT label, so icon-only triggers (the settings gear, the column's close button - empty label) are untouched by design; a torn-down button only ever reaches the guarded remove/flip paths. The media side registers a button built while the view is open as the current trigger (→ REF MED-DOC-49), so the close flip reaches the DISPLAYED button even after a refresh rebuilt it.
+```
+
 ### PAN-SQL-1 – SQLite dispatch: magic gate (F6/B11)
 
 - **Module:** previewer\_panel.py
@@ -2229,6 +2239,8 @@ F61 (user wish 2026-11-03): the "more" button below the audio info table opens a
 
 ```text
 K5 (0.57.0): GStreamer was imported and initialized (Gst.init(None)) at MODULE IMPORT – the panel imports render_media at every Nemo start, so every session paid the GStreamer registry cost although most sessions never preview audio or video. Now HAVE_GST starts as None (undecided) and Gst/GstPbutils as None; _ensure_gst() does the one-shot work on the first call – gi.require_version, import, Gst.init, assign the module globals, cache True/False in HAVE_GST, return it. The panel's render switch calls _ensure_gst() instead of the old HAVE_GST flag (Python binds imported values at import time – an accessor function is the only safe way, same lesson as set_debug_log in 0.54.0); the audio and video branches render only on True, otherwise the install hint / generic preview shows as before. All Gst/GstPbutils uses live inside the audio/video renderers, which the switch only enters after a successful ensure – the None globals can never be touched. The first media preview pays the init (tens of ms with a warm registry); thanks to the F2 debounce that moment is exactly when the user lingers on a file anyway.
+```
+
 ### MED-BITRATE-1 – Bitrate row with CBR/VBR frame scan (F76)
 
 - **Module:** previewer\_render\_media.py
@@ -2247,6 +2259,16 @@ F76 (1.3.0): The audio preview gains a "Bitrate" row below the codec. The worker
 
 ```text
 F79 (1.6.0, user wish "Dauerplay button left of the play button: while active, clicking through music files plays them automatically; when the playing file is deleted, the next one plays"): a Gtk.ToggleButton (media-playlist-repeat-symbolic, tooltip "Auto-play files on selection") sits left of the play button in the audio play bar. The state lives on self (_dauerplay, default False, session-only – deliberately NOT a settings entry) because the bar is rebuilt per render; the rebuilt button re-applies it. _finish_audio sets the _audio_path marker, auto-starts via _dauerplay_start when the toggle is on (_on_play_pause toggles by pipeline state – after _stop_playback it is NULL, so a toggle-on never pauses), and arms _dauerplay_watch(path): ONE Gio file monitor on the playing file (F74 pattern). _on_dauerplay_file_changed advances only on Gio.FileMonitorEvent.DELETED of the previewed path, via GLib.idle_add so the panel clears its preview first; _dauerplay_advance picks the next audio file ALPHABETICALLY after the deleted one (wrap-around to the first, stop when no audio file is left) and hands it to set_selection – the normal selection path, so preview, x-bit/print buttons and auto-start stay in sync. _stop_playback tears the monitor down (F71 pattern), the next render re-arms it; _finish_video clears _audio_path so the toggle can never start a stale playbin under a video preview. 1.7.0 (user wish "at the end of the song, jump to the next title automatically"): on EOS the same handover runs – _on_player_eos checks the toggle and the _audio_path == _path marker and routes through GLib.idle_add to _dauerplay_advance with the PLAYING path, so the next audio file (alphabetically after the finished one, wrap-around) plays instead of pausing at the start; with the toggle off the old pause-at-start behavior stays. 1.8.0 (user wish "the row marker in Nemo's file list should jump to the next file too, so I always see where the playlist stands"): the advance also moves Nemo's OWN selection row – the extension runs inside the Nemo process, so _nemo_select_row walks the visible Nemo toplevels (Gtk.Window.list_toplevels, class name contains "Nemo"), _nemo_collect_views gathers GtkTreeView (list/compact) and GtkIconView (icon) widgets recursively, _nemo_move_row_selection matches the row by exact file URI (NemoListModel column 0 holds the Nemo.File, _nemo_row_uri), unselects all, selects the matching row and scrolls it into view centered (scroll_to_cell / scroll_to_path); no matching view (other folder shown) means no change. Everything is try/except-guarded with dbg – a missing widget or model can never break the preview or the handover.
+```
+
+### MED-DOC-49 – Docstring: \_more\_button
+
+- **Module:** previewer\_render\_media.py
+- **Location:** `MediaRendererMixin.\_more\_button` (method at the class end); call sites in `\_image\_probe\_done`, `\_finish\_audio`, `\_finish\_video`
+- **Reason:** F82 – user wish: the "more" button needs a tooltip and should read "less" while the column is open.
+
+```text
+1.11.0 (F82): the three identical button blocks (photo EXIF, audio, video) share one builder - _more_button(handler) creates the button (halign START, margins 10 top/start as before) and connects the clicked handler. The label mirrors the aux column state: while the tags view is open (self._aux_key == "tags") the button reads "less" with the tooltip "Hide the second column", otherwise "more" with "Show all details in a second column" (three new msgids). A button built while the view is open (refresh rebuild after a file change) registers itself as the panel's aux trigger (self._aux_trigger = btn), so a later close flips the DISPLAYED button instead of a stale one from the last open (→ REF PAN-AUX-4).
 ```
 
 ---
