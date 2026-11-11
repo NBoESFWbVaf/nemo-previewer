@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.14.0
+previewer_render_text.py – Version 1.15.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1151,7 +1151,7 @@ def _md_html_color(c):
 
 
 # → REF TXT-DOC-110
-def _md_html_shell(body, bg, fg, dark, size_px):
+def _md_html_shell(body, bg, fg, dark, size_px, extra_css=""):
     fgc = "%d,%d,%d" % (int(round(fg.red * 255)),
                         int(round(fg.green * 255)),
                         int(round(fg.blue * 255)))
@@ -1166,6 +1166,8 @@ def _md_html_shell(body, bg, fg, dark, size_px):
                                               _md_html_color(fg))
     if size_px:
         css += "body{font-size:%dpx;}" % size_px
+    if extra_css:
+        css += extra_css
     return ("<!DOCTYPE html><html><head>"
             "<meta charset='utf-8'>"
             "<style>%s</style></head><body>%s</body></html>"
@@ -1174,10 +1176,11 @@ def _md_html_shell(body, bg, fg, dark, size_px):
 
 # → REF TXT-DOC-110
 def _markdown_html(text, base_dir=None, bg=None, fg=None, dark=False,
-                   size_px=0):
+                   size_px=0, extra_css=""):
     # F83: markdown-it-py renders the document to HTML, the Obsidian
     # dialect, local images, code colors and the theme land on top –
-    # WebKit only displays the result.
+    # WebKit only displays the result. F85: extra_css carries the
+    # print additions (@page margins).
     if _MDIT_HTML is None:
         raise RuntimeError("markdown-it-py missing")
     env = {}
@@ -1187,7 +1190,7 @@ def _markdown_html(text, base_dir=None, bg=None, fg=None, dark=False,
                                       env)
     body = _md_html_extras(body, base_dir)
     body = _md_html_highlight(body, dark)
-    return _md_html_shell(body, bg, fg, dark, size_px)
+    return _md_html_shell(body, bg, fg, dark, size_px, extra_css)
 
 
 # F83: a SECOND engine for the HTML preview – html=True passes the
@@ -3219,9 +3222,10 @@ class TextRendererMixin:
     # → REF TXT-PRINT-1
     def _print_text_document(self, path):
         # F78: print button for Markdown and EML – the GTK print
-        # dialog opens for the preview text itself: Markdown as
-        # Pango markup, EML as header block plus body, both paginated
-        # with a Pango layout (no external converter needed).
+        # dialog opens for the preview text itself: Markdown via the
+        # WebKit HTML pipeline (F85, Pango markup only as fallback),
+        # EML as header block plus body, both paginated (WebKit
+        # paginates its HTML itself, the Pango path uses a layout).
         if not HAVE_PANGOCAIRO:
             dbg("text/_print_text_document: no PangoCairo")
             return
@@ -3230,6 +3234,21 @@ class TextRendererMixin:
             text = self._print_eml_text(path)
             markup = None
         else:
+            # F85: print Markdown through the SAME WebKit HTML
+            # pipeline as the preview (user report: since the
+            # markdown-it switch the print showed raw markdown).
+            # With the "legacy" switch, without WebKit or on any
+            # error the Pango print below stays the fallback.
+            engine = "markdown-it"
+            try:
+                engine = getattr(self, "_conf_markdown_engine",
+                                 "markdown-it") or "markdown-it"
+            except Exception:
+                pass
+            if (engine != "legacy" and HAVE_WEBKIT
+                    and _MDIT_HTML is not None
+                    and self._md_print_html(path)):
+                return
             try:
                 text, _trunc = self._read_text_file(path)
             except Exception as e:
@@ -3346,6 +3365,117 @@ class TextRendererMixin:
         cr = context.get_cairo_context()
         cr.move_to(0, -page_nr * context.get_height())
         PangoCairo.show_layout(cr, layout)
+
+    # → REF TXT-PRINT-2
+    def _md_print_document(self, path, text):
+        # F85: the preview HTML in print clothing – white paper,
+        # black text (light Pygments style), @page margins; the B12
+        # size applies when absolute, otherwise a print default.
+        bg = Gdk.RGBA()
+        bg.parse("#ffffff")
+        fg = Gdk.RGBA()
+        fg.parse("#000000")
+        size_px = 0
+        try:
+            fd = effective_text_font("9")
+            if fd is not None and fd.get_size_is_absolute():
+                size = fd.get_size()
+                if size > 0:
+                    size_px = int(round(float(size) / Pango.SCALE))
+        except Exception as e:
+            dbg("text/_md_print_document: font size suppressed:"
+                " %s" % e)
+        if not size_px:
+            size_px = 13
+        base_dir = os.path.dirname(path) or "."
+        return _markdown_html(text, base_dir=base_dir, bg=bg, fg=fg,
+                              dark=False, size_px=size_px,
+                              extra_css="@page{margin:1.6cm;}")
+
+    # → REF TXT-PRINT-2
+    def _md_print_html(self, path):
+        # F85: print Markdown through the SAME WebKit HTML pipeline
+        # as the preview (user report: since the markdown-it switch
+        # the print showed raw markdown). A print-styled document
+        # (white paper, black text, page margins) loads into an
+        # offscreen webview; once loaded, the WebKit print operation
+        # opens the GTK print dialog. Returns True when this path
+        # took over, False to fall back to the Pango print. The view
+        # and operation stay referenced on self until the print
+        # finishes – the garbage collector must never kill them
+        # mid-print.
+        try:
+            text, _trunc = self._read_text_file(path)
+        except Exception as e:
+            dbg("text/_md_print_html: read failed: %s" % e)
+            return False
+        if not text.strip():
+            return False
+        try:
+            doc = self._md_print_document(path, text)
+        except Exception as e:
+            dbg("text/_md_print_html: document failed: %s" % e)
+            return False
+        view = WebKit2.WebView()
+        view.set_size_request(800, 600)
+        try:
+            view.get_settings().set_property("enable-javascript",
+                                             False)
+            view.get_settings().set_property("enable-plugins", False)
+        except Exception as e:
+            dbg("text/_md_print_html: settings suppressed: %s" % e)
+        self._md_print_view = view
+        self._md_print_op = None
+        view.connect("load-changed", self._md_print_loaded)
+        base_uri = None
+        try:
+            base_uri = GLib.filename_to_uri(
+                os.path.dirname(path) or ".") + "/"
+        except Exception:
+            base_uri = None
+        view.load_html(doc, base_uri)
+        dbg("text/_md_print_html: %d bytes html" % len(doc))
+        return True
+
+    # → REF TXT-PRINT-2
+    def _md_print_loaded(self, view, event):
+        # F85: when the print document has fully loaded, open the
+        # GTK print dialog from an idle callback (run_dialog runs
+        # its own nested main loop).
+        if event != WebKit2.LoadEvent.FINISHED:
+            return
+        try:
+            op = WebKit2.PrintOperation.new(view)
+        except Exception as e:
+            dbg("text/_md_print_loaded: operation failed: %s" % e)
+            self._md_print_view = None
+            return
+        self._md_print_op = op
+        op.connect("finished", self._md_print_finished)
+        GLib.idle_add(self._md_print_run, op)
+
+    # → REF TXT-PRINT-2
+    def _md_print_run(self, op):
+        # F85: the print dialog itself; on cancel the references
+        # are dropped here, on print the finished signal cleans up.
+        ok = False
+        try:
+            top = self.get_toplevel()
+            parent = top if isinstance(top, Gtk.Window) else None
+            ok = bool(op.run_dialog(parent))
+        except Exception as e:
+            dbg("text/_md_print_run: failed: %s" % e)
+        if not ok:
+            self._md_print_view = None
+            self._md_print_op = None
+        return False
+
+    # → REF TXT-PRINT-2
+    def _md_print_finished(self, op):
+        # F85: the print job ended (or failed) – drop the
+        # references so the offscreen webview can be collected.
+        self._md_print_view = None
+        self._md_print_op = None
 
     # → REF TXT-DOC-70
     def _render_vcard(self, path):
@@ -3908,7 +4038,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.14.0"
+PREVIEWER_VERSION = "1.15.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
