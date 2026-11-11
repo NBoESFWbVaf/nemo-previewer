@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.15.0
+previewer_render_text.py – Version 1.15.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1107,7 +1107,7 @@ _MD_HTML_CSS = (
     "code,pre,kbd{font-family:monospace;}"
     "code{background:%(codebg)s;border-radius:3px;padding:1px 4px;}"
     "pre{background:%(codebg)s;border-radius:6px;padding:8px;"
-    "overflow-x:auto;}"
+    "white-space:pre-wrap;overflow-wrap:anywhere;}"
     "pre code{background:none;padding:0;}"
     "kbd{border:1px solid %(border)s;border-radius:3px;"
     "padding:0 4px;background:%(codebg)s;}"
@@ -1151,6 +1151,29 @@ def _md_html_color(c):
 
 
 # → REF TXT-DOC-110
+# B17: the WebView default font is a serif fallback – preview and
+# print follow the GTK theme font instead (sans-serif fallback).
+_MD_FONT_CACHE = None
+
+
+def _md_font_family():
+    global _MD_FONT_CACHE
+    if _MD_FONT_CACHE is None:
+        fam = ""
+        try:
+            fam = Gtk.Settings.get_default().get_property(
+                "gtk-font-name") or ""
+        except Exception:
+            fam = ""
+        fam = re.sub(r"\s+[\d.]+$", "", fam.strip()).strip()
+        if fam:
+            _MD_FONT_CACHE = ("'" + fam.replace("'", "")
+                              + "',sans-serif")
+        else:
+            _MD_FONT_CACHE = "sans-serif"
+    return _MD_FONT_CACHE
+
+
 def _md_html_shell(body, bg, fg, dark, size_px, extra_css=""):
     fgc = "%d,%d,%d" % (int(round(fg.red * 255)),
                         int(round(fg.green * 255)),
@@ -1164,6 +1187,7 @@ def _md_html_shell(body, bg, fg, dark, size_px, extra_css=""):
     }
     css += "body{background:%s;color:%s;}" % (_md_html_color(bg),
                                               _md_html_color(fg))
+    css += "body{font-family:%s;}" % _md_font_family()
     if size_px:
         css += "body{font-size:%dpx;}" % size_px
     if extra_css:
@@ -3388,9 +3412,19 @@ class TextRendererMixin:
         if not size_px:
             size_px = 13
         base_dir = os.path.dirname(path) or "."
+        # B17: the page margins come ONLY from the print dialog's
+        # page setup (set in _md_print_loaded) – no @page rule, it
+        # would stack on top. Break rules keep headings with their
+        # text and stop elements from being cut mid-block.
         return _markdown_html(text, base_dir=base_dir, bg=bg, fg=fg,
                               dark=False, size_px=size_px,
-                              extra_css="@page{margin:1.6cm;}")
+                              extra_css="body{margin:0;padding:0;}"
+                                        "h1,h2,h3,h4,h5,h6{break-after:"
+                                        "avoid;page-break-after:avoid;}"
+                                        "p,li,pre,table,blockquote,img,"
+                                        ".md-callout{break-inside:avoid;"
+                                        "page-break-inside:avoid;}"
+                                        "p{orphans:3;widows:3;}")
 
     # → REF TXT-PRINT-2
     def _md_print_html(self, path):
@@ -3452,6 +3486,20 @@ class TextRendererMixin:
             return
         self._md_print_op = op
         op.connect("finished", self._md_print_finished)
+        # B17: sane DEFAULT page margins (15 mm all around) – the
+        # user can change them in the dialog; without a page setup
+        # WebKit printed with wrong margins.
+        try:
+            ps = Gtk.PageSetup()
+            ps.set_top_margin(15, Gtk.Unit.MM)
+            ps.set_bottom_margin(15, Gtk.Unit.MM)
+            ps.set_left_margin(15, Gtk.Unit.MM)
+            ps.set_right_margin(15, Gtk.Unit.MM)
+            op.set_property("page-setup", ps)
+            op.set_property("print-settings", Gtk.PrintSettings())
+        except Exception as e:
+            dbg("text/_md_print_loaded: page setup suppressed:"
+                " %s" % e)
         GLib.idle_add(self._md_print_run, op)
 
     # → REF TXT-PRINT-2
@@ -4038,7 +4086,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.15.0"
+PREVIEWER_VERSION = "1.15.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
