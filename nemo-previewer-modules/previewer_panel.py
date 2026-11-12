@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.18.0
+previewer_panel.py – Version 1.19.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -303,6 +303,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F87: Mermaid diagrams in the Markdown preview - opt-in,
         # JavaScript stays off unless the user enables it here.
         self._conf_mermaid_render = False
+        # F89: MathJax formulas in the Markdown preview - opt-in,
+        # JavaScript stays off unless the user enables it here.
+        self._conf_mathjax_render = False
         # F12 part 3: marker – is the CURRENT preview a PDF/office
         # page view? Cap changes then apply immediately.
         self._last_docview = False
@@ -1884,6 +1887,12 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     "previewer", "mermaid_render")
             except Exception as e:
                 dbg("panel/_config_load: suppressed: %s" % e)
+            # F89: MathJax opt-in for the Markdown preview.
+            try:
+                self._conf_mathjax_render = kf.get_boolean(
+                    "previewer", "mathjax_render")
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             try:
                 w = kf.get_integer("previewer", "panel_width")
                 if PANEL_MIN_WIDTH <= w <= 2400:
@@ -1944,11 +1953,14 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                            int(self._conf_doc_max_pages))
             kf.set_integer("previewer", "panel_width",
                            int(self._panel_width))
-            # F87: persist the print margins and the Mermaid opt-in.
+            # F87/F89: persist the print margins and the renderer
+            # opt-ins.
             kf.set_integer("previewer", "print_margin_mm",
                            int(self._conf_print_margin_mm))
             kf.set_boolean("previewer", "mermaid_render",
                            self._conf_mermaid_render)
+            kf.set_boolean("previewer", "mathjax_render",
+                           self._conf_mathjax_render)
             # F65: persist the debug logging toggle.
             kf.set_boolean("previewer", "debug_log",
                            self._conf_debug_log)
@@ -2021,7 +2033,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.18.0"
+PREVIEWER_VERSION = "1.19.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
@@ -2144,6 +2156,37 @@ def _st_mermaid_test(path):
           and '<div class="mermaid">' in on
           and "previewer-res://mermaid.min.js" in on
           and "Content-Security-Policy" in on)
+    return ok, "on/off html"
+
+
+def _st_mathjax_fixture(path):
+    # F89: a markdown file with one inline and one block formula.
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("# Fixture\n\n$a^2 + b^2 = c^2$\n\n"
+                 "$$\\int_a^b f(x)\\,dx$$\n")
+
+
+def _st_mathjax_test(path):
+    # F89: the opt-in swaps the code elements for md-math containers
+    # (delimiters kept for MathJax) and arms both vendor scripts;
+    # without it the formulas stay ordinary code elements and
+    # nothing arms.
+    if not HAVE_MDIT:
+        return True, "skipped (markdown-it-py missing)"
+    with open(path, "r", encoding="utf-8") as fh:
+        text = fh.read()
+    bg = Gdk.RGBA()
+    fg = Gdk.RGBA()
+    bg.parse("#383838")
+    fg.parse("#dadada")
+    off = _markdown_html(text, bg=bg, fg=fg, dark=True)
+    on = _markdown_html(text, bg=bg, fg=fg, dark=True, mathjax=True)
+    ok = ('<code>a^2 + b^2 = c^2</code>' in off
+          and "previewer-res://" not in off
+          and 'class="md-math">$a^2 + b^2 = c^2$</span>' in on
+          and 'class="md-math">$$' in on
+          and "previewer-res://mathjax-config.js" in on
+          and "previewer-res://mathjax-tex-svg.js" in on)
     return ok, "on/off html"
 
 
@@ -2277,9 +2320,9 @@ def _st_woff_bomb_test(path):
 
 
 def run_selftest():
-    # F1: regression tests for the file parsers - seven synthetic
-    # fixtures in a temp dir, no Nemo or GTK involved (the three
-    # security/feature fixtures ride along since B25/B27/F87).
+    # F1: regression tests for the file parsers - eight synthetic
+    # fixtures in a temp dir, no Nemo or GTK involved (the four
+    # security/feature fixtures ride along since B25/B27/F87/F89).
     tmpdir = tempfile.mkdtemp(prefix="previewer-selftest-")
     checks = []
     try:
@@ -2287,6 +2330,8 @@ def run_selftest():
                 ("markdown", ".md", _st_md_fixture, _st_md_test),
                 ("mermaid", ".md", _st_mermaid_fixture,
                  _st_mermaid_test),
+                ("mathjax", ".md", _st_mathjax_fixture,
+                 _st_mathjax_test),
                 ("epub", ".epub", _st_epub_fixture, _st_epub_test),
                 ("mobi", ".mobi", _st_mobi_fixture, _st_mobi_test),
                 ("font", ".ttf", _st_font_fixture, _st_font_test),

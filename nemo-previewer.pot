@@ -6,7 +6,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.18.0\n"
+"Project-Id-Version: nemo-previewer 1.19.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -521,6 +521,9 @@ msgstr ""
 msgid "Recommendations"
 msgstr ""
 
+msgid "Render formulas (MathJax)"
+msgstr ""
+
 msgid "Render Mermaid diagrams (JavaScript)"
 msgstr ""
 
@@ -529,7 +532,15 @@ msgid ""
         "loads the bundled mermaid.min.js from the extension folder "
         "(previewer-res: scheme, strict content security policy); when "
         "unchecked, the diagram source stays an ordinary code block. "
-        "Applies to the preview, not to the print."
+        "Applies to the preview and to the print."
+msgstr ""
+
+msgid ""
+        "Render TeX formulas in the Markdown preview ($...$, $$...$$) - "
+        "loads the bundled MathJax from the extension folder "
+        "(previewer-res: scheme, strict content security policy); when "
+        "unchecked, the formulas stay plain text. Applies to the "
+        "preview and to the print."
 msgstr ""
 
 msgid "Reset preview column to configured width"

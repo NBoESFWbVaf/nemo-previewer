@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.18.0
+previewer_render_text.py – Version 1.19.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -948,15 +948,22 @@ def _md_html_render_front_matter(self, tokens, idx, options, env):
 # → REF TXT-DOC-110
 def _md_html_render_math_inline(self, tokens, idx, options, env):
     # dollarmath ships no HTML render rules – without these the
-    # built-in renderer would die on the token type.
-    return "<code>%s</code>" % _pango_escape(
-        tokens[idx].content.strip())
+    # built-in renderer would die on the token type. F89: with the
+    # MathJax opt-in (env flag) the formula keeps its delimiters
+    # in a span - MathJax finds and replaces them in the DOM;
+    # without it the content stays an ordinary code element.
+    tex = _pango_escape(tokens[idx].content.strip())
+    if env.get("mathjax"):
+        return "<span class=\"md-math\">$%s$</span>" % tex
+    return "<code>%s</code>" % tex
 
 
 # → REF TXT-DOC-110
 def _md_html_render_math_block(self, tokens, idx, options, env):
-    return ("<pre><code>%s</code></pre>\n"
-            % _pango_escape(tokens[idx].content.strip()))
+    tex = _pango_escape(tokens[idx].content.strip())
+    if env.get("mathjax"):
+        return ("<div class=\"md-math\">$$%s$$</div>\n" % tex)
+    return ("<pre><code>%s</code></pre>\n" % tex)
 
 
 # → REF TXT-DOC-110
@@ -981,8 +988,13 @@ _MD_EMBED_IMG_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp",
 # turns JavaScript on only when the setting is enabled, and a
 # bounded poll waits for mermaid to swap the divs for SVGs before
 # the dialog opens - on timeout the document prints as loaded.
+# F89: the same opt-in pattern renders TeX formulas via MathJax 3
+# (vendor/mathjax-config.js + vendor/mathjax-tex-svg.js) - the
+# scheme whitelist below covers all three asset names.
 _MERMAID_SCHEME = "previewer-res"
 _MERMAID_VENDOR = "mermaid.min.js"
+_MATHJAX_CONFIG = "mathjax-config.js"
+_MATHJAX_VENDOR = "mathjax-tex-svg.js"
 _MERMAID_ASSET_CAP = 8 * 1024 * 1024
 _MERMAID_ASSET_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "vendor")
@@ -1006,11 +1018,12 @@ def _md_mermaid_body(body):
 
 # → REF TXT-MERMAID-1
 def _mermaid_serve(request):
-    # F87: the scheme handler serves exactly ONE whitelisted file
+    # F87: the scheme handler serves only whitelisted file names
     # from the vendor directory - it can never become a local file
     # reader for the sandboxed webview (B27 lesson: subresource
     # loads bypass the navigation policy, so the handler itself
-    # must be airtight).
+    # must be airtight). F89: the whitelist covers the MathJax
+    # assets too (mathjax-config.js, mathjax-tex-svg.js).
     try:
         # 1.18.0: WebKit parses "previewer-res://mermaid.min.js"
         # with the file name as the HOST - get_path() came back
@@ -1020,7 +1033,8 @@ def _mermaid_serve(request):
         uri = request.get_uri() or ""
         tail = uri.split("://", 1)[1] if "://" in uri else ""
         name = tail.lstrip("/").split("?", 1)[0].split("#", 1)[0]
-        if name != _MERMAID_VENDOR:
+        if name not in (_MERMAID_VENDOR, _MATHJAX_CONFIG,
+                        _MATHJAX_VENDOR):
             raise ValueError("unknown asset: %s" % name)
         with open(os.path.join(_MERMAID_ASSET_DIR, name),
                   "rb") as fh:
@@ -1268,7 +1282,7 @@ def _md_font_family():
 
 
 def _md_html_shell(body, bg, fg, dark, size_px, extra_css="",
-                   mermaid=False):
+                   mermaid=False, mathjax=False):
     fgc = "%d,%d,%d" % (int(round(fg.red * 255)),
                         int(round(fg.green * 255)),
                         int(round(fg.blue * 255)))
@@ -1287,20 +1301,29 @@ def _md_html_shell(body, bg, fg, dark, size_px, extra_css="",
     if extra_css:
         css += extra_css
     head = "<meta charset='utf-8'>"
-    if mermaid:
+    if mermaid or mathjax:
         # F87: with JavaScript allowed, the CSP is the real gate -
         # subresource loads never reach the navigation policy (B27
-        # lesson). Only the bundled vendor script may run, styles
+        # lesson). Only the bundled vendor scripts may run, styles
         # stay inline (theme CSS), images local or data: URIs -
-        # remote images are blocked in mermaid mode (consistent
+        # remote images are blocked in script mode (consistent
         # with F84).
         head += ("<meta http-equiv=\"Content-Security-Policy\" "
                  "content=\"default-src 'none'; script-src "
                  "previewer-res:; style-src 'unsafe-inline'; "
                  "img-src file: data:; font-src data:\">")
+    if mermaid:
         head += ("<script src='previewer-res://mermaid.min.js'>"
                  "</script>")
         css += ".mermaid{text-align:center;}"
+    if mathjax:
+        # F89: the config file must load BEFORE the engine (it
+        # carries the delimiters and the done marker); inline
+        # scripts are CSP-blocked, so it ships as a vendor file.
+        head += ("<script src='previewer-res://mathjax-config.js'>"
+                 "</script>")
+        head += ("<script src='previewer-res://mathjax-tex-svg.js'>"
+                 "</script>")
     return ("<!DOCTYPE html><html><head>%s"
             "<style>%s</style></head><body>%s</body></html>"
             % (head, css, body))
@@ -1308,17 +1331,20 @@ def _md_html_shell(body, bg, fg, dark, size_px, extra_css="",
 
 # → REF TXT-DOC-110
 def _markdown_html(text, base_dir=None, bg=None, fg=None, dark=False,
-                   size_px=0, extra_css="", mermaid=False):
+                   size_px=0, extra_css="", mermaid=False,
+                   mathjax=False):
     # F83: markdown-it-py renders the document to HTML, the Obsidian
     # dialect, local images, code colors and the theme land on top –
     # WebKit only displays the result. F85: extra_css carries the
     # print additions (@page margins). F87: mermaid=True turns
     # ```mermaid fences into mermaid divs and arms the previewer-res:
     # script plus the CSP - opt-in setting, preview AND print
-    # (1.18.0, F88).
+    # (1.18.0, F88). F89: mathjax=True arms the MathJax vendor
+    # scripts and passes the flag to the math render rules via env.
     if _MDIT_HTML is None:
         raise RuntimeError("markdown-it-py missing")
     env = {}
+    env["mathjax"] = bool(mathjax)
     tokens = _MDIT_HTML.parse(text)
     _md_html_callouts(tokens)
     body = _MDIT_HTML.renderer.render(tokens, _MDIT_HTML.options,
@@ -1328,7 +1354,7 @@ def _markdown_html(text, base_dir=None, bg=None, fg=None, dark=False,
         body = _md_mermaid_body(body)
     body = _md_html_highlight(body, dark)
     return _md_html_shell(body, bg, fg, dark, size_px, extra_css,
-                          mermaid=mermaid)
+                          mermaid=mermaid, mathjax=mathjax)
 
 
 # F83: a SECOND engine for the HTML preview – html=True passes the
@@ -3276,11 +3302,14 @@ class TextRendererMixin:
         # enabled the setting; without it the fences stay code
         # blocks (previous behavior, byte-identical pipeline).
         mermaid = bool(getattr(self, "_conf_mermaid_render", False))
-        if mermaid:
+        # F89: MathJax is an opt-in like Mermaid - same scheme, same
+        # CSP, JavaScript only when enabled.
+        mathjax = bool(getattr(self, "_conf_mathjax_render", False))
+        if mermaid or mathjax:
             _mermaid_register_scheme()
         doc = _markdown_html(text, base_dir=base_dir, bg=bg, fg=fg,
                              dark=dark, size_px=size_px,
-                             mermaid=mermaid)
+                             mermaid=mermaid, mathjax=mathjax)
         view = WebKit2.WebView()
         # 1.13.1 (B15): set_property instead of the setter methods –
         # the GIR names differ between WebKit builds (deploy
@@ -3288,7 +3317,7 @@ class TextRendererMixin:
         # 'set_javascript_enabled').
         try:
             view.get_settings().set_property("enable-javascript",
-                                             mermaid)
+                                             mermaid or mathjax)
         except Exception as e:
             dbg("text/_render_markdown_html: settings suppressed:"
                 " %s" % e)
@@ -3313,9 +3342,10 @@ class TextRendererMixin:
         view.load_html(doc, base_uri)
         if truncated:
             pack_hint(self._content, _("Preview trimmed (long file)."))
-        dbg("text/_render_markdown_html: %d bytes html%s%s"
+        dbg("text/_render_markdown_html: %d bytes html%s%s%s"
             % (len(doc), " (trimmed)" if truncated else "",
-               " (mermaid on)" if mermaid else ""))
+               " (mermaid on)" if mermaid else "",
+               " (mathjax on)" if mathjax else ""))
 
     # → REF TXT-DOC-110
     def _md_webview_policy(self, view, decision, decision_type):
@@ -3540,8 +3570,9 @@ class TextRendererMixin:
         # F88: EML documents never contain mermaid divs - reset the
         # count so a stale value from a previous Markdown print
         # cannot make the dialog wait for an SVG swap that will
-        # never happen.
+        # never happen. F89: same for the MathJax poll count.
         self._md_print_mermaid = 0
+        self._md_print_mathjax = 0
         try:
             view.get_settings().set_property("enable-javascript", False)
             view.get_settings().set_property("enable-plugins", False)
@@ -3889,8 +3920,9 @@ class TextRendererMixin:
         # setting on, the fences become mermaid divs and the vendor
         # script is armed (_md_print_html enables JavaScript and
         # waits for the SVG swap); diagrams never split across
-        # pages.
+        # pages. F89: the same applies to TeX formulas (MathJax).
         mermaid = bool(getattr(self, "_conf_mermaid_render", False))
+        mathjax = bool(getattr(self, "_conf_mathjax_render", False))
         extra_css = ("body{margin:0;padding:0;}"
                      "h1,h2,h3,h4,h5,h6{break-after:"
                      "avoid;page-break-after:avoid;}"
@@ -3904,9 +3936,14 @@ class TextRendererMixin:
         if mermaid:
             extra_css += (".mermaid{break-inside:avoid;"
                           "page-break-inside:avoid;}")
+        if mathjax:
+            extra_css += ("mjx-container[display=\"true\"]"
+                          "{break-inside:avoid;"
+                          "page-break-inside:avoid;}")
         return _markdown_html(text, base_dir=base_dir, bg=bg, fg=fg,
                               dark=False, size_px=size_px,
-                              extra_css=extra_css, mermaid=mermaid)
+                              extra_css=extra_css, mermaid=mermaid,
+                              mathjax=mathjax)
 
     # → REF TXT-PRINT-2
     def _md_print_html(self, path):
@@ -3934,17 +3971,25 @@ class TextRendererMixin:
             return False
         # F88: the print webview follows the preview opt-in - with
         # the setting on, JavaScript runs ONLY here (the vendor
-        # script via previewer-res:, CSP armed in the document) and
-        # the dialog waits for the SVG swap (_md_print_loaded).
+        # scripts via previewer-res:, CSP armed in the document) and
+        # the dialog waits for the rendering (_md_print_loaded).
         self._md_print_mermaid = doc.count('<div class="mermaid">')
-        if self._md_print_mermaid:
+        # F89: the MathJax poll count - the md-math containers the
+        # render rules emitted; a document without any delimiter
+        # prints immediately (no poll, no delay).
+        self._md_print_mathjax = (
+            doc.count('class="md-math"')
+            if bool(getattr(self, "_conf_mathjax_render", False))
+            else 0)
+        if self._md_print_mermaid or self._md_print_mathjax:
             _mermaid_register_scheme()
         view = WebKit2.WebView()
         view.set_size_request(800, 600)
         try:
             view.get_settings().set_property(
                 "enable-javascript",
-                bool(self._md_print_mermaid))
+                bool(self._md_print_mermaid
+                     or self._md_print_mathjax))
             view.get_settings().set_property("enable-plugins", False)
         except Exception as e:
             dbg("text/_md_print_html: settings suppressed: %s" % e)
@@ -3958,10 +4003,12 @@ class TextRendererMixin:
         except Exception:
             base_uri = None
         view.load_html(doc, base_uri)
-        dbg("text/_md_print_html: %d bytes html%s"
+        dbg("text/_md_print_html: %d bytes html%s%s"
             % (len(doc),
                (", %d mermaid div(s)" % self._md_print_mermaid)
-               if self._md_print_mermaid else ""))
+               if self._md_print_mermaid else "",
+               (", %d math container(s)" % self._md_print_mathjax)
+               if self._md_print_mathjax else ""))
         return True
 
     # → REF TXT-PRINT-2
@@ -3971,12 +4018,17 @@ class TextRendererMixin:
         # its own nested main loop). F88: with mermaid divs in the
         # document, a bounded poll first waits for the vendor
         # script to swap them for SVGs - the print must not catch
-        # the escaped source text.
+        # the escaped source text. F89: the same pattern waits for
+        # MathJax (md-math containers).
         if event != WebKit2.LoadEvent.FINISHED:
             return
         if getattr(self, "_md_print_mermaid", 0) > 0:
             self._md_print_ticks = 0
             GLib.timeout_add(200, self._md_print_wait_mermaid, view)
+            return
+        if getattr(self, "_md_print_mathjax", 0) > 0:
+            self._md_print_ticks = 0
+            GLib.timeout_add(200, self._md_print_wait_mathjax, view)
             return
         self._md_print_start(view)
 
@@ -4011,9 +4063,54 @@ class TextRendererMixin:
             if not ready:
                 dbg("text/_md_print_wait: timeout after %d polls"
                     % getattr(self, "_md_print_ticks", 0))
+            # F89: a document can carry mermaid divs AND math - the
+            # MathJax poll (if armed) runs after the mermaid poll.
+            if getattr(self, "_md_print_mathjax", 0) > 0:
+                self._md_print_ticks = 0
+                GLib.timeout_add(150, self._md_print_wait_mathjax,
+                                 view)
+                return False
             GLib.idle_add(self._md_print_start, view)
             return False
         GLib.timeout_add(150, self._md_print_wait_mermaid, view)
+        return False
+
+    # → REF TXT-PRINT-2
+    def _md_print_wait_mathjax(self, view):
+        # F89: one poll step for MathJax - ask the page whether
+        # every md-math container carries its rendered mjx-container
+        # yet; bounded at ~4 s (27 x 150 ms), on timeout the
+        # document prints as loaded (the TeX source is the graceful
+        # degradation, never a hang).
+        self._md_print_ticks = getattr(self, "_md_print_ticks", 0) + 1
+        try:
+            view.run_javascript(
+                "document.querySelectorAll('mjx-container').length"
+                " >= %d" % self._md_print_mathjax,
+                None, self._md_print_mathjax_done)
+        except Exception as e:
+            dbg("text/_md_print_wait: check failed: %s" % e)
+            GLib.idle_add(self._md_print_start, view)
+        return False
+
+    # → REF TXT-PRINT-2
+    def _md_print_mathjax_done(self, view, result):
+        # F89: the MathJax poll answer - print when every md-math
+        # container is rendered or the bound is reached, whichever
+        # comes first.
+        ready = False
+        try:
+            val = view.run_javascript_finish(result).get_js_value()
+            ready = bool(val.to_boolean())
+        except Exception as e:
+            dbg("text/_md_print_wait: read failed: %s" % e)
+        if ready or getattr(self, "_md_print_ticks", 0) >= 27:
+            if not ready:
+                dbg("text/_md_print_wait: timeout after %d polls"
+                    % getattr(self, "_md_print_ticks", 0))
+            GLib.idle_add(self._md_print_start, view)
+            return False
+        GLib.timeout_add(150, self._md_print_wait_mathjax, view)
         return False
 
     # → REF TXT-PRINT-2
@@ -4652,7 +4749,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.18.0"
+PREVIEWER_VERSION = "1.19.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "

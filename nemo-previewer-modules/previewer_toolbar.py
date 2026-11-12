@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.18.0
+previewer_toolbar.py – Version 1.19.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -287,10 +287,25 @@ class PreviewToolbarMixin:
               "the extension folder (previewer-res: scheme, strict "
               "content security policy); when unchecked, the "
               "diagram source stays an ordinary code block. Applies "
-              "to the preview, not to the print."))
+              "to the preview and to the print."))
         mer.set_active(self._conf_mermaid_render)
         mer.connect("toggled", self._on_mermaid_toggled)
         fbox.pack_start(mer, False, False, 0)
+        # F89: MathJax formulas - opt-in like Mermaid; the vendor
+        # files (mathjax-config.js, mathjax-tex-svg.js) ship with
+        # the extension and ride the same previewer-res: scheme.
+        mx = Gtk.CheckButton(
+            label=_("Render formulas (MathJax)"))
+        mx.set_tooltip_text(
+            _("Render TeX formulas in the Markdown preview ($...$, "
+              "$$...$$) - loads the bundled MathJax from the "
+              "extension folder (previewer-res: scheme, strict "
+              "content security policy); when unchecked, the "
+              "formulas stay plain text. Applies to the preview "
+              "and to the print."))
+        mx.set_active(self._conf_mathjax_render)
+        mx.connect("toggled", self._on_mathjax_toggled)
+        fbox.pack_start(mx, False, False, 0)
         # F87: print margins - ONE value for all four sides, used by
         # the text print paths (Markdown, e-mail, plain text); the
         # office/PDF print keeps the document's own layout.
@@ -483,6 +498,16 @@ class PreviewToolbarMixin:
         # preview so the toggle applies live (same pattern as the
         # syntax highlighting switch).
         self._conf_mermaid_render = chk.get_active()
+        self._config_save()
+        if self._last_textish and self._path:
+            self._render()
+
+    # → REF TB-DOC-23
+    def _on_mathjax_toggled(self, chk):
+        # F89: persist the opt-in and re-render the current text
+        # preview so the toggle applies live (same pattern as the
+        # mermaid switch).
+        self._conf_mathjax_render = chk.get_active()
         self._config_save()
         if self._last_textish and self._path:
             self._render()
@@ -766,7 +791,7 @@ class PreviewToolbarMixin:
             self._btn_archive.hide()
 
 
-PREVIEWER_VERSION = "1.18.0"
+PREVIEWER_VERSION = "1.19.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)
