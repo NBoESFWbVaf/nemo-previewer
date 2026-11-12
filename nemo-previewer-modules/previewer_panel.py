@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.19.0
+previewer_panel.py – Version 1.19.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -2033,7 +2033,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.19.0"
+PREVIEWER_VERSION = "1.19.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
@@ -2161,16 +2161,21 @@ def _st_mermaid_test(path):
 
 def _st_mathjax_fixture(path):
     # F89: a markdown file with one inline and one block formula.
+    # 1.19.1: the block formula carries carets - the Pandoc
+    # superscript rule in _md_html_extras must never reach into the
+    # md-math containers (it split a two-caret formula and MathJax
+    # lost the closing $$ delimiter).
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("# Fixture\n\n$a^2 + b^2 = c^2$\n\n"
-                 "$$\\int_a^b f(x)\\,dx$$\n")
+                 "$$\\int_a^b x^2\\,dx = \\frac{b^3}{3}$$\n")
 
 
 def _st_mathjax_test(path):
     # F89: the opt-in swaps the code elements for md-math containers
     # (delimiters kept for MathJax) and arms both vendor scripts;
     # without it the formulas stay ordinary code elements and
-    # nothing arms.
+    # nothing arms. 1.19.1: both formulas must survive _md_html_extras
+    # byte-identical (no <sup> mangling inside the containers).
     if not HAVE_MDIT:
         return True, "skipped (markdown-it-py missing)"
     with open(path, "r", encoding="utf-8") as fh:
@@ -2184,7 +2189,9 @@ def _st_mathjax_test(path):
     ok = ('<code>a^2 + b^2 = c^2</code>' in off
           and "previewer-res://" not in off
           and 'class="md-math">$a^2 + b^2 = c^2$</span>' in on
-          and 'class="md-math">$$' in on
+          and 'class="md-math">$$\\int_a^b x^2\\,dx'
+              ' = \\frac{b^3}{3}$$</div>' in on
+          and "<sup>" not in on
           and "previewer-res://mathjax-config.js" in on
           and "previewer-res://mathjax-tex-svg.js" in on)
     return ok, "on/off html"

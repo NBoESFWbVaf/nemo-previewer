@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.19.0
+previewer_render_text.py – Version 1.19.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -968,7 +968,9 @@ def _md_html_render_math_block(self, tokens, idx, options, env):
 
 # → REF TXT-DOC-110
 _MD_HTML_CODE_RE = re.compile(
-    r"(<pre[\s\S]*?</pre>|<code[\s\S]*?</code>)")
+    r"(<pre[\s\S]*?</pre>|<code[\s\S]*?</code>|"
+    r"<span class=\"md-math\">[\s\S]*?</span>|"
+    r"<div class=\"md-math\">[\s\S]*?</div>)")
 _MDIT_CALLOUT_RE = re.compile(r"\[!(\w+)\]\s*")
 _MD_HTML_FENCE_RE = re.compile(
     r"<pre><code class=\"language-([\w#+.-]+)\">([\s\S]*?)"
@@ -1093,7 +1095,12 @@ def _md_html_wikilink(m):
 # → REF TXT-DOC-110
 def _md_html_extras(markup, base_dir=None):
     # Obsidian dialect and Pandoc sub/sup on the RENDERED html –
-    # the code-split keeps <pre>/<code> segments untouched.
+    # the code-split keeps <pre>/<code> segments untouched, and
+    # since 1.19.1 the md-math containers as well: the ^...^ and
+    # ~...~ rules must never reach into TeX content (a formula with
+    # two carets on one line was split by a <sup> tag, and MathJax
+    # - which scans text nodes per element - no longer found the
+    # closing $$ delimiter, so block math stayed raw text).
     parts = _MD_HTML_CODE_RE.split(markup)
 
     def _embed(m):
@@ -4749,7 +4756,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.19.0"
+PREVIEWER_VERSION = "1.19.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
