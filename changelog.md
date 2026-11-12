@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.16.2\] – 2026-11-12
+
+### Fixed
+
+- B28 (deploy finding, 1.16.0 follow-up): the extension did not load at all – `previewer_panel.py` imports `_eml_html_body` as a module-level function (the selftest calls it that way), but in `previewer_render_text.py` it was defined as a `TextRendererMixin` METHOD (it never used `self`). The import failed at Nemo start (`ImportError: cannot import name '_eml_html_body'`) and every preview was dead. The function now lives at module level next to the other `_eml_` helpers; the class method is gone and both call sites (`_render_eml`, `_eml_print_html`) call it directly. Process lesson: byte-exact verification cannot catch import/semantic breaks – a static import-consistency check (every module-level import name must exist as a module-level def/class/assignment in the target module) ran over all eight modules and now belongs to every round.
+
 ## \[1.16.1\] – 2026-11-11
 
 ### Fixed
