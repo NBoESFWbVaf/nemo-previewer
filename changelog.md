@@ -8,6 +8,15 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.16.1\] – 2026-11-11
+
+### Fixed
+
+- B25 (security/memory audit): WOFF1 decompression bomb – `_woff1_to_sfnt` called `zlib.decompress` WITHOUT a size limit, so a crafted WOFF1 (a few KB of stream declaring a multi-GB `olen`) allocated the ENTIRE inflated size before the length check ran. The inflate is now bounded (`decompressobj().decompress(data, expected+1)`, new helper `_zlib_decompress_capped`) and hard-capped at 64 MB per table (`_WOFF_TABLE_CAP` – real fonts, CJK included, stay below); anything not matching `olen` exactly still raises "WOFF table broken".
+- B26 (security/memory audit): font files were read UNBOUNDED (`fh.read()`) in `_font_faces` – a multi-GB file renamed to .ttf would have been allocated in one piece. The read is now capped at 64 MB (`_FONT_READ_CAP`); larger files raise "font file too large (cap 64 MB)" and land in the existing hint placeholder. No new msgid.
+- B27 (security audit, F86 follow-up): the 1.16.0 mail-HTML sanitizer blocked navigation and the common attributes, but SUBRESOURCE loads do not go through the policy handler – six gaps closed: (1) `data` was missing as an attribute (`<object data>`), (2) `srcset` with SEVERAL candidates ("ok.png 1x, https://evil 2x") survived when the first was local, (3) `@import` without url() ("@import \"https://…\""), (4) protocol-relative targets `url(//host)`, (5) `file:`/`ftp:` schemes in attributes – mail HTML could reference local files, (6) iframe/object/embed as ELEMENTS: a data:text/html iframe could have loaded remote subresources AFTER sanitizing, and a data:text/css URI could hide an @import as base64. The sanitizer now removes iframe/object/embed entirely, extends the attribute list (`xlink:href`, `data`), blocks file:/ftp: and data: except data:image/ (embedded images stay legitimate), empties srcset as a WHOLE when one blocked scheme appears anywhere in it, blocks protocol-relative and data:text/ targets in url(), and strips @import statements completely. CID resolution runs BEFORE the scheme pass (data:image/ survives).
+- Selftest suite extended (panel `--selftest`, now 6 fixtures): "eml-html" builds a hostile mail with every vector above plus one cid: image that must SURVIVE as a data: URI; "woff-bomb" builds a WOFF1 whose table declares 96 MB and really inflates to 96 MB of zeros – the bounded inflate must reject it at the cap without inflating that far.
+
 ## \[1.16.0\] – 2026-11-11
 
 ### Added
