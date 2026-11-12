@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.17.0
+previewer_render_text.py – Version 1.17.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1011,7 +1011,14 @@ def _mermaid_serve(request):
     # loads bypass the navigation policy, so the handler itself
     # must be airtight).
     try:
-        name = (request.get_path() or "").lstrip("/")
+        # 1.17.1: WebKit parses "previewer-res://mermaid.min.js"
+        # with the file name as the HOST - get_path() came back
+        # empty and every request died on "unknown asset". Parse
+        # the URI tail ourselves; host form and path form both
+        # resolve to the same single whitelisted name.
+        uri = request.get_uri() or ""
+        tail = uri.split("://", 1)[1] if "://" in uri else ""
+        name = tail.lstrip("/").split("?", 1)[0].split("#", 1)[0]
         if name != _MERMAID_VENDOR:
             raise ValueError("unknown asset: %s" % name)
         with open(os.path.join(_MERMAID_ASSET_DIR, name),
@@ -4569,7 +4576,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.17.0"
+PREVIEWER_VERSION = "1.17.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "

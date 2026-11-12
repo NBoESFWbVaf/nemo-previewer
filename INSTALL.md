@@ -20,7 +20,7 @@ Tested on Linux Mint 22 and Debian 13 (Trixie) with Cinnamon/Nemo. The extension
 | `previewer_render_docs.py`  | Renderers: PDF, Office                         |
 | `previewer_render_text.py`  | Renderers: text, Markdown, EML, e-books, fonts |
 
-The entry point `previewer.py` stays directly in `~/.local/share/nemo-python/extensions/` — Nemo only loads extensions from that top-level folder. The seven module files live in the subfolder `nemo-previewer-modules` next to it; the entry point puts that subfolder on the import path at startup (before the extension folder itself, so flat leftover copies can never win). Since 0.65.1 the subfolder also holds one data file — `po/de.po`, the German translation catalog — which carries no version and is not part of the version lock. Since 1.17.0 the subfolder also holds the optional `vendor/` directory with `mermaid.min.js` (mermaid-js 10.9.3, MIT license, see `vendor/mermaid.LICENSE`) — the diagram engine for the Markdown preview, used only when the opt-in setting "Render Mermaid diagrams (JavaScript)" is enabled; without the file (or the setting) mermaid fences render as ordinary code blocks.
+The entry point `previewer.py` stays directly in `~/.local/share/nemo-python/extensions/` — Nemo only loads extensions from that top-level folder. The seven module files live in the subfolder `nemo-previewer-modules` next to it; the entry point puts that subfolder on the import path at startup (before the extension folder itself, so flat leftover copies can never win). Since 0.65.1 the subfolder also holds one data file — `po/de.po`, the German translation catalog — which carries no version and is not part of the version lock. Since 1.17.1 the subfolder also holds the optional `vendor/` directory with `mermaid.min.js` (mermaid-js 10.9.3, MIT license, see `vendor/mermaid.LICENSE`) — the diagram engine for the Markdown preview, used only when the opt-in setting "Render Mermaid diagrams (JavaScript)" is enabled; without the file (or the setting) mermaid fences render as ordinary code blocks.
 
 
 **Mandatory packages**
@@ -111,14 +111,14 @@ nemo -q && nemo
 ```
 2. Check the log. Each module reports its version on load:
 ```text
-[previewer] previewer_util 1.17.0 loaded
-[previewer] previewer_select 1.17.0 loaded
-[previewer] previewer_render_media 1.17.0 loaded (...)
-[previewer] previewer_render_docs 1.17.0 loaded (...)
-[previewer] previewer_render_text 1.17.0 loaded (...)
-[previewer] previewer_toolbar 1.17.0 loaded (...)
-[previewer] previewer_panel 1.17.0 loaded (...)
-[previewer] previewer (entry) v1.17.0 ready
+[previewer] previewer_util 1.17.1 loaded
+[previewer] previewer_select 1.17.1 loaded
+[previewer] previewer_render_media 1.17.1 loaded (...)
+[previewer] previewer_render_docs 1.17.1 loaded (...)
+[previewer] previewer_render_text 1.17.1 loaded (...)
+[previewer] previewer_toolbar 1.17.1 loaded (...)
+[previewer] previewer_panel 1.17.1 loaded (...)
+[previewer] previewer (entry) v1.17.1 ready
 ```
 
    Eight lines with the same version number — anything else means an old file is still in one of the two folders.

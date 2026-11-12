@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer.py – Version 1.17.0
+previewer.py – Version 1.17.1
 
 Entry point and Nemo integration: injects the preview panel into
 every Nemo window, loads the seven modules from the
@@ -55,7 +55,7 @@ from previewer_panel import PreviewPanel
 
 # PREVIEWER_VERSION must be identical in all eight modules; the entry
 # point checks loaded modules and warns about outdated copies.
-PREVIEWER_VERSION = "1.17.0"
+PREVIEWER_VERSION = "1.17.1"
 import previewer_util
 import previewer_select
 import previewer_panel
