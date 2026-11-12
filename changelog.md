@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.19.1\] – 2026-11-12
+
+### Fixed
+
+- F89 follow-up (deploy finding, 1.19.0): block math (`$$...$$` on its own lines) stayed raw text in the preview while inline math rendered. Root cause: the Pandoc superscript/subscript rules in the HTML post-processing (`^...^` → `<sup>`, `~...~` → `<sub>`) reached into the md-math containers - a formula with two carets on one line (the stripped block content is a single line) was split by a `<sup>` tag, and MathJax, which collects text per element and scans each string separately, no longer found the closing `$$` delimiter in the first fragment, so the display formula was never typeset. Inline formulas with a single caret (like `$E = mc^2$`) were unaffected - exactly the reported split. Fix: the code-split of `_md_html_extras` now also protects the `<span class="md-math">`/`<div class="md-math">` containers, so none of the Obsidian/Pandoc rules (sup, sub, mark, `%%` comments, wikilinks, embeds) can ever touch TeX content; the off pipeline is unchanged (code elements were already protected). The MathJax selftest fixture now uses a two-caret block formula and asserts both containers survive byte-identical with no `<sup>` - the shipped 1.19.0 suite would have caught this, but was not run in the deploy round. No new msgids.
+
 ## \[1.19.0\] – 2026-11-12
 
 ### Added
