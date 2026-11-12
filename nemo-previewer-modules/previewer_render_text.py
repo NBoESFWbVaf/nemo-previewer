@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.17.1
+previewer_render_text.py – Version 1.18.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -977,9 +977,10 @@ _MD_EMBED_IMG_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp",
 # Everything here is opt-in: JavaScript in the webview stays off and
 # the fences stay ordinary code blocks until the user enables the
 # setting; the scheme is registered once per process. The print
-# paths keep JavaScript off - a printed mermaid fence stays a code
-# block (WebKit prints the DOM, and waiting for the async diagram
-# render before the print dialog is a later round).
+# paths follow the same opt-in (1.18.0, F88): the print webview
+# turns JavaScript on only when the setting is enabled, and a
+# bounded poll waits for mermaid to swap the divs for SVGs before
+# the dialog opens - on timeout the document prints as loaded.
 _MERMAID_SCHEME = "previewer-res"
 _MERMAID_VENDOR = "mermaid.min.js"
 _MERMAID_ASSET_CAP = 8 * 1024 * 1024
@@ -1011,7 +1012,7 @@ def _mermaid_serve(request):
     # loads bypass the navigation policy, so the handler itself
     # must be airtight).
     try:
-        # 1.17.1: WebKit parses "previewer-res://mermaid.min.js"
+        # 1.18.0: WebKit parses "previewer-res://mermaid.min.js"
         # with the file name as the HOST - get_path() came back
         # empty and every request died on "unknown asset". Parse
         # the URI tail ourselves; host form and path form both
@@ -1313,8 +1314,8 @@ def _markdown_html(text, base_dir=None, bg=None, fg=None, dark=False,
     # WebKit only displays the result. F85: extra_css carries the
     # print additions (@page margins). F87: mermaid=True turns
     # ```mermaid fences into mermaid divs and arms the previewer-res:
-    # script plus the CSP - opt-in setting, PREVIEW only (the print
-    # paths keep JavaScript off, a fence prints as a code block).
+    # script plus the CSP - opt-in setting, preview AND print
+    # (1.18.0, F88).
     if _MDIT_HTML is None:
         raise RuntimeError("markdown-it-py missing")
     env = {}
@@ -3536,6 +3537,11 @@ class TextRendererMixin:
                       "p{orphans:3;widows:3;}")
         view = WebKit2.WebView()
         view.set_size_request(800, 600)
+        # F88: EML documents never contain mermaid divs - reset the
+        # count so a stale value from a previous Markdown print
+        # cannot make the dialog wait for an SVG swap that will
+        # never happen.
+        self._md_print_mermaid = 0
         try:
             view.get_settings().set_property("enable-javascript", False)
             view.get_settings().set_property("enable-plugins", False)
@@ -3879,18 +3885,28 @@ class TextRendererMixin:
         # text and stop elements from being cut mid-block. B20:
         # tables and long words never grow past the sheet edge –
         # overflowing content is simply clipped when printed.
+        # F88: the print follows the preview opt-in - with the
+        # setting on, the fences become mermaid divs and the vendor
+        # script is armed (_md_print_html enables JavaScript and
+        # waits for the SVG swap); diagrams never split across
+        # pages.
+        mermaid = bool(getattr(self, "_conf_mermaid_render", False))
+        extra_css = ("body{margin:0;padding:0;}"
+                     "h1,h2,h3,h4,h5,h6{break-after:"
+                     "avoid;page-break-after:avoid;}"
+                     "p,li,pre,table,blockquote,img,"
+                     ".md-callout{break-inside:avoid;"
+                     "page-break-inside:avoid;}"
+                     "p{orphans:3;widows:3;}"
+                     "table{max-width:100%;}"
+                     "p,li,td,th,dd,dt{overflow-wrap:"
+                     "anywhere;}")
+        if mermaid:
+            extra_css += (".mermaid{break-inside:avoid;"
+                          "page-break-inside:avoid;}")
         return _markdown_html(text, base_dir=base_dir, bg=bg, fg=fg,
                               dark=False, size_px=size_px,
-                              extra_css="body{margin:0;padding:0;}"
-                                        "h1,h2,h3,h4,h5,h6{break-after:"
-                                        "avoid;page-break-after:avoid;}"
-                                        "p,li,pre,table,blockquote,img,"
-                                        ".md-callout{break-inside:avoid;"
-                                        "page-break-inside:avoid;}"
-                                        "p{orphans:3;widows:3;}"
-                                        "table{max-width:100%;}"
-                                        "p,li,td,th,dd,dt{overflow-wrap:"
-                                        "anywhere;}")
+                              extra_css=extra_css, mermaid=mermaid)
 
     # → REF TXT-PRINT-2
     def _md_print_html(self, path):
@@ -3916,11 +3932,19 @@ class TextRendererMixin:
         except Exception as e:
             dbg("text/_md_print_html: document failed: %s" % e)
             return False
+        # F88: the print webview follows the preview opt-in - with
+        # the setting on, JavaScript runs ONLY here (the vendor
+        # script via previewer-res:, CSP armed in the document) and
+        # the dialog waits for the SVG swap (_md_print_loaded).
+        self._md_print_mermaid = doc.count('<div class="mermaid">')
+        if self._md_print_mermaid:
+            _mermaid_register_scheme()
         view = WebKit2.WebView()
         view.set_size_request(800, 600)
         try:
-            view.get_settings().set_property("enable-javascript",
-                                             False)
+            view.get_settings().set_property(
+                "enable-javascript",
+                bool(self._md_print_mermaid))
             view.get_settings().set_property("enable-plugins", False)
         except Exception as e:
             dbg("text/_md_print_html: settings suppressed: %s" % e)
@@ -3934,16 +3958,68 @@ class TextRendererMixin:
         except Exception:
             base_uri = None
         view.load_html(doc, base_uri)
-        dbg("text/_md_print_html: %d bytes html" % len(doc))
+        dbg("text/_md_print_html: %d bytes html%s"
+            % (len(doc),
+               (", %d mermaid div(s)" % self._md_print_mermaid)
+               if self._md_print_mermaid else ""))
         return True
 
     # → REF TXT-PRINT-2
     def _md_print_loaded(self, view, event):
         # F85: when the print document has fully loaded, open the
         # GTK print dialog from an idle callback (run_dialog runs
-        # its own nested main loop).
+        # its own nested main loop). F88: with mermaid divs in the
+        # document, a bounded poll first waits for the vendor
+        # script to swap them for SVGs - the print must not catch
+        # the escaped source text.
         if event != WebKit2.LoadEvent.FINISHED:
             return
+        if getattr(self, "_md_print_mermaid", 0) > 0:
+            self._md_print_ticks = 0
+            GLib.timeout_add(200, self._md_print_wait_mermaid, view)
+            return
+        self._md_print_start(view)
+
+    # → REF TXT-PRINT-2
+    def _md_print_wait_mermaid(self, view):
+        # F88: one poll step - ask the page whether every mermaid
+        # div carries its SVG yet; bounded at ~4 s (27 x 150 ms),
+        # on timeout the document prints as loaded (the fence
+        # source is the graceful degradation, never a hang).
+        self._md_print_ticks = getattr(self, "_md_print_ticks", 0) + 1
+        try:
+            view.run_javascript(
+                "document.querySelectorAll('.mermaid svg').length"
+                " >= %d" % self._md_print_mermaid,
+                None, self._md_print_mermaid_done)
+        except Exception as e:
+            dbg("text/_md_print_wait: check failed: %s" % e)
+            GLib.idle_add(self._md_print_start, view)
+        return False
+
+    # → REF TXT-PRINT-2
+    def _md_print_mermaid_done(self, view, result):
+        # F88: the poll answer - print when every div has its SVG
+        # or the bound is reached, whichever comes first.
+        ready = False
+        try:
+            val = view.run_javascript_finish(result).get_js_value()
+            ready = bool(val.to_boolean())
+        except Exception as e:
+            dbg("text/_md_print_wait: read failed: %s" % e)
+        if ready or getattr(self, "_md_print_ticks", 0) >= 27:
+            if not ready:
+                dbg("text/_md_print_wait: timeout after %d polls"
+                    % getattr(self, "_md_print_ticks", 0))
+            GLib.idle_add(self._md_print_start, view)
+            return False
+        GLib.timeout_add(150, self._md_print_wait_mermaid, view)
+        return False
+
+    # → REF TXT-PRINT-2
+    def _md_print_start(self, view):
+        # F85/F88: the print operation itself - explicit page setup
+        # (B19/B23/F87) and the dialog via idle (nested main loop).
         try:
             op = WebKit2.PrintOperation.new(view)
         except Exception as e:
@@ -4576,7 +4652,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.17.1"
+PREVIEWER_VERSION = "1.18.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "

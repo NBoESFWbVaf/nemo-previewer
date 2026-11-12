@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_docs.py – Version 1.17.1
+previewer_render_docs.py – Version 1.18.0
 
 Document renderers: PDF as scrollable pages, office documents
 via LibreOffice background conversion with caching.
@@ -830,7 +830,7 @@ class DocsRendererMixin:
         page.render_for_printing(cr)
 
 
-PREVIEWER_VERSION = "1.17.1"
+PREVIEWER_VERSION = "1.18.0"
 dbg("previewer_render_docs %s loaded (F31: PDF/office renderer; "
     "page caps and LibreOffice cache stay)"
     % PREVIEWER_VERSION)
