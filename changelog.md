@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.18.0\] – 2026-11-12
+
+### Added
+
+- F88 (user report after the 1.17.1 deploy: "Nur im Ausdruck als PDF wird wieder der Code für mermaid.js im Klartext gedruckt"): the Markdown PRINT now renders mermaid diagrams too, following the same opt-in setting as the preview. The print document is built with mermaid=True (fences become `<div class="mermaid">`, the vendor script and the strict CSP are armed, `.mermaid` gets break-inside:avoid so a diagram never splits across pages); the offscreen print webview enables JavaScript ONLY when the document contains mermaid divs, and after the load finishes a bounded poll (150 ms steps, ~4 s cap) asks the page whether every div carries its SVG yet – the print dialog opens on the first "all rendered" answer or on timeout, whichever comes first (a missing vendor file or a syntax error inside a diagram degrades to printing the source text, never a hang). The EML print resets the mermaid count (EML documents never contain mermaid divs), so a stale value from a previous Markdown print cannot delay its dialog. No new msgids.
+
 ## \[1.17.1\] – 2026-11-12
 
 ### Fixed
