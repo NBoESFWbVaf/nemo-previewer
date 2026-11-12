@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.16.1
+previewer_render_text.py – Version 1.16.2
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1345,6 +1345,34 @@ def _eml_cid_sub(match, cidmap):
     mime, payload = entry
     return (attr + "=" + quote + "data:" + mime + ";base64,"
             + base64.b64encode(payload).decode("ascii") + quote)
+
+
+# → REF TXT-EML-HTML-1
+def _eml_html_body(msg):
+    # F86: the best HTML body part, decoded – None when the
+    # mail has no HTML body. B28: module-level function – the
+    # panel selftest imports it directly (→ REF TXT-EML-HTML-1).
+    part = None
+    try:
+        part = msg.get_body(preferencelist=("html",))
+    except Exception:
+        part = None
+    if part is None:
+        return None
+    try:
+        ctype = (part.get_content_type() or "").lower()
+        text = part.get_content()
+    except Exception:
+        try:
+            raw = part.get_payload(decode=True)
+            text = raw.decode(part.get_content_charset() or "utf-8",
+                              "replace") if raw else ""
+        except Exception as e:
+            dbg("text/_eml_html_body: decode failed: %s" % e)
+            return None
+    if "html" not in ctype or not text.strip():
+        return None
+    return text
 
 
 def _eml_html_sanitize(html, cidmap=None):
@@ -3243,7 +3271,7 @@ class TextRendererMixin:
         # text view (→ REF TXT-EML-HTML-1).
         html = None
         if HAVE_WEBKIT:
-            html = self._eml_html_body(msg)
+            html = _eml_html_body(msg)
         if html is not None:
             cidmap = _eml_cid_map(msg)
             doc = _eml_html_doc(_eml_html_sanitize(html, cidmap))
@@ -3297,32 +3325,6 @@ class TextRendererMixin:
             except Exception:
                 text = ""
         return text[:MAX_TEXT_BYTES]
-
-    # → REF TXT-EML-HTML-1
-    def _eml_html_body(self, msg):
-        # F86: the best HTML body part, decoded – None when the
-        # mail has no HTML body.
-        part = None
-        try:
-            part = msg.get_body(preferencelist=("html",))
-        except Exception:
-            part = None
-        if part is None:
-            return None
-        try:
-            ctype = (part.get_content_type() or "").lower()
-            text = part.get_content()
-        except Exception:
-            try:
-                raw = part.get_payload(decode=True)
-                text = raw.decode(part.get_content_charset() or "utf-8",
-                                  "replace") if raw else ""
-            except Exception as e:
-                dbg("text/_eml_html_body: decode failed: %s" % e)
-                return None
-        if "html" not in ctype or not text.strip():
-            return None
-        return text
 
     # → REF TXT-EML-HTML-1
     def _eml_render_html(self, doc):
@@ -3395,7 +3397,7 @@ class TextRendererMixin:
         except Exception as e:
             dbg("text/_eml_print_html: open failed: %s" % e)
             return False
-        html = self._eml_html_body(msg)
+        html = _eml_html_body(msg)
         if html is None or not html.strip():
             return False
         cidmap = _eml_cid_map(msg)
@@ -4444,7 +4446,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.16.1"
+PREVIEWER_VERSION = "1.16.2"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
