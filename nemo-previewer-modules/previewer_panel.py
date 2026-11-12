@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.16.2
+previewer_panel.py – Version 1.16.3
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -1996,7 +1996,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.16.2"
+PREVIEWER_VERSION = "1.16.3"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
@@ -2095,8 +2095,11 @@ def _st_md_test(path):
 def _st_epub_test(path):
     rows, cover = _epub_data(path)
     meta = dict(rows)
-    ok = (meta.get("Book title") == "Fixture Book"
-          and meta.get("Author") == "Fixture Author"
+    # B29: compare against the TRANSLATED labels – _epub_data
+    # builds its rows through _(), so hardcoded English keys
+    # failed under every non-English locale.
+    ok = (meta.get(_("Book title")) == "Fixture Book"
+          and meta.get(_("Author")) == "Fixture Author"
           and cover is None)
     return ok, str(rows)
 
@@ -2104,8 +2107,9 @@ def _st_epub_test(path):
 def _st_mobi_test(path):
     rows, _cover = _mobi_data(path)
     meta = dict(rows)
-    ok = (meta.get("Book title") == "Fixture Book"
-          and meta.get("Author") == "Fixture Author")
+    # B29: translated labels, see _st_epub_test.
+    ok = (meta.get(_("Book title")) == "Fixture Book"
+          and meta.get(_("Author")) == "Fixture Author")
     return ok, str(rows)
 
 
