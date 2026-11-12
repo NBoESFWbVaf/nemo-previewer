@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.17.1\] – 2026-11-12
+
+### Fixed
+
+- F87 follow-up (deploy finding, 1.17.0): the Mermaid script never loaded – every request died on `text/_mermaid_serve: suppressed: unknown asset: ` with an EMPTY name. WebKit parses `previewer-res://mermaid.min.js` with the file name as the HOST (netloc), so `request.get_path()` returned an empty string. The scheme handler now parses the URI tail itself (split on `://`, strip the leading slash, cut at `?`/`#`) and accepts both the host form and the path form – the whitelist stays exactly ONE file name from the vendor directory (8 MB read cap), the security posture is unchanged. With `mermaid.min.js` in the repo (user upload, 3.3 MB) diagrams now render with the opt-in enabled.
+
 ## \[1.17.0\] – 2026-11-12
 
 ### Added
