@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.16.0
+previewer_render_text.py – Version 1.16.1
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1348,29 +1348,50 @@ def _eml_cid_sub(match, cidmap):
 
 
 def _eml_html_sanitize(html, cidmap=None):
-    # 1) dead markup first: scripts, meta refresh, <base>.
+    # 1) dead markup first: scripts, meta refresh, <base>, and the
+    # subresource vectors iframe/object/embed (B27: a
+    # data:text/html iframe or an <object data> would load remotely
+    # BENEATH the attribute filter – the elements go entirely).
     text = re.sub(r"(?is)<(script)\b[^>]*>.*?</\1>", " ", html)
+    text = re.sub(r"(?is)<(iframe|object|embed)\b[^>]*>.*?</\1>",
+                  " ", text)
+    text = re.sub(r"(?is)<(iframe|object|embed)\b[^>]*/?>", " ", text)
     text = re.sub(r"(?is)<meta[^>]+http-equiv\s*=\s*[\"']?refresh"
                   r"[^>]*>", " ", text)
     text = re.sub(r"(?is)<base\b[^>]*>", " ", text)
     # 2) inline images: cid: -> data: URIs (before the remote pass,
-    # both go over the same attribute pattern).
+    # both go over the same attribute pattern; xlink:href covers
+    # SVG <use>/<image>, data covers <object> leftovers).
     if cidmap:
         text = re.sub(
-            r"(?is)\b(src|href|background|poster|srcset)\s*=\s*"
-            r"([\"'])cid:([^\"']+)\2",
+            r"(?is)\b(src|href|background|poster|srcset|xlink:href|data)"
+            r"\s*=\s*([\"'])cid:([^\"']+)\2",
             lambda m: _eml_cid_sub(m, cidmap), text)
-    # 3) remote references: quoted and bare attribute values.
+    # 3) remote AND local references in attributes (quoted): http(s)
+    # plus file/ftp – mail HTML never touches the local disk – and
+    # data: EXCEPT data:image/ (embedded images are legitimate).
+    # srcset carries SEVERAL candidates – one blocked scheme
+    # anywhere empties the whole attribute (B27).
     text = re.sub(
-        r"(?is)\b(src|href|background|poster|srcset|action|formaction)"
-        r"\s*=\s*([\"'])\s*https?:[^\"']*\2", r"\1=\2\2", text)
+        r"(?is)\b(src|href|background|poster|srcset|action|formaction"
+        r"|xlink:href|data)\s*=\s*([\"'])[^\"']*"
+        r"(https?:|file:|ftp:|data:(?!image/))[^\"']*\2",
+        r"\1=\2\2", text)
     text = re.sub(
-        r"(?is)\b(src|href|background|poster|srcset|action|formaction)"
-        r"\s*=\s*https?:[^\s>]+", r'\1=""', text)
-    # 4) remote CSS references inside <style> blocks and style
-    # attributes.
-    text = re.sub(r"(?i)url\(\s*[\"']?\s*https?:[^)\"']*[\"']?\s*\)",
+        r"(?is)\b(src|href|background|poster|srcset|action|formaction"
+        r"|xlink:href|data)\s*=\s*(https?:|file:|ftp:|data:(?!image/))"
+        r"[^\s>]+", r'\1=""', text)
+    # 4) remote CSS: url() with absolute or protocol-relative
+    # targets plus data:text/ payloads (a data:text/css stylesheet
+    # could smuggle an @import past the attribute filter as base64),
+    # and @import statements as a whole (B27).
+    text = re.sub(r"(?i)url\(\s*[\"']?\s*(https?:|file:|ftp:)"
+                  r"[^)\"']*[\"']?\s*\)", "url()", text)
+    text = re.sub(r"(?i)url\(\s*[\"']?\s*//[^)\"']*[\"']?\s*\)",
                   "url()", text)
+    text = re.sub(r"(?i)url\(\s*[\"']?\s*data:text/"
+                  r"[^)\"']*[\"']?\s*\)", "url()", text)
+    text = re.sub(r"(?is)@import[^;]*(;|$)", " ", text)
     return text
 
 
@@ -2070,6 +2091,21 @@ _FONT_STATE = {"tmpdir": None, "added": set(), "copies": []}
 _FONT_COPY_LIMIT = 64
 # F11: collection cap – more faces would flood the preview.
 _TTC_FACE_CAP = 8
+# B26: font files are < 50 MB in practice – a larger "font" is not
+# worth the memory (the read in _font_faces is capped accordingly).
+_FONT_READ_CAP = 64 * 1024 * 1024
+# B25: per-table inflate cap for WOFF1 – a lying olen (a few KB of
+# stream declaring gigabytes) must not allocate the difference.
+_WOFF_TABLE_CAP = 64 * 1024 * 1024
+
+
+# → REF TXT-FONT-4
+def _zlib_decompress_capped(data, expected):
+    # B25: bounded inflate – the decompressor stops at
+    # expected+1 bytes, the length check in _woff1_to_sfnt rejects
+    # everything that does not match exactly; zlib.error (corrupt
+    # stream) propagates like zlib.decompress did.
+    return zlib.decompressobj().decompress(data, max(expected, 1) + 1)
 
 
 # → REF TXT-DOC-99
@@ -2093,7 +2129,9 @@ def _woff1_to_sfnt(data):
             raise ValueError("WOFF table out of range")
         raw = data[toff:toff + clen]
         if clen != olen:
-            raw = zlib.decompress(raw)
+            if olen > _WOFF_TABLE_CAP:
+                raise ValueError("WOFF table too large")
+            raw = _zlib_decompress_capped(raw, olen)
         if len(raw) != olen:
             raise ValueError("WOFF table broken")
         tables.append((tag, cks, raw))
@@ -2170,8 +2208,12 @@ def _sfnt_face_names(data, offset):
 # → REF TXT-DOC-42
 def _font_faces(path):
     # F11: WOFF1 rebuilt to sfnt, collections list EVERY face.
+    # B26: the read is capped – a multi-GB "font" file must not
+    # land in memory in one piece.
     with open(path, "rb") as fh:
-        data = fh.read()
+        data = fh.read(_FONT_READ_CAP + 1)
+    if len(data) > _FONT_READ_CAP:
+        raise ValueError("font file too large (cap 64 MB)")
     if len(data) < 12:
         raise ValueError("file too small")
     tag = data[0:4]
@@ -4402,7 +4444,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.16.0"
+PREVIEWER_VERSION = "1.16.1"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "

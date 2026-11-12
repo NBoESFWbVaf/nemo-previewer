@@ -2,19 +2,21 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.16.0
+previewer_panel.py – Version 1.16.1
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
 background.
 """
 
+import email
 import os
 import struct
 import sys
 import tempfile
 import traceback
 import zipfile
+import zlib
 
 import gi
 
@@ -28,6 +30,8 @@ from gi.repository import Gtk, Gdk, GdkPixbuf, Gio, GLib, Pango
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
+
+from email import policy
 
 from previewer_util import (
     _,
@@ -53,6 +57,8 @@ from previewer_render_docs import (
 from previewer_render_text import (
     TextRendererMixin, _FONT_SAMPLE_TEXT,
     _markdown_to_pango, _epub_data, _mobi_data, _font_faces,
+    _woff1_to_sfnt,
+    _eml_cid_map, _eml_html_body, _eml_html_doc, _eml_html_sanitize,
 )
 from previewer_toolbar import PreviewToolbarMixin
 
@@ -1990,7 +1996,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.16.0"
+PREVIEWER_VERSION = "1.16.1"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
@@ -2111,9 +2117,110 @@ def _st_font_test(path):
     return ok, "%s %s %s" % (reg, fmt, str(faces))
 
 
+_ST_EML_PNG = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
+               "AAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+
+
+# → REF PAN-SELFTEST-2
+def _st_eml_html_fixture(path):
+    # B27: hostile mail HTML – every vector the sanitizer must
+    # kill, plus one cid: image that must SURVIVE as a data: URI.
+    html = (
+        "<html><head><meta http-equiv=\"refresh\" "
+        "content=\"0;url=https://evil/\"><base href=\"https://evil/\">"
+        "<style>@import url(https://evil/x.css);"
+        "body{background:url(//evil/y.png)}</style></head><body>"
+        "<script>alert(1)</script>"
+        "<img src=\"https://tracker/px\">"
+        "<img src=\"cid:logo\">"
+        "<img src=\"file:///home/user/.ssh/id_rsa\">"
+        "<img srcset=\"ok.png 1x, https://evil/2x.png 2x\">"
+        "<iframe src=\"data:text/html;base64,PGltZz48L2ltZz4=\""
+        "></iframe>"
+        "<object data=\"https://evil/plugin\"></object>"
+        "<a href=\"https://evil\">link</a>"
+        "<svg><use xlink:href=\"https://evil/s.svg#x\"/></svg>"
+        "</body></html>")
+    with open(path, "wb") as fh:
+        fh.write(("From: a@b.c\r\nTo: d@e.f\r\nSubject: hostile\r\n"
+                  "MIME-Version: 1.0\r\n"
+                  "Content-Type: multipart/related; boundary=\"BND\"\r\n"
+                  "\r\n--BND\r\n"
+                  "Content-Type: text/html; charset=utf-8\r\n\r\n"
+                  + html + "\r\n--BND\r\n"
+                  "Content-Type: image/png\r\nContent-ID: <logo>\r\n"
+                  "Content-Transfer-Encoding: base64\r\n\r\n"
+                  + _ST_EML_PNG + "\r\n--BND--\r\n").encode("utf-8"))
+
+
+def _st_eml_html_test(path):
+    with open(path, "rb") as fh:
+        msg = email.message_from_bytes(fh.read(), policy=policy.default)
+    body = _eml_html_body(msg)
+    if body is None:
+        return False, "html body not found"
+    doc = _eml_html_doc(_eml_html_sanitize(body, _eml_cid_map(msg)))
+    bad = []
+    if "https://" in doc:
+        bad.append("https survived")
+    if "file:///" in doc:
+        bad.append("file survived")
+    if "url(//evil" in doc:
+        bad.append("protocol-relative url survived")
+    if "@import" in doc.lower():
+        bad.append("@import survived")
+    if "<script" in doc:
+        bad.append("script survived")
+    if "<iframe" in doc or "<object" in doc:
+        bad.append("iframe/object survived")
+    if "http-equiv" in doc:
+        bad.append("meta refresh survived")
+    if "<base" in doc:
+        bad.append("base survived")
+    if "srcset=\"\"" not in doc:
+        bad.append("srcset not emptied")
+    if "xlink:href=\"\"" not in doc:
+        bad.append("xlink:href not emptied")
+    if "data:image/png;base64," not in doc:
+        bad.append("cid image not embedded")
+    return (not bad), "; ".join(bad) or "all vectors neutralized"
+
+
+# → REF PAN-SELFTEST-2
+def _st_woff_bomb_fixture(path):
+    # B25: a wOFF whose single table declares olen = 96 MB while
+    # the zlib stream really inflates to 96 MB of zeros – the old
+    # zlib.decompress allocated the whole size BEFORE the length
+    # check; the bounded inflate must reject it at the table cap
+    # WITHOUT inflating that far.
+    payload = zlib.compress(b"\x00" * (96 * 1024 * 1024), 1)
+    hdr = (b"wOFF" + b"OTTO"
+           + struct.pack(">I", 64 + 20 + len(payload))
+           + struct.pack(">HHI", 1, 0, 12 + 16 + len(payload))
+           + struct.pack(">HH", 1, 0)
+           + struct.pack(">IIIII", 0, 0, 0, 0, 0))
+    dirent = struct.pack(">4sIIII", b"CFF ", 64, len(payload),
+                         96 * 1024 * 1024, 0)
+    with open(path, "wb") as fh:
+        fh.write(hdr + dirent + payload)
+
+
+def _st_woff_bomb_test(path):
+    with open(path, "rb") as fh:
+        data = fh.read()
+    try:
+        _woff1_to_sfnt(data)
+    except ValueError as e:
+        if "too large" in str(e):
+            return True, "rejected at the table cap"
+        return False, "wrong error: %s" % e
+    return False, "the bomb inflated without complaint"
+
+
 def run_selftest():
-    # F1: regression tests for the file parsers - four synthetic
-    # fixtures in a temp dir, no Nemo or GTK involved.
+    # F1: regression tests for the file parsers - six synthetic
+    # fixtures in a temp dir, no Nemo or GTK involved (the two
+    # security fixtures ride along since B25/B27).
     tmpdir = tempfile.mkdtemp(prefix="previewer-selftest-")
     checks = []
     try:
@@ -2121,7 +2228,11 @@ def run_selftest():
                 ("markdown", ".md", _st_md_fixture, _st_md_test),
                 ("epub", ".epub", _st_epub_fixture, _st_epub_test),
                 ("mobi", ".mobi", _st_mobi_fixture, _st_mobi_test),
-                ("font", ".ttf", _st_font_fixture, _st_font_test)):
+                ("font", ".ttf", _st_font_fixture, _st_font_test),
+                ("eml-html", ".eml", _st_eml_html_fixture,
+                 _st_eml_html_test),
+                ("woff-bomb", ".woff", _st_woff_bomb_fixture,
+                 _st_woff_bomb_test)):
             path = os.path.join(tmpdir, "fixture" + ext)
             builder(path)
             try:
