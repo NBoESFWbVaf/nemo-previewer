@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.16.3
+previewer_render_text.py – Version 1.17.0
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -38,7 +38,7 @@ gi.require_version('Gdk', '3.0')
 gi.require_version('GdkPixbuf', '2.0')
 gi.require_version('Pango', '1.0')
 
-from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango
+from gi.repository import Gtk, Gdk, GdkPixbuf, Gio, GLib, Pango
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
@@ -970,6 +970,86 @@ _MD_EMBED_IMG_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp",
                       ".svg", ".bmp", ".avif")
 
 
+# F87: optional Mermaid rendering in the Markdown preview - the
+# diagram engine ships as a vendor file (vendor/mermaid.min.js,
+# mermaid-js 10.9.3, MIT license, see vendor/mermaid.LICENSE) and is
+# served to the webview through the PRIVATE previewer-res: scheme.
+# Everything here is opt-in: JavaScript in the webview stays off and
+# the fences stay ordinary code blocks until the user enables the
+# setting; the scheme is registered once per process. The print
+# paths keep JavaScript off - a printed mermaid fence stays a code
+# block (WebKit prints the DOM, and waiting for the async diagram
+# render before the print dialog is a later round).
+_MERMAID_SCHEME = "previewer-res"
+_MERMAID_VENDOR = "mermaid.min.js"
+_MERMAID_ASSET_CAP = 8 * 1024 * 1024
+_MERMAID_ASSET_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "vendor")
+_MERMAID_FENCE_RE = re.compile(
+    r"<pre><code class=\"language-mermaid\">([\s\S]*?)"
+    r"</code></pre>")
+_MERMAID_STATE = {"registered": False}
+
+
+# → REF TXT-MERMAID-1
+def _md_mermaid_body(body):
+    # F87: markdown-it renders a ```mermaid fence as a code block;
+    # with the opt-in the block becomes a mermaid div - the vendored
+    # script auto-renders those on load. The source stays HTML-
+    # escaped: the browser decodes the entities when mermaid reads
+    # the div's text content.
+    return _MERMAID_FENCE_RE.sub(
+        lambda m: "<div class=\"mermaid\">%s</div>" % m.group(1),
+        body)
+
+
+# → REF TXT-MERMAID-1
+def _mermaid_serve(request):
+    # F87: the scheme handler serves exactly ONE whitelisted file
+    # from the vendor directory - it can never become a local file
+    # reader for the sandboxed webview (B27 lesson: subresource
+    # loads bypass the navigation policy, so the handler itself
+    # must be airtight).
+    try:
+        name = (request.get_path() or "").lstrip("/")
+        if name != _MERMAID_VENDOR:
+            raise ValueError("unknown asset: %s" % name)
+        with open(os.path.join(_MERMAID_ASSET_DIR, name),
+                  "rb") as fh:
+            data = fh.read(_MERMAID_ASSET_CAP)
+        stream = Gio.MemoryInputStream.new_from_data(data, None)
+        request.finish(stream, len(data), "text/javascript")
+        dbg("text/_mermaid_serve: served %s (%d bytes)"
+            % (name, len(data)))
+    except Exception as e:
+        dbg("text/_mermaid_serve: suppressed: %s" % e)
+        try:
+            data = b"/* previewer-res: asset unavailable */"
+            stream = Gio.MemoryInputStream.new_from_data(data, None)
+            request.finish(stream, len(data), "text/javascript")
+        except Exception as e2:
+            dbg("text/_mermaid_serve: finish failed: %s" % e2)
+
+
+# → REF TXT-MERMAID-1
+def _mermaid_register_scheme():
+    # F87: one-shot registration on the default web context; a
+    # missing vendor file only means the fallback shows the diagram
+    # source - it must never break the preview.
+    if _MERMAID_STATE["registered"]:
+        return True
+    try:
+        ctx = WebKit2.WebContext.get_default()
+        ctx.register_uri_scheme(_MERMAID_SCHEME, _mermaid_serve)
+        _MERMAID_STATE["registered"] = True
+        dbg("text/mermaid: scheme %s registered"
+            % _MERMAID_SCHEME)
+        return True
+    except Exception as e:
+        dbg("text/mermaid: scheme registration suppressed: %s" % e)
+        return False
+
+
 # → REF TXT-DOC-110
 def _md_html_file_uri(path):
     try:
@@ -1179,7 +1259,8 @@ def _md_font_family():
     return _MD_FONT_CACHE
 
 
-def _md_html_shell(body, bg, fg, dark, size_px, extra_css=""):
+def _md_html_shell(body, bg, fg, dark, size_px, extra_css="",
+                   mermaid=False):
     fgc = "%d,%d,%d" % (int(round(fg.red * 255)),
                         int(round(fg.green * 255)),
                         int(round(fg.blue * 255)))
@@ -1197,19 +1278,36 @@ def _md_html_shell(body, bg, fg, dark, size_px, extra_css=""):
         css += "body{font-size:%dpx;}" % size_px
     if extra_css:
         css += extra_css
-    return ("<!DOCTYPE html><html><head>"
-            "<meta charset='utf-8'>"
+    head = "<meta charset='utf-8'>"
+    if mermaid:
+        # F87: with JavaScript allowed, the CSP is the real gate -
+        # subresource loads never reach the navigation policy (B27
+        # lesson). Only the bundled vendor script may run, styles
+        # stay inline (theme CSS), images local or data: URIs -
+        # remote images are blocked in mermaid mode (consistent
+        # with F84).
+        head += ("<meta http-equiv=\"Content-Security-Policy\" "
+                 "content=\"default-src 'none'; script-src "
+                 "previewer-res:; style-src 'unsafe-inline'; "
+                 "img-src file: data:; font-src data:\">")
+        head += ("<script src='previewer-res://mermaid.min.js'>"
+                 "</script>")
+        css += ".mermaid{text-align:center;}"
+    return ("<!DOCTYPE html><html><head>%s"
             "<style>%s</style></head><body>%s</body></html>"
-            % (css, body))
+            % (head, css, body))
 
 
 # → REF TXT-DOC-110
 def _markdown_html(text, base_dir=None, bg=None, fg=None, dark=False,
-                   size_px=0, extra_css=""):
+                   size_px=0, extra_css="", mermaid=False):
     # F83: markdown-it-py renders the document to HTML, the Obsidian
     # dialect, local images, code colors and the theme land on top –
     # WebKit only displays the result. F85: extra_css carries the
-    # print additions (@page margins).
+    # print additions (@page margins). F87: mermaid=True turns
+    # ```mermaid fences into mermaid divs and arms the previewer-res:
+    # script plus the CSP - opt-in setting, PREVIEW only (the print
+    # paths keep JavaScript off, a fence prints as a code block).
     if _MDIT_HTML is None:
         raise RuntimeError("markdown-it-py missing")
     env = {}
@@ -1218,8 +1316,11 @@ def _markdown_html(text, base_dir=None, bg=None, fg=None, dark=False,
     body = _MDIT_HTML.renderer.render(tokens, _MDIT_HTML.options,
                                       env)
     body = _md_html_extras(body, base_dir)
+    if mermaid:
+        body = _md_mermaid_body(body)
     body = _md_html_highlight(body, dark)
-    return _md_html_shell(body, bg, fg, dark, size_px, extra_css)
+    return _md_html_shell(body, bg, fg, dark, size_px, extra_css,
+                          mermaid=mermaid)
 
 
 # F83: a SECOND engine for the HTML preview – html=True passes the
@@ -3042,20 +3143,29 @@ def _sqlite_data(path):
 _PRINT_TEXT_EXTS = (".md", ".markdown", ".eml")
 
 
-def _print_page_setup_a4():
+def _print_page_setup_a4(margin_mm=15):
     # B23: shared A4 preset for BOTH text print paths (WebKit and
-    # Pango) – explicit paper and 15 mm margins instead of the
-    # platform defaults (B19, now defined in one place).
+    # Pango) - explicit paper and defined margins instead of the
+    # platform defaults (B19, now defined in one place). F87: the
+    # margin is configurable in the settings - ONE value for all
+    # four sides, 3-50 mm, default 15; the office/PDF print keeps
+    # the document's own layout (B23 untouched).
+    try:
+        m = int(margin_mm)
+    except Exception:
+        m = 15
+    if not 3 <= m <= 50:
+        m = 15
     ps = Gtk.PageSetup()
     # GTK_PAPER_NAME_A4 is "iso_a4"; getattr because the constant
     # is not guaranteed to be exported to Python.
     ps.set_paper_size(Gtk.PaperSize.new(
         getattr(Gtk, "PAPER_NAME_A4", "iso_a4")))
     ps.set_orientation(Gtk.PageOrientation.PORTRAIT)
-    ps.set_top_margin(15, Gtk.Unit.MM)
-    ps.set_bottom_margin(15, Gtk.Unit.MM)
-    ps.set_left_margin(15, Gtk.Unit.MM)
-    ps.set_right_margin(15, Gtk.Unit.MM)
+    ps.set_top_margin(m, Gtk.Unit.MM)
+    ps.set_bottom_margin(m, Gtk.Unit.MM)
+    ps.set_left_margin(m, Gtk.Unit.MM)
+    ps.set_right_margin(m, Gtk.Unit.MM)
     return ps
 
 
@@ -3153,8 +3263,16 @@ class TextRendererMixin:
             dbg("text/_render_markdown_html: font size suppressed:"
                 " %s" % e)
         base_dir = os.path.dirname(path) or "."
+        # F87: Mermaid is an opt-in - the scheme is registered once
+        # and JavaScript in the webview stays OFF unless the user
+        # enabled the setting; without it the fences stay code
+        # blocks (previous behavior, byte-identical pipeline).
+        mermaid = bool(getattr(self, "_conf_mermaid_render", False))
+        if mermaid:
+            _mermaid_register_scheme()
         doc = _markdown_html(text, base_dir=base_dir, bg=bg, fg=fg,
-                             dark=dark, size_px=size_px)
+                             dark=dark, size_px=size_px,
+                             mermaid=mermaid)
         view = WebKit2.WebView()
         # 1.13.1 (B15): set_property instead of the setter methods –
         # the GIR names differ between WebKit builds (deploy
@@ -3162,7 +3280,7 @@ class TextRendererMixin:
         # 'set_javascript_enabled').
         try:
             view.get_settings().set_property("enable-javascript",
-                                             False)
+                                             mermaid)
         except Exception as e:
             dbg("text/_render_markdown_html: settings suppressed:"
                 " %s" % e)
@@ -3187,8 +3305,9 @@ class TextRendererMixin:
         view.load_html(doc, base_uri)
         if truncated:
             pack_hint(self._content, _("Preview trimmed (long file)."))
-        dbg("text/_render_markdown_html: %d bytes html%s"
-            % (len(doc), " (trimmed)" if truncated else ""))
+        dbg("text/_render_markdown_html: %d bytes html%s%s"
+            % (len(doc), " (trimmed)" if truncated else "",
+               " (mermaid on)" if mermaid else ""))
 
     # → REF TXT-DOC-110
     def _md_webview_policy(self, view, decision, decision_type):
@@ -3608,20 +3727,22 @@ class TextRendererMixin:
         op = Gtk.PrintOperation()
         op.set_job_name("nemo-previewer – " + os.path.basename(path))
         # B23: EML (and the Markdown fallback) print with the same
-        # A4/15 mm preset as the WebKit path – defined margins
-        # instead of the platform defaults.
+        # A4 preset as the WebKit path - defined margins instead of
+        # the platform defaults; since F87 the margin comes from the
+        # settings (one value for all four sides).
         try:
-            ps = _print_page_setup_a4()
+            mm = getattr(self, "_conf_print_margin_mm", 15)
+            ps = _print_page_setup_a4(mm)
             # B24: Gtk.PrintOperation has NO page-setup property
             # (that is the WebKit2.PrintOperation name) – the
             # documented GTK3 API is set_default_page_setup().
             op.set_default_page_setup(ps)
             op.set_property("print-settings", Gtk.PrintSettings())
             dbg("text/_print_text_document: page setup %s,"
-                " %.0f x %.0f mm, margins 15 mm"
+                " %.0f x %.0f mm, margins %d mm"
                 % (ps.get_paper_size().get_display_name(),
                    ps.get_paper_width(Gtk.Unit.MM),
-                   ps.get_paper_height(Gtk.Unit.MM)))
+                   ps.get_paper_height(Gtk.Unit.MM), mm))
         except Exception as e:
             dbg("text/_print_text_document: page setup suppressed:"
                 " %s" % e)
@@ -3827,19 +3948,21 @@ class TextRendererMixin:
         # B19: explicit paper size and orientation – a bare page
         # setup carries the platform default paper (locale and
         # printer dependent) and the dialog then printed in
-        # whatever format it started with. A4 portrait with 15 mm
-        # margins all around is the preset; the user can change
-        # everything in the dialog. B23: the preset lives in the
-        # shared _print_page_setup_a4() – the Pango print uses it
-        # too.
+        # whatever format it started with. A4 portrait with
+        # configurable margins is the preset (B23: one shared
+        # helper; F87: ONE margin value for all four sides from
+        # the settings); the user can change everything in the
+        # dialog.
         try:
-            ps = _print_page_setup_a4()
+            mm = getattr(self, "_conf_print_margin_mm", 15)
+            ps = _print_page_setup_a4(mm)
             op.set_property("page-setup", ps)
             op.set_property("print-settings", Gtk.PrintSettings())
             dbg("text/_md_print_loaded: page setup %s, %.0f x %.0f mm,"
-                " margins 15 mm" % (ps.get_paper_size().get_display_name(),
+                " margins %d mm" % (ps.get_paper_size().get_display_name(),
                                     ps.get_paper_width(Gtk.Unit.MM),
-                                    ps.get_paper_height(Gtk.Unit.MM)))
+                                    ps.get_paper_height(Gtk.Unit.MM),
+                                    mm))
         except Exception as e:
             dbg("text/_md_print_loaded: page setup suppressed:"
                 " %s" % e)
@@ -4446,7 +4569,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.16.3"
+PREVIEWER_VERSION = "1.17.0"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "

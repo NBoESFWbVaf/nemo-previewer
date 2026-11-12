@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.16.3
+previewer_toolbar.py – Version 1.17.0
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -276,6 +276,41 @@ class PreviewToolbarMixin:
             "value-changed", self._on_text_size_changed)
         trow.pack_start(self._settings_textsize_spin, False, False, 0)
         fbox.pack_start(trow, False, False, 0)
+        # F87: Mermaid diagrams - opt-in; JavaScript in the Markdown
+        # webview stays off unless this is checked (the vendor file
+        # vendor/mermaid.min.js ships with the extension).
+        mer = Gtk.CheckButton(
+            label=_("Render Mermaid diagrams (JavaScript)"))
+        mer.set_tooltip_text(
+            _("Render mermaid code blocks in the Markdown preview "
+              "as diagrams - loads the bundled mermaid.min.js from "
+              "the extension folder (previewer-res: scheme, strict "
+              "content security policy); when unchecked, the "
+              "diagram source stays an ordinary code block. Applies "
+              "to the preview, not to the print."))
+        mer.set_active(self._conf_mermaid_render)
+        mer.connect("toggled", self._on_mermaid_toggled)
+        fbox.pack_start(mer, False, False, 0)
+        # F87: print margins - ONE value for all four sides, used by
+        # the text print paths (Markdown, e-mail, plain text); the
+        # office/PDF print keeps the document's own layout.
+        mrow2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                        spacing=8)
+        mrow2.pack_start(Gtk.Label(label=_("Print margins (mm)")),
+                         False, False, 0)
+        madj = Gtk.Adjustment(value=self._conf_print_margin_mm,
+                              lower=3, upper=50, step_increment=1,
+                              page_increment=5)
+        self._settings_margin_spin = Gtk.SpinButton.new(madj, 1.0, 0)
+        self._settings_margin_spin.set_tooltip_text(
+            _("Page margins for printing Markdown, e-mail and plain "
+              "text - one value for all four sides (3-50 mm); the "
+              "PDF and Office print always uses the document's own "
+              "layout."))
+        self._settings_margin_spin.connect(
+            "value-changed", self._on_print_margin_changed)
+        mrow2.pack_start(self._settings_margin_spin, False, False, 0)
+        fbox.pack_start(mrow2, False, False, 0)
         return frame
 
     # → REF TB-DOC-6
@@ -441,6 +476,24 @@ class PreviewToolbarMixin:
             GLib.source_remove(self._textsize_render_id)
         self._textsize_render_id = GLib.timeout_add(
             400, self._on_text_size_quiet)
+
+    # → REF TB-DOC-23
+    def _on_mermaid_toggled(self, chk):
+        # F87: persist the opt-in and re-render the current text
+        # preview so the toggle applies live (same pattern as the
+        # syntax highlighting switch).
+        self._conf_mermaid_render = chk.get_active()
+        self._config_save()
+        if self._last_textish and self._path:
+            self._render()
+
+    # → REF TB-DOC-23
+    def _on_print_margin_changed(self, spin):
+        # F87: persist the margin; it takes effect on the NEXT print
+        # (the page setup is built per print job), no re-render
+        # needed.
+        self._conf_print_margin_mm = int(spin.get_value())
+        self._config_save()
 
     # → REF TB-DOC-18
     def _on_text_size_quiet(self):
@@ -713,7 +766,7 @@ class PreviewToolbarMixin:
             self._btn_archive.hide()
 
 
-PREVIEWER_VERSION = "1.16.3"
+PREVIEWER_VERSION = "1.17.0"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

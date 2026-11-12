@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.16.3\n"
+"Project-Id-Version: nemo-previewer 1.17.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: 2026-11-07 12:00+0000\n"
@@ -495,6 +495,15 @@ msgstr "Seite %d von %d"
 msgid "Page 1 of %d"
 msgstr "Seite 1 von %d"
 
+msgid ""
+        "Page margins for printing Markdown, e-mail and plain text - one "
+        "value for all four sides (3-50 mm); the PDF and Office print "
+        "always uses the document's own layout."
+msgstr ""
+        "Seitenränder für den Druck von Markdown, E-Mail und Text – ein "
+        "Wert für alle vier Seiten (3-50 mm); der PDF- und Office-Druck "
+        "übernimmt weiterhin 1:1 das Layout des Dokuments."
+
 msgid "PangoCairo not available"
 msgstr "PangoCairo nicht verfügbar"
 
@@ -540,11 +549,31 @@ msgstr "Vorschau gekürzt (max. %d Tabellen)."
 msgid "Print document"
 msgstr "Dokument drucken"
 
+msgid "Print margins (mm)"
+msgstr "Druckränder (mm)"
+
 msgid "Reading media information – one moment …"
 msgstr "Medieninformationen werden gelesen – einen Moment …"
 
 msgid "Recommendations"
 msgstr "Empfehlungen"
+
+msgid "Render Mermaid diagrams (JavaScript)"
+msgstr "Mermaid-Diagramme rendern (JavaScript)"
+
+msgid ""
+        "Render mermaid code blocks in the Markdown preview as diagrams - "
+        "loads the bundled mermaid.min.js from the extension folder "
+        "(previewer-res: scheme, strict content security policy); when "
+        "unchecked, the diagram source stays an ordinary code block. "
+        "Applies to the preview, not to the print."
+msgstr ""
+        "Zeichnet mermaid-Codeblöcke in der Markdown-Vorschau als "
+        "Diagramme – lädt das mitgelieferte mermaid.min.js aus dem "
+        "Erweiterungsordner (previewer-res:-Schema, strenge "
+        "Content-Security-Policy); ohne Haken bleibt der Diagramm-"
+        "Quelltext ein gewöhnlicher Codeblock. Gilt für die Vorschau, "
+        "nicht für den Druck."
 
 msgid "Reset preview column to configured width"
 msgstr "Vorschau-Spalte auf eingestellte Breite zurücksetzen"

@@ -6,7 +6,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.16.3\n"
+"Project-Id-Version: nemo-previewer 1.17.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -465,6 +465,12 @@ msgstr ""
 msgid "Page 1 of %d"
 msgstr ""
 
+msgid ""
+        "Page margins for printing Markdown, e-mail and plain text - one "
+        "value for all four sides (3-50 mm); the PDF and Office print "
+        "always uses the document's own layout."
+msgstr ""
+
 msgid "PangoCairo not available"
 msgstr ""
 
@@ -506,10 +512,24 @@ msgstr ""
 msgid "Print document"
 msgstr ""
 
+msgid "Print margins (mm)"
+msgstr ""
+
 msgid "Reading media information – one moment …"
 msgstr ""
 
 msgid "Recommendations"
+msgstr ""
+
+msgid "Render Mermaid diagrams (JavaScript)"
+msgstr ""
+
+msgid ""
+        "Render mermaid code blocks in the Markdown preview as diagrams - "
+        "loads the bundled mermaid.min.js from the extension folder "
+        "(previewer-res: scheme, strict content security policy); when "
+        "unchecked, the diagram source stays an ordinary code block. "
+        "Applies to the preview, not to the print."
 msgstr ""
 
 msgid "Reset preview column to configured width"

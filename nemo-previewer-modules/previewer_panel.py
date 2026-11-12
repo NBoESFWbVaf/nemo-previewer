@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.16.3
+previewer_panel.py – Version 1.17.0
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -56,8 +56,8 @@ from previewer_render_docs import (
 )
 from previewer_render_text import (
     TextRendererMixin, _FONT_SAMPLE_TEXT,
-    _markdown_to_pango, _epub_data, _mobi_data, _font_faces,
-    _woff1_to_sfnt,
+    _markdown_to_pango, _markdown_html, _epub_data, _mobi_data,
+    _font_faces, _woff1_to_sfnt, HAVE_MDIT,
     _eml_cid_map, _eml_html_body, _eml_html_doc, _eml_html_sanitize,
 )
 from previewer_toolbar import PreviewToolbarMixin
@@ -296,6 +296,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F65: debug logging – default off; mirrors dbg lines into
         # the log file under XDG_STATE_HOME.
         self._conf_debug_log = False
+        # F87: print margins for the text print paths (Markdown,
+        # e-mail, plain text) - ONE value in mm for all four sides;
+        # the office/PDF print stays 1:1 from the document (B23).
+        self._conf_print_margin_mm = 15
+        # F87: Mermaid diagrams in the Markdown preview - opt-in,
+        # JavaScript stays off unless the user enables it here.
+        self._conf_mermaid_render = False
         # F12 part 3: marker – is the CURRENT preview a PDF/office
         # page view? Cap changes then apply immediately.
         self._last_docview = False
@@ -1864,6 +1871,19 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     self._conf_doc_max_pages = int(p)
             except Exception as e:
                 dbg("panel/_config_load: suppressed: %s" % e)
+            # F87: print margins (mm, 3-50) for the text print paths.
+            try:
+                m = kf.get_integer("previewer", "print_margin_mm")
+                if 3 <= m <= 50:
+                    self._conf_print_margin_mm = int(m)
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
+            # F87: Mermaid opt-in for the Markdown preview.
+            try:
+                self._conf_mermaid_render = kf.get_boolean(
+                    "previewer", "mermaid_render")
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             try:
                 w = kf.get_integer("previewer", "panel_width")
                 if PANEL_MIN_WIDTH <= w <= 2400:
@@ -1924,6 +1944,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                            int(self._conf_doc_max_pages))
             kf.set_integer("previewer", "panel_width",
                            int(self._panel_width))
+            # F87: persist the print margins and the Mermaid opt-in.
+            kf.set_integer("previewer", "print_margin_mm",
+                           int(self._conf_print_margin_mm))
+            kf.set_boolean("previewer", "mermaid_render",
+                           self._conf_mermaid_render)
             # F65: persist the debug logging toggle.
             kf.set_boolean("previewer", "debug_log",
                            self._conf_debug_log)
@@ -1996,7 +2021,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.16.3"
+PREVIEWER_VERSION = "1.17.0"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)
@@ -2090,6 +2115,36 @@ def _st_md_test(path):
           and "Fixture Head" in out
           and out.count("\u2022") >= 2)
     return ok, out
+
+
+def _st_mermaid_fixture(path):
+    # F87: a markdown file with one mermaid fence.
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("# Fixture\n\n```mermaid\n"
+                 "graph TD\nA[Start] --> B[End]\n```\n")
+
+
+def _st_mermaid_test(path):
+    # F87: the opt-in turns the mermaid fence into a mermaid div,
+    # adds the previewer-res script and the CSP; without it the
+    # fence stays an ordinary code block and nothing arms.
+    if not HAVE_MDIT:
+        return True, "skipped (markdown-it-py missing)"
+    with open(path, "r", encoding="utf-8") as fh:
+        text = fh.read()
+    bg = Gdk.RGBA()
+    fg = Gdk.RGBA()
+    bg.parse("#383838")
+    fg.parse("#dadada")
+    off = _markdown_html(text, bg=bg, fg=fg, dark=True)
+    on = _markdown_html(text, bg=bg, fg=fg, dark=True, mermaid=True)
+    ok = ('<pre><code class="language-mermaid">' in off
+          and "previewer-res://" not in off
+          and "Content-Security-Policy" not in off
+          and '<div class="mermaid">' in on
+          and "previewer-res://mermaid.min.js" in on
+          and "Content-Security-Policy" in on)
+    return ok, "on/off html"
 
 
 def _st_epub_test(path):
@@ -2222,14 +2277,16 @@ def _st_woff_bomb_test(path):
 
 
 def run_selftest():
-    # F1: regression tests for the file parsers - six synthetic
-    # fixtures in a temp dir, no Nemo or GTK involved (the two
-    # security fixtures ride along since B25/B27).
+    # F1: regression tests for the file parsers - seven synthetic
+    # fixtures in a temp dir, no Nemo or GTK involved (the three
+    # security/feature fixtures ride along since B25/B27/F87).
     tmpdir = tempfile.mkdtemp(prefix="previewer-selftest-")
     checks = []
     try:
         for name, ext, builder, test in (
                 ("markdown", ".md", _st_md_fixture, _st_md_test),
+                ("mermaid", ".md", _st_mermaid_fixture,
+                 _st_mermaid_test),
                 ("epub", ".epub", _st_epub_fixture, _st_epub_test),
                 ("mobi", ".mobi", _st_mobi_fixture, _st_mobi_test),
                 ("font", ".ttf", _st_font_fixture, _st_font_test),
