@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.16.3\] – 2026-11-12
+
+### Fixed
+
+- B29 (selftest, first real run by the user – German locale): the `epub` and `mobi` selftests compared against HARDCODED English labels (`"Book title"`, `"Author"`), but `_epub_data`/`_mobi_data` build their rows through `_()` – under a German locale the keys are `Buchtitel`/`Autor`, so both tests failed although the parsers extracted the metadata correctly (the FAIL detail showed the correct rows). The tests now look up the translated labels via `_()` themselves and pass in every locale. The locale dependency had been invisible since 0.61.0 because the suite had never been run on a non-English system before.
+
 ## \[1.16.2\] – 2026-11-12
 
 ### Fixed
