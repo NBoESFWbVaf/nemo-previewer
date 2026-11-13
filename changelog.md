@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.19.2\] – 2026-11-13
+
+### Fixed
+
+- B30 (deploy finding, 1.19.1 round): in Markdown files whose lines are separated by single line breaks without a blank line between them, the WebKit HTML preview collapsed every paragraph into one continuous block of text – the line endings disappeared. Root cause: the markdown-it HTML engine runs with CommonMark/GFM defaults, where a single newline inside a paragraph is a soft break that renders as a space – but the Pango text preview (and the legacy parser) render every line separately, and Obsidian, whose dialect the preview follows, renders soft breaks as line breaks, so the paths disagreed and files written without blank lines turned into an unreadable mass. Fix: the HTML engine is now built with `breaks: true` (both the gfm-like and the commonmark branch) – soft breaks render as `<br>` in the preview and in the print, matching the Pango paths and Obsidian; the Pango paths are unchanged (they already kept the line endings). The mathjax selftest fixture gains a two-line paragraph and asserts the `<br>` on both pipelines – the suite stays at 8 fixtures. No new msgids.
+
 ## \[1.19.1\] – 2026-11-12
 
 ### Fixed
