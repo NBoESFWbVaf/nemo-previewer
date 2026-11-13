@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.19.1
+previewer_render_text.py – Version 1.19.2
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -1367,6 +1367,10 @@ def _markdown_html(text, base_dir=None, bg=None, fg=None, dark=False,
 # F83: a SECOND engine for the HTML preview – html=True passes the
 # raw HTML of the document through (kbd, br, details), tasklists
 # renders the checkboxes. The Pango engine above stays untouched.
+# 1.19.2 (B30): breaks=True renders a single line break inside a
+# paragraph as <br> - CommonMark would collapse it into a space,
+# but the Pango paths and Obsidian keep the line ending, and files
+# written without blank lines turned into one continuous block.
 _MDIT_HTML = None
 if HAVE_MDIT:
     tasklists_plugin = None
@@ -1376,9 +1380,11 @@ if HAVE_MDIT:
         dbg("text/module-level: tasklists missing (%s)" % e)
     try:
         if HAVE_LINKIFY:
-            _MDIT_HTML = MarkdownIt("gfm-like", {"html": True})
+            _MDIT_HTML = MarkdownIt("gfm-like",
+                                    {"html": True, "breaks": True})
         else:
-            _MDIT_HTML = MarkdownIt("commonmark", {"html": True})
+            _MDIT_HTML = MarkdownIt("commonmark",
+                                    {"html": True, "breaks": True})
             _MDIT_HTML.enable(["table", "strikethrough"])
         _MDIT_HTML.use(front_matter_plugin)
         _MDIT_HTML.use(footnote_plugin)
@@ -4756,7 +4762,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.19.1"
+PREVIEWER_VERSION = "1.19.2"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
