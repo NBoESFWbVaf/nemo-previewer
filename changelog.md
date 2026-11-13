@@ -9,6 +9,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 - Repo cleanup (user decision, follow-up): the two unused duplicate copies `previewer_render_select.py` and `previewer_render_util.py` in `nemo-previewer-modules/` are gone. They were byte-identical leftovers of the module-split era, imported by nothing (the code imports `previewer_select` and `previewer_util`); both were verified byte-identical to the current 1.19.3 modules immediately before deletion, so nothing newer was lost. The real modules are untouched. No code change, no version bump – the deployment layout is untouched.
 
+## \[1.19.4\] – 2026-11-13
+
+### Added
+
+- F90 (user wish): the width of the secondary column (the one that opens for the settings and the more views) is now configurable in the settings. New spin button "Secondary column width (px)" in Settings → General next to the panel start width, range 320–2000 px, default 520 px (the 1.3.1 value); the value is persisted in the config (`aux_width`) and applies when the column next opens. Manual divider drags still win for the current session (1.2.1 rule unchanged) – the setting defines the default, not a lock. Two new msgids (215/215).
+
 ## \[1.19.3\] – 2026-11-13
 
 ### Fixed
