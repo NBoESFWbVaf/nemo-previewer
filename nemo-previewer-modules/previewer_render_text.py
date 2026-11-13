@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_render_text.py – Version 1.19.2
+previewer_render_text.py – Version 1.19.3
 
 Text renderers: plain text and source code, Markdown, e-mail,
 e-books, vCards and the font waterfall preview.
@@ -3324,6 +3324,17 @@ class TextRendererMixin:
                              dark=dark, size_px=size_px,
                              mermaid=mermaid, mathjax=mathjax)
         view = WebKit2.WebView()
+        # 1.19.3 (B32): paint the theme background BEFORE any
+        # document arrives - the webview default is white, which
+        # flashed hard in dark themes until the loaded body css
+        # applied. The eml preview keeps its white ground (F86
+        # decision: mails are designed for a light background),
+        # the print webviews are offscreen.
+        try:
+            view.set_background_color(bg)
+        except Exception as e:
+            dbg("text/_render_markdown_html: background color"
+                " suppressed: %s" % e)
         # 1.13.1 (B15): set_property instead of the setter methods –
         # the GIR names differ between WebKit builds (deploy
         # feedback: 'Settings' object has no attribute
@@ -4762,7 +4773,7 @@ class TextRendererMixin:
                 dbg("text/_apply_font_scale: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.19.2"
+PREVIEWER_VERSION = "1.19.3"
 dbg("previewer_render_text %s loaded (F31: text/markdown/EML/e-book/font; "
     "F7: vCard contact card; F44: syntax highlighting via source_path; "
     "F8: CSV table; F6: SQLite overview; F52: ICS events; "
