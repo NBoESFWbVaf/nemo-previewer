@@ -8,6 +8,12 @@ All notable changes to the Nemo Previewer are documented in this file. Format: [
 
 - Repo cleanup (user decision): the flat module copies in the repository root are gone – the seven `previewer_*.py` modules, `REFERENCE.md` and `po/de.po` live only in the subfolder `nemo-previewer-modules/`, as in the 1.0.0 release tree. The root keeps the entry point `previewer.py`, the docs and the pot file. The INSTALL copy steps now source the modules and the translation catalog from the subfolder (they had referenced root paths that the 1.0.0 tree no longer had). No code change, no version bump – the deployment layout is untouched.
 
+## \[1.19.3\] – 2026-11-13
+
+### Fixed
+
+- B32 (deploy finding, running-operation test): when a Markdown file (or another WebKit-rendered document) was opened, the preview painted a WHITE background until the document had finished rendering – in dark themes this flashed hard and hurt the eyes, even as a brief flicker on fast loads. Root cause: a WebKit2 webview paints its default background color (white) for every paint before the first content arrives; only the loaded document's body CSS then switched the preview to the theme colors. Fix: the Markdown preview webview now gets `set_background_color()` with the theme background color immediately after creation, before `load_html()` runs – the very first paint is already theme-correct. The EML HTML preview deliberately keeps its white ground (F86 decision: mails are designed for a light background), and the two print webviews are offscreen. No new msgids (213/213).
+
 ## \[1.19.2\] – 2026-11-13
 
 ### Fixed
