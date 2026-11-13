@@ -1,0 +1,84 @@
+/*
+Sie können hier beliebige von GTK+ erkannte CSS-Regeln eingeben.
+Sie können vorübergehend dieses benutzerdefinierte CSS deaktivieren, indem Sie oben auf den Knopf »Pause« klicken.
+
+Änderungen werden sofort und global für die gesamte Anwendung umgesetzt.
+*/
+
+/* ==========================================================================
+   1. Moderne Titelleisten (Headerbars / CSD) extrem kompakt machen
+   ========================================================================== */
+
+
+/* Verkleinert alle Standard-Buttons im System */
+button {
+    min-height: 10px;
+    min-width: 10px;
+    padding: 1px 6px;
+}
+
+/* Verkleinert Buttons in Titelleisten (Headerbars) von Fenstern */
+headerbar button.image-button,
+headerbar button {
+    min-height: 18px;
+    min-width: 18px;
+    padding: 1px 2px;
+}
+
+/* Anpassung für direkt ineinander verschachtelte Buttons (z.B. Inkrement-Pfeile) */
+button.combo, button.spin {
+    padding: 1px 2px;
+}
+
+
+/* Reduziert die Mindesthöhe und das Padding der gesamten Titelleiste */
+headerbar,
+.titlebar {
+    min-height: 10px;
+    padding-top: 1px;
+    padding-bottom: 1px;
+}
+
+/* Macht die 3 Kontrollknöpfe in CSD-Fenstern kleiner */
+headerbar windowbutton,
+.titlebar windowbutton {
+    min-height: 16px;
+    min-width: 16px;
+    padding: 0px 2px;
+    margin-top: 1px;
+    margin-bottom: 1px;
+}
+
+/* Verkleinert die Icons (Symbole) innerhalb dieser Knöpfe */
+headerbar windowbutton image,
+.titlebar windowbutton image {
+    -gtk-icon-transform: scale(0.8);
+}
+
+
+/* ==========================================================================
+   2. Traditionelle Titelleisten (SSD / Muffin / X11-Fenster) verkleinern
+   ========================================================================== */
+
+/* Cinnamon nutzt das "SSD"-Element für klassische Fenstertitelleisten */
+.ssd titlebar,
+window.ssd headerbar {
+    min-height: 24px;
+    padding: 1px 4px;
+}
+
+/* Die 3 Kontrollknöpfe für klassische Fenster verkleinern */
+.ssd button.titlebutton {
+    min-height: 16px;
+    min-width: 16px;
+    padding: 0px;
+    margin: 1px 2px;
+}
+
+/* Reduziert den Textabstand des Fenstertitels */
+.ssd label.title,
+headerbar .title {
+    font-size: 10pt;
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
