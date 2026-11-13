@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_toolbar.py – Version 1.19.3
+previewer_toolbar.py – Version 1.19.4
 
 Panel toolbar and settings window: action bar, preview toggle,
 Ctrl+Alt+P shortcut and all preference widgets.
@@ -212,6 +212,28 @@ class PreviewToolbarMixin:
                                     self._on_start_width_changed)
         wrow.pack_start(self._settings_spin, False, False, 0)
         fbox.pack_start(wrow, False, False, 0)
+
+        # F90: default width of the secondary column – the column
+        # that opens for the settings and the "more" views; manual
+        # divider drags still win for the session (1.2.1).
+        arow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL,
+                       spacing=8)
+        albl = Gtk.Label(label=_("Secondary column width (px)"))
+        albl.set_halign(Gtk.Align.START)
+        arow.pack_start(albl, False, False, 0)
+        aadj = Gtk.Adjustment(value=self._conf_aux_width,
+                              lower=320, upper=2000,
+                              step_increment=10, page_increment=50)
+        self._settings_auxwidth_spin = Gtk.SpinButton.new(aadj, 1.0, 0)
+        self._settings_auxwidth_spin.set_tooltip_text(
+            _("Default width of the secondary column (the one that "
+              "opens for the settings and the more views) – applies "
+              "when the column opens; dragging the divider overrides "
+              "it for the current session"))
+        self._settings_auxwidth_spin.connect(
+            "value-changed", self._on_aux_width_changed)
+        arow.pack_start(self._settings_auxwidth_spin, False, False, 0)
+        fbox.pack_start(arow, False, False, 0)
         return frame
 
     # → REF TB-DOC-5
@@ -580,6 +602,16 @@ class PreviewToolbarMixin:
         except Exception as e:
             dbg("toolbar/_on_start_width_changed: suppressed: %s" % e)
 
+    def _on_aux_width_changed(self, spin):
+        # F90: persist the secondary column default width; it
+        # applies on the NEXT open of the column – manual divider
+        # drags still win for the session (1.2.1).
+        try:
+            self._conf_aux_width = int(spin.get_value())
+            self._config_save()
+        except Exception as e:
+            dbg("toolbar/_on_aux_width_changed: suppressed: %s" % e)
+
     def _on_toggle_accel(self, group, accelerable, key, mods):
         # F66: the toggle hides the whole shell (column + aux),
         # never the panel alone.
@@ -791,7 +823,7 @@ class PreviewToolbarMixin:
             self._btn_archive.hide()
 
 
-PREVIEWER_VERSION = "1.19.3"
+PREVIEWER_VERSION = "1.19.4"
 dbg("previewer_toolbar %s loaded (F29: action bar, settings dialog, "
     "Ctrl+Alt+P shortcut as its own mixin)"
     % PREVIEWER_VERSION)

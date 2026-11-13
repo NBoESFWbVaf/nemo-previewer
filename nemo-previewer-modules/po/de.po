@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.19.3\n"
+"Project-Id-Version: nemo-previewer 1.19.4\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: 2026-11-07 12:00+0000\n"
@@ -189,6 +189,15 @@ msgstr "Debug-Protokollierung ist aktiv"
 
 msgid "Default width at launch"
 msgstr "Standardbreite beim Start"
+
+msgid ""
+        "Default width of the secondary column (the one that opens for the "
+        "settings and the more views) – applies when the column opens; "
+        "dragging the divider overrides it for the current session"
+msgstr ""
+        "Standardbreite der sekundären Spalte (die sich für Einstellungen "
+        "und die More-Ansichten öffnet) – greift beim Öffnen der Spalte; "
+        "Ziehen des Trenners überschreibt sie für die aktuelle Sitzung"
 
 msgid "Dependencies"
 msgstr "Abhängigkeiten"
@@ -605,6 +614,9 @@ msgstr "RPM-Header-Magic fehlt an Offset %d"
 
 msgid "Section"
 msgstr "Sektion"
+
+msgid "Secondary column width (px)"
+msgstr "Breite der sekundären Spalte (px)"
 
 msgid "Seek position"
 msgstr "Wiedergabeposition"

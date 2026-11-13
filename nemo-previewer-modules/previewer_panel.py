@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 nemo-previewer
-previewer_panel.py – Version 1.19.3
+previewer_panel.py – Version 1.19.4
 
 Panel core: file-type dispatch, preview widgets and configuration;
 inherits the toolbar and renderer mixins and paints the panel
@@ -306,6 +306,11 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         # F89: MathJax formulas in the Markdown preview - opt-in,
         # JavaScript stays off unless the user enables it here.
         self._conf_mathjax_render = False
+        # F90: default width of the secondary column (the one that
+        # opens for the settings and the more views); the settings
+        # spin button is the only place that changes it – manual
+        # divider drags still win for the session (1.2.1).
+        self._conf_aux_width = 520
         # F12 part 3: marker – is the CURRENT preview a PDF/office
         # page view? Cap changes then apply immediately.
         self._last_docview = False
@@ -1622,8 +1627,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
 
     # → REF PAN-AUX-2
     def _aux_apply_width(self, widget):
-        # Standard 520 px (former window rule 420 plus the 100 px
-        # user wish, 1.3.1) - manual drags win (1.2.1).
+        # Configured default (F90, was 520 px hard-coded – former
+        # window rule 420 plus the 100 px user wish, 1.3.1) - manual
+        # drags win (1.2.1).
         try:
             mn, nat = widget.get_preferred_width()
         except Exception as e:
@@ -1633,7 +1639,8 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
         if manual:
             new_w = min(max(manual, 320), self._aux_max_width())
         else:
-            new_w = min(max(520, mn + 32, nat + 32),
+            new_w = min(max(getattr(self, "_conf_aux_width", 520),
+                            mn + 32, nat + 32),
                         self._aux_max_width())
         extra = new_w + self._aux_handle_px()
         paned = self._host_paned()
@@ -1881,6 +1888,13 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
                     self._conf_print_margin_mm = int(m)
             except Exception as e:
                 dbg("panel/_config_load: suppressed: %s" % e)
+            # F90: secondary column default width (px, 320-2000).
+            try:
+                w = kf.get_integer("previewer", "aux_width")
+                if 320 <= w <= 2000:
+                    self._conf_aux_width = int(w)
+            except Exception as e:
+                dbg("panel/_config_load: suppressed: %s" % e)
             # F87: Mermaid opt-in for the Markdown preview.
             try:
                 self._conf_mermaid_render = kf.get_boolean(
@@ -1957,6 +1971,9 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             # opt-ins.
             kf.set_integer("previewer", "print_margin_mm",
                            int(self._conf_print_margin_mm))
+            # F90: persist the secondary column default width.
+            kf.set_integer("previewer", "aux_width",
+                           int(getattr(self, "_conf_aux_width", 520)))
             kf.set_boolean("previewer", "mermaid_render",
                            self._conf_mermaid_render)
             kf.set_boolean("previewer", "mathjax_render",
@@ -2033,7 +2050,7 @@ class PreviewPanel(PreviewToolbarMixin, MediaRendererMixin, DocsRendererMixin,
             dbg("panel/_update_rec_dot: suppressed: %s" % e)
 
 
-PREVIEWER_VERSION = "1.19.3"
+PREVIEWER_VERSION = "1.19.4"
 dbg("previewer_panel %s loaded (F28/F29/F31 core: dispatch, helpers, "
     "config; renderers and toolbar as mixins)"
     % PREVIEWER_VERSION)

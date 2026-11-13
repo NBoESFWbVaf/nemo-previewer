@@ -6,7 +6,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: nemo-previewer 1.19.3\n"
+"Project-Id-Version: nemo-previewer 1.19.4\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-11-07 12:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -185,6 +185,12 @@ msgid "Debug logging is active"
 msgstr ""
 
 msgid "Default width at launch"
+msgstr ""
+
+msgid ""
+        "Default width of the secondary column (the one that opens for the "
+        "settings and the more views) – applies when the column opens; "
+        "dragging the divider overrides it for the current session"
 msgstr ""
 
 msgid "Dependencies"
@@ -556,6 +562,9 @@ msgid "RPM header magic missing at offset %d"
 msgstr ""
 
 msgid "Section"
+msgstr ""
+
+msgid "Secondary column width (px)"
 msgstr ""
 
 msgid "Seek position"
